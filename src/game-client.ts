@@ -108,11 +108,14 @@ export class GameClient {
   private connectTimer?: ReturnType<typeof setTimeout>;
   private tablesTimer?: ReturnType<typeof setTimeout>;
   private networkVisible = true;
+  private resumePending = false;
+  private openedAt = 0;
+  private lastResumeAt = -Infinity;
   now = () => (this.state.mode === "online" ? this.clock.now() : Date.now());
   syncTime = (fresh = false) => {
     if (
       !this.timeSync ||
-      !this.state.connected ||
+      (!this.state.connected && !this.resumePending) ||
       this.socket?.readyState !== WebSocket.OPEN
     )
       return;
@@ -127,11 +130,17 @@ export class GameClient {
     clearTimeout(this.pongTimer);
     this.clockPing = now;
     try {
-      this.socket.send(JSON.stringify({ type: "ping", sentAt: now }));
+      this.socket.send(
+        JSON.stringify({
+          type: "ping",
+          sentAt: now,
+          ...(this.resumePending ? { sync: true } : {}),
+        }),
+      );
       if (this.networkVisible)
         this.pongTimer = setTimeout(
-          () => this.restartConnection("连接没有回应，正在重新同步…"),
-          10000,
+          () => this.restartConnection("正在恢复牌桌连接…", this.resumePending),
+          this.resumePending ? 2000 : 10000,
         );
     } catch {
       this.restartConnection("连接中断，正在重新连接…");
@@ -142,6 +151,7 @@ export class GameClient {
     this.clockTimer = undefined;
     this.clockPing = undefined;
     this.timeSync = false;
+    this.resumePending = false;
     clearTimeout(this.pongTimer);
     this.pongTimer = undefined;
   }
@@ -166,29 +176,75 @@ export class GameClient {
       tablesLoading: this.lobbyWanted,
       notice,
     });
+    // Keep a working socket while hidden, but don't run retry/timeout loops
+    // while the OS has suspended the WebView. Foreground resumes immediately.
+    if (!this.networkVisible) return;
     const delay = immediate ? 0 : Math.min(15000, 1000 * 2 ** this.attempt++);
     this.retry = setTimeout(() => this.open(), delay);
   }
   resumeConnection = () => {
-    if (this.stopped || this.state.mode !== "online") return;
+    if (
+      this.stopped ||
+      this.state.mode !== "online" ||
+      !this.networkVisible ||
+      this.resumePending
+    )
+      return;
     if (this.state.connected && this.socket?.readyState === WebSocket.OPEN) {
+      if (Date.now() - this.lastResumeAt < 750) return;
+      this.lastResumeAt = Date.now();
+      if (!this.timeSync) {
+        this.restartConnection("正在恢复牌桌连接…", true);
+        return;
+      }
+      clearTimeout(this.commandTimer);
+      this.commandTimer = undefined;
+      this.finishTables();
+      this.resumePending = true;
+      this.emit({
+        connected: false,
+        connecting: true,
+        notice: "正在同步牌桌…",
+      });
       this.syncTime(true);
-      if (this.lobbyWanted) this.browseTables(this.name);
     } else if (
       !this.socket ||
       this.socket.readyState === WebSocket.CLOSING ||
-      this.socket.readyState === WebSocket.CLOSED
+      this.socket.readyState === WebSocket.CLOSED ||
+      Date.now() - this.openedAt >= 2000
     ) {
       this.restartConnection("正在恢复牌桌连接…", true);
+    } else {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = setTimeout(
+        () => this.restartConnection("正在恢复牌桌连接…", true),
+        2000,
+      );
     }
   };
   setNetworkVisible = (visible: boolean) => {
+    const returning = visible && !this.networkVisible;
     this.networkVisible = visible;
-    if (visible) this.resumeConnection();
-    else {
+    if (visible) {
+      if (returning) this.lastResumeAt = -Infinity;
+      this.resumeConnection();
+    } else {
+      if (this.resumePending) {
+        this.resumePending = false;
+        this.emit({
+          connected: this.socket?.readyState === WebSocket.OPEN,
+          connecting: false,
+        });
+      }
       clearTimeout(this.pongTimer);
       this.pongTimer = undefined;
       this.clockPing = undefined;
+      clearTimeout(this.connectTimer);
+      clearTimeout(this.commandTimer);
+      this.commandTimer = undefined;
+      this.finishTables();
+      clearTimeout(this.retry);
+      this.retry = undefined;
     }
   };
   networkOffline = () =>
@@ -627,7 +683,7 @@ export class GameClient {
     else this.connect(name, message);
   }
   private open() {
-    if (this.stopped) return;
+    if (this.stopped || !this.networkVisible) return;
     clearTimeout(this.retry);
     this.retry = undefined;
     this.stopClock();
@@ -637,6 +693,7 @@ export class GameClient {
       : `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`;
     const ws = new WebSocket(url);
     this.socket = ws;
+    this.openedAt = Date.now();
     this.connectTimer = setTimeout(
       () => this.restartConnection("连接牌桌超时，正在重试…"),
       10000,
@@ -677,7 +734,7 @@ export class GameClient {
             this.syncTime(true);
             clearInterval(this.clockTimer);
             this.clockTimer = setInterval(() => {
-              if (this.networkVisible) this.syncTime();
+              this.syncTime();
             }, 30000);
           }
           if (this.pending && !msg.roomCode) this.send(this.pending);
@@ -694,6 +751,20 @@ export class GameClient {
             this.clockPing = undefined;
             clearTimeout(this.pongTimer);
             this.pongTimer = undefined;
+            if (this.resumePending) {
+              this.resumePending = false;
+              this.finishCommand();
+              if (msg.synced && !msg.roomCode)
+                storage.set("onlineActive", false);
+              this.emit({
+                connected: true,
+                connecting: false,
+                notice: "",
+                error: "",
+                ...(msg.synced && !msg.roomCode ? { view: null } : {}),
+              });
+              if (this.lobbyWanted) this.browseTables(this.name);
+            }
           }
         } else if (msg.type === "accountUpdated") {
           if (this.state.account?.id === msg.account.id)

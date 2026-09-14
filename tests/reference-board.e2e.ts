@@ -70,6 +70,17 @@ for (const [width, height, edge, bottom] of [
       expect(matrix).toContain(
         side === "left" ? "matrix(0, 1, -1, 0" : "matrix(0, -1, 1, 0",
       );
+      const back = (await page
+        .locator(`.opponent-${side} .opponent-hand .tile-back`)
+        .first()
+        .boundingBox())!;
+      const across = (await page
+        .locator(".opponent-top .opponent-hand .tile-back")
+        .first()
+        .boundingBox())!;
+      // Side-on tiles should still have substance, rather than a hairline strip.
+      expect(back.height).toBeGreaterThanOrEqual(across.width * 0.5);
+      expect(back.width).toBeGreaterThanOrEqual(across.height);
     }
     const hand = await page.locator(".hand > .tile").first().boundingBox();
     expect(hand!.height / hand!.width).toBeCloseTo(1.45, 1);
@@ -197,7 +208,7 @@ for (const [width, height, edge, bottom] of [
       page.locator("#table-board").evaluate((el) => {
         const boxes = [
           ...el.querySelectorAll(
-            ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button",
+            ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button,.opponent-info .avatar,.opponent-info strong",
           ),
         ];
         const hit = (a: Element, b: Element) => {

@@ -351,7 +351,7 @@ export type ClientMessage = (
   | { type: "trustee"; enabled: boolean }
   | { type: "leave" }
   | { type: "dissolve"; agree: boolean }
-  | { type: "ping"; sentAt?: number }
+  | { type: "ping"; sentAt?: number; sync?: boolean }
 ) & { requestId?: string };
 export type ServerMessage = (
   | { type: "accountUpdated"; account: Account }
@@ -387,5 +387,5 @@ export type ServerMessage = (
       }[];
     }
   | { type: "left"; lobby?: boolean; message?: string }
-  | { type: "pong"; sentAt?: number }
+  | { type: "pong"; sentAt?: number; synced?: true; roomCode?: string }
 ) & { serverNow?: number };

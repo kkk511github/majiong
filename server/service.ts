@@ -404,7 +404,7 @@ export function makeServer(
         JSON.stringify({
           ok: true,
           service: "jinling-mahjong",
-          version: "0.6.3",
+          version: "0.6.5",
         }),
       );
       return;
@@ -650,9 +650,20 @@ export function makeServer(
         )
           throw Error("需要管理员授予开桌权限，请选择已有牌桌入座");
         if (msg.type === "ping") {
+          // A foreground refresh is read-only and returns only this account's
+          // private view. It must not reconnect, replay an action or advance play.
+          const room = msg.sync === true ? findRoom(session.id) : undefined;
+          if (room)
+            send(ws, {
+              type: "state",
+              state: viewFor(room, seatFor(room, session.id)),
+            });
           send(ws, {
             type: "pong",
             ...(Number.isFinite(msg.sentAt) ? { sentAt: msg.sentAt } : {}),
+            ...(msg.sync === true
+              ? { synced: true, roomCode: room?.code }
+              : {}),
           });
           return;
         }

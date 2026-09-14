@@ -508,7 +508,7 @@ describe("握手心跳与前后台恢复", () => {
     vi.advanceTimersByTime(60000);
     expect(TestSocket.instances).toHaveLength(1);
     client.setNetworkVisible(true);
-    expect(ws.sent.filter((m) => m.type === "ping")).toHaveLength(2);
+    expect(ws.sent.filter((m) => m.type === "ping" && m.sync)).toHaveLength(1);
     client.networkOffline();
     client.resumeConnection();
     client.resumeConnection();
@@ -526,16 +526,111 @@ describe("握手心跳与前后台恢复", () => {
       token: "test-token",
       name: "测试",
       tableLobby: true,
+      timeSync: true,
     });
     client.browseTables("测试");
     ws.receive({ type: "tables", tables: [] });
     const before = ws.sent.filter((m) => m.type === "tables").length;
     client.setNetworkVisible(false);
     client.setNetworkVisible(true);
+    const ping = ws.sent.at(-1) as Extract<ClientMessage, { type: "ping" }>;
+    ws.receive({
+      type: "pong",
+      sentAt: ping.sentAt,
+      serverNow: Date.now(),
+      synced: true,
+    });
     expect(ws.sent.filter((m) => m.type === "tables")).toHaveLength(before + 1);
     ws.onclose?.({ code: 4001 });
     client.resumeConnection();
     vi.advanceTimersByTime(30000);
     expect(TestSocket.instances).toHaveLength(1);
+  });
+});
+
+describe("后台保留连接、前台快速同步", () => {
+  function syncedOnline() {
+    const { ws, g } = online();
+    ws.receive({
+      type: "session",
+      id: "me",
+      token: "test-token",
+      name: "测试",
+      roomCode: g.code,
+      timeSync: true,
+      commandAck: true,
+    });
+    const ping = ws.sent.at(-1) as Extract<ClientMessage, { type: "ping" }>;
+    ws.receive({ type: "pong", sentAt: ping.sentAt, serverNow: Date.now() });
+    return { ws, g };
+  }
+  it("后台未确认操作不触发断网；回来获取最新手牌，绝不重发旧操作", () => {
+    vi.useFakeTimers();
+    const { ws, g } = syncedOnline();
+    client.ready();
+    client.setNetworkVisible(false);
+    vi.advanceTimersByTime(120000);
+    expect(TestSocket.instances).toHaveLength(1);
+    expect(ws.readyState).toBe(TestSocket.OPEN);
+    client.setNetworkVisible(true);
+    client.resumeConnection();
+    expect(ws.sent.filter((m) => m.type === "ping" && m.sync)).toHaveLength(1);
+    expect(client.state.connected).toBe(false);
+    g.revision += 5;
+    g.players[0]!.ready = true;
+    ws.receive({ type: "state", state: viewFor(g, 0) });
+    const ping = ws.sent.at(-1) as Extract<ClientMessage, { type: "ping" }>;
+    ws.receive({
+      type: "pong",
+      sentAt: ping.sentAt,
+      serverNow: Date.now(),
+      synced: true,
+      roomCode: g.code,
+    });
+    expect(client.state.connected).toBe(true);
+    expect(client.state.view!.revision).toBe(g.revision);
+    expect(client.state.submitting).toBeNull();
+    expect(ws.sent.filter((m) => m.type === "ready")).toHaveLength(1);
+    expect(TestSocket.instances).toHaveLength(1);
+  });
+  it("后台被系统断开后不反复重试；回前台立即建立唯一的新连接", () => {
+    vi.useFakeTimers();
+    const { ws } = syncedOnline();
+    client.setNetworkVisible(false);
+    ws.close();
+    vi.advanceTimersByTime(120000);
+    expect(TestSocket.instances).toHaveLength(1);
+    client.setNetworkVisible(true);
+    client.resumeConnection();
+    vi.advanceTimersByTime(0);
+    expect(TestSocket.instances).toHaveLength(2);
+  });
+  it("假在线连接最多探测两秒，立即重连，不等十秒加退避", () => {
+    vi.useFakeTimers();
+    const { ws } = syncedOnline();
+    client.setNetworkVisible(false);
+    vi.advanceTimersByTime(30000);
+    client.setNetworkVisible(true);
+    vi.advanceTimersByTime(1999);
+    expect(TestSocket.instances).toHaveLength(1);
+    vi.advanceTimersByTime(2);
+    expect(TestSocket.instances).toHaveLength(2);
+    expect(ws.readyState).toBe(TestSocket.CLOSED);
+  });
+  it("从后台恢复时退休挂起的旧握手，旧回调不能覆盖新状态", () => {
+    vi.useFakeTimers();
+    syncedOnline();
+    client.connect("测试");
+    const old = TestSocket.instances.at(-1)!;
+    old.readyState = 0;
+    client.setNetworkVisible(false);
+    vi.advanceTimersByTime(90000);
+    client.setNetworkVisible(true);
+    vi.advanceTimersByTime(0);
+    const next = TestSocket.instances.at(-1)!;
+    expect(next).not.toBe(old);
+    old.receive({ type: "session", id: "old", token: "old", name: "旧连接" });
+    expect(client.state.connected).toBe(false);
+    expect(next.sent).toEqual([]);
   });
 });

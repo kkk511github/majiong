@@ -61,7 +61,9 @@ async function boot(forcePassword = false, tickMs = 60000) {
     ).body;
     if (result.account) {
       const fixtureDb = new DatabaseSync(file);
-      fixtureDb.prepare("INSERT OR REPLACE INTO team_memberships VALUES (?,?,?,?,?)").run(result.account.id,"team-1",0,"test-fixture",Date.now());
+      fixtureDb
+        .prepare("INSERT OR REPLACE INTO team_memberships VALUES (?,?,?,?,?)")
+        .run(result.account.id, "team-1", 0, "test-fixture", Date.now());
       fixtureDb.close();
     }
     return result;
@@ -615,4 +617,39 @@ describe("授权与自动续桌", () => {
       }
     });
   }
+});
+
+describe("前台同步只返回本人视角", () => {
+  it("同步不换连接、不推进牌局、不泄露其他人的手牌，离桌后清除旧桌", async () => {
+    const { auth, port, server } = await boot();
+    const account = await auth("guanli@1", true);
+    const peer = await socket(port, account.token);
+    const session = await peer.read("session");
+    const g = createGame("765432", "resume-private");
+    g.players = seats.map((i) =>
+      newPlayer(i === 0 ? session.id : "friend" + i, "牌友" + i),
+    );
+    g.players.forEach((p, i) => {
+      p!.hand = [i * 4, i * 4 + 1, i * 4 + 2];
+      p!.online = true;
+    });
+    g.phase = "playing";
+    g.revision = 7;
+    g.deadline = Date.now() + 90000;
+    server.games.set(g.code, g);
+    peer.send({ type: "ping", sync: true, sentAt: 12 });
+    const view = (await peer.read("state")).state;
+    expect(view.players[0].hand).toEqual(g.players[0]!.hand);
+    for (const i of [1, 2, 3]) expect(view.players[i].hand).toEqual([]);
+    expect(await peer.read("pong")).toMatchObject({
+      sentAt: 12,
+      synced: true,
+      roomCode: g.code,
+    });
+    expect(g.revision).toBe(7);
+    expect(peer.ws.readyState).toBe(WebSocket.OPEN);
+    server.games.delete(g.code);
+    peer.send({ type: "ping", sync: true, sentAt: 13 });
+    expect(await peer.read("pong")).toMatchObject({ sentAt: 13, synced: true });
+  });
 });

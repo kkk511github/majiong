@@ -1,5 +1,5 @@
 import { Music2, Volume2, VolumeX, Speech } from "lucide-react";
-import { gameAudio, type AudioPreferences } from "./audio";
+import { gameAudio, BACKGROUND_MUSIC, type AudioPreferences } from "./audio";
 
 export function AudioSettings({
   value,
@@ -16,7 +16,7 @@ export function AudioSettings({
             key: "music",
             volume: "musicVolume",
             label: "背景音乐",
-            detail: "秦淮小调 · 轻柔弦乐",
+            detail: `${BACKGROUND_MUSIC.title} · 舒缓钢琴`,
             icon: Music2,
           },
           {

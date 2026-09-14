@@ -10,11 +10,29 @@ test("返回前台自动恢复音乐，首次恢复失败可重试，静音设�
       constructor(options?: AudioContextOptions) {
         super(options);
         (window as any).__musicContext = this;
-        (window as any).__musicNotes = 0;
-        const make = this.createOscillator.bind(this);
-        this.createOscillator = () => {
-          (window as any).__musicNotes++;
-          return make();
+        (window as any).__musicLoops = 0;
+        const analyser = this.createAnalyser();
+        analyser.fftSize = 2048;
+        (window as any).__musicAnalyser = analyser;
+        const connect = AudioNode.prototype.connect;
+        const destination = this.destination;
+        AudioNode.prototype.connect = function (
+          this: AudioNode,
+          ...args: any[]
+        ) {
+          const result = (connect as any).apply(this, args);
+          if (args[0] === destination) (connect as any).call(this, analyser);
+          return result;
+        } as typeof AudioNode.prototype.connect;
+        const make = this.createBufferSource.bind(this);
+        this.createBufferSource = () => {
+          const source = make(),
+            start = source.start.bind(source);
+          source.start = (...args: Parameters<typeof source.start>) => {
+            if (source.loop) (window as any).__musicLoops++;
+            start(...args);
+          };
+          return source;
         };
       }
     };
@@ -25,15 +43,15 @@ test("返回前台自动恢复音乐，首次恢复失败可重试，静音设�
     .poll(() => page.evaluate(() => (window as any).__musicContext.state))
     .toBe("running");
   await expect
-    .poll(() => page.evaluate(() => (window as any).__musicNotes))
-    .toBeGreaterThan(0);
+    .poll(() => page.evaluate(() => (window as any).__musicLoops))
+    .toBe(1);
   for (const failedFirst of [false, true]) {
     await page.evaluate(async (fail) => {
       const { gameAudio } = await import("/src/audio.ts" as string);
       gameAudio.setVisible(false);
       const context = (window as any).__musicContext;
       await context.suspend();
-      (window as any).__beforeNotes = (window as any).__musicNotes;
+      (window as any).__beforeTime = context.currentTime;
       if (fail) {
         const resume = context.resume.bind(context);
         let once = true;
@@ -57,12 +75,25 @@ test("返回前台自动恢复音乐，首次恢复失败可重试，静音设�
       .poll(() => page.evaluate(() => (window as any).__musicContext.state))
       .toBe("running");
     await expect
-      .poll(() =>
-        page.evaluate(
-          () => (window as any).__musicNotes > (window as any).__beforeNotes,
-        ),
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const a = (window as any).__musicAnalyser;
+            const data = new Float32Array(a.fftSize);
+            a.getFloatTimeDomainData(data);
+            return Math.max(...data.map(Math.abs));
+          }),
+        { intervals: [50, 100, 200] },
       )
-      .toBe(true);
+      .toBeGreaterThan(0.001);
+    expect(await page.evaluate(() => (window as any).__musicLoops)).toBe(1);
+    expect(
+      await page.evaluate(
+        () =>
+          (window as any).__musicContext.currentTime >
+          (window as any).__beforeTime,
+      ),
+    ).toBe(true);
   }
   await page.getByRole("switch", { name: "背景音乐", exact: true }).click();
   await page.evaluate(async () => {

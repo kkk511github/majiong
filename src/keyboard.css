@@ -1,0 +1,122 @@
+/* Keep controls above the real keyboard, including WKWebView's input toolbar. */
+:root[data-keyboard-open] .polished .modal[open] {
+  top: calc(var(--input-viewport-top) + 6px);
+  bottom: auto;
+  margin-top: 0;
+  margin-bottom: 0;
+  max-height: calc(var(--input-viewport-height) - 12px);
+  padding-top: 6px;
+  padding-bottom: 6px;
+  gap: 4px;
+}
+:root[data-keyboard-open] .polished .modal-head h2 {
+  font-size: 18px;
+}
+:root[data-keyboard-open] .polished .modal-intro {
+  display: none;
+}
+:root[data-keyboard-open] .polished .room-dialog[open] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 44px minmax(0, 1fr);
+  column-gap: 12px;
+}
+:root[data-keyboard-open] .room-dialog .modal-head {
+  grid-column: 1 / -1;
+}
+:root[data-keyboard-open] .polished .room-dialog .modal-footer {
+  padding: 0;
+}
+:root[data-keyboard-open] .room-dialog .modal-footer {
+  align-self: end;
+}
+:root[data-keyboard-open] .polished .room-dialog .modal-body {
+  padding-bottom: 0;
+}
+:root[data-keyboard-open] .room-form-grid {
+  margin: 0;
+  gap: 8px;
+}
+:root[data-keyboard-open] .room-form-grid input {
+  min-height: 44px;
+  height: 44px;
+  margin-top: 4px;
+}
+:root[data-keyboard-open] .room-form-grid .form-label {
+  gap: 3px;
+  margin: 0;
+}
+:root[data-keyboard-open] .room-form-footer > span {
+  display: none;
+}
+:root[data-keyboard-open] .room-form-footer .primary {
+  min-width: 126px;
+  min-height: 44px;
+  margin-bottom: 4px;
+}
+:root[data-keyboard-open] .polished .room-form-error {
+  margin-top: 4px;
+  padding: 4px 8px;
+}
+
+:root[data-keyboard-open] .account-screen {
+  position: fixed;
+  top: var(--input-viewport-top);
+  height: var(--input-viewport-height);
+  min-height: 0;
+  width: 100%;
+  grid-template-columns: 1fr;
+  padding: 6px max(24px, env(safe-area-inset-right)) 6px
+    max(24px, env(safe-area-inset-left));
+  gap: 0;
+}
+:root[data-keyboard-open] .account-welcome,
+:root[data-keyboard-open] .account-card-heading,
+:root[data-keyboard-open] .account-tabs,
+:root[data-keyboard-open] .account-footnote {
+  display: none;
+}
+:root[data-keyboard-open] .account-card {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  max-width: 760px;
+  padding: 4px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 164px;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+:root[data-keyboard-open] .account-form {
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: 100%;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  align-content: start;
+  padding: 1px 2px;
+  gap: 4px;
+}
+:root[data-keyboard-open] .account-form label {
+  font-size: 0;
+  gap: 0;
+}
+:root[data-keyboard-open] .account-form input {
+  height: 44px;
+  min-height: 44px;
+  font-size: 16px;
+  line-height: normal;
+  flex-shrink: 0;
+}
+:root[data-keyboard-open] .account-card > .account-submit {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  gap: 6px;
+}

@@ -1,0 +1,29 @@
+services:
+  mahjong:
+    build: .
+    image: jinling-mahjong:${MAHJONG_RELEASE:-0.6.0}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:${MAHJONG_PORT:-18887}:8787"
+    environment:
+      NODE_ENV: production
+      PORT: "8787"
+      DATABASE_PATH: /app/data/mahjong.sqlite
+    volumes:
+      - mahjong-data:/app/data
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  mahjong-data:

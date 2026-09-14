@@ -1,0 +1,10 @@
+node_modules
+data
+dist
+ios
+android
+.git
+.codegraph
+.env*
+test-results
+playwright-report

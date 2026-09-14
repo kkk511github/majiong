@@ -1,0 +1,316 @@
+.polished .modal.round-reveal-dialog[open] {
+  width: calc(
+    100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px
+  );
+  height: calc(
+    var(--app-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
+      24px
+  );
+  max-width: 1120px;
+  max-height: 620px;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  color: #f5e6c0;
+  border: 1px solid #ae8b4d;
+  border-radius: 18px;
+  background: radial-gradient(
+    ellipse at 50% 0,
+    #365c49 0,
+    #162d27 60%,
+    #11211f
+  );
+  box-shadow:
+    0 12px 60px #0009,
+    inset 0 0 0 4px #cfb07912;
+}
+.polished .round-reveal-dialog .modal-head {
+  min-height: 44px;
+  flex: 0 0 44px;
+  padding: 0;
+  border-bottom: 1px solid #bba57040;
+}
+.polished .round-reveal-dialog .modal-head h2 {
+  color: #ffe397;
+  font-size: 20px;
+}
+.polished .round-reveal-dialog .modal-head .icon-button {
+  color: #e9d9aa;
+  background: none;
+  box-shadow: none;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
+  outline-offset: -4px;
+}
+.polished .round-reveal-dialog .modal-body {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.polished .round-reveal-dialog .modal-footer {
+  padding: 5px 0;
+  flex: 0 0 46px;
+  min-height: 46px;
+  border-top: 1px solid #bba57040;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.polished .round-reveal-dialog .modal-footer .primary {
+  min-height: 40px;
+  padding: 6px 22px;
+  width: auto;
+  margin: 0;
+  font-size: 16px;
+}
+.reveal-next {
+  font-size: 12px;
+  color: #e4d8b2;
+}
+.reveal-next b {
+  color: #ffdd75;
+  font-size: 17px;
+}
+.round-reveal {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.reveal-meta {
+  flex: 0 0 27px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
+  color: #d4c4a2;
+  white-space: nowrap;
+}
+.reveal-meta > span:last-child {
+  margin-left: auto;
+  color: #e6cb82;
+}
+.reveal-players {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  padding-bottom: 5px;
+}
+.reveal-player {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) 116px;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+  padding: 3px 10px;
+  border: 1px solid #a99a6524;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #8e774022, #5d6c5e22);
+}
+.reveal-player.reveal-winner {
+  border-color: #e6bd6070;
+  background: linear-gradient(90deg, #9d6b2844, #ad88341a);
+}
+.reveal-final .reveal-player {
+  grid-template-columns: 100px minmax(0, 1fr) 158px;
+}
+.reveal-final .reveal-scores {
+  gap: 10px;
+}
+.reveal-final .reveal-scores b {
+  font-size: 21px;
+}
+.reveal-identity {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+}
+.reveal-identity .avatar {
+  width: 32px;
+  height: 32px;
+  grid-row: span 2;
+  border: 1px solid #d0b66f;
+  border-radius: 7px;
+}
+.reveal-identity strong {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reveal-identity small {
+  font-size: 9px;
+  color: #dbc78c;
+  white-space: nowrap;
+}
+.reveal-hand {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+.reveal-tiles {
+  display: flex;
+  align-items: end;
+  gap: 1px;
+  width: 100%;
+}
+.reveal-tiles > span {
+  width: calc(
+    (100% - (var(--reveal-count) - 1) * 1px - 6px) / var(--reveal-count)
+  );
+  max-width: calc(
+    clamp(
+        24px,
+        (var(--app-height) - env(safe-area-inset-bottom) - 220px) / 4,
+        52px
+      ) *
+      0.72
+  );
+  flex: 0 1 auto;
+}
+.reveal-tiles .tile {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 0.72;
+}
+.reveal-tiles .reveal-hand-start {
+  margin-left: 6px;
+}
+.reveal-winning-tile {
+  filter: drop-shadow(0 0 3px #f2ce77);
+}
+.reveal-score-items {
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 0;
+  display: flex;
+  gap: 4px;
+  color: #e8c461;
+  font-size: 9px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.reveal-score-items span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.reveal-flowers {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 1px);
+  font-size: 8px;
+  color: #b9bea8;
+}
+.reveal-scores {
+  display: flex;
+  justify-content: end;
+  gap: 13px;
+  text-align: center;
+}
+.reveal-scores span {
+  font-size: 10px;
+  color: #ccc4a9;
+}
+.reveal-scores b {
+  display: block;
+  font-size: 24px;
+  color: #e5dcbe;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.reveal-scores b.score-plus {
+  color: #ffce52;
+  text-shadow: 0 2px 3px #563c21;
+}
+.reveal-scores b.score-minus {
+  color: #a9c7ee;
+}
+.reveal-final-note {
+  flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #c8c4af;
+}
+.reveal-final-note button {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: #e6c774;
+  font-size: 11px;
+  padding: 4px;
+}
+@media (max-height: 360px) {
+  .polished .modal.round-reveal-dialog {
+    padding: 0 10px;
+  }
+  .reveal-player {
+    grid-template-columns: 67px minmax(0, 1fr) 82px;
+    gap: 7px;
+    padding: 2px 5px;
+  }
+  .reveal-final .reveal-player {
+    grid-template-columns: 67px minmax(0, 1fr) 118px;
+  }
+  .reveal-final .reveal-scores {
+    gap: 7px;
+  }
+  .reveal-final .reveal-scores b {
+    font-size: 16px;
+  }
+  .reveal-identity {
+    grid-template-columns: 25px minmax(0, 1fr);
+    gap: 3px;
+  }
+  .reveal-identity .avatar {
+    width: 25px;
+    height: 25px;
+  }
+  .reveal-identity strong {
+    font-size: 10px;
+  }
+  .reveal-identity small {
+    font-size: 8px;
+  }
+  .reveal-scores {
+    gap: 8px;
+  }
+  .reveal-scores b {
+    font-size: 18px;
+  }
+  .reveal-tiles .tile {
+    max-height: 35px;
+  }
+  .reveal-score-items,
+  .reveal-flowers {
+    display: none;
+  }
+  .reveal-meta {
+    gap: 8px;
+    font-size: 9px;
+    flex-basis: 23px;
+  }
+  .reveal-meta > span:last-child {
+    display: none;
+  }
+  .reveal-next {
+    font-size: 10px;
+  }
+  .reveal-final-note {
+    font-size: 8px;
+  }
+}

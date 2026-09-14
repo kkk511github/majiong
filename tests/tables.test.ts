@@ -1,0 +1,668 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { WebSocket } from "ws";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { makeServer } from "../server/service";
+import {
+  seedTestAdmin,
+  registerTestPort,
+  peerCredential,
+} from "./account-fixtures";
+import { botAction } from "../shared/engine";
+import type {
+  ClientMessage,
+  Game,
+  Seat,
+  ServerMessage,
+  View,
+} from "../shared/types";
+const active: ReturnType<typeof makeServer>[] = [],
+  sockets: WebSocket[] = [],
+  directories: string[] = [];
+afterEach(async () => {
+  for (const s of sockets.splice(0)) s.close();
+  for (const s of active.splice(0)) await s.close();
+  for (const d of directories.splice(0))
+    rmSync(d, { recursive: true, force: true });
+});
+function databasePath() {
+  const directory = mkdtempSync(join(tmpdir(), "jinling-server-"));
+  directories.push(directory);
+  return join(directory, "test.sqlite");
+}
+async function boot(database = ":memory:") {
+  if (database === ":memory:") database = databasePath();
+  await seedTestAdmin(database);
+  const s = makeServer({ database, port: 0, tickMs: 25 });
+  active.push(s);
+  const port = await s.listen();
+  registerTestPort(port);
+  return { s, port };
+}
+async function stop(s: ReturnType<typeof makeServer>) {
+  await s.close();
+  active.splice(active.indexOf(s), 1);
+}
+async function peer(port: number, name: string, token?: string) {
+  token ??= await peerCredential(port, name);
+  const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  sockets.push(socket);
+  const messages: ServerMessage[] = [];
+  let latest: View | null = null;
+  socket.on("message", (data) => {
+    const m = JSON.parse(String(data));
+    messages.push(m);
+    if (m.type === "state") latest = m.state;
+  });
+  await new Promise<void>((r) => socket.on("open", r));
+  const send = (m: ClientMessage) => socket.send(JSON.stringify(m));
+  async function read<T extends ServerMessage["type"]>(
+    type: T,
+    match: (message: Extract<ServerMessage, { type: T }>) => boolean = () =>
+      true,
+  ): Promise<Extract<ServerMessage, { type: T }>> {
+    const until = Date.now() + 4000;
+    while (Date.now() < until) {
+      const i = messages.findIndex((m) => m.type === type && match(m as never));
+      if (i >= 0) return messages.splice(i, 1)[0] as never;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    throw Error(
+      `Timed out waiting for ${type}: ${messages.map((m) => m.type).join(",")}`,
+    );
+  }
+  send({ type: "hello", name, token });
+  const session = await read("session");
+  return { socket, send, read, session, latest: () => latest };
+}
+
+import type { TableSettings } from "../shared/types";
+async function createTables(
+  p: Awaited<ReturnType<typeof peer>>,
+  settings: Partial<TableSettings> = {},
+  count = 1,
+  creationId = "setup-1",
+) {
+  p.send({
+    type: "createTables",
+    settings: {
+      readyMode: "auto",
+      continuousRounds: false,
+      overtimePerTurn: false,
+      ...settings,
+    },
+    rules: { twoBankrupt: false },
+    count,
+    creationId,
+    requestId: creationId,
+  });
+  const { codes } = await p.read("tablesCreated");
+  await p.read("ack", (m) => m.requestId === creationId);
+  return codes;
+}
+async function fill(port: number, code: string) {
+  const players = await Promise.all(
+    ["东家", "南家", "西家", "北家"].map((n) => peer(port, n)),
+  );
+  for (let seat = 0; seat < 4; seat++) {
+    players[seat].send({ type: "join", code, seat: seat as Seat });
+    await players[seat].read("state");
+  }
+  return players;
+}
+async function win(
+  s: ReturnType<typeof makeServer>,
+  code: string,
+  player: Awaited<ReturnType<typeof peer>>,
+  seat: Seat = 0,
+) {
+  const g = s.games.get(code)!;
+  g.phase = "playing";
+  g.turn = seat;
+  g.canSelfWin = true;
+  g.pending = undefined;
+  g.deadline = Date.now() + 30000;
+  g.players[seat]!.hand = [
+    0, 4, 8, 36, 40, 44, 72, 76, 80, 108, 109, 110, 112, 113,
+  ];
+  g.players[seat]!.melds = [];
+  g.lastDraw = 113;
+  player.send({ type: "action", revision: g.revision, action: { type: "hu" } });
+  return (
+    await player.read(
+      "state",
+      (m) =>
+        ["ended", "finished"].includes(m.state.phase) &&
+        m.state.round === g.round,
+    )
+  ).state;
+}
+describe("建桌大厅真实联机", () => {
+  it("新版每把展示10秒自动续局，离线等待；四人提前确认可跳过，最后一把不再发牌", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "连续开桌人");
+    const [code] = await createTables(host, {
+      continuousRounds: true,
+      overtimePerTurn: true,
+      autoRenew: false,
+    });
+    const ps = await fill(port, code);
+    await ps[0].read("state", (m) => m.state.phase === "playing");
+    const ended = await win(s, code, ps[0]);
+    expect(ended.history.at(-1)!.hands).toHaveLength(4);
+    expect(ended.players.every((p) => p!.hand.length > 0)).toBe(true);
+    let g = s.games.get(code)!;
+    g.history.at(-1)!.at = Date.now() - 9000;
+    await new Promise((r) => setTimeout(r, 75));
+    expect(s.games.get(code)!.phase).toBe("ended");
+    ps[2].socket.close();
+    await ps[0].read("state", (m) => m.state.players[2]?.online === false);
+    s.games.get(code)!.history.at(-1)!.at = Date.now() - 10001;
+    await new Promise((r) => setTimeout(r, 75));
+    expect(s.games.get(code)!.phase).toBe("ended");
+    ps[2] = await peer(port, "西家", ps[2].session.token);
+    await ps[0].read(
+      "state",
+      (m) => m.state.round === 2 && m.state.phase === "playing",
+    );
+    expect(s.games.get(code)!.players.map((p) => p!.score)).toEqual(
+      ended.players.map((p) => p!.score),
+    );
+    await win(s, code, ps[0]);
+    for (let i = 0; i < 3; i++) {
+      ps[i].send({ type: "ready", requestId: `next-${i}` });
+      await ps[i].read("ack", (m) => m.requestId === `next-${i}`);
+    }
+    expect(s.games.get(code)!.round).toBe(2);
+    ps[3].send({ type: "ready" });
+    await ps[0].read(
+      "state",
+      (m) => m.state.round === 3 && m.state.phase === "playing",
+    );
+    s.games.get(code)!.rules.rounds = 3;
+    const final = await win(s, code, ps[0]);
+    expect(final.phase).toBe("finished");
+    s.games.get(code)!.table!.finishedAt = Date.now() - 11000;
+    await new Promise((r) => setTimeout(r, 75));
+    expect(s.games.get(code)!.round).toBe(3);
+    expect(s.games.get(code)!.phase).toBe("finished");
+  });
+  it("一把结束后可提前手动准备，展示期过后仍等待离线牌友，重连才发下一把", async () => {
+    const { s, port } = await boot();
+    const host = await peer(port, "续局开桌人");
+    const [code] = await createTables(host, {
+      readyMode: "manual",
+      resultSeconds: 5,
+    });
+    const players = await fill(port, code);
+    for (let seat = 0; seat < 4; seat++) {
+      players[seat].send({ type: "ready" });
+      await players[seat].read(
+        "state",
+        (m) => !!m.state.players[seat]?.ready || m.state.phase === "playing",
+      );
+    }
+    const ended = await win(s, code, players[0]);
+    expect(ended.phase).toBe("ended");
+    expect(ended.players.every((p) => p && !p.ready)).toBe(true);
+    for (let seat = 0; seat < 4; seat++) {
+      players[seat].send({ type: "ready" });
+      await players[seat].read(
+        "state",
+        (m) => m.state.phase === "ended" && !!m.state.players[seat]?.ready,
+      );
+    }
+    expect(s.games.get(code)!.round).toBe(1);
+    players[2].socket.close();
+    await players[0].read("state", (m) => m.state.players[2]?.online === false);
+    s.games.get(code)!.history.at(-1)!.at = Date.now() - 6000;
+    await new Promise((r) => setTimeout(r, 100));
+    expect(s.games.get(code)!.phase).toBe("ended");
+    const back = await peer(port, "西家", players[2].session.token);
+    const next = (await back.read("state", (m) => m.state.round === 2)).state;
+    expect(next.phase).toBe("playing");
+    expect(next.players.every((p) => p?.online)).toBe(true);
+    expect(next.history).toHaveLength(1);
+  });
+  it("空桌批量创建原子保存、重复提交不多开、重启保留设置和房号", async () => {
+    const file = databasePath(),
+      a = await boot(file),
+      host = await peer(a.port, "开桌人");
+    const codes = await createTables(
+      host,
+      { name: "周末八局", readyMode: "manual", autoRenew: false },
+      3,
+    );
+    expect(a.s.games.size).toBe(3);
+    expect(codes).toHaveLength(3);
+    expect(
+      [...a.s.games.values()].every((g) => g.players.every((p) => p === null)),
+    ).toBe(true);
+    expect(await createTables(host, {}, 3)).toEqual(codes);
+    expect(a.s.games.size).toBe(3);
+    host.send({
+      type: "createTables",
+      settings: {},
+      count: 3,
+      creationId: "over-limit",
+    });
+    expect((await host.read("error")).message).toContain("最多");
+    await stop(a.s);
+    const old = new DatabaseSync(file);
+    old.prepare("UPDATE rooms SET updated_at=?").run(Date.now() - 2 * 86400000);
+    old.close();
+    const b = await boot(file),
+      back = await peer(b.port, "开桌人", host.session.token);
+    expect([...b.s.games.keys()].sort()).toEqual(codes.sort());
+    back.send({ type: "tables" });
+    const listing = await back.read("tables");
+    expect(
+      listing.tables.every(
+        (t) =>
+          t.managed &&
+          t.settings.readyMode === "manual" &&
+          !t.settings.autoRenew,
+      ),
+    ).toBe(true);
+  });
+  it("数据库故障不出现半批桌子，恢复后同一创建标识可重试", async () => {
+    const file = databasePath(),
+      { s, port } = await boot(file),
+      host = await peer(port, "开桌人"),
+      db = new DatabaseSync(file);
+    try {
+      db.exec(
+        "CREATE TRIGGER fail_second BEFORE INSERT ON rooms WHEN (SELECT COUNT(*) FROM rooms)>=1 BEGIN SELECT RAISE(FAIL,'disk full'); END;",
+      );
+      host.send({
+        type: "createTables",
+        settings: {},
+        count: 3,
+        creationId: "retry",
+      });
+      expect((await host.read("error")).message).toContain("未生效");
+      expect(s.games.size).toBe(0);
+      expect(db.prepare("SELECT COUNT(*) AS n FROM rooms").get()!.n).toBe(0);
+      db.exec("DROP TRIGGER fail_second");
+      expect(await createTables(host, {}, 3, "retry")).toHaveLength(3);
+    } finally {
+      db.close();
+    }
+  });
+  it("大厅只列公开桌和自己的房号桌，昵称隐藏不泄露手牌", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人"),
+      visitor = await peer(port, "访客");
+    const [publicCode] = await createTables(host, { privacy: "lobby" }),
+      [privateCode] = await createTables(
+        host,
+        { visibility: "code" },
+        1,
+        "private",
+      );
+    host.send({ type: "join", code: publicCode });
+    await host.read("state");
+    visitor.send({ type: "tables" });
+    const { tables } = await visitor.read("tables");
+    expect(tables.map((t) => t.code)).toEqual([publicCode]);
+    expect(tables[0].seats[0]!.name).toBe("牌友1");
+    expect(tables[0]).not.toHaveProperty("wall");
+    expect(tables[0].seats[0]).not.toHaveProperty("hand");
+    visitor.send({ type: "join", code: privateCode, seat: 2 });
+    expect((await visitor.read("state")).state.me).toBe(2);
+    expect(s.games.get(privateCode)!.phase).toBe("waiting");
+  });
+  it("三人不发牌，第四真人入座自动开始，座位争抢不重复入座", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人"),
+      [code] = await createTables(host);
+    const ps = await Promise.all(
+      ["甲", "乙", "丙", "丁", "第五人"].map((n) => peer(port, n)),
+    );
+    for (let i = 0; i < 3; i++) {
+      ps[i].send({ type: "join", code, seat: i as Seat });
+      await ps[i].read("state");
+    }
+    expect(s.games.get(code)!.phase).toBe("waiting");
+    expect(s.games.get(code)!.players[0]!.hand).toHaveLength(0);
+    ps[0].send({ type: "addBot" });
+    expect((await ps[0].read("error")).message).toContain("真人");
+    ps[3].send({ type: "join", code, seat: 3 });
+    ps[4].send({ type: "join", code, seat: 3 });
+    const v = (await ps[3].read("state", (m) => m.state.phase === "playing"))
+      .state;
+    expect((await ps[4].read("error")).message).toMatch(/开局|座位/);
+    expect(v.round).toBe(1);
+    expect(v.me).toBe(3);
+    expect(v.players[3]!.hand).toHaveLength(13);
+    expect(v.players[0]!.hand).toEqual([]);
+    expect(s.games.get(code)!.players.map((p) => p!.id)).toEqual(
+      ps.slice(0, 4).map((p) => p.session.id),
+    );
+  });
+  it("手动准备和离线门槛服务端生效，四人回到在线后恢复开局", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人"),
+      [code] = await createTables(host, { readyMode: "manual" }),
+      ps = await fill(port, code);
+    expect(s.games.get(code)!.phase).toBe("waiting");
+    for (const p of ps.slice(0, 3)) p.send({ type: "ready" });
+    await ps[3].read("state", (m) =>
+      m.state.players.slice(0, 3).every((p) => p!.ready),
+    );
+    ps[0].socket.close();
+    await ps[3].read("state", (m) => !m.state.players[0]!.online);
+    ps[3].send({ type: "ready" });
+    await ps[3].read("state", (m) => m.state.players.every((p) => p!.ready));
+    expect(s.games.get(code)!.phase).toBe("waiting");
+    const back = await peer(port, "甲回来了", ps[0].session.token);
+    expect(
+      (await back.read("state", (m) => m.state.phase === "playing")).state
+        .round,
+    ).toBe(1);
+  });
+  it("未准备和离线自动离座仅在首局前执行；空桌不被删除", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人"),
+      [code] = await createTables(host, {
+        readyMode: "manual",
+        kickUnready: true,
+        kickAfterSeconds: 10,
+      });
+    const p = await peer(port, "迟到牌友");
+    p.send({ type: "join", code });
+    await p.read("state");
+    s.games.get(code)!.players[0]!.joinedAt = Date.now() - 60000;
+    await new Promise((r) => setTimeout(r, 100));
+    expect(s.games.get(code)!.players[0]!.id).toBe(p.session.id);
+    expect(s.games.get(code)!.table!.readyDeadline).toBeUndefined();
+    const others = await Promise.all(
+      ["二", "三", "四"].map((name) => peer(port, name)),
+    );
+    for (const other of others) {
+      other.send({ type: "join", code });
+      await other.read("state");
+      other.send({ type: "ready" });
+    }
+    await p.read("state", (m) =>
+      m.state.players.slice(1).every((x) => x?.ready),
+    );
+    expect(s.games.get(code)!.table!.readyDeadline).toBeGreaterThan(Date.now());
+    s.games.get(code)!.table!.readyDeadline = Date.now() - 1;
+    expect((await p.read("left")).lobby).toBe(true);
+    expect(s.games.get(code)!.players[0]).toBeNull();
+    expect(
+      s.games
+        .get(code)!
+        .players.slice(1)
+        .every((x) => x?.ready),
+    ).toBe(true);
+    expect(s.games.get(code)!.table!.readyDeadline).toBeUndefined();
+    p.send({ type: "join", code, requestId: "join-again" });
+    await p.read("ack", (m) => m.requestId === "join-again");
+    expect(s.games.get(code)!.table!.readyDeadline).toBeGreaterThan(Date.now());
+    p.socket.close();
+    await host.read("tables", (m) =>
+      m.tables.some((t) => t.seats[0]?.online === false),
+    );
+    s.games.get(code)!.players[0]!.disconnectedAt = Date.now() - 11000;
+    await host.read("tables", (m) =>
+      m.tables.some((t) => t.code === code && t.seats[0] === null),
+    );
+    expect(s.games.has(code)).toBe(true);
+  });
+  it("关闭托管时无限时且拒绝开启托管或矛盾的离线开局", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人");
+    host.send({
+      type: "createTables",
+      settings: { trusteeMode: "disabled", offlineStart: true },
+      count: 1,
+      creationId: "invalid",
+    });
+    expect((await host.read("error")).message).toContain("在线");
+    const [code] = await createTables(host, { trusteeMode: "disabled" }),
+      ps = await fill(port, code);
+    expect(s.games.get(code)!.deadline).toBe(0);
+    expect(s.games.get(code)!.rules.turnSeconds).toBe(0);
+    ps[0].send({ type: "trustee", enabled: true });
+    expect((await ps[0].read("error")).message).toContain("关闭托管");
+    const revision = s.games.get(code)!.revision;
+    await new Promise((r) => setTimeout(r, 100));
+    expect(s.games.get(code)!.revision).toBe(revision);
+  });
+  it("单局托管结束后暂停，结算展示完仍须本人确认才开下一局", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人"),
+      [code] = await createTables(host, {
+        trusteeMode: "round",
+        resultSeconds: 5,
+      }),
+      ps = await fill(port, code);
+    s.games.get(code)!.players[0]!.trustee = true;
+    const ended = await win(s, code, ps[1], 1);
+    expect(ended.players[0]!.awaitingReady).toBe(true);
+    expect(ended.players[0]!.trustee).toBe(false);
+    s.games.get(code)!.history.at(-1)!.at = Date.now() - 6000;
+    await new Promise((r) => setTimeout(r, 100));
+    expect(s.games.get(code)!.phase).toBe("ended");
+    ps[0].send({ type: "ready" });
+    const next = (await ps[0].read("state", (m) => m.state.round === 2)).state;
+    expect(next.phase).toBe("playing");
+    expect(next.history).toHaveLength(1);
+  });
+  it("自动准备在结算展示期后继续，托管连续局数达到阈值则结束", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人"),
+      [code] = await createTables(host, {
+        trusteeMode: "afterRounds",
+        trusteeRounds: 2,
+        resultSeconds: 5,
+      }),
+      ps = await fill(port, code);
+    s.games.get(code)!.players[0]!.trustee = true;
+    await win(s, code, ps[1], 1);
+    expect(s.games.get(code)!.phase).toBe("ended");
+    s.games.get(code)!.history.at(-1)!.at = Date.now() - 6000;
+    await ps[0].read(
+      "state",
+      (m) => m.state.round === 2 && m.state.phase === "playing",
+    );
+    const final = await win(s, code, ps[1], 1);
+    expect(final.phase).toBe("finished");
+    expect(final.table!.endReason).toContain("连续托管 2 局");
+  });
+  it("超时结束后按原房号续开空桌，完整战绩持久化，重连仍可读", async () => {
+    const file = databasePath(),
+      { s, port } = await boot(file),
+      host = await peer(port, "开桌人"),
+      [code] = await createTables(host, {
+        trusteeMode: "dissolve",
+        resultSeconds: 5,
+        privacy: "all",
+      }),
+      ps = await fill(port, code);
+    const id = s.games.get(code)!.id;
+    s.games.get(code)!.deadline = Date.now() - 91000;
+    const ended = (
+      await ps[0].read("state", (m) => m.state.phase === "finished")
+    ).state;
+    expect(ended.table!.endReason).toContain("超时");
+    expect(ended.players[1]!.name).toBe("牌友2");
+    expect(ended.events).toEqual([]);
+    expect(s.games.get(code)!.id).toBe(id);
+    s.games.get(code)!.table!.finishedAt = Date.now() - 6000;
+    await ps[0].read("left");
+    expect(s.games.get(code)!.id).not.toBe(id);
+    expect(s.games.get(code)!.players.every((p) => p === null)).toBe(true);
+    expect(s.games.get(code)!.table!.settings.trusteeMode).toBe("dissolve");
+    const back = await peer(port, "东家", ps[0].session.token),
+      records = (await back.read("records")).records;
+    expect(records.some((r) => r.game === id)).toBe(true);
+    expect(records[0].record.names[1]).toBe("牌友2");
+    const db = new DatabaseSync(file);
+    expect(
+      JSON.parse(
+        String(
+          db.prepare("SELECT state FROM table_archives WHERE id=?").get(id)!
+            .state,
+        ),
+      ).players.every(Boolean),
+    ).toBe(true);
+    db.close();
+  });
+  it("只有创建人可收桌，禁止收进行中的桌或绕过关闭解散设置", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "开桌人"),
+      [empty, code] = await createTables(
+        host,
+        { allowDissolve: false, autoRenew: false },
+        2,
+      ),
+      visitor = await peer(port, "访客");
+    visitor.send({ type: "closeTable", code: empty });
+    expect((await visitor.read("error")).message).toContain("管理员");
+    host.send({ type: "closeTable", code: empty, requestId: "close" });
+    await host.read("ack", (m) => m.requestId === "close");
+    expect(s.games.has(empty)).toBe(false);
+    const ps = await fill(port, code);
+    host.send({ type: "closeTable", code });
+    expect((await host.read("error")).message).toContain("进行中");
+    ps[0].send({ type: "dissolve", agree: true });
+    expect((await ps[0].read("error")).message).toContain("未开启");
+    s.games.get(code)!.rules.rounds = 1;
+    await win(s, code, ps[0]);
+    s.games.get(code)!.table!.finishedAt = Date.now() - 20000;
+    await new Promise((r) => setTimeout(r, 75));
+    expect(s.games.get(code)!.phase).toBe("finished");
+    host.send({ type: "closeTable", code, requestId: "done" });
+    await host.read("ack", (m) => m.requestId === "done");
+    expect((await ps[0].read("left")).lobby).toBe(true);
+    expect(s.games.has(code)).toBe(false);
+  });
+});
+
+describe("新版计时服务端执行", () => {
+  for (const claim of [false, true])
+    for (const expired of [false, true])
+      it(`${expired ? "超时进入" : "手动开启"}托管后不放弃合法${claim ? "点炮" : "自摸"}胡牌`, async () => {
+        const { s, port } = await boot(),
+          host = await peer(port, "托管胡牌管理员");
+        const [code] = await createTables(host, {
+          autoRenew: false,
+          overtimeSeconds: 90,
+        });
+        const ps = await fill(port, code);
+        await ps[0].read("state", (m) => m.state.phase === "playing");
+        const g = s.games.get(code)!;
+        g.phase = claim ? "claiming" : "playing";
+        g.turn = claim ? 1 : 0;
+        g.canSelfWin = true;
+        g.lastDraw = 113;
+        g.players[0]!.hand = [
+          0, 4, 8, 36, 40, 44, 72, 76, 80, 108, 109, 110, 112, 113,
+        ];
+        g.players[0]!.melds = [];
+        g.players[0]!.discards = [];
+        g.players[0]!.trustee = !expired;
+        g.players[0]!.overtimeUsedMs = 0;
+        g.overtimeCharged = [];
+        g.deadline = Date.now() + (expired ? -91_000 : 30_000);
+        g.pending = undefined;
+        if (claim) {
+          g.players[0]!.hand.pop();
+          g.players[1]!.discards = [113];
+          g.pending = {
+            tile: 113,
+            from: 1,
+            kind: "discard",
+            openedAtRevision: g.revision,
+            offers: { 0: ["hu", "pass"] },
+            replies: {},
+          };
+        }
+        const ended = (
+          await ps[0].read("state", (m) => m.state.phase === "ended")
+        ).state;
+        expect(ended.result!.reason).toBe("hu");
+        expect(ended.result!.winners).toEqual([0]);
+        expect(ended.result!.deltas[0]).toBeGreaterThan(0);
+        expect(ended.players[0]!.discards).toEqual([]);
+        if (expired) {
+          expect(ended.players[0]!.trusteeLocked).toBe(true);
+          expect(ended.players[0]!.overtimeUsedMs).toBe(90_000);
+        }
+      });
+  it("默认手动准备；每次10+90秒后托管，回来可取消", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "计时管理员");
+    host.send({
+      type: "createTables",
+      settings: { autoRenew: false },
+      count: 1,
+      creationId: "default-settings",
+    });
+    const {
+      codes: [code],
+    } = await host.read("tablesCreated");
+    const ps = await fill(port, code);
+    expect(s.games.get(code)!.phase).toBe("waiting");
+    expect(s.games.get(code)!.scoreDivisor).toBe(2);
+    for (const p of ps) p.send({ type: "ready" });
+    await ps[0].read("state", (m) => m.state.phase === "playing");
+    let g = s.games.get(code)!;
+    g.deadline = Date.now() - 6000;
+    const revision = g.revision;
+    ps[0].send({
+      type: "action",
+      revision,
+      action: { type: "discard", tile: g.players[0]!.hand[0] },
+    });
+    await ps[0].read(
+      "state",
+      (m) =>
+        m.state.revision > revision &&
+        (m.state.players[0]?.overtimeUsedMs ?? 0) >= 6000,
+    );
+    g = s.games.get(code)!;
+    expect(g.players[0]!.overtimeUsedMs).toBeLessThan(7500);
+    expect(g.players[0]!.trustee).toBe(false);
+    g.phase = "playing";
+    g.pending = undefined;
+    g.turn = 0;
+    g.deadline = Date.now() - 91000;
+    g.overtimeCharged = [];
+    g.players[0]!.hand.push(35);
+    await ps[0].read("state", (m) => m.state.players[0]?.trustee === true);
+    expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(90000);
+    ps[0].send({ type: "trustee", enabled: false, requestId: "cancel-return" });
+    await ps[0].read("ack", (m) => m.requestId === "cancel-return");
+    expect(s.games.get(code)!.players[0]!.trusteeLocked).toBe(false);
+    expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(0);
+  });
+  it("重启保持剩余额度与本次原始截止时间；三档倍率持久化并用于续桌", async () => {
+    const file = databasePath(),
+      a = await boot(file),
+      host = await peer(a.port, "倍率管理员");
+    const codes = await createTables(host, { scoreMultiplier: 0.2 }, 3);
+    expect(codes.every((code) => a.s.games.get(code)!.scoreDivisor === 5)).toBe(
+      true,
+    );
+    const ps = await fill(a.port, codes[0]);
+    await ps[0].read("state", (m) => m.state.phase === "playing");
+    const g = a.s.games.get(codes[0])!;
+    g.players[0]!.overtimeUsedMs = 42000;
+    const deadline = Date.now() + 80000;
+    g.deadline = deadline;
+    ps[1].send({ type: "trustee", enabled: false, requestId: "persist-clock" });
+    await ps[1].read("ack", (m) => m.requestId === "persist-clock");
+    await stop(a.s);
+    const b = await boot(file),
+      restored = b.s.games.get(codes[0])!;
+    expect(restored.deadline).toBe(deadline);
+    expect(restored.players[0]!.overtimeUsedMs).toBe(42000);
+    expect(restored.scoreDivisor).toBe(5);
+  });
+});

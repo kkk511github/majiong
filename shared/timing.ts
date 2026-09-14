@@ -1,0 +1,140 @@
+import type { Game, Seat, View } from "./types";
+
+type TimedGame = Pick<
+  Game,
+  "table" | "phase" | "turn" | "deadline" | "overtimeCharged"
+> & {
+  players: ({ overtimeUsedMs?: number; resumedDeadline?: number } | null)[];
+};
+export function decisionDeadline(g: TimedGame, seat: Seat): number {
+  return g.players[seat]?.resumedDeadline ?? g.deadline;
+}
+export function overtimeRemaining(
+  g: TimedGame,
+  seat: Seat,
+  now: number,
+): number {
+  const limit = (g.table?.settings.overtimeSeconds ?? 0) * 1000;
+  const p = g.players[seat];
+  const deadline = decisionDeadline(g, seat);
+  const elapsed =
+    !g.overtimeCharged?.includes(seat) && deadline > 0
+      ? Math.max(0, now - deadline)
+      : 0;
+  return Math.max(
+    0,
+    limit -
+      (g.table?.settings.overtimePerTurn && !g.overtimeCharged?.includes(seat)
+        ? 0
+        : (p?.overtimeUsedMs ?? 0)) -
+      elapsed,
+  );
+}
+export function overtimeExpired(
+  g: TimedGame,
+  seat: Seat,
+  now: number,
+): boolean {
+  return (
+    decisionDeadline(g, seat) > 0 &&
+    now >= decisionDeadline(g, seat) &&
+    overtimeRemaining(g, seat, now) === 0
+  );
+}
+/** Charge one decision once; act() works on a clone so invalid input cannot consume time. */
+export function chargeOvertime(g: Game, seat: Seat, now: number): void {
+  const p = g.players[seat],
+    limit = (g.table?.settings.overtimeSeconds ?? 0) * 1000;
+  const active =
+    g.phase === "playing"
+      ? g.turn === seat
+      : g.phase === "claiming" &&
+        !!g.pending?.offers[seat] &&
+        g.pending.replies[seat] === undefined;
+  if (
+    !p ||
+    p.bot ||
+    !limit ||
+    !active ||
+    !g.deadline ||
+    g.overtimeCharged?.includes(seat)
+  )
+    return;
+  p.overtimeUsedMs = Math.min(
+    limit,
+    (g.table?.settings.overtimePerTurn ? 0 : (p.overtimeUsedMs ?? 0)) +
+      Math.max(0, now - decisionDeadline(g, seat)),
+  );
+  (g.overtimeCharged ??= []).push(seat);
+}
+/** Resume only this player's clock; other claimants keep their existing deadline. */
+export function setTrustee(
+  g: Game,
+  seat: Seat,
+  enabled: boolean,
+  now: number,
+): void {
+  const p = g.players[seat];
+  if (!p) throw Error("玩家不在牌桌上");
+  if (enabled && g.table?.settings.trusteeMode === "disabled")
+    throw Error("本桌已关闭托管");
+  if (!enabled && p.trusteeLocked && !g.table?.settings.overtimePerTurn)
+    throw Error("本桌结束后解除托管");
+  const wasAutomatic = p.trustee || p.trusteeLocked;
+  p.trustee = enabled;
+  if (!enabled) {
+    p.trusteeLocked = false;
+    p.trusteeRounds = 0;
+    if (wasAutomatic) {
+      p.overtimeUsedMs = 0;
+      const active =
+        (g.phase === "playing" && g.turn === seat) ||
+        (g.phase === "claiming" &&
+          !!g.pending?.offers[seat] &&
+          g.pending.replies[seat] === undefined);
+      if (active) {
+        p.resumedDeadline = now + g.rules.turnSeconds * 1000;
+        g.overtimeCharged = g.overtimeCharged?.filter((s) => s !== seat);
+      }
+    }
+  }
+}
+/** The ten-second preparation clock begins only when all four seats are occupied. */
+export function refreshReadyDeadline(g: Game, now: number): boolean {
+  if (!g.table) return false;
+  const s = g.table.settings,
+    previous = g.table.readyDeadline;
+  if (
+    g.phase !== "waiting" ||
+    s.readyMode !== "manual" ||
+    !s.kickUnready ||
+    !g.players.every(Boolean)
+  )
+    g.table.readyDeadline = undefined;
+  else g.table.readyDeadline ??= now + s.kickAfterSeconds * 1000;
+  return previous !== g.table.readyDeadline;
+}
+export function unreadyExpired(g: Game, seat: Seat, now: number): boolean {
+  const p = g.players[seat];
+  return (
+    !!p && !p.ready && !!g.table?.readyDeadline && now >= g.table.readyDeadline
+  );
+}
+export function decisionCountdown(
+  v: View,
+  now: number,
+): { seconds: number; overtime: boolean } {
+  const seat = v.phase === "claiming" && v.actions.length ? v.me : v.turn;
+  const deadline = decisionDeadline(v, seat);
+  const overtime =
+    !!v.table?.settings.overtimeSeconds && deadline > 0 && now >= deadline;
+  return {
+    overtime,
+    seconds: Math.max(
+      0,
+      Math.ceil(
+        (overtime ? overtimeRemaining(v, seat, now) : deadline - now) / 1000,
+      ),
+    ),
+  };
+}

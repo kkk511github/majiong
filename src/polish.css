@@ -1,0 +1,1428 @@
+@font-face {
+  font-family: "Mahjong Brush";
+  src: url("/fonts/mahjong-brush.ttf") format("truetype");
+  font-display: swap;
+}
+
+.polished .tile-art {
+  position: relative;
+}
+.tile-art .tile-material {
+  position: absolute;
+  width: 113%;
+  height: 109%;
+  left: -6.5%;
+  top: -3.8%;
+  max-width: none;
+  mask: url("/tiles/tile-mask.svg") center / 100% 100% no-repeat;
+  -webkit-mask: url("/tiles/tile-mask.svg") center / 100% 100% no-repeat;
+}
+.tile-art .tile-ink {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.tile-art img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.polished .hand > .tile.selected::after {
+  inset: 0 0 6%;
+  border-radius: 8px;
+}
+.polished .discards .recent-discard .tile-art {
+  filter: drop-shadow(0 0 1px #ffd84a) drop-shadow(0 0 3px #fff3a680);
+}
+.polished .portrait-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background-image: url("/avatars.png");
+  background-size: 200% 200%;
+}
+.polished .avatar {
+  overflow: hidden;
+  border: 2px solid #f4da91;
+}
+.polished .avatar-0 .portrait-art {
+  background-position: 0 0;
+}
+.polished .avatar-1 .portrait-art {
+  background-position: 100% 0;
+}
+.polished .avatar-2 .portrait-art {
+  background-position: 0 100%;
+}
+.polished .avatar-3 .portrait-art {
+  background-position: 100% 100%;
+}
+
+.polished .brand {
+  font-family: "Mahjong Brush", sans-serif;
+}
+.polished .brand small {
+  font-family: sans-serif;
+}
+.polished .lobby-title h1 {
+  font-family: "Mahjong Brush", sans-serif;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: #fff6b7;
+  -webkit-text-stroke: 0.5px #ffe38c;
+  text-shadow:
+    0 2px #b37c31,
+    0 4px #76521f,
+    0 6px 13px #103b2380;
+}
+.polished .lobby-title p {
+  color: #eff5d6;
+  font-weight: 500;
+}
+.polished .start-game,
+.polished .primary {
+  background: linear-gradient(
+    #fff6aa 0%,
+    #ffda55 18%,
+    #ffc443 56%,
+    #ffac23 100%
+  );
+  border: 1px solid #fff4b8;
+  box-shadow:
+    inset 0 2px 0 #fff9cc,
+    inset 0 -2px 0 #ffd883,
+    0 5px 0 #b7681c,
+    0 8px 16px #14331e45;
+  color: #704014;
+  text-shadow: 0 1px #fff4b3;
+  font-weight: 800;
+}
+.polished .start-game strong {
+  font-weight: 850;
+}
+.polished .friend-actions button {
+  border: 1px solid #b9ffcd;
+  border-radius: 12px;
+  background: linear-gradient(#73d979 0%, #38b959 20%, #229940 100%);
+  color: #fffce5;
+  box-shadow:
+    inset 0 2px #b4f1b0,
+    0 4px #0b673c,
+    0 7px 14px #072f2733;
+  text-shadow: 0 1px #266b38;
+}
+.polished .friend-actions button:last-child {
+  background: linear-gradient(#70d4e1, #40accb 20%, #208ab4);
+  border-color: #b0edf4;
+  box-shadow:
+    inset 0 2px #adecf2,
+    0 4px #145b79,
+    0 7px 14px #062e3133;
+  text-shadow: 0 1px #155e79;
+}
+.polished .bottom-nav {
+  background: linear-gradient(#357858df, #1c563be8);
+  border-top: 1px solid #dacf8660;
+  box-shadow:
+    inset 0 2px #a3c58125,
+    0 -5px 20px #06302433;
+}
+.polished .bottom-nav button {
+  color: #c1d8b7;
+}
+.polished .bottom-nav button.active {
+  color: #fff0a0;
+  background: radial-gradient(ellipse at bottom, #e9d48530, transparent 70%);
+  text-shadow: 0 1px #604c1e;
+}
+.polished .waiting-seat {
+  background: linear-gradient(#4a8966c0, #24573fcc);
+  border-color: #b1c99380;
+}
+.polished .waiting-room {
+  background:
+    url("/felt.svg"), radial-gradient(ellipse at center, #2e7957, #104430);
+}
+.polished .modal {
+  background: linear-gradient(130deg, #fffdf0, #f5f0d9);
+  border-color: #e2bd68;
+  box-shadow:
+    inset 0 2px #fffdf5,
+    0 12px 40px #062b2480;
+}
+
+.polished .game-wrap {
+  background:
+    url("/felt.svg"),
+    radial-gradient(
+      ellipse at 50% 42%,
+      #469a70 0,
+      #32885d 42%,
+      #226e49 78%,
+      #165637 100%
+    );
+  box-shadow: inset 0 0 48px #173a2670;
+}
+.polished .game-wrap::before {
+  inset: 5px;
+  border: 2px solid #81935790;
+  border-radius: 25px;
+  box-shadow:
+    inset 0 0 0 2px #395337a0,
+    0 0 0 5px #25432bee;
+}
+.polished .mahjong-table::before {
+  content: "";
+  position: absolute;
+  inset: 15px 8% 8px;
+  border: 1px solid #15553738;
+  border-radius: 20%;
+  box-shadow:
+    0 1px 0 #c0e2a214,
+    inset 0 1px 0 #c0e2a212;
+  pointer-events: none;
+}
+.polished .game-topbar {
+  color: #e9edce;
+}
+.polished .game-topbar > span {
+  font-weight: 600;
+}
+.polished .game-topbar small {
+  background: #184e3699;
+  color: #e4edc9;
+}
+.polished .game-topbar .icon-button {
+  background: linear-gradient(#4b865b99, #28533a99);
+  color: #e7e8bd;
+  border: 1px solid #b5c38a60;
+  box-shadow:
+    inset 0 1px #d9e0b334,
+    0 2px 3px #18392850;
+}
+.polished .table-pattern {
+  position: absolute;
+  top: auto;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font:
+    400 30px "Mahjong Brush",
+    sans-serif;
+  color: #104d3329;
+  white-space: nowrap;
+  text-shadow: 0 1px #adcea314;
+}
+.polished .table-pattern small {
+  display: block;
+  text-align: center;
+  font: 10px sans-serif;
+  letter-spacing: 3px;
+  margin-top: 5px;
+}
+.polished .opponent-info {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  min-width: 0;
+  width: 76px;
+  flex-direction: column;
+  gap: 4px;
+}
+.polished .opponent-info .avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 9px;
+  box-shadow:
+    0 3px 0 #244e33,
+    0 5px 8px #163f3559;
+}
+.polished .opponent-info > div {
+  text-align: center;
+  min-width: 68px;
+}
+.polished .opponent-info strong {
+  font-size: 11px;
+  max-width: 76px;
+  font-weight: 600;
+  color: #fff9dd;
+  text-shadow: 0 1px 3px #183e27;
+}
+.polished .opponent-info div > span {
+  color: #f3df8d;
+  font-size: 10px;
+  margin-top: 3px;
+}
+.polished .opponent-info > small {
+  right: 0;
+  top: -5px;
+  padding: 2px 4px;
+  font-size: 7px;
+  border: 1px solid #ecd99a;
+  background: #c4aa58;
+  color: #4a4728;
+}
+.polished .opponent.active .opponent-info {
+  border: 0;
+  box-shadow: none;
+}
+.polished .opponent.active .avatar {
+  border-color: #fff3a4;
+  box-shadow:
+    0 0 0 2px #e7c35366,
+    0 0 16px #dce65860;
+}
+.polished .opponent-flowers {
+  color: #f0e6b0;
+  font-size: 9px;
+  justify-content: center;
+}
+.polished .table-center {
+  width: 86px;
+  height: 86px;
+  border: 2px solid #45663f;
+  border-radius: 13px;
+  background: conic-gradient(
+    from 45deg,
+    #3b5f49 0 25%,
+    #294d3d 0 50%,
+    #355946 0 75%,
+    #244333 0
+  );
+  box-shadow:
+    0 0 0 2px #b9c17655,
+    inset 0 1px #a1b681,
+    0 4px 7px #133d2677;
+  overflow: hidden;
+  gap: 1px;
+}
+.polished .table-center::before {
+  content: "";
+  position: absolute;
+  inset: 19px;
+  border: 1px solid #79967b;
+  border-radius: 5px;
+  background: linear-gradient(130deg, #0c2825, #294d43);
+  box-shadow: inset 0 2px 5px #071d21a0;
+}
+.polished .table-center strong {
+  position: relative;
+  z-index: 1;
+  font:
+    500 26px ui-monospace,
+    monospace;
+  color: #a7eee4;
+  text-shadow: 0 0 7px #5fe4d540;
+  margin-top: -3px;
+}
+.polished .table-center > small {
+  position: relative;
+  z-index: 1;
+  color: #e3eac8;
+  font-size: 7px;
+  margin-top: -1px;
+}
+.polished .table-center .compass-wind {
+  font: 600 11px sans-serif;
+  color: #abc3a2;
+  text-shadow: none;
+  text-align: center;
+}
+.polished .table-center .compass-wind.current {
+  color: #fffac1;
+  background: linear-gradient(#b1cf48, #689a2d);
+  border-radius: 3px;
+  box-shadow: 0 1px 4px #18342890;
+}
+.polished .wind-0,
+.polished .wind-2 {
+  width: 43px;
+  height: 15px;
+  line-height: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.polished .wind-0 {
+  bottom: 2px;
+}
+.polished .wind-2 {
+  top: 2px;
+}
+.polished .wind-1,
+.polished .wind-3 {
+  width: 15px;
+  height: 33px;
+  line-height: 33px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.polished .wind-1 {
+  right: 2px;
+}
+.polished .wind-3 {
+  left: 2px;
+}
+.polished .table-status {
+  color: #f7f5d2;
+  text-shadow: 0 1px #286244;
+  font-size: 11px;
+}
+.polished .my-info {
+  padding: 0 3px;
+  color: #eff0cf;
+}
+.polished .my-info .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+.polished .my-info .text-button {
+  background: linear-gradient(#54826499, #30573e99);
+  border: 1px solid #c1cf9c70;
+  border-radius: 8px;
+  color: #fff7d2;
+}
+.polished .hand-area::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: -30px;
+  right: -30px;
+  bottom: -10px;
+  height: 50px;
+  background: linear-gradient(transparent, #15452c38);
+  pointer-events: none;
+}
+.polished .hand {
+  gap: 1px;
+}
+.polished .game-actions > .action-button,
+.polished .game-actions > .hu-button,
+.polished .game-actions > .secondary {
+  border-radius: 50%;
+  min-width: 52px;
+  min-height: 52px;
+  padding: 7px 12px;
+  font-family: "Mahjong Brush", sans-serif;
+  font-size: 29px;
+  border: 2px solid #ffeeaa;
+  box-shadow:
+    inset 0 2px #ffffff90,
+    0 4px 0 #b48623,
+    0 5px 8px #1b553b55;
+  color: #88581b;
+  background: radial-gradient(circle at 35% 20%, #fffbd9, #ffe684 55%, #e8ad38);
+  text-shadow: 0 1px #fff6c9;
+}
+.polished .game-actions > .hu-button {
+  color: #fff5b5;
+  background: radial-gradient(circle at 35% 20%, #ff9e70, #e95739 55%, #bd3527);
+  box-shadow:
+    inset 0 2px #ffd5a8,
+    0 4px #8e351a,
+    0 5px 8px #1b553b55;
+  text-shadow: 0 2px #a34223;
+}
+.polished .game-actions > .secondary {
+  color: #ecffe4;
+  background: radial-gradient(circle at 35% 20%, #80c981, #53a466 55%, #327b46);
+  box-shadow:
+    inset 0 2px #cceaad,
+    0 4px #2c673b,
+    0 5px 8px #1b553b55;
+  text-shadow: 0 1px #346740;
+}
+.polished .game-actions > .discard-button {
+  border-radius: 12px;
+  min-height: 40px;
+}
+
+@media (orientation: landscape) {
+  .polished .lobby-title h1 {
+    font-size: clamp(46px, 6.5vw, 88px);
+    line-height: 1.05;
+    margin: 4px 0 12px;
+  }
+  .polished .opponent-top {
+    top: 0;
+    left: 50%;
+    width: 290px;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .polished .opponent-top .opponent-info {
+    position: absolute;
+    top: 0;
+    right: -82px;
+  }
+  .polished .opponent-top .opponent-flowers {
+    position: absolute;
+    right: -60px;
+    top: 85px;
+  }
+  .polished .opponent-left,
+  .polished .opponent-right {
+    top: 35%;
+    width: 76px;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .polished .opponent-left {
+    left: 8px;
+  }
+  .polished .opponent-right {
+    right: 8px;
+  }
+  .polished .opponent-left .opponent-hand {
+    left: 90px;
+    top: -25px;
+  }
+  .polished .opponent-right .opponent-hand {
+    right: 90px;
+    top: -25px;
+  }
+  .polished .opponent-melds {
+    gap: 3px;
+  }
+  .polished .opponent-top .tile-back {
+    width: 15px;
+    height: 21px;
+  }
+  .polished .opponent-left .tile-back,
+  .polished .opponent-right .tile-back {
+    width: 23px;
+    height: 8px;
+  }
+  .polished .discard-field {
+    width: min(355px, 49vw);
+    height: 160px;
+    top: 54%;
+  }
+  .polished .discards {
+    width: 134px;
+    gap: 1px;
+    max-height: 59px;
+    padding-bottom: 1px;
+  }
+  .polished .discards .tile.small {
+    width: 21px;
+    height: 29px;
+  }
+  .polished .discards-0 {
+    bottom: -12px;
+  }
+  .polished .discards-2 {
+    top: -9px;
+  }
+  .polished .discards-1 {
+    right: -48px;
+  }
+  .polished .discards-3 {
+    left: -48px;
+  }
+  .polished .hand-area {
+    position: relative;
+  }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .polished .site-header {
+    height: 57px;
+  }
+  .polished .bottom-nav {
+    height: 52px;
+  }
+  .polished[data-page="home"] .lobby {
+    height: calc(var(--app-height) - 109px);
+  }
+  .polished .lobby-play-panel {
+    bottom: 9px;
+  }
+  .polished .opponent-info .avatar {
+    width: 45px;
+    height: 45px;
+  }
+  .polished .opponent-top .opponent-flowers {
+    top: 79px;
+  }
+  .polished .table-center {
+    width: 79px;
+    height: 79px;
+  }
+  .polished .table-center::before {
+    inset: 17px;
+  }
+  .polished .table-center strong {
+    font-size: 24px;
+  }
+  .polished .game-wrap {
+    grid-template-rows: 38px minmax(0, 1fr) calc(var(--hand-height) + 55px);
+  }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .polished .site-header {
+    height: 48px;
+  }
+  .polished .bottom-nav {
+    height: 48px;
+  }
+  .polished[data-page="home"] .lobby {
+    height: calc(var(--app-height) - 96px);
+  }
+  .polished .lobby-title h1 {
+    font-size: 44px;
+  }
+  .polished .lobby-play-panel {
+    width: 300px;
+    bottom: 7px;
+  }
+  .polished .friend-actions {
+    margin-top: 10px;
+  }
+  .polished .opponent-info .avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .polished .opponent-info strong {
+    font-size: 10px;
+  }
+  .polished .opponent-info div > span {
+    font-size: 9px;
+  }
+  .polished .opponent-top {
+    width: 230px;
+  }
+  .polished .opponent-top .opponent-info {
+    right: -65px;
+  }
+  .polished .opponent-top .opponent-flowers {
+    display: none;
+  }
+  .polished .opponent-left .opponent-hand,
+  .polished .opponent-right .opponent-hand {
+    display: none;
+  }
+  .polished .discard-field {
+    width: min(310px, 47vw);
+    height: 124px;
+  }
+  .polished .table-center {
+    width: 66px;
+    height: 66px;
+  }
+  .polished .table-center::before {
+    inset: 15px;
+  }
+  .polished .table-center strong {
+    font-size: 20px;
+  }
+  .polished .table-center .compass-wind {
+    font-size: 9px;
+  }
+  .polished .wind-0,
+  .polished .wind-2 {
+    height: 12px;
+    line-height: 12px;
+    width: 32px;
+  }
+  .polished .wind-1,
+  .polished .wind-3 {
+    width: 12px;
+  }
+  .polished .discards {
+    width: 115px;
+    max-height: 49px;
+  }
+  .polished .discards .tile.small {
+    width: 18px;
+    height: 24px;
+  }
+  .polished .discards-1 {
+    right: -39px;
+  }
+  .polished .discards-3 {
+    left: -39px;
+  }
+  .polished .game-actions > .action-button,
+  .polished .game-actions > .hu-button,
+  .polished .game-actions > .secondary {
+    min-height: 43px;
+    min-width: 43px;
+    font-size: 23px;
+  }
+  .polished .table-pattern {
+    display: none;
+  }
+}
+
+/* Fixed grid sectors; older discards remain available in the public overview. */
+@media (orientation: landscape) {
+  .polished .discard-field {
+    inset: 28px 142px 23px;
+    width: auto;
+    height: auto;
+    transform: none;
+  }
+  .polished .discard-field > * {
+    --compass-size: clamp(64px, calc(var(--river-height, 180px) * 0.42), 100px);
+  }
+  .polished .discards {
+    display: grid;
+    grid-template-columns: repeat(
+      var(--river-columns),
+      var(--river-tile-width)
+    );
+    grid-auto-rows: var(--river-tile-height);
+    gap: 1px;
+    width: max-content;
+    height: calc(
+      var(--river-rows) * var(--river-tile-height) + (var(--river-rows) - 1) *
+        1px
+    );
+    max-height: none;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    align-content: start;
+    transform-origin: center;
+    cursor: zoom-in;
+  }
+  .polished .discards:focus-visible {
+    outline: 2px solid #ffe399;
+    outline-offset: 3px;
+  }
+  .polished .discards .tile.small {
+    width: var(--river-tile-width);
+    height: var(--river-tile-height);
+  }
+  .polished .discards-0 {
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 0;
+    transform: translateX(-50%);
+  }
+  .polished .discards-2 {
+    left: 50%;
+    right: auto;
+    top: 0;
+    bottom: auto;
+    transform: translateX(-50%) rotate(180deg);
+  }
+  .polished .discards-1 {
+    left: calc(50% + min(44%, 150px));
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translate(-50%, -50%) rotate(-90deg);
+  }
+  .polished .discards-3 {
+    left: calc(50% - min(44%, 150px));
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  .polished .table-center {
+    width: var(--compass-size);
+    height: var(--compass-size);
+    border-radius: 10px;
+  }
+  .polished .table-center::before {
+    inset: 22%;
+  }
+  .polished .table-center strong {
+    font-size: clamp(15px, calc(var(--river-height, 180px) * 0.08), 24px);
+  }
+  .polished .table-center .compass-wind {
+    font-size: clamp(
+      8px,
+      calc(var(--river-height, 180px) * 0.037000000000000005),
+      11px
+    );
+  }
+  .polished .table-center .wind-0,
+  .polished .table-center .wind-2 {
+    height: 19%;
+    line-height: 1;
+    width: 50%;
+    display: grid;
+    place-items: center;
+  }
+  .polished .table-center .wind-1,
+  .polished .table-center .wind-3 {
+    width: 19%;
+    height: 42%;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+  }
+  .polished .table-center > small {
+    font-size: clamp(
+      5px,
+      calc(var(--river-height, 180px) * 0.027999999999999997),
+      7px
+    );
+  }
+  .polished .table-pattern {
+    display: none;
+  }
+
+  .polished .opponent-rack {
+    display: flex;
+    align-items: end;
+    gap: 5px;
+  }
+  .polished .opponent-rack .opponent-hand {
+    position: static;
+    width: auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 1px;
+  }
+  .polished .opponent-rack .opponent-melds {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    max-width: none;
+    gap: 3px;
+  }
+  .polished .opponent-rack .opponent-melds > span {
+    display: flex;
+    gap: 0;
+  }
+  .polished .opponent-top .opponent-rack .tile.small {
+    width: 14px;
+    height: 20px;
+  }
+  .polished .opponent-left .opponent-rack,
+  .polished .opponent-right .opponent-rack {
+    position: absolute;
+    top: 22px;
+    width: max-content;
+  }
+  .polished .opponent-left .opponent-rack {
+    left: 90px;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  .polished .opponent-right .opponent-rack {
+    right: 90px;
+    transform: translate(50%, -50%) rotate(-90deg);
+  }
+  .polished .opponent-left .opponent-rack .tile-back,
+  .polished .opponent-right .opponent-rack .tile-back {
+    width: 7px;
+    height: 20px;
+    background-image: url("/tiles/back.svg");
+  }
+  .polished .opponent-left .opponent-rack .tile.small,
+  .polished .opponent-right .opponent-rack .tile.small {
+    width: 11px;
+    height: 16px;
+  }
+
+  .polished .self-melds {
+    display: flex;
+    align-items: end;
+    gap: 5px;
+    margin-right: 9px;
+  }
+  .polished .self-melds .meld {
+    display: flex;
+    gap: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .polished .self-melds .tile.small {
+    width: calc(var(--hand-tile) * 0.65);
+    height: calc(var(--hand-height) * 0.65);
+  }
+  .polished .self-melds small {
+    display: none;
+  }
+  .polished .game-actions .claim-tile-focus {
+    position: static;
+    transform: none;
+    background: none;
+    padding: 0 4px 0 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .polished .game-actions .claim-tile-focus > .tile {
+    width: 30px;
+    height: 42px;
+  }
+  .polished .game-actions > .self-kong-button {
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 58px;
+    padding: 3px 7px;
+    font-size: 24px;
+    line-height: 1.1;
+  }
+  .polished .self-kong-button small {
+    display: block;
+    font: 10px sans-serif;
+  }
+  .polished .game-actions > .hu-button {
+    white-space: nowrap;
+  }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .polished .discard-field {
+    inset: 23px 114px 20px;
+  }
+  .polished .opponent-left .opponent-rack {
+    left: 75px;
+  }
+  .polished .opponent-right .opponent-rack {
+    right: 75px;
+  }
+  .polished .opponent-rack .opponent-hand {
+    display: none;
+  }
+  .polished .opponent-top .opponent-rack .tile.small {
+    width: 11px;
+    height: 15px;
+  }
+  .polished .opponent-left .opponent-rack .tile.small,
+  .polished .opponent-right .opponent-rack .tile.small {
+    width: 9px;
+    height: 13px;
+  }
+  .polished .game-actions {
+    gap: 5px;
+  }
+  .polished .game-actions .claim-tile-focus > .tile {
+    width: 25px;
+    height: 35px;
+  }
+  .polished .game-actions > .self-kong-button {
+    min-width: 45px;
+    font-size: 21px;
+  }
+}
+.polished .table-overview-dialog {
+  width: min(900px, 92vw);
+}
+.polished .table-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+}
+.polished .table-overview section {
+  padding: 9px;
+  border: 1px solid #d5d7b7;
+  border-radius: 9px;
+  background: #e9efd9;
+}
+.polished .table-overview h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.polished .table-overview h3 > span {
+  color: #fff6c3;
+  background: #477e51;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.polished .table-overview h3 small {
+  margin-left: auto;
+  color: #677a61;
+  font-size: 10px;
+  font-weight: 400;
+}
+.polished .overview-discards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+}
+.polished .table-overview .tile.small {
+  width: 23px;
+  height: 32px;
+}
+.polished .overview-melds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  margin-top: 8px;
+  border-top: 1px solid #ced8be;
+  padding-top: 6px;
+}
+.polished .overview-melds > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.polished .overview-melds > div > span {
+  display: flex;
+}
+.polished .overview-melds small {
+  color: #667a5c;
+  font-size: 9px;
+  text-align: center;
+}
+.polished .overview-flowers,
+.polished .overview-flowers > span {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1px;
+}
+.polished .overview-flowers {
+  color: #788948;
+  margin-top: 7px;
+  gap: 5px;
+}
+.polished .overview-melds .tile.small,
+.polished .overview-flowers .tile.small {
+  width: 18px;
+  height: 25px;
+}
+@media (max-height: 400px) {
+  .polished .table-overview {
+    gap: 8px;
+  }
+  .polished .table-overview h3 {
+    font-size: 11px;
+    gap: 4px;
+  }
+  .polished .table-overview h3 small {
+    font-size: 9px;
+  }
+  .polished .table-overview section {
+    padding: 6px;
+  }
+}
+@media (orientation: landscape) {
+  .polished .action-bar {
+    pointer-events: none;
+  }
+  .polished .game-actions > *,
+  .polished .hand-help {
+    pointer-events: auto;
+  }
+}
+@media (orientation: landscape) and (max-width: 750px) {
+  .polished .discard-field {
+    right: 154px;
+  }
+  .polished .opponent-top .opponent-info {
+    right: calc(50% - 50vw + 16px);
+    top: -1px;
+  }
+  .polished .opponent-top .opponent-info .avatar {
+    width: 28px;
+    height: 28px;
+  }
+  .polished .opponent-top .opponent-flowers {
+    display: none;
+  }
+}
+.polished .opponent {
+  pointer-events: none;
+}
+.polished .opponent-info,
+.polished .opponent-rack .tile {
+  pointer-events: auto;
+}
+.polished .table-overview-dialog {
+  width: min(720px, 92vw);
+  max-height: calc(var(--app-height) - 24px);
+  padding: 12px 18px 16px;
+}
+.polished .table-overview-dialog .modal-head {
+  min-height: 36px;
+  margin-bottom: 6px;
+}
+.polished .table-overview-dialog .modal-head h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.polished .table-overview-dialog .modal-head .icon-button {
+  width: 36px;
+  height: 36px;
+}
+.polished .overview-seats {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+.polished .overview-seats button {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 5px 3px;
+  font-size: 12px;
+  border: 1px solid #b6c69a;
+  border-radius: 7px;
+  background: #e6ebd3;
+  color: #526c42;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.polished .overview-seats button[aria-pressed="true"] {
+  color: #fff5bd;
+  background: linear-gradient(#619662, #3f784c);
+  border-color: #749750;
+  box-shadow: inset 0 1px #a0c587;
+}
+.polished .table-overview {
+  display: block;
+}
+.polished .table-overview section {
+  padding: 9px 10px;
+}
+.polished .table-overview .tile.small {
+  width: 27px;
+  height: 37px;
+}
+.polished .overview-melds .tile.small,
+.polished .overview-flowers .tile.small {
+  width: 22px;
+  height: 30px;
+}
+@media (max-height: 360px) {
+  .polished .table-overview-dialog {
+    padding: 9px 12px 11px;
+  }
+  .polished .table-overview .tile.small {
+    width: 24px;
+    height: 33px;
+  }
+  .polished .overview-melds .tile.small,
+  .polished .overview-flowers .tile.small {
+    width: 19px;
+    height: 26px;
+  }
+  .polished .overview-seats {
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .polished .overview-seats button {
+    font-size: 11px;
+  }
+  .polished .table-overview section {
+    padding: 6px 8px;
+  }
+  .polished .overview-melds {
+    padding-top: 4px;
+    margin-top: 5px;
+  }
+  .polished .overview-flowers {
+    margin-top: 4px;
+  }
+}
+
+/* Sculpted resin and lacquer are supplied by the complete face artwork. */
+.polished .sculpted-tile {
+  background-repeat: no-repeat;
+  border-radius: 16% 16% 19% 19% / 10% 10% 12% 12%;
+}
+.polished .tile-back,
+.polished .opponent-left .opponent-rack .tile-back,
+.polished .opponent-right .opponent-rack .tile-back {
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+/* A single crafted emblem links the home screen and the installed app. */
+.polished .brand-emblem {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #eacf8970;
+  box-shadow: 0 3px 10px #002b2855;
+}
+.polished .brand {
+  gap: 11px;
+}
+.polished .brand small {
+  font-size: 7px;
+  letter-spacing: 2.4px;
+  margin-top: 4px;
+}
+.polished .audio-settings {
+  width: 100%;
+}
+.polished .audio-setting {
+  padding-bottom: 9px;
+}
+.polished .audio-setting .setting-row {
+  border-bottom: 0;
+  width: 100%;
+  padding-bottom: 7px;
+}
+.polished .audio-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+}
+.polished .audio-label small {
+  font-size: 10px;
+  opacity: 0.65;
+  font-weight: 400;
+}
+.polished .audio-volume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  padding: 0 3px 0 32px;
+}
+.polished .audio-volume input {
+  flex: 1;
+  min-width: 0;
+  height: 25px;
+  padding: 0;
+  accent-color: #168363;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+.polished .audio-volume output {
+  width: 32px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.polished .audio-volume input:disabled {
+  opacity: 0.35;
+}
+.polished .voice-preview {
+  display: block;
+  margin: 6px 0 0 auto;
+  padding: 6px 10px;
+  min-height: 32px;
+  font-size: 11px;
+  border: 1px solid #6b9c875c;
+  border-radius: 8px;
+  background: #e8eee1;
+  color: #28684f;
+}
+.polished .game-wrap {
+  background:
+    url("/felt.svg"),
+    radial-gradient(
+      ellipse at 50% 42%,
+      #45a282 0%,
+      #25886a 46%,
+      #11654e 82%,
+      #0d503e 100%
+    );
+  box-shadow: inset 0 0 55px #073c3270;
+}
+.polished .game-wrap::before {
+  border-color: #b9c58b80;
+  box-shadow:
+    inset 0 0 0 1px #2d725b,
+    0 0 0 4px #124d40;
+}
+.polished .mahjong-table::before {
+  border-radius: 16px;
+  border-color: #c4e5b512;
+  box-shadow: inset 0 1px #072f3e13;
+}
+.polished .table-center {
+  border: 2px solid #b7bc86;
+  border-radius: 15%;
+  background: conic-gradient(
+    from 45deg,
+    #164b47 0 25%,
+    #1c5750 0 50%,
+    #164b47 0 75%,
+    #1c5750 0
+  );
+  box-shadow:
+    0 0 0 3px #1b5b4780,
+    inset 0 1px #e6e1b47a,
+    0 5px 10px #063f3870;
+}
+.polished .table-center::before {
+  inset: 23%;
+  border: 1px solid #a8ceaa90;
+  border-radius: 19%;
+  background: linear-gradient(145deg, #072f33, #0d4943);
+  box-shadow: inset 0 2px 4px #01251c;
+}
+.polished .table-center strong {
+  color: #fff0a8;
+  font-family: "Arial Rounded MT Bold", system-ui, sans-serif;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 1px 5px #041f21;
+}
+.polished .table-center > small {
+  color: #bddac4;
+  font-size: 7px;
+  margin-top: 2px;
+}
+.polished .table-center .compass-wind {
+  color: #8ebdaa;
+  font-weight: 700;
+}
+.polished .table-center .compass-wind.current {
+  color: #244626;
+  background: linear-gradient(#fff2a5, #c9d661);
+  box-shadow: 0 0 10px #e2ef7940;
+}
+.polished .table-center.urgent strong {
+  color: #ff9c70;
+}
+.polished .player-portrait {
+  display: inline-flex;
+  position: relative;
+  flex: 0 0 auto;
+}
+.polished .turn-countdown {
+  position: absolute;
+  right: -12px;
+  bottom: -6px;
+  z-index: 3;
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #103f34;
+  color: #fff2a0;
+  box-shadow: 0 2px 5px #00372a80;
+  font-variant-numeric: tabular-nums;
+}
+.polished .turn-countdown svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.polished .turn-countdown circle {
+  fill: none;
+  stroke-width: 3;
+}
+.polished .timer-track {
+  stroke: #416958;
+}
+.polished .timer-progress {
+  stroke: #ecdc89;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s linear;
+}
+.polished .turn-countdown b {
+  font-size: 13px;
+  line-height: 1;
+}
+.polished .turn-countdown.urgent {
+  color: #ffcf9e;
+  background: #672f25;
+}
+.polished .turn-countdown.urgent .timer-progress {
+  stroke: #ff9460;
+}
+.polished .opponent.active .avatar {
+  box-shadow:
+    0 0 0 2px #f0df8b,
+    0 0 16px #f0df8b45;
+}
+.polished .hand > .tile.drawn {
+  margin-inline: clamp(13px, 2vw, 22px) 0;
+}
+.polished .hand > .tile.drawn:not(.selected)::after {
+  content: "";
+  position: absolute;
+  inset: 1px 2px 7%;
+  border-radius: 12%;
+  border: 1.5px solid #f2d991;
+  box-shadow: inset 0 0 6px #eec76338;
+  pointer-events: none;
+}
+@media (orientation: landscape) {
+  .polished .table-center strong {
+    font-size: clamp(22px, calc(var(--river-height, 180px) * 0.125), 37px);
+  }
+  .polished .table-center .compass-wind {
+    font-size: clamp(10px, calc(var(--river-height, 180px) * 0.048), 14px);
+  }
+  .polished .table-center > small {
+    font-size: clamp(5px, calc(var(--river-height, 180px) * 0.031), 8px);
+  }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .polished .brand-emblem {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+  .polished .brand {
+    gap: 9px;
+  }
+  .polished .brand small {
+    font-size: 6px;
+    letter-spacing: 1.7px;
+  }
+  .polished .audio-settings {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .polished .audio-volume {
+    padding-left: 0;
+    gap: 7px;
+  }
+  .polished .turn-countdown {
+    width: 27px;
+    height: 27px;
+    right: -10px;
+    bottom: -5px;
+  }
+  .polished .turn-countdown b {
+    font-size: 12px;
+  }
+  .polished .wall-counter {
+    font-size: 9px;
+    margin-left: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .polished .timer-progress {
+    transition: none;
+  }
+}
+/* Keep the local player's clock inside the bottom safe area instead of below the avatar. */
+.polished .my-info .player-portrait {
+  align-items: center;
+  gap: 7px;
+}
+.polished .my-info .turn-countdown {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  flex: 0 0 auto;
+  width: 25px;
+  height: 25px;
+}

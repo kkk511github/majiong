@@ -495,12 +495,17 @@ export function App() {
           entry.contentRect.width,
           entry.contentRect.height,
           Math.min(48, window.innerWidth * 0.06),
+          // The hand container stays put when a selected tile rises 9px.
+          // Leave another 9px of visible felt above that raised tile.
+          (handRef.current?.getBoundingClientRect().top ?? window.innerHeight) -
+            viewport.getBoundingClientRect().top -
+            18,
         ),
       );
     });
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [gameActive]);
+  }, [gameActive, handRef]);
   const hintDiscard =
     mine?.hand.length && mine.hand.length % 3 === 2
       ? (selected ?? drawnTile)
@@ -690,7 +695,16 @@ export function App() {
                   </div>
                 </section>
                 <section className="preferences">
-                  <button className="setting-row" onClick={() => setModal("legal")}><span><ShieldCheck size={20} />用户协议与隐私说明</span><ChevronRight size={18} /></button>
+                  <button
+                    className="setting-row"
+                    onClick={() => setModal("legal")}
+                  >
+                    <span>
+                      <ShieldCheck size={20} />
+                      用户协议与隐私说明
+                    </span>
+                    <ChevronRight size={18} />
+                  </button>
                   {admin && (
                     <button
                       className="setting-row"
@@ -765,7 +779,8 @@ export function App() {
                   <div className="privacy-note">
                     <ShieldCheck size={20} />
                     <p>
-                      账号与联机战绩保存在对局服务；所有会员可通过牌局 ID 查看已结束牌局的回放。声音设置和单人练习保存在此设备。
+                      账号与联机战绩保存在对局服务；所有会员可通过牌局 ID
+                      查看已结束牌局的回放。声音设置和单人练习保存在此设备。
                     </p>
                   </div>
                   <span className="version">金陵麻将 0.6.3 · 试打版</span>
@@ -1593,7 +1608,13 @@ export function App() {
           </ol>
         </Dialog>
       )}
-      {modal === "legal" && <Dialog title="用户协议与隐私说明" close={() => setModal(null)}><div className="legal-viewer"><LegalContent /></div></Dialog>}
+      {modal === "legal" && (
+        <Dialog title="用户协议与隐私说明" close={() => setModal(null)}>
+          <div className="legal-viewer">
+            <LegalContent />
+          </div>
+        </Dialog>
+      )}
       {modal === "rules" && (
         <Dialog title="本桌规则" close={() => setModal(null)}>
           {v?.table && <TableSettingsSummary table={v.table} rules={v.rules} />}

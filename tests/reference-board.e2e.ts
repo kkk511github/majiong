@@ -6,6 +6,8 @@ import late from "./fixtures/late-table.json" with { type: "json" };
 for (const [width, height, edge, bottom] of [
   [874, 402, 62, 21],
   [844, 390, 59, 21],
+  [932, 430, 59, 21],
+  [812, 375, 44, 21],
   [568, 320, 0, 0],
   [1280, 853, 0, 0],
 ]) {
@@ -76,11 +78,7 @@ for (const [width, height, edge, bottom] of [
       .first()
       .boundingBox();
     // All rivers use the larger opponent size, including our own discards.
-    const previousHeight =
-      width === 874 ? 23 : width === 844 ? 22 : width === 568 ? 14 : 42;
-    expect(Math.abs(initial!.height - previousHeight * 1.44)).toBeLessThan(
-      0.05,
-    );
+    expect(initial!.height).toBeGreaterThanOrEqual(20);
     for (const seat of [1, 2, 3]) {
       const other = (await page
         .locator(`.discards-${seat} .tile`)
@@ -97,6 +95,8 @@ for (const [width, height, edge, bottom] of [
     await page.screenshot({
       path: `test-results/screenshots/room-reflow-${width}.png`,
     });
+    await page.locator(".hand > .tile").nth(7).click();
+    await page.waitForTimeout(300);
     for (const count of [8, 9, 16, 17, 24, 32]) {
       view.players.forEach((p, i) => {
         if (p) p.discards = Array.from({ length: count }, (_, j) => i * 32 + j);
@@ -137,6 +137,23 @@ for (const [width, height, edge, bottom] of [
       });
       expect(issues).toEqual([]);
     }
+    for (const tile of await page.locator(".hand > .tile").all()) {
+      await tile.click();
+      await expect(tile).toHaveClass(/selected/);
+      await expect
+        .poll(() =>
+          tile.evaluate((el) => {
+            const top = el.getBoundingClientRect().top;
+            const bottom = Math.max(
+              ...[...document.querySelectorAll(".discards-0 .tile")].map(
+                (t) => t.getBoundingClientRect().bottom,
+              ),
+            );
+            return top - bottom;
+          }),
+        )
+        .toBeGreaterThanOrEqual(8);
+    }
     await page.screenshot({
       path: `test-results/screenshots/room-full-${width}.png`,
     });
@@ -176,38 +193,73 @@ for (const [width, height, edge, bottom] of [
         }),
       ).toBe(true);
     }
-    const collisions = await page.locator("#table-board").evaluate((el) => {
-      const boxes = [
-        ...el.querySelectorAll(
-          ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button",
-        ),
-      ];
-      const hit = (a: Element, b: Element) => {
-        const r = a.getBoundingClientRect(),
-          s = b.getBoundingClientRect();
-        return (
-          Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.6 &&
-          Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.6
+    const publicCollisions = () =>
+      page.locator("#table-board").evaluate((el) => {
+        const boxes = [
+          ...el.querySelectorAll(
+            ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button",
+          ),
+        ];
+        const hit = (a: Element, b: Element) => {
+          const r = a.getBoundingClientRect(),
+            s = b.getBoundingClientRect();
+          return (
+            Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.6 &&
+            Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.6
+          );
+        };
+        return boxes.flatMap((a, i) =>
+          boxes
+            .slice(i + 1)
+            .filter((b) => a.parentElement !== b.parentElement && hit(a, b))
+            .map((b) => ({
+              a: a.parentElement!.className,
+              b: b.parentElement!.className,
+              box: [
+                a.getBoundingClientRect().toJSON(),
+                b.getBoundingClientRect().toJSON(),
+              ],
+            })),
         );
-      };
-      return boxes.flatMap((a, i) =>
-        boxes
-          .slice(i + 1)
-          .filter((b) => a.parentElement !== b.parentElement && hit(a, b))
-          .map((b) => ({
-            a: a.parentElement!.className,
-            b: b.parentElement!.className,
-            box: [
-              a.getBoundingClientRect().toJSON(),
-              b.getBoundingClientRect().toJSON(),
-            ],
-          })),
-      );
-    });
-    expect(collisions).toEqual([]);
+      });
+    expect(await publicCollisions()).toEqual([]);
     await page.screenshot({
       path: `test-results/screenshots/room-actions-${width}.png`,
     });
+    const topTray = page.locator(".opponent-top .flower-rack");
+    await expect(topTray.locator(".flower-rack-label")).toBeVisible();
+    expect(
+      await topTray.evaluate((el) => {
+        const style = getComputedStyle(el);
+        const frame = el.getBoundingClientRect();
+        return (
+          parseFloat(style.borderTopWidth) >= 1 &&
+          style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+          [...el.querySelectorAll(".tile")].every((t) => {
+            const r = t.getBoundingClientRect();
+            return (
+              r.left > frame.left &&
+              r.right < frame.right &&
+              r.top > frame.top &&
+              r.bottom < frame.bottom
+            );
+          })
+        );
+      }),
+    ).toBe(true);
+    for (const position of ["left", "right", "top"]) {
+      const ratio = await page
+        .locator(`.opponent-${position} .opponent-melds .tile`)
+        .first()
+        .evaluate((el) => {
+          const meld = getComputedStyle(el);
+          const flower = getComputedStyle(
+            document.querySelector(".hand-support .flower-rack .tile")!,
+          );
+          return parseFloat(meld.width) / parseFloat(flower.width);
+        });
+      expect(ratio).toBeCloseTo(1.2, 2);
+    }
     view.players[2]!.flowers = Array.from({ length: 20 }, (_, i) => 124 + i);
     view.revision++;
     push();
@@ -235,6 +287,7 @@ for (const [width, height, edge, bottom] of [
     view.revision++;
     push();
     await page.waitForTimeout(2200);
+    expect(await publicCollisions()).toEqual([]);
     await page.screenshot({
       path: `test-results/screenshots/room-actions-preview-${width}.png`,
     });

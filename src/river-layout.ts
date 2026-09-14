@@ -1,5 +1,10 @@
 // Reserve every slot from the available felt. Discard counts never resize tiles.
-export function riverLayoutFor(width: number, height: number, spread = 0) {
+export function riverLayoutFor(
+  width: number,
+  height: number,
+  spread = 0,
+  maxTrackBottom = Infinity,
+) {
   const baselineWidth = width - 2 * spread;
   const compass = baselineWidth < 420 ? 68 : 82;
   const playerGap = 9,
@@ -17,12 +22,18 @@ export function riverLayoutFor(width: number, height: number, spread = 0) {
       break;
     }
   }
-  tileHeight *= 1.44;
+  const topOffset = height < 300 && baselineWidth > 300 ? -8 : 0;
+  // The old enlargement could extend past the field into a raised hand.
+  // Reserve two horizontal rows and eight sideways tiles, plus their gaps.
+  // This limit depends only on the viewport, never on the number of discards.
+  tileHeight = Math.min(
+    tileHeight * 1.44,
+    (maxTrackBottom - topOffset - 6) / 7.76,
+  );
   const tileWidth = tileHeight * 0.72;
   const farTileHeight = tileHeight;
   const farTileWidth = tileWidth;
   const trackGap = 5;
-  const topOffset = height < 300 && baselineWidth > 300 ? -14 : 0;
   // Keep the original size calculation: the extra space is for larger public
   // tiles, not a new fit-to-count scale that would undo the 20% increase.
   const trackHeight = Math.max(

@@ -11,6 +11,8 @@
   --rail: clamp(120px, 17vw, 185px);
   --public-w: clamp(16px, 4.6vh, 26px);
   --public-h: calc(var(--public-w) * 1.45);
+  --meld-w: calc(var(--public-w) * 1.2);
+  --meld-h: calc(var(--meld-w) * 1.45);
   --flower-width: calc(var(--public-w) * 10 + 9px);
   --hand-tile: min(
     74px,
@@ -311,7 +313,7 @@
   transform: none;
 }
 #table-board .opponent-hand .tile-back {
-  width: clamp(8px, 2.6vh, 15px);
+  width: clamp(6px, 1.5vh, 11px);
   height: var(--public-h);
   flex: 0 0 auto;
   margin: 0;
@@ -320,10 +322,17 @@
 #table-board .opponent-top .opponent-hand .tile-back {
   width: var(--public-w);
 }
-#table-board .opponent-hand .tile.small,
-#table-board .opponent-melds :is(.tile.small, .tile-back) {
+#table-board .opponent-hand .tile.small {
   width: var(--public-w);
   height: var(--public-h);
+  flex: 0 0 auto;
+  aspect-ratio: auto;
+  margin: 0;
+  transform: none;
+}
+#table-board .opponent-melds :is(.tile.small, .tile-back) {
+  width: var(--meld-w);
+  height: var(--meld-h);
   flex: 0 0 auto;
   aspect-ratio: auto;
   margin: 0;
@@ -408,8 +417,15 @@
   :is(.opponent-left, .opponent-right)
   > .flower-rack
   .flower-rack-tiles {
-  grid-template-columns: repeat(min(4, var(--flower-count)), var(--public-w));
+  grid-template-columns: repeat(min(3, var(--flower-count)), var(--public-w));
 }
+#table-board
+  :is(.opponent-left, .opponent-right)
+  > .flower-rack
+  .flower-rack-tiles:has(> .tile:nth-child(13)) {
+  grid-template-columns: repeat(4, var(--public-w));
+}
+
 #table-board .opponent-top > .flower-rack {
   top: 40px;
   right: var(--edge-r);
@@ -977,6 +993,12 @@
     height: 26px;
     min-height: 26px;
   }
+  #table-board .game-actions:has(> button:nth-child(4)) {
+    display: grid;
+    grid-template-columns: repeat(2, var(--action-size));
+    height: auto;
+    gap: 4px;
+  }
   #table-board .hand-help {
     display: none;
   }
@@ -1177,7 +1199,7 @@
   right: calc(var(--edge-r) + var(--rail) + 12px - min(48px, 6vw));
 }
 #table-board .opponent-right .opponent-rack {
-  right: calc(var(--edge-r) + var(--rail) - 46px);
+  right: calc(var(--edge-r) + var(--rail) - 24px);
 }
 #table-board .my-info > div:last-child {
   left: auto;
@@ -1251,7 +1273,17 @@
     .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
     top: calc(
       (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
-        2 + 34px
+        2 + 28px
+    );
+  }
+}
+@media (min-width: 651px) and (max-height: 600px) {
+  #table-board
+    .opponent-right
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    top: calc(
+      (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
+        2 + 20px
     );
   }
 }
@@ -1261,7 +1293,7 @@
     .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
     top: calc(
       (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
-        2 - 2px
+        2 - 10px
     );
   }
   #table-board .claim-source {
@@ -1306,7 +1338,7 @@
 #table-board .opponent-top .opponent-rack {
   left: 50%;
   gap: 3px;
-  align-items: center;
+  align-items: flex-start;
 }
 #table-board .opponent-top .opponent-melds {
   gap: 2px;
@@ -1314,24 +1346,15 @@
 #table-board .opponent-top .opponent-rack > .flower-rack {
   position: static;
   inset: auto;
-  display: flex;
   flex-direction: row;
-  gap: 0;
-  margin: 0;
-  padding: 0 0 0 4px;
-  border: 0;
-  border-left: 1px solid #b6a16a88;
-  border-radius: 0;
-  background: none;
-  transform: none;
+  align-items: center;
+  margin-left: 5px;
 }
 #table-board .opponent-top .opponent-rack > .flower-rack .flower-rack-label {
-  display: none;
+  white-space: nowrap;
 }
 #table-board .opponent-top .opponent-rack > .flower-rack .flower-rack-tiles {
-  display: grid;
-  grid-template-columns: repeat(var(--flower-count), var(--public-w));
-  gap: 0;
+  grid-template-columns: repeat(min(10, var(--flower-count)), var(--public-w));
 }
 #table-board .opponent-right .opponent-info {
   top: calc(var(--field-top) + 10px);
@@ -1352,7 +1375,7 @@
 }
 @media (max-height: 600px) {
   #table-board .opponent-top .opponent-rack {
-    top: 35px;
+    top: 31px;
   }
 }
 
@@ -1361,5 +1384,65 @@
     .opponent-left
     .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
     left: calc(var(--edge-l) + var(--rail) - 30px);
+  }
+}
+
+/* Anchor rotated racks above the action row instead of guessing their center
+   from the screen height. Their width becomes their on-screen vertical span. */
+@media (min-width: 651px) and (max-height: 600px) {
+  #table-board .opponent-right .opponent-rack {
+    --rack-height: var(--public-h);
+    --rack-inset: 24px;
+    --action-row-height: clamp(
+      30px,
+      calc((50vw - var(--edge-r) - var(--other-river-edge) - 22px) / 4),
+      52px
+    );
+  }
+  #table-board .opponent-right.has-melds .opponent-rack {
+    --rack-height: var(--meld-h);
+  }
+  #table-board
+    .opponent-right
+    .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+    --rack-height: calc(2 * var(--meld-h) + 1px);
+    --rack-inset: 30px;
+  }
+  #table-board .opponent-right .opponent-rack,
+  #table-board
+    .opponent-right
+    .opponent-rack:has(.opponent-melds > span:nth-child(3)),
+  #table-board
+    .opponent-right
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    left: calc(
+      100% - var(--edge-r) - var(--rail) + var(--rack-inset) -
+        var(--rack-height) / 2
+    );
+    right: auto;
+    top: auto;
+    bottom: calc(
+      var(--hand-height) + var(--bottom) + var(--action-row-height) + 6px -
+        var(--rack-height)
+    );
+    transform-origin: 0 0;
+    transform: rotate(-90deg);
+  }
+  #table-board .claim-source {
+    width: 84px;
+    padding: 4px;
+    gap: 4px;
+  }
+  #table-board .claim-source > .tile {
+    width: 20px;
+    height: 29px;
+    flex-basis: 20px;
+  }
+  #table-board .claim-source strong {
+    font-size: 12px;
+    max-width: 100%;
+  }
+  #table-board .claim-source small {
+    font-size: 10px;
   }
 }

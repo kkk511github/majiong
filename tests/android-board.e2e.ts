@@ -9,8 +9,10 @@ test.use({
 });
 for (const [width, height, edge, bottom] of [
   [800, 360, 0, 0],
+  [853, 384, 0, 0],
   [915, 412, 0, 0],
   [960, 432, 24, 0],
+  [1280, 576, 0, 0],
   [640, 360, 0, 0],
 ]) {
   test(`安卓大牌整桌 ${width}：不拉伸、正确朝向、弃牌固定尺寸`, async ({
@@ -74,8 +76,8 @@ for (const [width, height, edge, bottom] of [
       ];
       const sizes = () =>
         selectors.map((selector) => {
-          const style = getComputedStyle(document.querySelector(selector)!);
-          return parseFloat(style.width);
+          const r = document.querySelector(selector)!.getBoundingClientRect();
+          return Math.min(r.width, r.height);
         });
       root.dataset.tablePlatform = "standard";
       const before = sizes();
@@ -89,7 +91,8 @@ for (const [width, height, edge, bottom] of [
     expect(board).toEqual({ x: 0, y: 0, width, height });
     for (const side of ["left", "right"]) {
       const matrix = await page
-        .locator(`.opponent-${side} .opponent-rack`)
+        .locator(`.opponent-${side} .opponent-hand .tile-back .tile-art`)
+        .first()
         .evaluate((el) => getComputedStyle(el).transform);
       expect(matrix).toContain(
         side === "left" ? "matrix(0, 1, -1, 0" : "matrix(0, -1, 1, 0",
@@ -105,6 +108,17 @@ for (const [width, height, edge, bottom] of [
       // Side-on tiles should still have substance, rather than a hairline strip.
       expect(back.height).toBeGreaterThanOrEqual(across.width * 0.5);
       expect(back.width).toBeGreaterThanOrEqual(across.height);
+      // Verify the painted art, not only its layout box: absolutely positioned
+      // backs must stay anchored to their own tile rather than stack together.
+      for (const tile of await page
+        .locator(`.opponent-${side} .opponent-hand .tile-back`)
+        .all()) {
+        const box = (await tile.boundingBox())!;
+        const art = (await tile.locator(".tile-art").boundingBox())!;
+        for (const key of ["x", "y", "width", "height"] as const) {
+          expect(Math.abs(box[key] - art[key])).toBeLessThan(0.1);
+        }
+      }
     }
     const hand = await page.locator(".hand > .tile").first().boundingBox();
     expect(hand!.height / hand!.width).toBeCloseTo(1.45, 1);
@@ -240,7 +254,7 @@ for (const [width, height, edge, bottom] of [
       page.locator("#table-board").evaluate((el) => {
         const boxes = [
           ...el.querySelectorAll(
-            ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button,.opponent-info .avatar,.opponent-info strong",
+            ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button,.opponent-info .avatar,.opponent-info strong,.opponent-meta,.flower-rack-label,.table-center > strong,.compass-wind",
           ),
         ];
         const hit = (a: Element, b: Element) => {
@@ -295,11 +309,14 @@ for (const [width, height, edge, bottom] of [
         .locator(`.opponent-${position} .opponent-melds .tile`)
         .first()
         .evaluate((el) => {
-          const meld = getComputedStyle(el);
-          const flower = getComputedStyle(
-            document.querySelector(".hand-support .flower-rack .tile")!,
+          const meld = el.getBoundingClientRect();
+          const flower = document
+            .querySelector(".hand-support .flower-rack .tile")!
+            .getBoundingClientRect();
+          return (
+            Math.min(meld.width, meld.height) /
+            Math.min(flower.width, flower.height)
           );
-          return parseFloat(meld.width) / parseFloat(flower.width);
         });
       expect(ratio).toBeCloseTo(1.2, 2);
     }
@@ -380,6 +397,62 @@ for (const [width, height, edge, bottom] of [
       push();
       await page.waitForTimeout(100);
       expect(await publicCollisions()).toEqual([]);
+    }
+    // Regression: the user's screenshot combines pungs with a hidden kong.
+    // Hidden kongs intentionally contain no tile IDs in another player's view.
+    view.players[1]!.melds = [
+      { type: "pung", tiles: [72, 73, 74], from: 0, concealed: false },
+      { type: "kong", tiles: [], from: 1, concealed: true },
+      { type: "pung", tiles: [76, 77, 78], from: 0, concealed: false },
+    ];
+    view.players[1]!.handCount = 4;
+    view.players.forEach((p, i) => {
+      if (p) {
+        p.flowers = Array.from(
+          { length: [3, 4, 4, 5][i] },
+          (_, n) => 124 + i * 4 + n,
+        );
+        p.discards = Array.from(
+          { length: i === 1 ? 11 : 9 },
+          (_, n) => i * 32 + n,
+        );
+      }
+    });
+    view.deadline = Date.now() + 30000;
+    view.rules.turnSeconds = 30;
+    view.revision++;
+    push();
+    await page.waitForTimeout(2200);
+    expect(await publicCollisions()).toEqual([]);
+    for (const group of await page
+      .locator(".android-side-rack .opponent-melds > span")
+      .all()) {
+      const rows = await group.evaluate((el) =>
+        [...el.children].map((t) => t.getBoundingClientRect().left),
+      );
+      expect(Math.max(...rows) - Math.min(...rows)).toBeLessThan(0.1);
+    }
+    await page.screenshot({
+      path: `test-results/screenshots/android-mixed-kong-${width}.png`,
+    });
+    // The same rack also displays faces once the round has ended. Verify the
+    // art itself remains inside each slot and revealed hands fit the table.
+    view.players.forEach((p, i) => {
+      if (p && i !== 0)
+        p.hand = Array.from({ length: p.handCount }, (_, n) => i * 28 + n);
+    });
+    view.revision++;
+    push();
+    await page.waitForTimeout(150);
+    expect(await publicCollisions()).toEqual([]);
+    for (const tile of await page
+      .locator(".android-side-rack .opponent-hand .tile")
+      .all()) {
+      const box = (await tile.boundingBox())!;
+      const art = (await tile.locator(".tile-art").boundingBox())!;
+      for (const key of ["x", "y", "width", "height"] as const) {
+        expect(Math.abs(box[key] - art[key])).toBeLessThan(0.1);
+      }
     }
     await page.emulateMedia({ reducedMotion: "reduce" });
     expect(

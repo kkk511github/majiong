@@ -494,9 +494,11 @@ export function App() {
       const scale = androidTable ? 1.3 : 1;
       const handHeight = handRef.current?.getBoundingClientRect().height ?? 0;
       const legacyHeight = androidTable
-        ? entry.contentRect.height + handHeight * (1 - 1 / scale)
-          + viewport.getBoundingClientRect().top - Math.min(134, Math.max(76, window.innerHeight * 0.19))
-          - (window.innerWidth <= 650 ? 28 : 36)
+        ? entry.contentRect.height +
+          handHeight * (1 - 1 / scale) +
+          viewport.getBoundingClientRect().top -
+          Math.min(134, Math.max(76, window.innerHeight * 0.19)) -
+          (window.innerWidth <= 650 ? 28 : 36)
         : entry.contentRect.height;
       const sideColumns = androidTable ? (window.innerHeight < 370 ? 6 : 7) : 8;
       setRiverLayout(
@@ -512,7 +514,9 @@ export function App() {
           scale,
           sideColumns,
           legacyHeight,
-          androidTable && window.innerWidth <= 650 ? (window.innerWidth / 2 - 132) / 8.64 : Infinity,
+          androidTable && window.innerWidth <= 650
+            ? (window.innerWidth / 2 - 132) / 8.64
+            : Infinity,
         ),
       );
     });
@@ -796,7 +800,7 @@ export function App() {
                       查看已结束牌局的回放。声音设置和单人练习保存在此设备。
                     </p>
                   </div>
-                  <span className="version">金陵麻将 0.6.6 · 试打版</span>
+                  <span className="version">金陵麻将 0.6.7 · 试打版</span>
                 </section>
               </div>
             </>
@@ -1137,7 +1141,12 @@ export function App() {
                           v.pending?.kind !== "robKong" && (
                             <DiscardArrow
                               offset={offset}
-                              row={Math.floor(index / (offset % 2 ? riverLayout.sideColumns : riverLayout.columns))}
+                              row={Math.floor(
+                                index /
+                                  (offset % 2
+                                    ? riverLayout.sideColumns
+                                    : riverLayout.columns),
+                              )}
                               layoutKey={`${v.revision}:${riverLayout.width}:${riverLayout.height}`}
                               label={`${v.players[seat]?.name}刚打出${tileName(t)}`}
                             />
@@ -2104,9 +2113,11 @@ function TurnCountdown({
 function FlowerRack({
   flowers,
   name,
+  compact = false,
 }: {
   flowers: PublicPlayer["flowers"];
   name: string;
+  compact?: boolean;
 }) {
   if (!flowers.length) return null;
   return (
@@ -2117,7 +2128,7 @@ function FlowerRack({
       style={{ "--flower-count": flowers.length } as CSSProperties}
     >
       <span className="flower-rack-label" aria-hidden="true">
-        花牌（{flowers.length}）
+        {compact ? `花${flowers.length}` : `花牌（${flowers.length}）`}
       </span>
       <div className="flower-rack-tiles">
         {flowers.map((t) => (
@@ -2177,7 +2188,7 @@ function Opponent({
         </span>
         <div>
           <strong>{p.name}</strong>
-          <span>
+          <span className="opponent-meta">
             {seatNames[seat]}
             {dealer ? " · 庄" : ""} · {p.score}
             {position === "top" && p.flowers.length
@@ -2209,7 +2220,9 @@ function Opponent({
       {position !== "top" && (
         <FlowerRack flowers={p.flowers} name={`${seatNames[seat]}家`} />
       )}
-      <div className="opponent-rack">
+      <div
+        className={`opponent-rack ${androidTable && position !== "top" ? "android-side-rack" : ""}`}
+      >
         <div className="opponent-hand">
           {p.hand.length
             ? p.hand.map((t) => <Tile tile={t} small key={t} />)
@@ -2219,7 +2232,7 @@ function Opponent({
         </div>
         <div className="opponent-melds">
           {p.melds.map((m, i) => (
-            <span key={i}>
+            <span key={i} data-meld-type={m.type} data-concealed={m.concealed}>
               {m.concealed && !m.tiles.length
                 ? Array.from({ length: 4 }, (_, n) => <TileBack key={n} />)
                 : m.tiles.map((t) => <Tile tile={t} small key={t} />)}
@@ -2227,7 +2240,11 @@ function Opponent({
           ))}
         </div>
         {position === "top" && (
-          <FlowerRack flowers={p.flowers} name={`${seatNames[seat]}家`} />
+          <FlowerRack
+            compact={androidTable}
+            flowers={p.flowers}
+            name={`${seatNames[seat]}家`}
+          />
         )}
       </div>
     </div>

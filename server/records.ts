@@ -1,5 +1,11 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { Game, RecordsPage, RoundRecord } from "../shared/types";
+import type {
+  Game,
+  MatchDetails,
+  RecordsPage,
+  RoundRecord,
+  StoredRound,
+} from "../shared/types";
 import { membership } from "./teams";
 import type { PointSummary, PointSummaryPage } from "../shared/types";
 import { AuthError } from "./accounts";
@@ -205,6 +211,7 @@ export function createRecords(db: DatabaseSync) {
     query: URLSearchParams,
     viewer: string,
     admin = false,
+    showTeams = admin,
   ): RecordsPage {
     const page = Number(query.get("page") ?? 1),
       pageSize = 20;
@@ -236,7 +243,8 @@ export function createRecords(db: DatabaseSync) {
       }
     }
     const clause = where.length ? " WHERE " + where.join(" AND ") : "";
-    const source = admin ? "match_records" : "round_records";
+    const source =
+      query.get("scope") === "rounds" ? "round_records" : "match_records";
     const total = Number(
       db
         .prepare("SELECT COUNT(*) AS total FROM " + source + clause)
@@ -254,25 +262,73 @@ export function createRecords(db: DatabaseSync) {
       total,
       page,
       pageSize,
-      records: rows.map((row) => {
-        let record = JSON.parse(String(row.record)) as RoundRecord;
-        const me = record.playerIds!.indexOf(viewer);
-        if (!admin && row.private_names)
-          record = {
-            ...record,
-            names: record.names.map((name, i) =>
-              i === me ? name : `牌友${i + 1}`,
-            ),
-            playerIds: record.playerIds!.map((id, i) => (i === me ? id : "")),
-          };
-        return {
-          game: String(row.game_id),
-          code: String(row.code),
-          me,
-          practice: false,
-          record,
-        };
-      }),
+      records: rows.map((row) => present(row, viewer, showTeams)),
+    };
+  }
+  function present(
+    row: Record<string, unknown>,
+    viewer: string,
+    admin: boolean,
+  ): StoredRound {
+    const original = JSON.parse(String(row.record)) as RoundRecord;
+    // Never trust cached team fields: permission is enforced at every read.
+    const { teamNames: _teams, memberIds: _numbers, ...clean } = original;
+    const record: RoundRecord = clean;
+    const ids =
+      record.playerIds ?? (JSON.parse(String(row.player_ids)) as string[]);
+    const me = ids.indexOf(viewer);
+    record.playerIds = ids;
+    record.memberIds = ids.map((id) => {
+      const number = db
+        .prepare("SELECT member_id FROM account_numbers WHERE account_id=?")
+        .get(id);
+      return number ? String(number.member_id) : "";
+    });
+    if (admin)
+      record.teamNames = ids.map((id) => {
+        const roster = db
+          .prepare(
+            "SELECT team_name FROM round_rosters WHERE game_id=? AND account_id=? AND round<=? ORDER BY round DESC LIMIT 1",
+          )
+          .get(String(row.game_id), id, record.round);
+        return String(roster?.team_name ?? "历史未记录");
+      });
+    if (!admin && row.private_names) {
+      record.names = record.names.map((name, i) =>
+        i === me ? name : `牌友${i + 1}`,
+      );
+      record.playerIds = ids.map((id, i) => (i === me ? id : ""));
+      record.memberIds = record.memberIds.map((id, i) => (i === me ? id : ""));
+    }
+    return {
+      game: String(row.game_id),
+      code: String(row.code),
+      me,
+      practice: false,
+      record,
+    };
+  }
+  function details(game: string, viewer: string, admin = false): MatchDetails {
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(game))
+      throw new AuthError("牌桌 ID 不正确");
+    const row = db
+      .prepare("SELECT * FROM match_records WHERE game_id=?")
+      .get(game);
+    // Do not expose existence or membership of an unrelated table to a member.
+    if (
+      !row ||
+      (!admin &&
+        !(JSON.parse(String(row.player_ids)) as string[]).includes(viewer))
+    )
+      throw new AuthError("未找到可查看的已结束牌桌", 404);
+    return {
+      match: present(row, viewer, admin),
+      rounds: db
+        .prepare(
+          "SELECT * FROM round_records WHERE game_id=? ORDER BY json_extract(record,'$.round'),at,id",
+        )
+        .all(game)
+        .map((r) => present(r, viewer, admin)),
     };
   }
   function pointFilter(query: URLSearchParams) {
@@ -304,9 +360,9 @@ export function createRecords(db: DatabaseSync) {
     if (q && q.length > 100) throw new AuthError("搜索内容过长");
     if (q) {
       where.push(
-        "(instr(lower(a.username),lower(?))>0 OR instr(COALESCE(a.name,p.name),?)>0)",
+        "(instr(lower(a.username),lower(?))>0 OR instr(COALESCE(a.name,p.name),?)>0 OR EXISTS(SELECT 1 FROM account_numbers n WHERE n.account_id=a.id AND CAST(n.member_id AS TEXT)=?))",
       );
-      args.push(q, q);
+      args.push(q, q, q);
     }
     return {
       from:
@@ -322,7 +378,7 @@ export function createRecords(db: DatabaseSync) {
       throw new AuthError("页码不正确");
     const filter = pointFilter(query);
     const grouped =
-      "SELECT p.account_id AS accountId,COALESCE(a.username,p.account_id) AS username,COALESCE(a.name,MAX(p.name)) AS name,p.team_id AS teamId,COALESCE(t.name,MAX(p.team_name)) AS teamName,COUNT(*) AS rounds,SUM(p.points) AS points" +
+      "SELECT p.account_id AS accountId,(SELECT CAST(n.member_id AS TEXT) FROM account_numbers n WHERE n.account_id=p.account_id) AS memberId,COALESCE(a.username,p.account_id) AS username,COALESCE(a.name,MAX(p.name)) AS name,p.team_id AS teamId,COALESCE(t.name,MAX(p.team_name)) AS teamName,COUNT(*) AS rounds,SUM(p.points) AS points" +
       filter.from +
       " GROUP BY p.account_id,p.team_id";
     const total = Number(
@@ -390,7 +446,7 @@ export function createRecords(db: DatabaseSync) {
         row.teamName,
         row.username,
         row.name,
-        row.accountId,
+        row.memberId ?? row.accountId,
         row.rounds,
         row.points,
       ]);
@@ -452,5 +508,5 @@ export function createRecords(db: DatabaseSync) {
       data.names = data.names.map((_, seat) => `牌友${seat + 1}`);
     return data;
   }
-  return { capture, list, points, exportPoints, replay };
+  return { capture, list, details, points, exportPoints, replay };
 }

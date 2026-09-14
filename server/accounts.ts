@@ -48,16 +48,33 @@ export function accountSchema(db: DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS table_permissions (
     account_id TEXT PRIMARY KEY, can_create INTEGER NOT NULL CHECK(can_create IN (0,1)),
     granted_by TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
+  // Separate public numbers preserve all existing UUID references and old DB
+  // insert statements. Allocate once, including historical accounts on upgrade.
+  db.exec(`CREATE TABLE IF NOT EXISTS account_numbers (
+    member_id INTEGER PRIMARY KEY AUTOINCREMENT, account_id TEXT NOT NULL UNIQUE);
+    INSERT INTO sqlite_sequence(name,seq) SELECT 'account_numbers',100000
+      WHERE NOT EXISTS(SELECT 1 FROM sqlite_sequence WHERE name='account_numbers');
+    INSERT OR IGNORE INTO account_numbers(account_id)
+      SELECT id FROM accounts WHERE id NOT IN(SELECT account_id FROM account_numbers)
+      ORDER BY created_at,id;
+    CREATE TRIGGER IF NOT EXISTS account_number_on_register AFTER INSERT ON accounts
+    BEGIN INSERT OR IGNORE INTO account_numbers(account_id) VALUES(new.id); END;`);
 }
 function account(row: AccountRow, db: DatabaseSync): Account {
   return {
     id: row.id,
+    memberId: String(
+      db
+        .prepare("SELECT member_id FROM account_numbers WHERE account_id=?")
+        .get(row.id)!.member_id,
+    ),
     username: row.username,
     name: row.name,
     role: row.role,
     mustChangePassword: !!row.must_change,
     ...membership(db, row.id),
-    canManageAdmins: row.role === "admin" && row.username.toLowerCase() === ADMIN_USERNAME,
+    canManageAdmins:
+      row.role === "admin" && row.username.toLowerCase() === ADMIN_USERNAME,
     canCreateTables:
       row.role === "admin" ||
       !!db
@@ -240,7 +257,9 @@ export function createAccounts(
     return !!row && account(row, db).canCreateTables === true;
   }
   function getAccount(id: string) {
-    const row = db.prepare("SELECT * FROM accounts WHERE id=?").get(id) as unknown as AccountRow | undefined;
+    const row = db
+      .prepare("SELECT * FROM accounts WHERE id=?")
+      .get(id) as unknown as AccountRow | undefined;
     return row ? account(row, db) : undefined;
   }
   function notifyAccount(id: string) {
@@ -250,8 +269,10 @@ export function createAccounts(
   }
   function requirePlay(id: string) {
     const a = getAccount(id);
-    if (!a || a.mustChangePassword) throw new AuthError("请先登录并设置密码", 403);
-    if (a.playBlocked) throw new AuthError("你的牌局权限已暂停，请联系管理员", 403);
+    if (!a || a.mustChangePassword)
+      throw new AuthError("请先登录并设置密码", 403);
+    if (a.playBlocked)
+      throw new AuthError("你的牌局权限已暂停，请联系管理员", 403);
     if (!a.canPlay) throw new AuthError("请联系管理员分配战队后再入桌", 403);
   }
   async function handle(
@@ -534,5 +555,13 @@ export function createAccounts(
     }
     return true;
   }
-  return { getSession, requireSession, handle, canOpenTables, getAccount, notifyAccount, requirePlay };
+  return {
+    getSession,
+    requireSession,
+    handle,
+    canOpenTables,
+    getAccount,
+    notifyAccount,
+    requirePlay,
+  };
 }

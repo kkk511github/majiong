@@ -65,7 +65,8 @@ for (const [width, height, edge, bottom] of [
     expect(board).toEqual({ x: 0, y: 0, width, height });
     for (const side of ["left", "right"]) {
       const matrix = await page
-        .locator(`.opponent-${side} .opponent-rack`)
+        .locator(`.opponent-${side} .opponent-hand .tile-back .tile-art`)
+        .first()
         .evaluate((el) => getComputedStyle(el).transform);
       expect(matrix).toContain(
         side === "left" ? "matrix(0, 1, -1, 0" : "matrix(0, -1, 1, 0",
@@ -108,6 +109,12 @@ for (const [width, height, edge, bottom] of [
     });
     await page.locator(".hand > .tile").nth(7).click();
     await page.waitForTimeout(300);
+    view.players.forEach((p, i) => {
+      if (p && i !== 0) {
+        p.melds = [];
+        p.handCount = 13;
+      }
+    });
     for (const count of [8, 9, 16, 17, 24, 32]) {
       view.players.forEach((p, i) => {
         if (p) p.discards = Array.from({ length: count }, (_, j) => i * 32 + j);
@@ -122,7 +129,7 @@ for (const [width, height, edge, bottom] of [
         const tiles = [...el.querySelectorAll(".discard-field .tile")],
           obstacles = [
             ...el.querySelectorAll(
-              ".hand .tile,.flower-rack .tile,.opponent-melds .tile,.opponent-hand .tile-back,.table-center",
+              ".hand .tile,.flower-rack .tile,.opponent-melds .tile,.opponent-hand .tile-back,.table-hud",
             ),
           ];
         const collision = (a: Element, b: Element) => {

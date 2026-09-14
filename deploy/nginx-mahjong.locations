@@ -1,4 +1,4 @@
-# Include inside the existing mahjong.example.com HTTPS server block.
+# Include inside the HTTPS server block that hosts the game service.
 # The native app contains its own frontend; this path exposes the game backend.
 location = /mahjong { return 308 /mahjong/; }
 location = /mahjong/ {

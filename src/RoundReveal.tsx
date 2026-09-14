@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { Copy, Trophy } from "lucide-react";
-import type { RoundRecord, Seat, View } from "../shared/types";
+import type { RoundRecord, Seat, View, PublicPlayer } from "../shared/types";
 import {
   settlementRows,
   settlementTime,
@@ -16,7 +16,14 @@ export function RoundReveal({
   record,
   readiness,
 }: {
-  view: View;
+  view: Pick<View, "phase" | "code" | "round"> & {
+    me: number;
+    rules: Pick<View["rules"], "rounds">;
+    players: (Pick<
+      PublicPlayer,
+      "name" | "ready" | "hand" | "melds" | "flowers"
+    > | null)[];
+  };
   record: RoundRecord;
   readiness?: ReturnType<typeof roundReadiness>["seats"];
 }) {

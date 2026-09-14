@@ -168,7 +168,7 @@ for (const [width, height, edge, bottom] of [
         const tiles = [...el.querySelectorAll(".discard-field .tile")],
           obstacles = [
             ...el.querySelectorAll(
-              ".hand .tile,.flower-rack .tile,.opponent-melds .tile,.opponent-hand .tile-back,.table-center",
+              ".hand .tile,.flower-rack .tile,.opponent-melds .tile,.opponent-hand .tile-back,.table-hud",
             ),
           ];
         const collision = (a: Element, b: Element) => {
@@ -254,7 +254,7 @@ for (const [width, height, edge, bottom] of [
       page.locator("#table-board").evaluate((el) => {
         const boxes = [
           ...el.querySelectorAll(
-            ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button,.opponent-info .avatar,.opponent-info strong,.opponent-meta,.flower-rack-label,.table-center > strong,.compass-wind",
+            ".flower-rack .tile,.hand .tile,.discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.game-actions > button,.my-info > div:last-child > button,.opponent-info .avatar,.opponent-info strong,.opponent-meta,.flower-rack-label,.table-center > strong,.compass-wind,.table-stock,.table-rounds",
           ),
         ];
         const hit = (a: Element, b: Element) => {
@@ -425,10 +425,10 @@ for (const [width, height, edge, bottom] of [
     await page.waitForTimeout(2200);
     expect(await publicCollisions()).toEqual([]);
     for (const group of await page
-      .locator(".android-side-rack .opponent-melds > span")
+      .locator(".side-rack .opponent-melds > span")
       .all()) {
       const rows = await group.evaluate((el) =>
-        [...el.children].map((t) => t.getBoundingClientRect().left),
+        [...el.children].map((t) => t.getBoundingClientRect().top),
       );
       expect(Math.max(...rows) - Math.min(...rows)).toBeLessThan(0.1);
     }
@@ -446,7 +446,7 @@ for (const [width, height, edge, bottom] of [
     await page.waitForTimeout(150);
     expect(await publicCollisions()).toEqual([]);
     for (const tile of await page
-      .locator(".android-side-rack .opponent-hand .tile")
+      .locator(".side-rack .opponent-hand .tile")
       .all()) {
       const box = (await tile.boundingBox())!;
       const art = (await tile.locator(".tile-art").boundingBox())!;
@@ -454,6 +454,48 @@ for (const [width, height, edge, bottom] of [
         expect(Math.abs(box[key] - art[key])).toBeLessThan(0.1);
       }
     }
+    // Regression from the 00:20 Android screenshot: four sets (including
+    // an East kong), multiple river columns, and the final revealed pair.
+    for (const seat of [1, 3]) {
+      view.players.forEach((p, i) => {
+        if (p && i !== 0) {
+          p.melds = [];
+          p.hand = [];
+          p.handCount = 13;
+          p.discards = Array.from({ length: 8 }, (_, n) => i * 32 + n);
+        }
+      });
+      view.players[seat]!.melds = [
+        {
+          type: "kong",
+          tiles: [108, 109, 110, 111],
+          from: 0,
+          concealed: false,
+        },
+        { type: "pung", tiles: [12, 13, 14], from: 0, concealed: false },
+        { type: "kong", tiles: [72, 73, 74, 75], from: 0, concealed: false },
+        { type: "pung", tiles: [80, 81, 82], from: 0, concealed: false },
+      ];
+      view.players[seat]!.handCount = 2;
+      view.players[seat]!.hand = [76, 77];
+      view.players[seat]!.discards = Array.from(
+        { length: 24 },
+        (_, n) => 36 + n,
+      );
+      view.actions = [];
+      view.canDiscard = false;
+      view.revision++;
+      push();
+      await page.waitForTimeout(2200);
+      expect(await publicCollisions()).toEqual([]);
+      await page.screenshot({
+        path: `test-results/screenshots/android-ended-four-melds-${seat}-${width}.png`,
+      });
+    }
+    view.actions = ["pung", "kong", "hu", "pass"];
+    view.revision++;
+    push();
+    await page.locator(".game-actions > button").first().waitFor();
     await page.emulateMedia({ reducedMotion: "reduce" });
     expect(
       await page

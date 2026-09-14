@@ -13,7 +13,7 @@ import "./accounts.css";
 import "./online-home.css";
 import "./keyboard.css";
 import "./table-room.css";
-import "./table-android.css";
+import "./table-layout.css";
 import { androidTable } from "./table-platform";
 
 document.documentElement.dataset.tablePlatform = androidTable

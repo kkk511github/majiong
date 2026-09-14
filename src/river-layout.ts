@@ -26,8 +26,7 @@ export function riverLayoutFor(
       break;
     }
   }
-  const topOffset =
-    tileScale > 1 ? 0 : height < 300 && baselineWidth > 300 ? -8 : 0;
+  const topOffset = 0;
   // The old enlargement could extend past the field into a raised hand.
   // Reserve two horizontal rows and eight sideways tiles, plus their gaps.
   // This limit depends only on the viewport, never on the number of discards.

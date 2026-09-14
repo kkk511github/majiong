@@ -351,6 +351,32 @@ export function makeServer(
     }
     if (await accounts.handle(req, res, url.pathname)) return;
     if (await club.handle(req, res, url)) return;
+    if (req.method === "GET" && url.pathname.startsWith("/api/matches/")) {
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const session = accounts.requireSession(req);
+        res.end(
+          JSON.stringify(
+            records.details(
+              decodeURIComponent(url.pathname.slice("/api/matches/".length)),
+              session.id,
+              session.account.role === "admin",
+            ),
+          ),
+        );
+      } catch (error) {
+        res.statusCode = error instanceof AuthError ? error.status : 500;
+        res.end(
+          JSON.stringify({
+            error:
+              error instanceof AuthError
+                ? error.message
+                : "牌桌明细暂时无法读取，请稍后重试",
+          }),
+        );
+      }
+      return;
+    }
     if (req.method === "GET" && url.pathname.startsWith("/api/replays/")) {
       res.setHeader("Cache-Control", "no-store");
       try {
@@ -384,7 +410,14 @@ export function makeServer(
         const admin = url.pathname === "/api/admin/records";
         const session = accounts.requireSession(req, admin);
         res.end(
-          JSON.stringify(records.list(url.searchParams, session.id, admin)),
+          JSON.stringify(
+            records.list(
+              url.searchParams,
+              session.id,
+              admin,
+              session.account.role === "admin",
+            ),
+          ),
         );
       } catch (error) {
         res.statusCode = error instanceof AuthError ? error.status : 500;
@@ -404,7 +437,7 @@ export function makeServer(
         JSON.stringify({
           ok: true,
           service: "jinling-mahjong",
-          version: "0.6.5",
+          version: "0.6.8",
         }),
       );
       return;
@@ -621,7 +654,10 @@ export function makeServer(
             timeSync: true,
             account: session.account,
           });
-          const personal = records.list(new URLSearchParams(), session.id);
+          const personal = records.list(
+            new URLSearchParams({ scope: "rounds" }),
+            session.id,
+          );
           if (personal.records.length)
             send(ws, { type: "records", records: personal.records });
           if (room) broadcast(room);

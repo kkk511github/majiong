@@ -10,13 +10,10 @@ import {
 } from "lucide-react";
 import { client } from "./game-client";
 import { Dialog } from "./Dialog";
-import { Settlement } from "./Settlement";
+import { MatchRecordDetails, RecordPlayers } from "./MatchRecordDetails";
+import "./records-match.css";
 import { ReplayPanel } from "./ReplayPanel";
-import {
-  settlementRows,
-  settlementTime,
-  signedScore,
-} from "../shared/settlement";
+import { settlementTime } from "../shared/settlement";
 import type { Account, RecordsPage, StoredRound } from "../shared/types";
 
 export function RecordsPanel({ account }: { account: Account | null }) {
@@ -44,7 +41,17 @@ export function RecordsPanel({ account }: { account: Account | null }) {
     setError("");
     setSelected(null);
     if (tab === "practice") {
-      const all = client.history().filter((r) => r.practice);
+      const groups = new Map<string, StoredRound>();
+      for (const item of client.history().filter((r) => r.practice)) {
+        if (!groups.has(item.game)) groups.set(item.game, item);
+      }
+      const all = [...groups.values()]
+        .filter(
+          (r) =>
+            r.record.matchFinished ||
+            r.record.round >= (r.record.totalRounds ?? Infinity),
+        )
+        .map((r) => ({ ...r, record: { ...r.record, matchFinished: true } }));
       setData({
         records: all.slice((page - 1) * 20, page * 20),
         total: all.length,
@@ -57,9 +64,8 @@ export function RecordsPanel({ account }: { account: Account | null }) {
     const query = new URLSearchParams({ page: String(page) });
     if (filter.code) query.set("code", filter.code);
     if (filter.date) {
-      const from = new Date(filter.date + "T00:00:00");
-      const to = new Date(from);
-      to.setDate(to.getDate() + 1);
+      const from = new Date(filter.date + "T00:00:00+08:00");
+      const to = new Date(from.getTime() + 86400000);
       query.set("from", String(from.getTime()));
       query.set("to", String(to.getTime()));
     }
@@ -177,8 +183,8 @@ export function RecordsPanel({ account }: { account: Account | null }) {
         {tab === "admin"
           ? "每桌结束后显示一条最终战绩，续桌会另存一条。"
           : tab === "online"
-            ? "账号下已完成的对局，可查看每局收支和当时的累计记分。"
-            : "此设备保存的练习记录。"}
+            ? "每桌显示四位牌友的最终记分，点详情可查看每把积分、牌面与回放。"
+            : "此设备已完成练习桌的最终战绩与每把明细。"}
       </p>
       <div className="records-list" aria-busy={busy}>
         {error ? (
@@ -207,67 +213,31 @@ export function RecordsPanel({ account }: { account: Account | null }) {
             </p>
           </div>
         ) : (
-          data.records.map((item) => {
-            const rows = settlementRows(item.record),
-              own = rows.find((row) => row.seat === item.me),
-              top = rows[0];
-            return (
-              <button
-                className="record-card"
-                key={item.record.id}
-                onClick={() => setSelected(item)}
-                aria-label={`查看房间 ${item.code} ${item.record.matchFinished ? "最终战绩" : `第 ${item.record.round} 局战绩`}`}
-              >
-                <span className="record-room">
-                  <b>{item.practice ? "练习桌" : item.code}</b>
-                  <small>{item.record.tableName ?? "南京麻将"}</small>
+          data.records.map((item) => (
+            <button
+              className="record-card match-card"
+              key={item.game}
+              onClick={() => setSelected(item)}
+              aria-label={`查看房间 ${item.code} 最终战绩`}
+            >
+              <span className="match-card-header">
+                <b>{item.record.tableName ?? "南京麻将"}</b>
+                <span>
+                  房间 {item.code} · {item.record.round}/
+                  {item.record.totalRounds ?? item.record.round} 把
                 </span>
-                <span className="record-info">
-                  <strong>
-                    {item.record.matchFinished
-                      ? "本桌已结束"
-                      : `第 ${item.record.round} 局`}
-                    <small>
-                      {item.record.round} /{" "}
-                      {item.record.totalRounds ?? item.record.round} 局
-                    </small>
-                  </strong>
-                  <time>{settlementTime(item.record.at)}</time>
+                <time>{settlementTime(item.record.at)}</time>
+                <span className="match-detail-link">
+                  详情 <ChevronRight size={16} />
                 </span>
-                <span className="record-players">
-                  {item.record.names.join(" · ")}
-                </span>
-                <span className="record-score">
-                  <small>
-                    {tab === "admin"
-                      ? `${top.name} · 最高记分`
-                      : "我的累计记分"}
-                  </small>
-                  <b
-                    className={
-                      (tab === "admin" ? top.recorded : (own?.recorded ?? 0)) >
-                      0
-                        ? "positive"
-                        : ""
-                    }
-                  >
-                    {signedScore(
-                      tab === "admin" ? top.recorded : (own?.recorded ?? 0),
-                    )}
-                  </b>
-                </span>
-                <ChevronRight size={18} />
-              </button>
-            );
-          })
+              </span>
+              <RecordPlayers record={item.record} />
+            </button>
+          ))
         )}
       </div>
       <div className="records-pagination">
-        <span>
-          {busy || error
-            ? ""
-            : `共 ${data.total} ${tab === "admin" ? "桌" : "局"}`}
-        </span>
+        <span>{busy || error ? "" : `共 ${data.total} 桌`}</span>
         <button
           disabled={busy || page <= 1}
           onClick={() => setPage((p) => p - 1)}
@@ -288,28 +258,11 @@ export function RecordsPanel({ account }: { account: Account | null }) {
       </div>
       {selected && (
         <Dialog
-          title={selected.record.matchFinished ? "牌桌最终战绩" : "牌局战绩"}
-          variant="settlement-dialog"
+          title="牌桌最终战绩"
+          variant="match-record-dialog"
           close={() => setSelected(null)}
         >
-          <Settlement
-            record={selected.record}
-            code={selected.code}
-            me={selected.me}
-          />
-          <button
-            className="replay-open"
-            onClick={() =>
-              setReplayId(
-                selected.record.matchFinished
-                  ? `${selected.game}-${selected.record.round}`
-                  : selected.record.id,
-              )
-            }
-          >
-            <History size={16} />
-            回放本局
-          </button>
+          <MatchRecordDetails selected={selected} replay={setReplayId} />
         </Dialog>
       )}
       {replayId !== null && (

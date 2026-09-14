@@ -1,6 +1,13 @@
-/* Android density is fixed for the entire hand. Public zones are separate
+/* Shared iOS/Android table anchors. Density is fixed for the entire hand.
+   Public zones are separate
    from the concealed rack; melds never split an individual set into a grid. */
 html:root[data-table-platform="android"] #table-board {
+  --tile-scale: 1.3;
+}
+html:root[data-table-platform="standard"] #table-board {
+  --tile-scale: 1;
+}
+html:root[data-table-platform] #table-board {
   --base-public-w: clamp(16px, 4.6vh, 26px);
   --base-hand-tile: min(
     74px,
@@ -12,10 +19,10 @@ html:root[data-table-platform="android"] #table-board {
         14
     )
   );
-  --public-w: calc(var(--base-public-w) * 1.3);
-  --side-back-w: calc(clamp(8px, 2.6vh, 16px) * 1.3);
+  --public-w: calc(var(--base-public-w) * var(--tile-scale));
+  --side-back-w: calc(clamp(8px, 2.6vh, 16px) * var(--tile-scale));
   --hand-tile: min(
-    calc(var(--base-hand-tile) * 1.3),
+    calc(var(--base-hand-tile) * var(--tile-scale)),
     calc((100vw - var(--edge-l) - var(--edge-r) - 12px) / 14)
   );
   --field-top: max(
@@ -24,40 +31,31 @@ html:root[data-table-platform="android"] #table-board {
   );
   --side-flower-cols: 3;
 }
-html:root[data-table-platform="android"] #table-board .hand {
+html:root[data-table-platform] #table-board .hand {
   right: var(--edge-r);
 }
-html:root[data-table-platform="android"] #table-board .discard-field {
+html:root[data-table-platform] #table-board .discard-field {
   bottom: calc(var(--hand-height) + var(--bottom) + 18px);
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .hand-support
-  > .flower-rack {
+html:root[data-table-platform] #table-board .hand-support > .flower-rack {
   left: var(--edge-l);
   right: auto;
   bottom: calc(var(--bottom) + var(--hand-height) + 5px);
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .hand-support
-  .flower-rack-tiles {
+html:root[data-table-platform] #table-board .hand-support .flower-rack-tiles {
   grid-template-columns: repeat(
     min(var(--side-flower-cols), var(--flower-count)),
     var(--public-w)
   );
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .my-info
-  > div:first-child {
+html:root[data-table-platform] #table-board .my-info > div:first-child {
   top: 3px;
   bottom: auto;
   left: calc(var(--edge-l) + 65px);
 }
 /* Explicit typography prevents inherited line heights from pushing scores
    beneath tiles or flower frames, including Android system font differences. */
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   :is(.opponent-left, .opponent-right)
   .opponent-info {
@@ -69,10 +67,10 @@ html:root[data-table-platform="android"]
   align-items: center;
   gap: 3px 4px;
 }
-html:root[data-table-platform="android"] #table-board .opponent-info > div {
+html:root[data-table-platform] #table-board .opponent-info > div {
   display: contents;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   :is(.opponent-left, .opponent-right)
   .opponent-info
@@ -80,7 +78,7 @@ html:root[data-table-platform="android"]
   width: 26px;
   height: 26px;
 }
-html:root[data-table-platform="android"] #table-board .opponent-info strong {
+html:root[data-table-platform] #table-board .opponent-info strong {
   display: block;
   min-width: 0;
   width: 100%;
@@ -91,7 +89,7 @@ html:root[data-table-platform="android"] #table-board .opponent-info strong {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   :is(.opponent-left, .opponent-right)
   .opponent-meta {
@@ -100,20 +98,14 @@ html:root[data-table-platform="android"]
   text-align: center;
   width: 100%;
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-info
-  .opponent-meta {
+html:root[data-table-platform] #table-board .opponent-info .opponent-meta {
   display: block;
   font-size: 11px;
   line-height: 14px;
   white-space: nowrap;
   color: #f3dc99;
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-top
-  .opponent-info {
+html:root[data-table-platform] #table-board .opponent-top .opponent-info {
   top: 1px;
   width: 126px;
   display: grid;
@@ -121,14 +113,11 @@ html:root[data-table-platform="android"]
   grid-template-rows: 14px 14px;
   gap: 1px 6px;
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-top
-  .player-portrait {
+html:root[data-table-platform] #table-board .opponent-top .player-portrait {
   grid-column: 1;
   grid-row: 1 / 3;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   .opponent-top
   .opponent-info
@@ -136,31 +125,25 @@ html:root[data-table-platform="android"]
   grid-column: 2;
   grid-row: 1;
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-top
-  .opponent-meta {
+html:root[data-table-platform] #table-board .opponent-top .opponent-meta {
   grid-column: 2;
   grid-row: 2;
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-top
-  .opponent-rack {
+html:root[data-table-platform] #table-board .opponent-top .opponent-rack {
   top: 35px;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   :is(.opponent-left, .opponent-right)
   > .flower-rack {
   top: calc(84px + max(0px, (100vh - 360px) * 0.2));
 }
-/* Match iOS: one continuous concealed hand and complete straight melds,
-   all facing their owner. Wrap whole sets across lanes, never split a set. */
-html:root[data-table-platform="android"]
+/* Concealed tiles face their owner in one continuous column. Exposed sets
+   use intact horizontal rows in a narrow tray, leaving the river lane clear. */
+html:root[data-table-platform]
   #table-board
   :is(.opponent-left, .opponent-right)
-  .opponent-rack.android-side-rack {
+  .opponent-rack.side-rack {
   position: absolute;
   left: calc(var(--edge-l) + var(--side-flower-cols) * var(--public-w) + 16px);
   right: auto;
@@ -169,34 +152,30 @@ html:root[data-table-platform="android"]
   width: max-content;
   height: auto;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: 2px;
   transform: none;
   translate: none;
-  transform-origin: initial;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   .opponent-right
-  .opponent-rack.android-side-rack {
+  .opponent-rack.side-rack {
   left: auto;
   right: calc(var(--edge-r) + 3 * var(--public-w) + 16px);
-  flex-direction: row-reverse;
+  align-items: flex-end;
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .android-side-rack
-  .opponent-hand {
+html:root[data-table-platform] #table-board .side-rack .opponent-hand {
   display: flex;
   flex-direction: column;
   gap: 1px;
   align-items: center;
   width: max-content;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
-  .android-side-rack
+  .side-rack
   .opponent-hand
   .tile-back {
   position: relative;
@@ -205,9 +184,9 @@ html:root[data-table-platform="android"]
   min-width: 0;
   min-height: 0;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
-  .android-side-rack
+  .side-rack
   .opponent-hand
   .tile-back
   .tile-art {
@@ -219,159 +198,110 @@ html:root[data-table-platform="android"]
   height: var(--side-back-h);
   transform: translate(-50%, -50%) rotate(90deg);
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   .opponent-right
-  .android-side-rack
+  .side-rack
   .opponent-hand
   .tile-back
   .tile-art {
   transform: translate(-50%, -50%) rotate(-90deg);
 }
-/* Completed-round hands arrive face up. Keep their owner-facing orientation
-   and use a second lane for long revealed hands instead of crossing our hand. */
-html:root[data-table-platform="android"]
-  #table-board
-  .android-side-rack
-  .opponent-hand:has(.tile) {
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(
-    min(7, var(--opponent-hand-count)),
-    var(--public-w)
-  );
-  gap: 1px;
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .android-side-rack
-  .opponent-hand
-  .tile {
-  position: relative;
-  width: var(--public-h);
-  height: var(--public-w);
-  min-width: 0;
-  min-height: 0;
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .android-side-rack
-  .opponent-hand
-  .tile
-  .tile-art {
-  position: absolute;
-  inset: auto;
-  left: 50%;
-  top: 50%;
-  width: var(--public-w);
-  height: var(--public-h);
-  transform: translate(-50%, -50%) rotate(90deg);
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-right
-  .android-side-rack
-  .opponent-hand
-  .tile
-  .tile-art {
-  transform: translate(-50%, -50%) rotate(-90deg);
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .android-side-rack
-  .opponent-melds {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 3px;
-  width: max-content;
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .android-side-rack
-  .opponent-melds
-  > span {
+html:root[data-table-platform] #table-board .side-rack .opponent-melds {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  width: max-content;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  .side-rack
+  .opponent-melds {
+  align-items: flex-end;
+}
+html:root[data-table-platform] #table-board .side-rack .opponent-melds > span {
+  display: flex;
+  flex-direction: row;
   flex-wrap: nowrap;
   gap: 0;
-  width: var(--meld-h);
-  min-width: 0;
-  height: max-content;
+  width: max-content;
+  height: var(--meld-h);
   padding: 0;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
-  .android-side-rack
+  .side-rack
   .opponent-melds
   :is(.tile, .tile-back) {
   position: relative;
-  width: var(--meld-h);
-  height: var(--meld-w);
+  width: var(--meld-w);
+  height: var(--meld-h);
   min-width: 0;
   min-height: 0;
   flex: 0 0 auto;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
-  .android-side-rack
+  .side-rack
   .opponent-melds
   .tile-art {
   position: absolute;
-  inset: auto;
-  left: 50%;
-  top: 50%;
-  width: var(--meld-w);
-  height: var(--meld-h);
-  transform: translate(-50%, -50%) rotate(90deg);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
-  .opponent-right
-  .android-side-rack
-  .opponent-melds
+  .side-rack
+  .opponent-hand:has(.tile) {
+  display: grid;
+  grid-template-columns: repeat(
+    min(4, var(--opponent-hand-count)),
+    var(--public-w)
+  );
+  gap: 1px;
+}
+html:root[data-table-platform] #table-board .side-rack .opponent-hand .tile {
+  position: relative;
+  width: var(--public-w);
+  height: var(--public-h);
+  min-width: 0;
+  min-height: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  .side-rack
+  .opponent-hand
+  .tile
   .tile-art {
-  transform: translate(-50%, -50%) rotate(-90deg);
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .android-side-rack:has(.opponent-melds > span:nth-child(3)) {
-  flex-direction: column;
-  align-items: flex-start;
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-left
-  .android-side-rack:has(.opponent-melds > span:nth-child(3))
-  .opponent-hand {
-  order: 1;
-}
-html:root[data-table-platform="android"]
-  #table-board
-  .opponent-right
-  .android-side-rack:has(.opponent-melds > span:nth-child(3)) {
-  flex-direction: column;
-  align-items: flex-end;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
 }
 /* The action buttons occupy the outer lower-right rail, outside the public
    rack. A selected hand tile still has its complete nine-pixel lift space. */
-html:root[data-table-platform="android"] #table-board .action-bar {
+html:root[data-table-platform] #table-board .action-bar {
   --action-size: clamp(30px, calc(1.5 * var(--public-w) - 2px), 42px);
   bottom: calc(var(--bottom) + var(--hand-height) + 14px);
   right: var(--edge-r);
 }
-html:root[data-table-platform="android"] #table-board .game-actions {
+html:root[data-table-platform] #table-board .game-actions {
   display: grid;
   grid-template-columns: repeat(2, var(--action-size));
   height: auto;
   gap: 4px;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   .game-actions:has(> button:only-child) {
   grid-template-columns: var(--action-size);
 }
-html:root[data-table-platform="android"] #table-board .claim-source {
+html:root[data-table-platform] #table-board .claim-source {
   position: fixed;
   top: 2px;
   left: calc(var(--edge-l) + 175px);
@@ -383,45 +313,45 @@ html:root[data-table-platform="android"] #table-board .claim-source {
   margin: 0;
   gap: 4px;
 }
-html:root[data-table-platform="android"] #table-board .claim-source > .tile {
+html:root[data-table-platform] #table-board .claim-source > .tile {
   width: 16px;
   height: 23px;
   flex-basis: 16px;
 }
-html:root[data-table-platform="android"] #table-board .claim-source > span {
+html:root[data-table-platform] #table-board .claim-source > span {
   min-width: 0;
   flex-direction: column;
   gap: 0;
 }
-html:root[data-table-platform="android"] #table-board .claim-source strong {
+html:root[data-table-platform] #table-board .claim-source strong {
   font-size: 10px;
   line-height: 11px;
   max-width: 100%;
 }
-html:root[data-table-platform="android"] #table-board .claim-source small {
+html:root[data-table-platform] #table-board .claim-source small {
   font-size: 9px;
   line-height: 11px;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board:has(.claim-source)
   .game-topbar
   > :is(span, .table-brand) {
   visibility: hidden;
 }
 /* Give the number its own column and leave air around all four winds. */
-html:root[data-table-platform="android"] #table-board .table-center {
+html:root[data-table-platform] #table-board .table-center {
   width: calc(var(--river-clock-height) + 20px);
   grid-template-columns: 18px minmax(0, 1fr) 18px;
   column-gap: 5px;
 }
-html:root[data-table-platform="android"] #table-board .table-center > strong {
+html:root[data-table-platform] #table-board .table-center > strong {
   height: 100%;
   line-height: 1;
   display: grid;
   place-items: center;
   font-size: clamp(18px, calc(var(--river-clock-height) - 42px), 24px);
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   .table-center
   > strong.long-countdown {
@@ -429,31 +359,31 @@ html:root[data-table-platform="android"]
 }
 /* More flowers use five columns in the outer left rail, with the adjacent
    hand following that boundary rather than drifting into the same space. */
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7)) {
   --side-flower-cols: 5;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
   .opponent-left
   > .flower-rack
   .flower-rack-tiles {
   grid-template-columns: repeat(min(5, var(--flower-count)), var(--public-w));
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
   .opponent-left
   .opponent-info {
   top: 40px;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
   .opponent-left
   > .flower-rack {
   top: 94px;
 }
-html:root[data-table-platform="android"] #table-board .game-topbar > span,
-html:root[data-table-platform="android"]
+html:root[data-table-platform] #table-board .game-topbar > span,
+html:root[data-table-platform]
   #table-board
   .game-topbar
   > .table-brand.inspecting-discard {
@@ -463,33 +393,29 @@ html:root[data-table-platform="android"]
   font-size: 10px;
   line-height: 12px;
 }
-html:root[data-table-platform="android"]
-  #table-board
-  .game-topbar
-  > span
-  small {
+html:root[data-table-platform] #table-board .game-topbar > span small {
   line-height: 12px;
 }
-html:root[data-table-platform="android"]
+html:root[data-table-platform]
   #table-board
   .table-brand.inspecting-discard
   small {
   margin-top: 2px;
 }
 @media (max-width: 650px) {
-  html:root[data-table-platform="android"] #table-board {
+  html:root[data-table-platform] #table-board {
     --base-public-w: 14px;
     --edge-l: max(4px, calc(env(safe-area-inset-left) + 4px));
     --edge-r: max(4px, calc(env(safe-area-inset-right) + 4px));
   }
-  html:root[data-table-platform="android"]
+  html:root[data-table-platform]
     #table-board
     .opponent-top
     .opponent-hand
     .tile-back {
-    width: 9.1px;
+    width: calc(7px * var(--tile-scale));
   }
-  html:root[data-table-platform="android"]
+  html:root[data-table-platform]
     #table-board
     .opponent-top
     .opponent-rack
@@ -497,21 +423,119 @@ html:root[data-table-platform="android"]
     .flower-rack-tiles {
     grid-template-columns: repeat(min(8, var(--flower-count)), var(--public-w));
   }
-  html:root[data-table-platform="android"]
-    #table-board
-    .opponent-top
-    .opponent-info {
+  html:root[data-table-platform] #table-board .opponent-top .opponent-info {
     width: 90px;
   }
-  html:root[data-table-platform="android"]
-    #table-board
-    .android-side-rack
-    .opponent-melds {
+  html:root[data-table-platform] #table-board .side-rack .opponent-melds {
     gap: 1px;
   }
-  html:root[data-table-platform="android"]
+  html:root[data-table-platform]
     #table-board
     .action-bar:has(.game-actions > button:nth-child(4)) {
     right: var(--edge-r);
   }
+}
+/* Central metadata shares the clear corridor between all four rivers. */
+html:root[data-table-platform] #table-board .table-hud {
+  --metric-width: min(
+    34px,
+    calc((8 * var(--river-tile-width) - 62px - 12px) / 2)
+  );
+  --dial-size: min(
+    var(--river-clock-height),
+    calc(8 * var(--river-tile-width) - 2 * var(--metric-width) - 12px)
+  );
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: var(--metric-width) var(--dial-size) var(
+      --metric-width
+    );
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: var(--dial-size);
+  height: var(--dial-size);
+  grid-template-columns: 17px minmax(0, 1fr) 17px;
+  grid-template-rows: 17px minmax(0, 1fr) 17px;
+  column-gap: 2px;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  .compass-wind {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center > strong {
+  font-size: 22px;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  > strong.long-countdown {
+  font-size: 16px;
+}
+.table-stock {
+  display: grid;
+  gap: 5px;
+  text-align: center;
+}
+.table-stock > div,
+.table-rounds {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.table-hud :is(.table-stock, .table-rounds) span {
+  font-size: 11px;
+  line-height: 13px;
+  color: #c2d7bd;
+  white-space: nowrap;
+}
+.table-hud :is(.table-stock, .table-rounds) b {
+  font:
+    600 17px/18px ui-monospace,
+    monospace;
+  color: #fff0bd;
+  white-space: nowrap;
+}
+.table-rounds b small {
+  font-size: 12px;
+}
+/* A single lower-right action zone on both platforms, above the hand.
+   Four choices wrap within that zone rather than cross a river or flower tray. */
+html:root[data-table-platform] #table-board .action-bar {
+  bottom: calc(var(--bottom) + var(--hand-height) + 14px);
+  right: var(--edge-r);
+}
+
+html:root[data-table-platform] #table-board .table-layout-metrics {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  left: var(--edge-l);
+  margin-right: var(--edge-r);
+  width: var(--public-w);
+  height: var(--side-back-h);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-info
+  .avatar {
+  width: 28px;
+  height: 28px;
 }

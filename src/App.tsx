@@ -501,6 +501,25 @@ export function App() {
           (window.innerWidth <= 650 ? 28 : 36)
         : entry.contentRect.height;
       const sideColumns = androidTable ? (window.innerHeight < 370 ? 6 : 7) : 8;
+      // Resolve CSS lengths through an inert, permanent box. These dimensions
+      // depend only on the viewport and safe areas, never on drawn/flower tiles.
+      const metrics = document.querySelector<HTMLElement>(
+        ".table-layout-metrics",
+      )!;
+      const metricBox = metrics.getBoundingClientRect();
+      const edge = Math.max(
+        metricBox.left,
+        parseFloat(getComputedStyle(metrics).marginRight),
+      );
+      const publicWidth = metricBox.width;
+      const commonReserve = edge + 3 * publicWidth + 16 + 12;
+      const backCap =
+        (window.innerWidth / 2 - commonReserve - metricBox.height - 10) /
+        Math.max(12 * 0.72, 4 * 0.72 + Math.ceil(32 / sideColumns));
+      const meldCap =
+        (window.innerWidth / 2 - commonReserve - 4 * publicWidth * 1.2 - 8) /
+        (4 * 0.72 + Math.ceil(24 / sideColumns));
+      const sideCap = Math.min(backCap, meldCap);
       setRiverLayout(
         riverLayoutFor(
           entry.contentRect.width,
@@ -514,9 +533,7 @@ export function App() {
           scale,
           sideColumns,
           legacyHeight,
-          androidTable && window.innerWidth <= 650
-            ? (window.innerWidth / 2 - 132) / 8.64
-            : Infinity,
+          sideCap,
         ),
       );
     });
@@ -668,6 +685,11 @@ export function App() {
                         {state.account?.username} ·{" "}
                         {admin ? "管理员" : canOpen ? "可开桌牌友" : "牌友"}
                       </p>
+                      {state.account?.memberId && (
+                        <p className="profile-member-id">
+                          会员 ID：{state.account.memberId}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="profile-name-editor">
@@ -800,7 +822,7 @@ export function App() {
                       查看已结束牌局的回放。声音设置和单人练习保存在此设备。
                     </p>
                   </div>
-                  <span className="version">金陵麻将 0.6.7 · 试打版</span>
+                  <span className="version">金陵麻将 0.6.8 · 试打版</span>
                 </section>
               </div>
             </>
@@ -978,6 +1000,7 @@ export function App() {
             } as CSSProperties
           }
         >
+          <div className="table-layout-metrics" aria-hidden="true" />
           <div className="game-topbar">
             <button className="back-link" onClick={() => setModal("leave")}>
               <ArrowLeft size={17} />
@@ -1156,48 +1179,74 @@ export function App() {
                   </button>
                 );
               })}
-              <div
-                className={`table-center ${state.connected && timed && !waitingOthersOvertime && countdown <= 5 ? "urgent" : ""}`}
-                aria-label={
-                  !state.connected
-                    ? "连接中断，等待同步倒计时"
-                    : waitingOthersOvertime
-                      ? "等待其他牌友响应"
-                      : timed
-                        ? `${decisionTime.overtime ? (perTurnOvertime ? "超时剩余" : "累计超时剩余") : v.phase === "claiming" ? "响应倒计时" : "出牌倒计时"} ${countdown} 秒`
-                        : ticking
-                          ? "不限时"
-                          : "本局结束"
-                }
-              >
-                {[0, 1, 2, 3].map((offset) => {
-                  const seat = ((v.me + offset) % 4) as Seat;
-                  return (
-                    <span
-                      key={seat}
-                      className={`compass-wind wind-${offset} ${ticking && v.phase === "playing" && v.turn === seat ? "current" : ""}`}
-                    >
-                      {seatNames[seat]}
-                    </span>
-                  );
-                })}
-                <strong
-                  className={countdown >= 100 ? "long-countdown" : undefined}
-                >
-                  {!state.connected
-                    ? "···"
-                    : paused
-                      ? "Ⅱ"
+              <div className="table-hud" aria-label="牌桌信息">
+                <div className="table-stock">
+                  <div>
+                    <span>余牌</span>
+                    <b>{v.remaining}</b>
+                  </div>
+                  <div>
+                    <span>余花</span>
+                    <b>
+                      {Math.max(
+                        0,
+                        20 -
+                          v.players.reduce(
+                            (n, p) => n + (p?.flowers.length ?? 0),
+                            0,
+                          ),
+                      )}
+                    </b>
+                  </div>
+                </div>
+                <div
+                  className={`table-center ${state.connected && timed && !waitingOthersOvertime && countdown <= 5 ? "urgent" : ""}`}
+                  aria-label={
+                    !state.connected
+                      ? "连接中断，等待同步倒计时"
                       : waitingOthersOvertime
-                        ? "···"
+                        ? "等待其他牌友响应"
                         : timed
-                          ? String(countdown).padStart(2, "0")
+                          ? `${decisionTime.overtime ? (perTurnOvertime ? "超时剩余" : "累计超时剩余") : v.phase === "claiming" ? "响应倒计时" : "出牌倒计时"} ${countdown} 秒`
                           : ticking
-                            ? "∞"
-                            : "—"}
-                </strong>
-                <small className="dial-round">第 {v.round} 局</small>
-                <small className="dial-remaining">剩余 {v.remaining} 张</small>
+                            ? "不限时"
+                            : "本局结束"
+                  }
+                >
+                  {[0, 1, 2, 3].map((offset) => {
+                    const seat = ((v.me + offset) % 4) as Seat;
+                    return (
+                      <span
+                        key={seat}
+                        className={`compass-wind wind-${offset} ${ticking && v.phase === "playing" && v.turn === seat ? "current" : ""}`}
+                      >
+                        {seatNames[seat]}
+                      </span>
+                    );
+                  })}
+                  <strong
+                    className={countdown >= 100 ? "long-countdown" : undefined}
+                  >
+                    {!state.connected
+                      ? "···"
+                      : paused
+                        ? "Ⅱ"
+                        : waitingOthersOvertime
+                          ? "···"
+                          : timed
+                            ? String(countdown).padStart(2, "0")
+                            : ticking
+                              ? "∞"
+                              : "—"}
+                  </strong>
+                </div>
+                <div className="table-rounds">
+                  <span>把数</span>
+                  <b>
+                    {v.round}
+                    <small> / {v.rules.rounds}</small>
+                  </b>
+                </div>
               </div>
             </div>
             <GameMotion events={motion} view={v} />
@@ -2220,9 +2269,7 @@ function Opponent({
       {position !== "top" && (
         <FlowerRack flowers={p.flowers} name={`${seatNames[seat]}家`} />
       )}
-      <div
-        className={`opponent-rack ${androidTable && position !== "top" ? "android-side-rack" : ""}`}
-      >
+      <div className={`opponent-rack ${position !== "top" ? "side-rack" : ""}`}>
         <div className="opponent-hand">
           {p.hand.length
             ? p.hand.map((t) => <Tile tile={t} small key={t} />)
@@ -2241,7 +2288,7 @@ function Opponent({
         </div>
         {position === "top" && (
           <FlowerRack
-            compact={androidTable}
+            compact
             flowers={p.flowers}
             name={`${seatNames[seat]}家`}
           />

@@ -13,6 +13,7 @@ import {
 } from "../shared/engine";
 import type {
   Account,
+  MatchDetails,
   RecordsPage,
   RoundReplay,
   StoredRound,
@@ -480,6 +481,9 @@ export class GameClient {
     if (saved) return saved;
     return this.api<RoundReplay>("/api/replays/" + encodeURIComponent(id));
   }
+  async loadMatch(id: string): Promise<MatchDetails> {
+    return this.api<MatchDetails>("/api/matches/" + encodeURIComponent(id));
+  }
   private updateLocal() {
     if (this.local) {
       if (this.local.phase === "ended" && !this.local.deadline)
@@ -514,6 +518,17 @@ export class GameClient {
           practice: this.state.mode === "local",
           record,
         });
+    if (view.phase === "finished" && this.state.mode === "local") {
+      const latest = records.find(
+        (r) => r.record.id === view.history.at(-1)?.id,
+      );
+      if (latest)
+        latest.record = {
+          ...latest.record,
+          matchFinished: true,
+          totalRounds: view.rules.rounds,
+        };
+    }
     storage.set(key, records.slice(0, 100));
   }
   practice(name: string, rules: Partial<Rules>, resume = false) {

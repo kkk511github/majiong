@@ -157,6 +157,10 @@ export interface RoundRecord {
   settlementBase?: number;
   scoreDivisor?: number;
   playerIds?: string[];
+  /** Stable public member numbers; account UUIDs remain internal identifiers. */
+  memberIds?: string[];
+  /** Added by authorized record endpoints only; never sent to member viewers. */
+  teamNames?: string[];
   totalRounds?: number;
   tableName?: string;
   matchFinished?: boolean;
@@ -164,6 +168,7 @@ export interface RoundRecord {
 }
 export interface Account {
   id: string;
+  memberId?: string;
   username: string;
   name: string;
   role: "admin" | "member";
@@ -188,6 +193,7 @@ export interface ClubMembersPage {
 }
 export interface PointSummary {
   accountId: string;
+  memberId?: string;
   username: string;
   name: string;
   teamId: string;
@@ -226,6 +232,10 @@ export interface RecordsPage {
   total: number;
   page: number;
   pageSize: number;
+}
+export interface MatchDetails {
+  match: StoredRound;
+  rounds: StoredRound[];
 }
 export interface Game {
   /** Server/local engine only. Never included in a live player View. */

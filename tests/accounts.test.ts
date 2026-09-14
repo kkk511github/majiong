@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WebSocket } from "ws";
 import { makeServer } from "../server/service";
-import { provisionAdministrator } from "../server/accounts";
+import { accountSchema, provisionAdministrator } from "../server/accounts";
 import { createRecords } from "../server/records";
 import { createGame, newPlayer, seats } from "../shared/engine";
 import { settlementRows } from "../shared/settlement";
@@ -313,11 +313,58 @@ describe("管理员每桌最终战绩", () => {
       ),
     ).toBe(true);
     expect((await request("/api/records", undefined, a.token)).body.total).toBe(
-      40,
+      5,
     );
     expect((await request("/api/records", undefined, b.token)).body.total).toBe(
       0,
     );
+    const detail = await request("/api/matches/match-0", undefined, a.token);
+    expect(detail.status).toBe(200);
+    expect(detail.body.rounds).toHaveLength(8);
+    expect(new Set(detail.body.rounds.map((r: any) => r.record.id)).size).toBe(
+      8,
+    );
+    expect(detail.body.match.record.memberIds[0]).toBe(a.account.memberId);
+    expect(
+      detail.body.rounds.every(
+        (r: any) => r.record.memberIds[0] === a.account.memberId,
+      ),
+    ).toBe(true);
+    db.prepare("INSERT OR REPLACE INTO round_rosters VALUES (?,?,?,?,?)").run(
+      "match-0",
+      1,
+      a.account.id,
+      "team-1",
+      "一生所爱战队",
+    );
+    const managed = await request(
+      "/api/matches/match-0",
+      undefined,
+      admin.token,
+    );
+    expect(managed.body.match.record.teamNames[0]).toBe("一生所爱战队");
+    const privateView = await request(
+      "/api/matches/match-0",
+      undefined,
+      a.token,
+    );
+    expect(JSON.stringify(privateView.body)).not.toContain("teamNames");
+    expect(JSON.stringify(privateView.body)).not.toContain("一生所爱战队");
+    expect(
+      (await request("/api/matches/match-0", undefined, b.token)).status,
+    ).toBe(404);
+    expect((await request("/api/matches/match-0")).status).toBe(401);
+    // Public IDs follow the existing privacy mode too.
+    db.prepare(
+      "UPDATE match_records SET private_names=1 WHERE game_id='match-0'",
+    ).run();
+    db.prepare(
+      "UPDATE round_records SET private_names=1 WHERE game_id='match-0'",
+    ).run();
+    const masked = (await request("/api/matches/match-0", undefined, a.token))
+      .body;
+    expect(masked.match.record.memberIds.slice(1)).toEqual(["", "", ""]);
+    expect(masked.rounds[0].record.names[1]).toBe("牌友2");
     const renewed = fixtureMatch(6);
     renewed.code = "700001";
     records.capture(renewed);
@@ -651,5 +698,41 @@ describe("前台同步只返回本人视角", () => {
     server.games.delete(g.code);
     peer.send({ type: "ping", sync: true, sentAt: 13 });
     expect(await peer.read("pong")).toMatchObject({ sentAt: 13, synced: true });
+  });
+});
+
+describe("公开会员编号", () => {
+  it("旧账号补号幂等，注册编号唯一且登录、改昵称后不变", async () => {
+    const legacy = new DatabaseSync(":memory:");
+    legacy.exec(
+      "CREATE TABLE accounts(id TEXT PRIMARY KEY,username TEXT,name TEXT,password_hash TEXT,role TEXT,must_change INTEGER,created_at INTEGER)",
+    );
+    legacy
+      .prepare("INSERT INTO accounts VALUES (?,?,?,?,?,?,?)")
+      .run("old-a", "old-a", "旧账号", "hash", "member", 0, 1);
+    accountSchema(legacy);
+    const before = legacy.prepare("SELECT * FROM account_numbers").all();
+    expect(before[0].member_id).toBe(100001);
+    accountSchema(legacy);
+    expect(legacy.prepare("SELECT * FROM account_numbers").all()).toEqual(
+      before,
+    );
+    legacy.close();
+    const { auth, request } = await boot();
+    const a = await auth("id-user-a"),
+      b = await auth("id-user-b");
+    expect(a.account.memberId).toMatch(/^\d{6,}$/);
+    expect(b.account.memberId).not.toBe(a.account.memberId);
+    const changed = await request(
+      "/api/auth/profile",
+      { name: "改过昵称" },
+      a.token,
+    );
+    expect(changed.body.account.memberId).toBe(a.account.memberId);
+    const login = await request("/api/auth/login", {
+      username: "id-user-a",
+      password,
+    });
+    expect(login.body.account.memberId).toBe(a.account.memberId);
   });
 });

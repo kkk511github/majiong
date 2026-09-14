@@ -365,7 +365,7 @@ export function ClubManagement({
             <div className="club-filter-main">
               <input
                 aria-label="搜索会员"
-                placeholder="账号或昵称"
+                placeholder="ID、账号或昵称"
                 value={draft.q}
                 maxLength={100}
                 onChange={(e) => setDraft((d) => ({ ...d, q: e.target.value }))}
@@ -524,7 +524,8 @@ export function ClubManagement({
                     <div className="club-identity">
                       <strong>{a.name}</strong>
                       <small>
-                        {a.username} · {a.role === "admin" ? "管理员" : "会员"}
+                        ID {a.memberId ?? "—"} · {a.username} ·{" "}
+                        {a.role === "admin" ? "管理员" : "会员"}
                       </small>
                       <span className={a.playBlocked ? "club-blocked" : ""}>
                         {isSaving
@@ -634,7 +635,9 @@ export function ClubManagement({
                       <td>{r.teamName}</td>
                       <td>
                         <strong>{r.name}</strong>
-                        <small>{r.username}</small>
+                        <small>
+                          ID {r.memberId ?? "—"} · {r.username}
+                        </small>
                       </td>
                       <td>{r.rounds}</td>
                       <td

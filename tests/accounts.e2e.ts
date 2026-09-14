@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { createGame, newPlayer, seats } from "../shared/engine";
 import { createRecords } from "../server/records";
+import { replayedRound } from "./fixtures/replayed-round";
+import { gzipSync } from "node:zlib";
 const password = "Browser-fixture-password-2026",
   captures = "test-results/screenshots";
 test.beforeAll(() => mkdirSync(captures, { recursive: true }));
@@ -161,16 +163,42 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
 }) => {
   const db = new DatabaseSync(resolve("../../work/accounts-e2e.sqlite")),
     records = createRecords(db);
+  const seed = replayedRound();
+  const hash = db
+    .prepare("SELECT password_hash FROM accounts WHERE username='guanli@1'")
+    .get()!.password_hash;
+  const identities = seats.map((s) => ({
+    id: randomUUID(),
+    username: `record-member-${s}-${randomUUID().slice(0, 8)}`,
+    name: ["金陵牌友", "秦淮", "莫愁", "钟山"][s],
+  }));
+  for (const p of identities)
+    db.prepare("INSERT INTO accounts VALUES (?,?,?,?,?,?,?)").run(
+      p.id,
+      p.username,
+      p.name,
+      hash,
+      "member",
+      0,
+      Date.now(),
+    );
+  const memberIds = identities.map((p) =>
+    String(
+      db
+        .prepare("SELECT member_id FROM account_numbers WHERE account_id=?")
+        .get(p.id)!.member_id,
+    ),
+  );
   for (let i = 0; i < 5; i++) {
     const g = createGame(String(881001 + i), randomUUID(), { rounds: 8 });
     g.phase = "finished";
     g.round = 8;
     g.settlementBase = 100;
     g.players = seats.map((s) =>
-      newPlayer(randomUUID(), ["金陵牌友", "秦淮", "莫愁", "钟山"][s]),
+      newPlayer(identities[s].id, identities[s].name),
     );
     g.players.forEach((p, s) => (p!.score = [0, 0, 100, 260][s]));
-    for (let round = 1; round <= 8; round++)
+    for (let round = 1; round <= 8; round++) {
       g.history.push({
         id: `${g.id}-${round}`,
         at: Date.now(),
@@ -179,6 +207,7 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
         scores: g.players.map((p) => p!.score),
         initialScore: 90,
         scoreDivisor: 2,
+        hands: seed.history[0].hands,
         result: {
           reason: "draw",
           winners: [],
@@ -186,6 +215,25 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
           deltas: [0, 0, 0, 0],
         },
       });
+      for (const p of identities)
+        db.prepare("INSERT INTO round_rosters VALUES (?,?,?,?,?)").run(
+          g.id,
+          round,
+          p.id,
+          "team-1",
+          "一生所爱战队",
+        );
+      const replay = {
+        ...seed.replay!,
+        id: `${g.id}-${round}`,
+        round,
+        names: identities.map((p) => p.name),
+      };
+      db.prepare("INSERT INTO round_replays VALUES (?,?)").run(
+        replay.id,
+        gzipSync(JSON.stringify(replay)),
+      );
+    }
     records.capture(g);
   }
   db.close();
@@ -202,30 +250,37 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
   await page.screenshot({ path: `${captures}/admin-final-five-tables.png` });
   await page.getByRole("button", { name: "查看房间 881001 最终战绩" }).click();
   const board = page.getByRole("dialog");
-  await expect(board.locator(".settlement-meta")).toContainText(
-    "房间号 881001",
+  await expect(board.locator(".match-details-summary")).toContainText(
+    "房间 881001",
   );
-  await expect(board.locator(".settlement-meta")).toContainText("把数 8 / 8");
-  await expect(board.locator(".settlement-recorded")).toHaveText([
-    "+80",
-    "0",
-    "-50",
-    "-50",
-  ]);
-  await expect(board.locator(".settlement-balance")).toHaveText([
-    "260",
-    "100",
-    "0",
-    "0",
-  ]);
-  await expect(board.locator(".settlement-caption")).toContainText("本金 100");
-  await expect(board.locator(".settlement-caption")).toContainText(
-    "桌费 10/人",
+  await expect(board.locator(".match-details-summary")).toContainText(
+    "8 / 8 把",
   );
-  await expect(board.locator(".settlement-table tbody tr")).toHaveCount(4);
   await expect(
-    board.locator(".settlement-table tbody tr").last(),
-  ).toBeInViewport();
+    board.locator(".match-details-summary .match-points b"),
+  ).toHaveText(["-50", "-50", "0", "+80"]);
+  await expect(
+    board.locator(".match-details-summary .record-member-id"),
+  ).toHaveText(memberIds.map((id) => `ID：${id}`));
+  await expect(board.locator(".match-round")).toHaveCount(8);
+  await expect(
+    board.locator(".match-details-summary .record-team"),
+  ).toHaveCount(4);
+  const ids = await board.locator(".round-replay-code code").allTextContents();
+  expect(new Set(ids).size).toBe(8);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await board.getByRole("button", { name: "复制第 1 把回放 ID" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    ids[0],
+  );
+  await board
+    .locator(".match-round")
+    .first()
+    .getByRole("button", { name: "回放", exact: true })
+    .click();
+  const replayDialog = page.locator(".replay-dialog");
+  await expect(replayDialog.locator(".replay-player")).toHaveCount(4);
+  await replayDialog.getByRole("button", { name: "关闭", exact: true }).click();
   const finalCdp = await page.context().newCDPSession(page);
   for (const [width, height] of [
     [932, 430],
@@ -242,14 +297,19 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
         top: 0,
       },
     });
-    const within = await page
-      .locator(".settlement-caption button")
-      .evaluate((el) => {
-        const a = el.getBoundingClientRect(),
-          b = el.closest(".modal-body")!.getBoundingClientRect();
-        return a.top >= b.top && a.bottom <= b.bottom;
-      });
-    expect(within, `${width}x${height} copy control fits`).toBe(true);
+    const last = board.locator(".match-round").last();
+    await last.locator(".round-replay-code").scrollIntoViewIfNeeded();
+    await expect(
+      last.getByRole("button", { name: "回放", exact: true }),
+    ).toBeInViewport();
+    expect(
+      await board
+        .locator(".modal-body")
+        .evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+    ).toBe(true);
+    const r = (await board.boundingBox())!;
+    expect(r.x).toBeGreaterThanOrEqual(width > 700 ? 62 : 0);
+    expect(r.x + r.width).toBeLessThanOrEqual(width - (width > 700 ? 62 : 0));
     await page.screenshot({
       path: `${captures}/final-settlement-${width}.png`,
     });
@@ -259,4 +319,20 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
   await page.getByLabel("结束日期", { exact: true }).fill("2020-01-01");
   await page.getByRole("button", { name: "查询战绩" }).click();
   await expect(page.locator(".record-card")).toHaveCount(0);
+  await page.evaluate(() => localStorage.removeItem("jinling:token"));
+  await login(page, identities[0].username);
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "战绩", exact: true })
+    .click();
+  await expect(page.locator(".record-card")).toHaveCount(5);
+  await expect(page.locator(".record-card .record-team")).toHaveCount(0);
+  await expect(
+    page.locator(".record-card").first().locator(".record-member-id"),
+  ).toHaveText(memberIds.map((id) => `ID：${id}`));
+  await page.locator(".record-card").first().click();
+  await expect(page.locator(".match-round")).toHaveCount(8);
+  await expect(page.locator(".match-record-dialog .record-team")).toHaveCount(
+    0,
+  );
 });

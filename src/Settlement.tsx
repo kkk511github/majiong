@@ -98,6 +98,11 @@ export function Settlement({
                   <span>
                     <strong>
                       {row.name}
+                      {record.teamNames?.[row.seat] && (
+                        <small className="record-team">
+                          {record.teamNames[row.seat]}
+                        </small>
+                      )}
                       {row.seat === me && <small>我</small>}
                     </strong>
                     <small
@@ -115,8 +120,8 @@ export function Settlement({
                           <i aria-hidden="true" />
                           {readiness[row.seat].label}
                         </>
-                      ) : row.id ? (
-                        `ID: ${row.id.slice(0, 8)}`
+                      ) : record.memberIds?.[row.seat] ? (
+                        `ID: ${record.memberIds[row.seat]}`
                       ) : (
                         `${seatNames[row.seat]}位`
                       )}

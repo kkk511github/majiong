@@ -1,6 +1,6 @@
 # 金陵麻将
 
-南京麻将联机 App，使用 React、TypeScript、Capacitor 与 Node.js。当前版本为 **0.6.3 / build 23**，包含 iOS、Android、Web 客户端和完整服务端源码。
+南京麻将联机 App，使用 React、TypeScript、Capacitor 与 Node.js。当前版本为 **0.6.4 / build 24**，包含 iOS、Android、Web 客户端和完整服务端源码。
 
 ## 功能
 

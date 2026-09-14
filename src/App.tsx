@@ -783,7 +783,7 @@ export function App() {
                       查看已结束牌局的回放。声音设置和单人练习保存在此设备。
                     </p>
                   </div>
-                  <span className="version">金陵麻将 0.6.3 · 试打版</span>
+                  <span className="version">金陵麻将 0.6.4 · 试打版</span>
                 </section>
               </div>
             </>

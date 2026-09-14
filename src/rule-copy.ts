@@ -82,7 +82,7 @@ function trusteeDescription(rules: Rules, table: TableSettings): string {
   }
   const clock = `每次出牌或响应先有 ${rules.turnSeconds} 秒，${table.overtimeSeconds ? `超出的时间计入整桌累计超时，累计达到 ${table.overtimeSeconds} 秒后` : "超时后"}`;
   const effect = {
-    match: "进入整局托管，不能在本桌中途取消。",
+    match: "进入全局托管，持续到主动取消；随时可取消接手。",
     round: "托管至本把结算，下一把需手动继续。",
     dissolve: "结束本桌并结算。",
     afterRounds: `托管累计 ${table.trusteeRounds} 把后结束本桌。`,

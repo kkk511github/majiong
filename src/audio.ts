@@ -1,6 +1,6 @@
 import type { View } from "../shared/types";
 import { gameFeedback } from "./game-feedback";
-import { TileVoice } from "./tile-voice";
+import { TileVoice, voicePacks } from "./tile-voice";
 
 export type Cue =
   | "click"
@@ -21,6 +21,8 @@ export interface AudioPreferences {
   musicVolume: number;
   voice: boolean;
   voiceVolume: number;
+  voiceGender?: "male" | "female";
+  chat?: boolean;
 }
 
 /** Compare authoritative snapshots, so rejected actions and presence updates make no game sound. */
@@ -52,6 +54,7 @@ export class GameAudio {
   private voiceGain?: GainNode;
   private voice?: TileVoice;
   private speaking = false;
+  private communication: "off" | "recording" | "playing" = "off";
   private previewEpoch = 0;
   private musicBuffer?: Promise<AudioBuffer | undefined>;
   private musicAbort?: AbortController;
@@ -77,33 +80,45 @@ export class GameAudio {
   configure(preferences: AudioPreferences, table: boolean) {
     this.preferences = preferences;
     this.table = table;
+    this.voice?.setPack(voicePacks[preferences.voiceGender ?? "female"]);
     this.voice?.setEnabled(
       preferences.voice && this.visible && (table || this.replayActive),
     );
     this.setGains();
     this.ensureMusic();
   }
+  setCommunication(state: "off" | "recording" | "playing") {
+    this.communication = state;
+    if (state === "recording") this.stopVoice();
+    this.setGains();
+  }
   private setGains() {
     if (!this.context) return;
     const now = this.context.currentTime;
     this.musicGain!.gain.setTargetAtTime(
-      this.preferences.music && this.visible
+      this.preferences.music &&
+        this.visible &&
+        this.communication !== "recording"
         ? clamp(this.preferences.musicVolume) *
             (this.table ? 0.85 : 1) *
-            (this.speaking ? 0.3 : 1)
+            (this.speaking || this.communication === "playing" ? 0.3 : 1)
         : 0,
       now,
       0.06,
     );
     this.effectsGain!.gain.setTargetAtTime(
-      this.preferences.sound && this.visible
+      this.preferences.sound &&
+        this.visible &&
+        this.communication !== "recording"
         ? clamp(this.preferences.soundVolume)
         : 0,
       now,
       0.015,
     );
     this.voiceGain!.gain.setTargetAtTime(
-      this.preferences.voice && this.visible
+      this.preferences.voice &&
+        this.visible &&
+        this.communication !== "recording"
         ? clamp(this.preferences.voiceVolume)
         : 0,
       now,
@@ -165,10 +180,15 @@ export class GameAudio {
     this.musicGain.connect(limiter);
     this.effectsGain.connect(limiter);
     this.voiceGain.connect(limiter);
-    this.voice = new TileVoice(a, this.voiceGain, (speaking) => {
-      this.speaking = speaking;
-      this.setGains();
-    });
+    this.voice = new TileVoice(
+      a,
+      this.voiceGain,
+      (speaking) => {
+        this.speaking = speaking;
+        this.setGains();
+      },
+      voicePacks[this.preferences.voiceGender ?? "female"],
+    );
     this.voice.setEnabled(
       this.preferences.voice &&
         this.visible &&
@@ -398,7 +418,7 @@ export class GameAudio {
         )
           return;
         this.voice?.setEnabled(true);
-        this.voice?.say(`preview:${epoch}`, "杠上开花");
+        this.voice?.say(`preview:${epoch}`, "自摸");
       })
       .catch(() => {});
   }

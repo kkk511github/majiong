@@ -1,0 +1,604 @@
+{
+  "source": "用户提供的 南京话语音包.zip / 南京麻将_njyz",
+  "archiveSha256": "adf3010e24cacaf5a8e7e78586b7a1e7c062d931bce5bc1954b01f67974e416f",
+  "tempo": 0.9,
+  "sampleRate": 24000,
+  "packs": {
+    "male": {
+      "card_1": {
+        "cue": [
+          0.0,
+          0.5725
+        ],
+        "source": "card_1_一万.mp3",
+        "sha256": "8ab18bfabb3518772a2e8cc00a03ee005772239202487b8bb28fcccf00f770bc"
+      },
+      "card_2": {
+        "cue": [
+          0.5725,
+          0.888208
+        ],
+        "source": "card_2_二万.mp3",
+        "sha256": "c2156e6874f5dc0e6150ef1a16fe6cc3b674905f029cd39d4d6963fca66ccfab"
+      },
+      "card_3": {
+        "cue": [
+          1.460708,
+          0.702208
+        ],
+        "source": "card_3_三万.mp3",
+        "sha256": "459da5c826b2319f9d911c0eff0b7f672661a90f204213dd31a7a88fdcfb16bb"
+      },
+      "card_4": {
+        "cue": [
+          2.162917,
+          0.656042
+        ],
+        "source": "card_4_四万.mp3",
+        "sha256": "95d8e738a5c478cc0e3558cefcb461fe1f18d92727b38fb4b83479a075a0491e"
+      },
+      "card_5": {
+        "cue": [
+          2.818958,
+          0.854042
+        ],
+        "source": "card_5_五万.mp3",
+        "sha256": "490790f2b76388dc3570f42ab8b4a7e0e4db289cb3a9de4854fc9831cc216b59"
+      },
+      "card_6": {
+        "cue": [
+          3.673,
+          0.710208
+        ],
+        "source": "card_6_六万.mp3",
+        "sha256": "5e649fcd14226d2c6d6d134397e8fb5c01e9f30cc9783818d1f0af15d8231842"
+      },
+      "card_7": {
+        "cue": [
+          4.383208,
+          0.61625
+        ],
+        "source": "card_7_七万.mp3",
+        "sha256": "a3f87f9e0d16f61589c32569efc5097372945ace0673b24f0a12a570d8c78cd7"
+      },
+      "card_8": {
+        "cue": [
+          4.999458,
+          0.629
+        ],
+        "source": "card_8_八万.mp3",
+        "sha256": "d71388b24475992675ea63c4390c175cf7dcb9ed218dd7cc50bf703d42fdeef7"
+      },
+      "card_9": {
+        "cue": [
+          5.628458,
+          0.887833
+        ],
+        "source": "card_9_九万.mp3",
+        "sha256": "92f1ba8ccc80b38ef125c0909e5ca539b75654b0eade3b6c96bee82b30793a2d"
+      },
+      "card_17": {
+        "cue": [
+          6.516292,
+          0.660667
+        ],
+        "source": "card_17_一筒.mp3",
+        "sha256": "94431853423432e1717616e5fca1884f6d82b629a23f8fbdc0a9f4578b03c4bf"
+      },
+      "card_18": {
+        "cue": [
+          7.176958,
+          0.720667
+        ],
+        "source": "card_18_二筒.mp3",
+        "sha256": "c55d908577a6ccaac4dfa2e6ab6bfadcb7c28198bc6ad636caa6c1bacfa1a6e0"
+      },
+      "card_19": {
+        "cue": [
+          7.897625,
+          0.917875
+        ],
+        "source": "card_19_三筒.mp3",
+        "sha256": "1ab3dcfa1029835cc59eb0ab419d015a0cba2bf000861645e7429d2e7826b979"
+      },
+      "card_20": {
+        "cue": [
+          8.8155,
+          0.615833
+        ],
+        "source": "card_20_四筒.mp3",
+        "sha256": "814823a5877276b76773cd5edd5ef4ab1b2e79e073890f3d26c3bd802414aa27"
+      },
+      "card_21": {
+        "cue": [
+          9.431333,
+          0.75775
+        ],
+        "source": "card_21_五筒.mp3",
+        "sha256": "52e61fc53c481506e476581fd00a5188b5586b13ee395967ea280709dcd0ad1e"
+      },
+      "card_22": {
+        "cue": [
+          10.189083,
+          0.715
+        ],
+        "source": "card_22_六筒.mp3",
+        "sha256": "fc71b7276b326723763d86fe1e9fa6896afa0b67f13942e913a5359ca8539fa7"
+      },
+      "card_23": {
+        "cue": [
+          10.904083,
+          0.728917
+        ],
+        "source": "card_23_七筒.mp3",
+        "sha256": "5e0281c8cb6e2ff0186cca8f3d7ab53b23b1c3cf3f1052e53979554dc1da37f3"
+      },
+      "card_24": {
+        "cue": [
+          11.633,
+          0.905917
+        ],
+        "source": "card_24_八筒.mp3",
+        "sha256": "b8e07347f4a8b4ce621cad1fb8579dddd2019d06ae8ef6111a8f31701247b65b"
+      },
+      "card_25": {
+        "cue": [
+          12.538917,
+          0.808042
+        ],
+        "source": "card_25_九筒.mp3",
+        "sha256": "991cf97ea388ebb1c2d7e34fa0d62f7e840df920ca6b50f6f6a530f1069571b8"
+      },
+      "card_33": {
+        "cue": [
+          13.346958,
+          0.608833
+        ],
+        "source": "card_33_一条.mp3",
+        "sha256": "7731c6b83a5b7ae6ba468b3458f9866613725c07e8889fa834a18dd0143f8348"
+      },
+      "card_34": {
+        "cue": [
+          13.955792,
+          0.658625
+        ],
+        "source": "card_34_二条.mp3",
+        "sha256": "a8bedc8d9a613e175a3acdc453aace33551edec320493cb8c236f3065d8fd61e"
+      },
+      "card_35": {
+        "cue": [
+          14.614417,
+          0.824458
+        ],
+        "source": "card_35_三条.mp3",
+        "sha256": "34a27363866c3731f719c4b3d2e4f7179a4ad9b16adb4bf4bc34c7fee331bdb6"
+      },
+      "card_36": {
+        "cue": [
+          15.438875,
+          0.570333
+        ],
+        "source": "card_36_四条.mp3",
+        "sha256": "fc705ec49a174ffa4a408ccae3ba1abf3ff85be11c7d87e037eb1e0da6f970d3"
+      },
+      "card_37": {
+        "cue": [
+          16.009208,
+          0.665
+        ],
+        "source": "card_37_五条.mp3",
+        "sha256": "2833ed4d509f16111c96aa7325c22a041c7384256732599605b83bd31cdf5a80"
+      },
+      "card_38": {
+        "cue": [
+          16.674208,
+          0.677667
+        ],
+        "source": "card_38_六条.mp3",
+        "sha256": "36106b82b5fed85a5e21bcd7fe2b38ef02d461a99992ab917c6e73ba56e190db"
+      },
+      "card_39": {
+        "cue": [
+          17.351875,
+          0.601417
+        ],
+        "source": "card_39_七条.mp3",
+        "sha256": "8009ff04705464fd7cb8a59e7e49438dbb77286b30697093d3893cbefacc3f33"
+      },
+      "card_40": {
+        "cue": [
+          17.953292,
+          0.807542
+        ],
+        "source": "card_40_八条.mp3",
+        "sha256": "7bcbe87d2fd34f896b785d2d52dd92c80e1e2a45b8256e872f587f8af3f29cb0"
+      },
+      "card_41": {
+        "cue": [
+          18.760833,
+          0.688208
+        ],
+        "source": "card_41_九条.mp3",
+        "sha256": "8a4ab53e629b59b4f81caa95730de56f9633dcef91af3fc8a43514d10312281d"
+      },
+      "card_49": {
+        "cue": [
+          19.449042,
+          0.618792
+        ],
+        "source": "card_49_东风.mp3",
+        "sha256": "1be35b1777da95646a94efaf4e63004f59acaed2469c16b941055bf916ec3f48"
+      },
+      "card_50": {
+        "cue": [
+          20.067833,
+          0.844583
+        ],
+        "source": "card_50_南风.mp3",
+        "sha256": "e0f6437dc4b767ca5578b027667461ab1f47e52c04d1db1bfd00b53e23648fa7"
+      },
+      "card_51": {
+        "cue": [
+          20.912417,
+          0.657333
+        ],
+        "source": "card_51_西风.mp3",
+        "sha256": "42faad2544ca48f738e2662e31eaefd5486d94da8f18c54f56e6b01f406ba01f"
+      },
+      "card_52": {
+        "cue": [
+          21.56975,
+          0.59525
+        ],
+        "source": "card_52_北风.mp3",
+        "sha256": "4695f966ecbad127cb1979757768b73a4dcd227c0bfe50e748b215d876f380b9"
+      },
+      "碰": {
+        "cue": [
+          22.165,
+          0.508458
+        ],
+        "source": "event_2_吃(左).mp3",
+        "sha256": "c7fa32a8043c75f76d474dcaa98c78ffc433d77817868aae1d6a3705f43d6500"
+      },
+      "杠": {
+        "cue": [
+          22.673458,
+          0.5215
+        ],
+        "source": "event_3_吃(中).mp3",
+        "sha256": "45cb1495aa412c4d6da0cffe412130a024cc7839862360e8390e62df19ada2ca"
+      },
+      "听": {
+        "cue": [
+          23.194958,
+          0.485875
+        ],
+        "source": "event_4_吃(右).mp3",
+        "sha256": "5729039049d102e90db2deacdfbd159438f978f12844bbb600526d8d4b69bd69"
+      },
+      "胡了": {
+        "cue": [
+          23.680833,
+          0.51825
+        ],
+        "source": "event_5_碰.mp3",
+        "sha256": "bf73464675a260ff6bb54d746d99f240f35e8368a0e9b7349919ca4ec992ba7f"
+      },
+      "自摸": {
+        "cue": [
+          24.199083,
+          0.720833
+        ],
+        "source": "event_6_定章(自摸).mp3",
+        "sha256": "3b4ff671d9e96e306e15e759264e0881707e20d54c678a29918711786d430e74"
+      },
+      "补花": {
+        "cue": [
+          24.919917,
+          0.613208
+        ],
+        "source": "event_11_补花.mp3",
+        "sha256": "6512c8cc0792ab0331b512b764d269c8184cc3cd56e60d7e73951e52cea497e1"
+      }
+    },
+    "female": {
+      "card_1": {
+        "cue": [
+          0.0,
+          0.613292
+        ],
+        "source": "card_1_一万.mp3",
+        "sha256": "ceab63161ffd33cd5cc0dba9dc7a4f048aac60ed7dd5a11fd13cc2d7a004b1e0"
+      },
+      "card_2": {
+        "cue": [
+          0.613292,
+          0.937333
+        ],
+        "source": "card_2_二万.mp3",
+        "sha256": "9abc677817d9e587c442ca3d96462d02519b9589898e275380b84f4bf5e071d0"
+      },
+      "card_3": {
+        "cue": [
+          1.550625,
+          0.75325
+        ],
+        "source": "card_3_三万.mp3",
+        "sha256": "f1875d0307bd09883a2abee3bdbbeac8b194605c5c19f1787a500f254b5db0ee"
+      },
+      "card_4": {
+        "cue": [
+          2.303875,
+          0.619333
+        ],
+        "source": "card_4_四万.mp3",
+        "sha256": "a28de5a8e2e706d731b34f9090f88dfbc23033a15f86c7ef86dcc75c41090a19"
+      },
+      "card_5": {
+        "cue": [
+          2.923208,
+          0.746375
+        ],
+        "source": "card_5_五万.mp3",
+        "sha256": "db62d72cd96dfe233ea7d5f09da3e8bd7be1422c15b8940563a73456e4446e4a"
+      },
+      "card_6": {
+        "cue": [
+          3.669583,
+          0.65075
+        ],
+        "source": "card_6_六万.mp3",
+        "sha256": "8287eb8eab3b0209d9ba80dffc6c023f65692ea07b30460bcb803580fd9b517e"
+      },
+      "card_7": {
+        "cue": [
+          4.320333,
+          0.688792
+        ],
+        "source": "card_7_七万.mp3",
+        "sha256": "9a1ab97f0ab3778c716b0b97b4dad7fd01aec0f3f74b398a84f8dc0d7a7fa748"
+      },
+      "card_8": {
+        "cue": [
+          5.009125,
+          0.693083
+        ],
+        "source": "card_8_八万.mp3",
+        "sha256": "e5cd84cacd5194ea0e539eb2c0189a9434e1767dd00285156f9bb86b0af776b1"
+      },
+      "card_9": {
+        "cue": [
+          5.702208,
+          0.853792
+        ],
+        "source": "card_9_九万.mp3",
+        "sha256": "d4208d912155cdb9d4974041bcbb83073eb396faf196cf3a22ac03bb463422e1"
+      },
+      "card_17": {
+        "cue": [
+          6.556,
+          0.734917
+        ],
+        "source": "card_17_一筒.mp3",
+        "sha256": "84868bc0a72cdbd86fb157562d9669990f930a2036623be0e6b0e68c1b41460b"
+      },
+      "card_18": {
+        "cue": [
+          7.290917,
+          0.805292
+        ],
+        "source": "card_18_二筒.mp3",
+        "sha256": "905d6eb7e08dcf0f7d361c62129f3f96780cc09e8b0861819a27cfff03bbdba7"
+      },
+      "card_19": {
+        "cue": [
+          8.096208,
+          0.835333
+        ],
+        "source": "card_19_三筒.mp3",
+        "sha256": "0fe1c72582e457e68784a038044e92093a6edace0c807d142feaebad6934278a"
+      },
+      "card_20": {
+        "cue": [
+          8.931542,
+          0.556833
+        ],
+        "source": "card_20_四筒.mp3",
+        "sha256": "d9e9b67f57e309616f2634533e0fc43843afae5429e998c3ae2bf29fda854de6"
+      },
+      "card_21": {
+        "cue": [
+          9.488375,
+          0.823167
+        ],
+        "source": "card_21_五筒.mp3",
+        "sha256": "356ddeefd96b92a193079739d2f0689c3385068acbcff1fa297b88ab3656f3ee"
+      },
+      "card_22": {
+        "cue": [
+          10.311542,
+          0.831
+        ],
+        "source": "card_22_六筒.mp3",
+        "sha256": "27e5cc71444c4f6f576960c4c8f1589812bca7f1135d75385b1d8fc062ead7fe"
+      },
+      "card_23": {
+        "cue": [
+          11.142542,
+          0.789708
+        ],
+        "source": "card_23_七筒.mp3",
+        "sha256": "b08b9ad96ff75dfb44350cc2a18de0b46357a32bc6795b79c9a23a20d629b77e"
+      },
+      "card_24": {
+        "cue": [
+          11.93225,
+          0.745708
+        ],
+        "source": "card_24_八筒.mp3",
+        "sha256": "e37fefdaa6e3610255e1c24c3aa2fff1c77371c45441ce8b46f0cb1f411dc3e1"
+      },
+      "card_25": {
+        "cue": [
+          12.677958,
+          0.84375
+        ],
+        "source": "card_25_九筒.mp3",
+        "sha256": "9b0987fd1f48be5098129b8d77d86ee83c21f4332938aa347daa7caf3f739275"
+      },
+      "card_33": {
+        "cue": [
+          13.521708,
+          0.788792
+        ],
+        "source": "card_33_一条.mp3",
+        "sha256": "fa229643a73269e21cb8607fd1f9934146cda86b5efc15121bd1696a28129d41"
+      },
+      "card_34": {
+        "cue": [
+          14.3105,
+          0.836417
+        ],
+        "source": "card_34_二条.mp3",
+        "sha256": "55ea4d9e97c92143e22b3d50af29807d477e0fd8f916320365102fb9c2a899fc"
+      },
+      "card_35": {
+        "cue": [
+          15.146917,
+          0.829542
+        ],
+        "source": "card_35_三条.mp3",
+        "sha256": "f01cc3df1d3f4b154ddbf3ecd3b2df59c8c9f6943d9a0b586b89f5937c9593ad"
+      },
+      "card_36": {
+        "cue": [
+          15.976458,
+          0.772625
+        ],
+        "source": "card_36_四条.mp3",
+        "sha256": "f80b4dc361cf2c98f31a32a00af2be5f8d6ad7672c4278ac44afe86c8796f3fd"
+      },
+      "card_37": {
+        "cue": [
+          16.749083,
+          0.844333
+        ],
+        "source": "card_37_五条.mp3",
+        "sha256": "cea75cf7b92ecd103d984bb310ae02650cd741d49ee60cbbcf2c25575cfb6c33"
+      },
+      "card_38": {
+        "cue": [
+          17.593417,
+          0.7955
+        ],
+        "source": "card_38_六条.mp3",
+        "sha256": "957051cc9b33489265573dbca3b2f74ad83efcf110ddfd38219ae64de0701fe5"
+      },
+      "card_39": {
+        "cue": [
+          18.388917,
+          0.769292
+        ],
+        "source": "card_39_七条.mp3",
+        "sha256": "5686543a03d0c7c578e56cf87bc00f73131fa23e6b5f5fd856d1c268df1de755"
+      },
+      "card_40": {
+        "cue": [
+          19.158208,
+          0.780792
+        ],
+        "source": "card_40_八条.mp3",
+        "sha256": "c87757e39444407e72a9756c8a252f57740765caa0f97478ac31e213c425a5cd"
+      },
+      "card_41": {
+        "cue": [
+          19.939,
+          0.828417
+        ],
+        "source": "card_41_九条.mp3",
+        "sha256": "36735a944a3d8172d42149c1fa07844622ef1fdc6d535883a48e656fe7c71135"
+      },
+      "card_49": {
+        "cue": [
+          20.767417,
+          0.832917
+        ],
+        "source": "card_49_东风.mp3",
+        "sha256": "cfca77473214da258ca7b480030e0eddc882ba10cf122846e0f23f519683f180"
+      },
+      "card_50": {
+        "cue": [
+          21.600333,
+          0.864458
+        ],
+        "source": "card_50_南风.mp3",
+        "sha256": "c8dc808c1cbb0b142516373fad61e680c90d37f8fe5500b2d3b715247638b6df"
+      },
+      "card_51": {
+        "cue": [
+          22.464792,
+          0.848875
+        ],
+        "source": "card_51_西风.mp3",
+        "sha256": "8e5ed73c5e31759003008d979c073522a644c75266126bbf810834b6eba67920"
+      },
+      "card_52": {
+        "cue": [
+          23.313667,
+          0.757292
+        ],
+        "source": "card_52_北风.mp3",
+        "sha256": "8fb287c300ecd3145f44c5350c5463e53089f67c3816263c1b066f07091e0109"
+      },
+      "碰": {
+        "cue": [
+          24.070958,
+          0.578208
+        ],
+        "source": "event_2_吃(左).mp3",
+        "sha256": "7cca9f3360f4253f1f23858332c6c67018cdfcf4e27b9f5ac3efd6842047cac7"
+      },
+      "杠": {
+        "cue": [
+          24.649167,
+          0.497417
+        ],
+        "source": "event_3_吃(中).mp3",
+        "sha256": "a4d05937e8d27bfe8976aabd9228439d396d5532250558c8193911a5ff548763"
+      },
+      "听": {
+        "cue": [
+          25.146583,
+          0.558208
+        ],
+        "source": "event_4_吃(右).mp3",
+        "sha256": "8af1bc5fb02e93e1c2cd9bc24b506f24302403e76af888e29f4fa30f3fdcb9d0"
+      },
+      "胡了": {
+        "cue": [
+          25.704792,
+          0.7435
+        ],
+        "source": "event_5_碰.mp3",
+        "sha256": "1f270542b3a0b80e6f2c8daee3f31b279f0a6aad49d86e6fea859464eb1a0181"
+      },
+      "自摸": {
+        "cue": [
+          26.448292,
+          0.524208
+        ],
+        "source": "event_6_定章.mp3",
+        "sha256": "c3037d99b4288b37c9111b4d25002ab8dd11d388547025d7316e8ec5c3122be7"
+      },
+      "补花": {
+        "cue": [
+          26.9725,
+          0.714
+        ],
+        "source": "event_11_杠(幺).mp3",
+        "sha256": "0804a02a2b670bcc46166b8b967c109a2d39e44768ad3f5398eacac65350e1b6"
+      }
+    }
+  }
+}

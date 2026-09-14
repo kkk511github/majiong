@@ -1,6 +1,6 @@
 import { test, expect } from "./browser-fixtures";
 import { mkdirSync, readFileSync } from "node:fs";
-const voice = JSON.parse(readFileSync("src/nanjing-voice.json", "utf8"));
+const voice = JSON.parse(readFileSync("src/nanjing-female.json", "utf8"));
 
 for (const [width, height] of [
   [568, 320],
@@ -54,6 +54,7 @@ for (const [width, height] of [
       name: "试听南京话",
       exact: true,
     });
+    await preview.scrollIntoViewIfNeeded();
     const hit = await preview.evaluate((el) => {
       const r = el.getBoundingClientRect();
       return (
@@ -72,7 +73,7 @@ for (const [width, height] of [
       .poll(() => page.evaluate(() => (window as any).__voiceStarts.length))
       .toBe(1);
     const starts = await page.evaluate(() => (window as any).__voiceStarts);
-    expect(starts[0]).toEqual([0, ...voice.actions["杠上开花"]]);
+    expect(starts[0]).toEqual([0, ...voice.actions["自摸"]]);
     const peak = () =>
       page.evaluate(() => {
         const analyser = (window as any).__voiceAudio.analyser;

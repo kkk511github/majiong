@@ -5,12 +5,12 @@ export function riverLayoutFor(
   spread = 0,
   maxTrackBottom = Infinity,
   tileScale = 1,
-  sideColumns = 8,
+  sideColumns = 6,
   baselineHeight = height,
   maxTileHeight = Infinity,
 ) {
   const baselineWidth = width - 2 * spread;
-  let compass = baselineWidth < 420 ? 68 : 82;
+  let compass = baselineHeight < 210 ? 62 : 82;
   const playerGap = 9,
     rowGap = 2;
   let tileHeight = 14;
@@ -33,7 +33,7 @@ export function riverLayoutFor(
   tileHeight = Math.min(
     tileHeight * 1.44 * tileScale,
     maxTileHeight,
-    tileScale > 1 ? (maxTrackBottom - 74) / 4 : Infinity,
+    (maxTrackBottom - compass - 12) / 4,
     (maxTrackBottom - topOffset - 6) / (sideColumns * 0.72 + 2),
   );
   if (tileScale > 1)
@@ -93,8 +93,9 @@ export function riverSlot(
     columns = seat % 2 ? l.sideColumns : l.columns,
     row = Math.floor(index / columns),
     col = index % columns;
-  const left = l.width / 2 - 4 * l.farTileWidth - l.playerGap,
-    right = l.width / 2 + 4 * l.farTileWidth + l.playerGap;
+  const lane = Math.max(4 * l.farTileWidth, 67),
+    left = l.width / 2 - lane - l.playerGap,
+    right = l.width / 2 + lane + l.playerGap;
   if (seat === 0)
     return row < 2
       ? {

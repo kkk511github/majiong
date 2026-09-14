@@ -1,3 +1,4 @@
+import { RoomVoice } from "./RoomVoice";
 import { decisionCountdown } from "../shared/timing";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
@@ -47,7 +48,6 @@ import { Settlement } from "./Settlement";
 import { roundReadiness } from "./round-readiness";
 import { RoundReveal } from "./RoundReveal";
 import { listeningHints } from "./listening-hints";
-import { androidTable } from "./table-platform";
 import { riverLayoutFor, riverSlot } from "./river-layout";
 import { DiscardArrow } from "./DiscardArrow";
 import { TableLobby, TableSettingsSummary } from "./TableLobby";
@@ -167,6 +167,11 @@ export function App() {
       musicVolume: storage.get("musicVolume", 0.4),
       voice: storage.get("voice", storage.get("sound", true)),
       voiceVolume: storage.get("voiceVolume", 0.85),
+      voiceGender:
+        storage.get<string>("voiceGender", "female") === "male"
+          ? "male"
+          : "female",
+      chat: storage.get("chat", true),
     }),
   );
   const [toast, setToast] = useState("");
@@ -491,16 +496,9 @@ export function App() {
     const viewport = riverRef.current;
     if (!gameActive || !viewport) return;
     const observer = new ResizeObserver(([entry]) => {
-      const scale = androidTable ? 1.3 : 1;
-      const handHeight = handRef.current?.getBoundingClientRect().height ?? 0;
-      const legacyHeight = androidTable
-        ? entry.contentRect.height +
-          handHeight * (1 - 1 / scale) +
-          viewport.getBoundingClientRect().top -
-          Math.min(134, Math.max(76, window.innerHeight * 0.19)) -
-          (window.innerWidth <= 650 ? 28 : 36)
-        : entry.contentRect.height;
-      const sideColumns = androidTable ? (window.innerHeight < 370 ? 6 : 7) : 8;
+      const scale = 1;
+      const legacyHeight = entry.contentRect.height;
+      const sideColumns = 6;
       // Resolve CSS lengths through an inert, permanent box. These dimensions
       // depend only on the viewport and safe areas, never on drawn/flower tiles.
       const metrics = document.querySelector<HTMLElement>(
@@ -513,12 +511,18 @@ export function App() {
       );
       const publicWidth = metricBox.width;
       const commonReserve = edge + 3 * publicWidth + 16 + 12;
-      const backCap =
-        (window.innerWidth / 2 - commonReserve - metricBox.height - 10) /
-        Math.max(12 * 0.72, 4 * 0.72 + Math.ceil(32 / sideColumns));
-      const meldCap =
-        (window.innerWidth / 2 - commonReserve - 4 * publicWidth * 1.2 - 8) /
-        (4 * 0.72 + Math.ceil(24 / sideColumns));
+      const backSpace =
+        window.innerWidth / 2 - commonReserve - 2 * publicWidth * 1.45 - 11;
+      const backCap = Math.min(
+        backSpace / Math.max(12 * 0.72, 4 * 0.72 + Math.ceil(32 / sideColumns)),
+        (backSpace - 67) / Math.ceil(32 / sideColumns),
+      );
+      const meldSpace =
+        window.innerWidth / 2 - commonReserve - 4 * publicWidth * 1.2 - 8;
+      const meldCap = Math.min(
+        meldSpace / (4 * 0.72 + Math.ceil(24 / sideColumns)),
+        (meldSpace - 67) / Math.ceil(24 / sideColumns),
+      );
       const sideCap = Math.min(backCap, meldCap);
       setRiverLayout(
         riverLayoutFor(
@@ -529,7 +533,7 @@ export function App() {
           // Leave another 9px of visible felt above that raised tile.
           (handRef.current?.getBoundingClientRect().top ?? window.innerHeight) -
             viewport.getBoundingClientRect().top -
-            18,
+            60,
           scale,
           sideColumns,
           legacyHeight,
@@ -822,7 +826,7 @@ export function App() {
                       查看已结束牌局的回放。声音设置和单人练习保存在此设备。
                     </p>
                   </div>
-                  <span className="version">金陵麻将 0.6.8 · 试打版</span>
+                  <span className="version">金陵麻将 0.6.10 · 试打版</span>
                 </section>
               </div>
             </>
@@ -992,6 +996,19 @@ export function App() {
               "--top-flower-rows": 0,
               "--own-flower-rows": Math.ceil((mine?.flowers.length ?? 0) / 10),
               "--action-count": v.actions.length + v.selfKongs.length,
+              "--opponent-slots": Math.max(
+                13,
+                ...v.players
+                  .filter((p, i) => p && i !== v.me)
+                  .map(
+                    (p) =>
+                      p!.handCount +
+                      p!.melds.reduce(
+                        (sum, m) => sum + m.tiles.length * 1.2,
+                        0,
+                      ),
+                  ),
+              ),
               "--other-river-edge": `${4 * riverLayout.farTileWidth + riverLayout.playerGap + riverLayout.farSideWidth}px`,
               "--top-flowers-offset": `${riverLayout.farRiverWidth / 2 + riverLayout.playerGap + riverLayout.sideWidth + 8}px`,
               "--river-center-half": `${riverLayout.farRiverWidth / 2}px`,
@@ -1034,6 +1051,18 @@ export function App() {
               <small className="wall-counter">余 {v.remaining} 张</small>
             </span>
             <div>
+              {state.mode === "online" && (
+                <RoomVoice
+                  key={v.id}
+                  client={client}
+                  game={v.id}
+                  connected={state.connected}
+                  enabled={audioPreferences.chat !== false}
+                  volume={audioPreferences.voiceVolume}
+                  me={v.players[v.me]!.id}
+                  messages={state.voiceMessages}
+                />
+              )}
               <button
                 className="icon-button"
                 aria-label="查看公开牌"
@@ -1105,6 +1134,7 @@ export function App() {
               style={
                 {
                   "--river-rows": riverLayout.rows,
+                  "--river-track-height": `${riverLayout.height}px`,
                   "--river-columns": riverLayout.columns,
                   "--river-tile-height": `${riverLayout.tileHeight}px`,
                   "--river-tile-width": `${riverLayout.tileWidth}px`,
@@ -1299,11 +1329,7 @@ export function App() {
                   ) : state.submitting === "action" ? (
                     "已提交，等待牌桌确认…"
                   ) : mine?.trustee ? (
-                    mine.trusteeLocked && !perTurnOvertime ? (
-                      "累计超时已用完 · 整局托管中"
-                    ) : (
-                      "已开启托管 · 点击下方取消即可接手"
-                    )
+                    "已开启托管 · 点击取消即可接手"
                   ) : myOvertime ? null : v.pending ? (
                     <>
                       {v.players[v.pending.from]?.name}
@@ -1322,30 +1348,6 @@ export function App() {
                   ) : null}
                 </div>
                 <div>
-                  {hintKinds.length > 0 && (
-                    <details
-                      className="self-listening-hints"
-                      role="status"
-                      aria-label={`仅自己可见：${hintDiscard !== undefined ? `打出${tileName(hintDiscard)}后` : "已听牌，"}可胡${hintKinds.map((k) => tileName(k * 4)).join("、")}`}
-                    >
-                      <summary>
-                        <b>听</b>
-                        <span>{hintKinds.length} 种</span>
-                      </summary>
-                      <div className="listen-options">
-                        <span>
-                          {hintDiscard !== undefined
-                            ? `打${tileName(hintDiscard)}`
-                            : "可胡"}
-                        </span>
-                        <div className="listen-tiles">
-                          {hintKinds.map((k) => (
-                            <Tile tile={k * 4} small key={k} />
-                          ))}
-                        </div>
-                      </div>
-                    </details>
-                  )}
                   <span className="flower-count">
                     <Flower2 size={16} />
                     {mine.flowers.length} 花
@@ -1355,18 +1357,16 @@ export function App() {
                     onClick={() => client.trustee(!mine.trustee)}
                     disabled={
                       commandsDisabled ||
-                      (mine.trusteeLocked && !perTurnOvertime) ||
-                      v.table?.settings.trusteeMode === "disabled"
+                      (!mine.trustee &&
+                        v.table?.settings.trusteeMode === "disabled")
                     }
                     aria-pressed={mine.trustee}
                   >
-                    {v.table?.settings.trusteeMode === "disabled"
-                      ? "本桌无托管"
-                      : mine.trusteeLocked && !perTurnOvertime
-                        ? "整局托管"
-                        : mine.trustee
-                          ? "取消托管"
-                          : "托管"}
+                    {mine.trustee
+                      ? "取消托管"
+                      : v.table?.settings.trusteeMode === "disabled"
+                        ? "本桌无托管"
+                        : "托管"}
                   </button>
                 </div>
               </div>
@@ -1407,81 +1407,109 @@ export function App() {
                   />
                 ))}
               </div>
-              <div className="action-bar">
-                {v.pending && v.actions.length > 0 && !v.pending.answered && (
+              <div
+                className="hand-feedback"
+                style={
+                  {
+                    "--own-river-width": `${riverLayout.riverWidth}px`,
+                  } as CSSProperties
+                }
+              >
+                {hintKinds.length > 0 && (
                   <div
-                    className="claim-source"
+                    className="hand-listening"
                     role="status"
-                    aria-label={`${v.players[v.pending.from]?.name}${v.pending.kind === "robKong" ? "补杠" : "打出"}${tileName(v.pending.tile)}`}
+                    aria-label={`仅自己可见：${hintDiscard !== undefined ? `打出${tileName(hintDiscard)}后` : "已听牌，"}可胡${hintKinds.map((k) => tileName(k * 4)).join("、")}`}
                   >
-                    <Tile small tile={v.pending.tile} />
                     <span>
-                      <strong>{v.players[v.pending.from]?.name}</strong>
-                      <small>
-                        {v.pending.kind === "robKong" ? "补杠" : "打出"} ·{" "}
-                        {tileName(v.pending.tile)}
-                      </small>
+                      {hintDiscard !== undefined
+                        ? `打${tileName(hintDiscard)}后`
+                        : "已听牌"}
+                      <b>可胡</b>
                     </span>
+                    <div className="hand-waits">
+                      {hintKinds.map((k) => (
+                        <Tile tile={k * 4} small key={k} />
+                      ))}
+                    </div>
                   </div>
                 )}
-                <div
-                  className="game-actions"
-                  role="group"
-                  aria-label="本次可选操作"
-                >
-                  {v.actions.includes("pass") && (
-                    <button
-                      disabled={commandsDisabled}
-                      className="secondary"
-                      onClick={() => client.action({ type: "pass" })}
+                <div className="action-bar">
+                  {v.pending && v.actions.length > 0 && !v.pending.answered && (
+                    <div
+                      className="claim-source"
+                      role="status"
+                      aria-label={`${v.players[v.pending.from]?.name}${v.pending.kind === "robKong" ? "补杠" : "打出"}${tileName(v.pending.tile)}`}
                     >
-                      过
-                    </button>
+                      <Tile small tile={v.pending.tile} />
+                      <span>
+                        <strong>{v.players[v.pending.from]?.name}</strong>
+                        <small>
+                          {v.pending.kind === "robKong" ? "补杠" : "打出"} ·{" "}
+                          {tileName(v.pending.tile)}
+                        </small>
+                      </span>
+                    </div>
                   )}
-                  {v.actions.includes("pung") && (
-                    <button
-                      disabled={commandsDisabled}
-                      className="action-button"
-                      onClick={() => {
-                        client.action({ type: "pung" });
-                      }}
-                    >
-                      碰
-                    </button>
-                  )}
-                  {v.actions.includes("kong") && (
-                    <button
-                      disabled={commandsDisabled}
-                      className="action-button"
-                      onClick={() => client.action({ type: "kong" })}
-                    >
-                      杠
-                    </button>
-                  )}
-                  {v.selfKongs.map((t) => (
-                    <button
-                      className="action-button self-kong-button"
-                      disabled={commandsDisabled}
-                      key={t}
-                      onClick={() =>
-                        client.action({ type: "selfKong", tile: t })
-                      }
-                    >
-                      <span>杠</span>
-                      <small>{tileName(t)}</small>
-                    </button>
-                  ))}
-                  {v.actions.includes("hu") && (
-                    <button
-                      disabled={commandsDisabled}
-                      className={`hu-button${v.pending ? "" : " self-draw"}`}
-                      onClick={() => {
-                        client.action({ type: "hu" });
-                      }}
-                    >
-                      {v.pending ? "胡" : "自摸"}
-                    </button>
-                  )}
+                  <div
+                    className="game-actions"
+                    role="group"
+                    aria-label="本次可选操作"
+                  >
+                    {v.actions.includes("pass") && (
+                      <button
+                        disabled={commandsDisabled}
+                        className="secondary"
+                        onClick={() => client.action({ type: "pass" })}
+                      >
+                        过
+                      </button>
+                    )}
+                    {v.actions.includes("pung") && (
+                      <button
+                        disabled={commandsDisabled}
+                        className="action-button"
+                        onClick={() => {
+                          client.action({ type: "pung" });
+                        }}
+                      >
+                        碰
+                      </button>
+                    )}
+                    {v.actions.includes("kong") && (
+                      <button
+                        disabled={commandsDisabled}
+                        className="action-button"
+                        onClick={() => client.action({ type: "kong" })}
+                      >
+                        杠
+                      </button>
+                    )}
+                    {v.selfKongs.map((t) => (
+                      <button
+                        className="action-button self-kong-button"
+                        disabled={commandsDisabled}
+                        key={t}
+                        onClick={() =>
+                          client.action({ type: "selfKong", tile: t })
+                        }
+                      >
+                        <span>杠</span>
+                        <small>{tileName(t)}</small>
+                      </button>
+                    ))}
+                    {v.actions.includes("hu") && (
+                      <button
+                        disabled={commandsDisabled}
+                        className={`hu-button${v.pending ? "" : " self-draw"}`}
+                        onClick={() => {
+                          client.action({ type: "hu" });
+                        }}
+                      >
+                        {v.pending ? "胡" : "自摸"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </section>
@@ -2217,6 +2245,8 @@ function Opponent({
       style={
         {
           "--opponent-hand-count": p.hand.length || p.handCount,
+          "--concealed-rows": Math.max(1, Math.ceil(p.handCount / 2)),
+          "--meld-count": p.melds.length,
         } as CSSProperties
       }
     >

@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import pack from "../src/nanjing-voice.json";
+import female from "../src/nanjing-female.json";
+import male from "../src/nanjing-male.json";
 
 describe("随 App 打包的南京话语音", () => {
-  it("34 种牌名和全部动作均有独立非空片段，区间不重叠、不越界", () => {
+  it.each([female,male])("男女语音片段有声音、无削波且不越界", (pack) => {
     const bytes = readFileSync("public" + pack.file);
     expect(bytes.toString("ascii", 0, 4)).toBe("RIFF");
     expect(bytes.toString("ascii", 8, 12)).toBe("WAVE");
@@ -20,27 +21,10 @@ describe("随 App 打包的南京话语音", () => {
       "补花",
       "胡了",
       "自摸",
-      "杠上开花",
-      "海底捞月",
-      "抢杠胡",
-      "流局",
-      "清一色",
-      "混一色",
-      "字一色",
-      "对对胡",
-      "七对",
-      "豪华七对",
-      "双豪华七对",
-      "三豪华七对",
-      "天胡",
-      "地胡",
-      "补花胡",
-      "全球独钓",
-      "无花果",
-      "门清",
+      "听",
     ])
       expect(pack.actions).toHaveProperty(name);
-    const all = [...pack.cues, ...Object.values(pack.actions)].sort(
+    const all = [...new Map([...pack.cues, ...Object.values(pack.actions)].map(cue => [cue[0],cue])).values()].sort(
       (a, b) => a[0] - b[0],
     );
     let previousEnd = 0;

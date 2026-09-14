@@ -1,3 +1,4 @@
+import { readVoice } from "./room-voice";
 import { createClub } from "./club";
 import { createServer } from "node:http";
 import { randomInt, randomUUID } from "node:crypto";
@@ -313,6 +314,7 @@ export function makeServer(
   };
   const seatFor = (g: Game, id: string) =>
     g.players.findIndex((p) => p?.id === id) as Seat;
+  const voiceUploads = new Map<string, { at: number; busy: boolean }>();
   const api = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -347,6 +349,81 @@ export function makeServer(
     } catch {
       res.writeHead(400);
       res.end('{"error":"请求地址不正确"}');
+      return;
+    }
+    if (req.method === "POST" && url.pathname.startsWith("/api/voice/")) {
+      res.setHeader("Cache-Control", "no-store");
+      let upload: { at: number; busy: boolean } | undefined;
+      try {
+        const session = accounts.requireSession(req);
+        accounts.requirePlay(session.id);
+        const gameId = decodeURIComponent(
+          url.pathname.slice("/api/voice/".length),
+        );
+        const room = findRoom(session.id);
+        if (
+          !room ||
+          room.id !== gameId ||
+          clients.get(session.id)?.readyState !== WebSocket.OPEN
+        )
+          throw new AuthError("请先进入联机牌桌", 403);
+        const previous = voiceUploads.get(session.id);
+        if (previous && (previous.busy || Date.now() - previous.at < 2000))
+          throw new AuthError("说得太快了，请稍候再发", 429);
+        if (voiceUploads.size > 1000)
+          for (const [id, v] of voiceUploads)
+            if (!v.busy && Date.now() - v.at > 60000) voiceUploads.delete(id);
+        upload = { at: Date.now(), busy: true };
+        voiceUploads.set(session.id, upload);
+        const { bytes, duration } = await readVoice(req);
+        // Recheck membership and session after upload; never deliver to a new room.
+        accounts.requireSession(req);
+        accounts.requirePlay(session.id);
+        const current = findRoom(session.id);
+        if (
+          !current ||
+          current.id !== gameId ||
+          clients.get(session.id)?.readyState !== WebSocket.OPEN
+        )
+          throw new AuthError("已经离开这张牌桌，语音未发送", 409);
+        const seat = seatFor(current, session.id);
+        const message = {
+          id: randomUUID(),
+          game: gameId,
+          sender: session.id,
+          name: current.players[seat]!.name,
+          seat,
+          at: Date.now(),
+          duration,
+          audio: bytes.toString("base64"),
+        };
+        for (const player of current.players) {
+          const ws = player && !player.bot && clients.get(player.id);
+          if (
+            ws &&
+            ws.readyState === WebSocket.OPEN &&
+            ws.bufferedAmount < 1000000
+          )
+            send(ws, { type: "voice", message });
+        }
+        res.end(JSON.stringify({ id: message.id }));
+      } catch (error) {
+        res.statusCode = error instanceof AuthError ? error.status : 400;
+        res.end(
+          JSON.stringify({
+            error:
+              error instanceof AuthError
+                ? error.message
+                : "语音发送失败，请重试",
+          }),
+        );
+        req.resume();
+      } finally {
+        if (upload) {
+          upload.busy = false;
+          upload.at = Date.now();
+        }
+      }
       return;
     }
     if (await accounts.handle(req, res, url.pathname)) return;
@@ -437,7 +514,7 @@ export function makeServer(
         JSON.stringify({
           ok: true,
           service: "jinling-mahjong",
-          version: "0.6.8",
+          version: "0.6.10",
         }),
       );
       return;
@@ -931,8 +1008,6 @@ export function makeServer(
               send(ws, { type: "state", state: viewFor(g, seat) });
               throw Error("牌局已更新，请再操作一次");
             }
-            if (p.trusteeLocked && !g.table?.settings.overtimePerTurn)
-              throw Error("累计超时已用完，本桌由整局托管完成");
             if (
               overtimeExpired(g, seat, Date.now()) &&
               g.table?.settings.overtimeSeconds
@@ -1185,9 +1260,7 @@ export function makeServer(
                   break;
                 }
                 p.trustee = true;
-                p.trusteeLocked =
-                  !g.table.settings.overtimePerTurn &&
-                  g.table.settings.trusteeMode === "match";
+                p.trusteeLocked = false;
               }
               const action =
                 p.bot || p.trustee
@@ -1213,10 +1286,7 @@ export function makeServer(
                 continue;
               }
               p.trustee = true;
-              p.trusteeLocked =
-                !g.table?.settings.overtimePerTurn &&
-                !!g.table?.settings.overtimeSeconds &&
-                g.table.settings.trusteeMode === "match";
+              p.trusteeLocked = false;
             }
             const action = automaticAction(g, g.turn);
             if (action) {

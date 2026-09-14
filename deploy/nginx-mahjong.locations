@@ -5,6 +5,17 @@ location = /mahjong/ {
     proxy_pass http://127.0.0.1:18887/api/health;
     proxy_set_header Host $host;
 }
+# PCM voice uploads use their own bounded endpoint; game commands stay at 8k.
+location ^~ /mahjong/api/voice/ {
+    proxy_pass http://127.0.0.1:18887/api/voice/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    client_max_body_size 480k;
+    client_body_timeout 10s;
+    proxy_read_timeout 15s;
+}
 location ^~ /mahjong/api/ {
     proxy_pass http://127.0.0.1:18887/api/;
     proxy_http_version 1.1;

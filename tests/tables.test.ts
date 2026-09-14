@@ -591,57 +591,66 @@ describe("新版计时服务端执行", () => {
         expect(ended.result!.deltas[0]).toBeGreaterThan(0);
         expect(ended.players[0]!.discards).toEqual([]);
         if (expired) {
-          expect(ended.players[0]!.trusteeLocked).toBe(true);
+          expect(ended.players[0]!.trusteeLocked).toBe(false);
           expect(ended.players[0]!.overtimeUsedMs).toBe(90_000);
         }
       });
-  it("默认手动准备；每次10+90秒后托管，回来可取消", async () => {
-    const { s, port } = await boot(),
-      host = await peer(port, "计时管理员");
-    host.send({
-      type: "createTables",
-      settings: { autoRenew: false },
-      count: 1,
-      creationId: "default-settings",
-    });
-    const {
-      codes: [code],
-    } = await host.read("tablesCreated");
-    const ps = await fill(port, code);
-    expect(s.games.get(code)!.phase).toBe("waiting");
-    expect(s.games.get(code)!.scoreDivisor).toBe(2);
-    for (const p of ps) p.send({ type: "ready" });
-    await ps[0].read("state", (m) => m.state.phase === "playing");
-    let g = s.games.get(code)!;
-    g.deadline = Date.now() - 6000;
-    const revision = g.revision;
-    ps[0].send({
-      type: "action",
-      revision,
-      action: { type: "discard", tile: g.players[0]!.hand[0] },
-    });
-    await ps[0].read(
-      "state",
-      (m) =>
-        m.state.revision > revision &&
-        (m.state.players[0]?.overtimeUsedMs ?? 0) >= 6000,
-    );
-    g = s.games.get(code)!;
-    expect(g.players[0]!.overtimeUsedMs).toBeLessThan(7500);
-    expect(g.players[0]!.trustee).toBe(false);
-    g.phase = "playing";
-    g.pending = undefined;
-    g.turn = 0;
-    g.deadline = Date.now() - 91000;
-    g.overtimeCharged = [];
-    g.players[0]!.hand.push(35);
-    await ps[0].read("state", (m) => m.state.players[0]?.trustee === true);
-    expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(90000);
-    ps[0].send({ type: "trustee", enabled: false, requestId: "cancel-return" });
-    await ps[0].read("ack", (m) => m.requestId === "cancel-return");
-    expect(s.games.get(code)!.players[0]!.trusteeLocked).toBe(false);
-    expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(0);
-  });
+  it.each([true, false])(
+    "10+90秒后托管可取消，按次/全局策略 %s",
+    async (overtimePerTurn) => {
+      const { s, port } = await boot(),
+        host = await peer(port, "计时管理员");
+      host.send({
+        type: "createTables",
+        settings: { autoRenew: false, overtimePerTurn },
+        count: 1,
+        creationId: "default-settings",
+      });
+      const {
+        codes: [code],
+      } = await host.read("tablesCreated");
+      const ps = await fill(port, code);
+      expect(s.games.get(code)!.phase).toBe("waiting");
+      expect(s.games.get(code)!.scoreDivisor).toBe(2);
+      for (const p of ps) p.send({ type: "ready" });
+      await ps[0].read("state", (m) => m.state.phase === "playing");
+      let g = s.games.get(code)!;
+      g.deadline = Date.now() - 6000;
+      const revision = g.revision;
+      ps[0].send({
+        type: "action",
+        revision,
+        action: { type: "discard", tile: g.players[0]!.hand[0] },
+      });
+      await ps[0].read(
+        "state",
+        (m) =>
+          m.state.revision > revision &&
+          (m.state.players[0]?.overtimeUsedMs ?? 0) >= 6000,
+      );
+      g = s.games.get(code)!;
+      expect(g.players[0]!.overtimeUsedMs).toBeLessThan(7500);
+      expect(g.players[0]!.trustee).toBe(false);
+      g.phase = "playing";
+      g.pending = undefined;
+      g.turn = 0;
+      g.deadline = Date.now() - 91000;
+      g.overtimeCharged = [];
+      g.players[0]!.hand.push(35);
+      await ps[0].read("state", (m) => m.state.players[0]?.trustee === true);
+      expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(90000);
+      // A room persisted by an earlier server can still carry the old lock flag.
+      s.games.get(code)!.players[0]!.trusteeLocked = true;
+      ps[0].send({
+        type: "trustee",
+        enabled: false,
+        requestId: "cancel-return",
+      });
+      await ps[0].read("ack", (m) => m.requestId === "cancel-return");
+      expect(s.games.get(code)!.players[0]!.trusteeLocked).toBe(false);
+      expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(0);
+    },
+  );
   it("重启保持剩余额度与本次原始截止时间；三档倍率持久化并用于续桌", async () => {
     const file = databasePath(),
       a = await boot(file),
@@ -665,4 +674,57 @@ describe("新版计时服务端执行", () => {
     expect(restored.players[0]!.overtimeUsedMs).toBe(42000);
     expect(restored.scoreDivisor).toBe(5);
   });
+});
+
+it("同桌语音只转发当前同桌，鉴权、格式和速率均受限制，不进入回放", async () => {
+  const { encodeVoice } = await import("../shared/room-voice");
+  const { s, port } = await boot(),
+    host = await peer(port, "语音管理员");
+  const [code] = await createTables(host);
+  const ps = await fill(port, code);
+  const g = s.games.get(code)!;
+  const route = `http://127.0.0.1:${port}/api/voice/${g.id}`;
+  const bytes = encodeVoice(
+    Float32Array.from({ length: 16000 }, (_, i) => Math.sin(i * 0.1) * 0.2),
+    16000,
+  );
+  const send = (token: string, body = bytes, url = route) =>
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "audio/wav",
+        Authorization: `Bearer ${token}`,
+      },
+      body: new Uint8Array(body),
+    });
+  expect((await send("")).status).toBe(401);
+  expect((await send(host.session.token)).status).toBe(403);
+  expect(
+    (await send(ps[0].session.token, bytes, route + "-other")).status,
+  ).toBe(403);
+  expect((await send(ps[0].session.token, new Uint8Array(50))).status).toBe(
+    400,
+  );
+  const outside: any[] = [];
+  host.socket.on("message", (raw) => {
+    const m = JSON.parse(String(raw));
+    if (m.type === "voice") outside.push(m);
+  });
+  const before = JSON.stringify(g);
+  const res = await send(ps[1].session.token);
+  expect(res.status).toBe(200);
+  const receipt = await res.json();
+  for (const p of ps) {
+    const { message } = await p.read("voice");
+    expect(message.id).toBe(receipt.id);
+    expect(message.audio).toBe(Buffer.from(bytes).toString("base64"));
+    expect(message.duration).toBe(1);
+    expect(message.seat).toBe(1);
+  }
+  expect(outside).toEqual([]);
+  expect(JSON.stringify(s.games.get(code))).toBe(before);
+  expect((await send(ps[1].session.token)).status).toBe(429);
+  expect((await send(ps[2].session.token, new Uint8Array(500000))).status).toBe(
+    413,
+  );
 });

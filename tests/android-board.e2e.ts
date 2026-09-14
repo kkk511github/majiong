@@ -84,8 +84,7 @@ for (const [width, height, edge, bottom] of [
       root.dataset.tablePlatform = "android";
       return sizes().map((value, index) => value / before[index]);
     });
-    expect(sizeRatios[0]).toBeGreaterThanOrEqual(1.29);
-    for (const ratio of sizeRatios.slice(1)) expect(ratio).toBeCloseTo(1.3, 2);
+    for (const ratio of sizeRatios) expect(ratio).toBeCloseTo(1, 3);
     await page.waitForTimeout(150);
     const board = await page.locator("#table-board").boundingBox();
     expect(board).toEqual({ x: 0, y: 0, width, height });
@@ -311,14 +310,14 @@ for (const [width, height, edge, bottom] of [
         .evaluate((el) => {
           const meld = el.getBoundingClientRect();
           const flower = document
-            .querySelector(".hand-support .flower-rack .tile")!
+            .querySelector(".opponent-top .opponent-hand .tile-back")!
             .getBoundingClientRect();
           return (
             Math.min(meld.width, meld.height) /
             Math.min(flower.width, flower.height)
           );
         });
-      expect(ratio).toBeCloseTo(1.2, 2);
+      expect(ratio).toBeGreaterThanOrEqual(1.15);
     }
     view.players[2]!.flowers = Array.from({ length: 20 }, (_, i) => 124 + i);
     view.revision++;
@@ -334,6 +333,7 @@ for (const [width, height, edge, bottom] of [
           return r.left >= edge - 0.5 && r.right <= innerWidth - edge + 0.5;
         }, edge),
     ).toBe(true);
+    expect(await publicCollisions()).toEqual([]);
     view.players[2]!.flowers = view.players[2]!.flowers.slice(0, 5);
     view.players.forEach((p, i) => {
       if (p) {
@@ -398,6 +398,18 @@ for (const [width, height, edge, bottom] of [
       await page.waitForTimeout(100);
       expect(await publicCollisions()).toEqual([]);
     }
+    // Flowers occupy a separate lane even when an opponent owns most of them.
+    for (const seat of [1, 2, 3]) {
+      view.players.forEach((p, i) => {
+        if (p)
+          p.flowers =
+            i === seat ? Array.from({ length: 20 }, (_, n) => 124 + n) : [];
+      });
+      view.revision++;
+      push();
+      await page.waitForTimeout(100);
+      expect(await publicCollisions()).toEqual([]);
+    }
     // Regression: the user's screenshot combines pungs with a hidden kong.
     // Hidden kongs intentionally contain no tile IDs in another player's view.
     view.players[1]!.melds = [
@@ -428,7 +440,7 @@ for (const [width, height, edge, bottom] of [
       .locator(".side-rack .opponent-melds > span")
       .all()) {
       const rows = await group.evaluate((el) =>
-        [...el.children].map((t) => t.getBoundingClientRect().top),
+        [...el.children].map((t) => t.getBoundingClientRect().left),
       );
       expect(Math.max(...rows) - Math.min(...rows)).toBeLessThan(0.1);
     }

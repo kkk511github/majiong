@@ -104,8 +104,8 @@ describe("每次10+90秒和返回接手", () => {
     next.overtimeCharged = [];
     expect(overtimeRemaining(next, seat, 50000)).toBe(90000);
   });
-  it("取消托管恢复自己的10秒，不能重置其他响应玩家的时间，重复取消不加时", () => {
-    const g = table();
+  it.each([true,false])("取消每步/全局超时托管 %s，恢复自己的10秒且重复取消不加时", (perTurn) => {
+    const g = table(perTurn);
     g.phase = "claiming";
     g.deadline = 10000;
     g.pending = {

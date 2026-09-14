@@ -78,8 +78,6 @@ export function setTrustee(
   if (!p) throw Error("玩家不在牌桌上");
   if (enabled && g.table?.settings.trusteeMode === "disabled")
     throw Error("本桌已关闭托管");
-  if (!enabled && p.trusteeLocked && !g.table?.settings.overtimePerTurn)
-    throw Error("本桌结束后解除托管");
   const wasAutomatic = p.trustee || p.trusteeLocked;
   p.trustee = enabled;
   if (!enabled) {

@@ -14,6 +14,8 @@ import "./online-home.css";
 import "./keyboard.css";
 import "./table-room.css";
 import "./table-layout.css";
+import "./room-voice.css";
+import "./hand-feedback.css";
 import { androidTable } from "./table-platform";
 
 document.documentElement.dataset.tablePlatform = androidTable

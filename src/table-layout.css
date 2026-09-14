@@ -2,7 +2,7 @@
    Public zones are separate
    from the concealed rack; melds never split an individual set into a grid. */
 html:root[data-table-platform="android"] #table-board {
-  --tile-scale: 1.3;
+  --tile-scale: 1;
 }
 html:root[data-table-platform="standard"] #table-board {
   --tile-scale: 1;

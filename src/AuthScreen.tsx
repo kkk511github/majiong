@@ -1,7 +1,6 @@
 import { useId, useState } from "react";
 import {
   ArrowRight,
-  Check,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -69,9 +68,7 @@ export function AuthScreen({
               登录账号，赴一场熟悉的牌局。
             </p>
           </div>
-          <div className="account-promise">
-            <Check size={15} /> 90 分入桌 <i /> 按桌规记分
-          </div>
+
         </section>
         <section
           className="account-card"

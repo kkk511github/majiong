@@ -364,6 +364,7 @@ export type ClientMessage = (
   | { type: "ping"; sentAt?: number; sync?: boolean }
 ) & { requestId?: string };
 export type ServerMessage = (
+  | { type: "voice"; message: import("./room-voice").RoomVoiceMessage }
   | { type: "accountUpdated"; account: Account }
   | {
       type: "session";

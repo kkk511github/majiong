@@ -1,3 +1,4 @@
+import { voiceDuration, type RoomVoiceMessage } from "../shared/room-voice";
 import { ServerClock } from "./server-clock";
 import { decisionDeadline, setTrustee } from "../shared/timing";
 import { Capacitor } from "@capacitor/core";
@@ -62,6 +63,7 @@ export interface ClientState {
   tableLobby: boolean;
   createdTables: string[];
   lobbyNotice: string;
+  voiceMessages: RoomVoiceMessage[];
 }
 const base = import.meta.env.VITE_GAME_SERVER_URL as string | undefined;
 export const onlineAvailable = !Capacitor.isNativePlatform() || !!base;
@@ -83,6 +85,7 @@ export class GameClient {
     tableLobby: false,
     createdTables: [],
     lobbyNotice: "",
+    voiceMessages: [],
   };
   private local?: Game;
   private authStarted = false;
@@ -264,8 +267,20 @@ export class GameClient {
   };
   snapshot = () => this.state;
   private emit(patch: Partial<ClientState>) {
+    if (
+      ("view" in patch && patch.view?.id !== this.state.view?.id) ||
+      ("mode" in patch && patch.mode !== "online")
+    )
+      patch.voiceMessages = [];
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((fn) => fn());
+  }
+  pruneVoiceMessages() {
+    const keep = this.state.voiceMessages.filter(
+      (m) => this.now() - m.at < 60000,
+    );
+    if (keep.length !== this.state.voiceMessages.length)
+      this.emit({ voiceMessages: keep });
   }
   clearError() {
     this.emit({ error: "" });
@@ -312,6 +327,44 @@ export class GameClient {
       throw error;
     } finally {
       clearTimeout(timeout);
+    }
+  }
+  async sendVoice(bytes: Uint8Array, game: string, signal: AbortSignal) {
+    voiceDuration(bytes);
+    if (
+      !this.state.connected ||
+      this.state.mode !== "online" ||
+      this.state.view?.id !== game
+    )
+      throw Error("请连接牌桌后再发送语音");
+    const timeout = new AbortController();
+    const cancel = () => timeout.abort();
+    signal.addEventListener("abort", cancel, { once: true });
+    if (signal.aborted) cancel();
+    const timer = setTimeout(cancel, 12000);
+    try {
+      const response = await fetch(
+        (base?.replace(/\/$/, "") ?? "") +
+          "/api/voice/" +
+          encodeURIComponent(game),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "audio/wav",
+            Authorization: `Bearer ${storage.get("token", "")}`,
+          },
+          body: new Blob([new Uint8Array(bytes)], { type: "audio/wav" }),
+          signal: timeout.signal,
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 401) this.expireAuth();
+        throw Error(data.error ?? "语音发送失败，请重试");
+      }
+    } finally {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", cancel);
     }
   }
   private acceptAccount(data: { token: string; account: Account }) {
@@ -781,6 +834,21 @@ export class GameClient {
               if (this.lobbyWanted) this.browseTables(this.name);
             }
           }
+        } else if (msg.type === "voice") {
+          const voice = msg.message;
+          if (
+            this.state.mode === "online" &&
+            this.state.view?.id === voice.game &&
+            !this.state.voiceMessages.some((item) => item.id === voice.id)
+          )
+            this.emit({
+              voiceMessages: [
+                ...this.state.voiceMessages.filter(
+                  (item) => this.now() - item.at < 60000,
+                ),
+                voice,
+              ].slice(-8),
+            });
         } else if (msg.type === "accountUpdated") {
           if (this.state.account?.id === msg.account.id)
             this.emit({ account: msg.account });

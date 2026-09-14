@@ -1,13 +1,15 @@
 import type { View } from "../shared/types";
 import { kind } from "../shared/tiles";
-import sprite from "./nanjing-voice.json";
+import female from "./nanjing-female.json";
+import male from "./nanjing-male.json";
 
 export interface VoiceSprite {
   file: string | null;
   cues: number[][];
   actions?: Record<string, number[]>;
 }
-export const nanjingVoice: VoiceSprite = sprite;
+export const voicePacks = { female, male };
+export const nanjingVoice: VoiceSprite = female;
 export const hasNanjingVoice =
   !!nanjingVoice.file && nanjingVoice.cues.length === 34;
 
@@ -49,6 +51,15 @@ export class TileVoice {
     private pack = nanjingVoice,
   ) {}
 
+  setPack(pack: VoiceSprite) {
+    if (this.pack === pack) return;
+    this.stop();
+    this.abort?.abort();
+    this.pack = pack;
+    this.buffer = undefined;
+    this.retryAt = 0;
+    if (this.enabled) void this.preload();
+  }
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
     if (!enabled) this.stop();
@@ -57,17 +68,18 @@ export class TileVoice {
   private preload() {
     if (!this.pack.file || this.disposed || Date.now() < this.retryAt)
       return Promise.resolve(undefined);
+    const pack = this.pack;
     return (this.buffer ??= (async () => {
       const abort = (this.abort = new AbortController());
       const timeout = setTimeout(() => abort.abort(), 8000);
       try {
-        const response = await fetch(this.pack.file!, {
+        const response = await fetch(pack.file!, {
           signal: abort.signal,
         });
         // WKWebView reports status 0 for some bundled media scheme responses.
         // This exception is only for our local app origin, never an API request.
         const page = globalThis.location;
-        const asset = page && new URL(this.pack.file!, page.href);
+        const asset = page && new URL(pack.file!, page.href);
         const bundledMedia =
           page?.protocol === "capacitor:" &&
           page.host === "localhost" &&
@@ -77,8 +89,10 @@ export class TileVoice {
           throw new Error("Voice asset unavailable");
         return await this.context.decodeAudioData(await response.arrayBuffer());
       } catch {
-        this.buffer = undefined;
-        this.retryAt = Date.now() + 15000;
+        if (this.abort === abort) {
+          this.buffer = undefined;
+          this.retryAt = Date.now() + 15000;
+        }
         return undefined;
       } finally {
         clearTimeout(timeout);

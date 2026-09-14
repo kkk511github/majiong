@@ -1,0 +1,127 @@
+#table-board .room-voice {
+  position: relative;
+  display: flex;
+}
+#table-board:has(.room-voice) .my-info > div:last-child {
+  right: calc(var(--edge-r) + 154px);
+}
+#table-board .room-voice > button > i {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffd776;
+}
+#table-board .voice-panel {
+  position: fixed;
+  z-index: 85;
+  right: calc(var(--edge-r) + 12px);
+  top: 52px;
+  width: min(300px, 65vw);
+  padding: 12px;
+  border: 1px solid #aa9458;
+  border-radius: 14px;
+  background: #073f36f5;
+  color: #fff4d4;
+  box-shadow: 0 8px 24px #0007;
+}
+#table-board .voice-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+#table-board .voice-panel header button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 4px;
+}
+#table-board .voice-clips {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 130px;
+  overflow: auto;
+  margin-bottom: 10px;
+}
+#table-board .voice-clips > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: #ffffff12;
+  color: inherit;
+  border: 0;
+  border-radius: 7px;
+  min-height: 32px;
+}
+#table-board .voice-clips span {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#table-board .voice-clips p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 4px 0;
+  color: #cbdacf;
+}
+#table-board .hold-to-talk {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid #e4cc8c;
+  background: #e6cc83;
+  color: #273c2d;
+  font-size: 16px;
+  font-weight: 700;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+#table-board .hold-to-talk.recording {
+  background: #81d9b0;
+}
+#table-board .hold-to-talk.canceling {
+  background: #f2a489;
+}
+#table-board .voice-panel > small {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  margin-top: 7px;
+}
+#table-board .voice-error {
+  margin: 8px 0 0;
+  color: #ffc5a6;
+  font-size: 12px;
+}
+.voice-genders {
+  display: flex;
+  gap: 8px;
+  margin: 8px 16px;
+}
+.voice-genders > button {
+  flex: 1;
+  border: 1px solid #d9d1b5;
+  border-radius: 9px;
+  background: transparent;
+  padding: 9px;
+  color: inherit;
+}
+.voice-genders > button[aria-pressed="true"] {
+  color: #165540;
+  background: #e9d99b;
+  border-color: #b99948;
+  font-weight: 700;
+}

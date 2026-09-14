@@ -69,16 +69,39 @@ export function AudioSettings({
             <output>{Math.round(value[volume] * 100)}%</output>
           </label>
           {key === "voice" && (
-            <button
-              className="voice-preview"
-              disabled={!value.voice}
-              onClick={() => gameAudio.previewVoice()}
-            >
-              试听南京话
-            </button>
+            <>
+              <div className="voice-genders" role="group" aria-label="报牌声音">
+                {(["female", "male"] as const).map((gender) => (
+                  <button
+                    key={gender}
+                    aria-pressed={(value.voiceGender ?? "female") === gender}
+                    onClick={() => change({ voiceGender: gender })}
+                  >
+                    {gender === "female" ? "南京女声" : "南京男声"}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="voice-preview"
+                disabled={!value.voice}
+                onClick={() => gameAudio.previewVoice()}
+              >
+                试听南京话
+              </button>
+            </>
           )}
         </div>
       ))}
+      <button
+        className="setting-row"
+        role="switch"
+        aria-checked={value.chat !== false}
+        aria-label="同桌语音播放"
+        onClick={() => change({ chat: value.chat === false })}
+      >
+        <span>同桌语音播放</span>
+        <span className={`switch ${value.chat !== false ? "on" : ""}`} />
+      </button>
     </div>
   );
 }

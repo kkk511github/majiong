@@ -47,6 +47,7 @@ import { Settlement } from "./Settlement";
 import { roundReadiness } from "./round-readiness";
 import { RoundReveal } from "./RoundReveal";
 import { listeningHints } from "./listening-hints";
+import { androidTable } from "./table-platform";
 import { riverLayoutFor, riverSlot } from "./river-layout";
 import { DiscardArrow } from "./DiscardArrow";
 import { TableLobby, TableSettingsSummary } from "./TableLobby";
@@ -490,6 +491,14 @@ export function App() {
     const viewport = riverRef.current;
     if (!gameActive || !viewport) return;
     const observer = new ResizeObserver(([entry]) => {
+      const scale = androidTable ? 1.3 : 1;
+      const handHeight = handRef.current?.getBoundingClientRect().height ?? 0;
+      const legacyHeight = androidTable
+        ? entry.contentRect.height + handHeight * (1 - 1 / scale)
+          + viewport.getBoundingClientRect().top - Math.min(134, Math.max(76, window.innerHeight * 0.19))
+          - (window.innerWidth <= 650 ? 28 : 36)
+        : entry.contentRect.height;
+      const sideColumns = androidTable ? (window.innerHeight < 370 ? 6 : 7) : 8;
       setRiverLayout(
         riverLayoutFor(
           entry.contentRect.width,
@@ -500,6 +509,10 @@ export function App() {
           (handRef.current?.getBoundingClientRect().top ?? window.innerHeight) -
             viewport.getBoundingClientRect().top -
             18,
+          scale,
+          sideColumns,
+          legacyHeight,
+          androidTable && window.innerWidth <= 650 ? (window.innerWidth / 2 - 132) / 8.64 : Infinity,
         ),
       );
     });
@@ -783,7 +796,7 @@ export function App() {
                       查看已结束牌局的回放。声音设置和单人练习保存在此设备。
                     </p>
                   </div>
-                  <span className="version">金陵麻将 0.6.5 · 试打版</span>
+                  <span className="version">金陵麻将 0.6.6 · 试打版</span>
                 </section>
               </div>
             </>
@@ -1124,7 +1137,7 @@ export function App() {
                           v.pending?.kind !== "robKong" && (
                             <DiscardArrow
                               offset={offset}
-                              row={Math.floor(index / riverLayout.columns)}
+                              row={Math.floor(index / (offset % 2 ? riverLayout.sideColumns : riverLayout.columns))}
                               layoutKey={`${v.revision}:${riverLayout.width}:${riverLayout.height}`}
                               label={`${v.players[seat]?.name}刚打出${tileName(t)}`}
                             />

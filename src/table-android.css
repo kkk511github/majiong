@@ -1,0 +1,302 @@
+/* Android has its own density; keep every size fixed throughout the hand. */
+html:root[data-table-platform="android"] #table-board {
+  --base-public-w: clamp(16px, 4.6vh, 26px);
+  --base-hand-tile: min(
+    74px,
+    calc(
+      (
+          100vw - var(--edge-l) - var(--edge-r) -
+            (var(--base-public-w) * 10 + 9px) - 26px
+        ) /
+        14
+    )
+  );
+  --public-w: calc(var(--base-public-w) * 1.3);
+  --side-back-w: calc(clamp(8px, 2.6vh, 16px) * 1.3);
+  --hand-tile: min(
+    calc(var(--base-hand-tile) * 1.3),
+    calc((100vw - var(--edge-l) - var(--edge-r) - 12px) / 14)
+  );
+  --field-top: clamp(70px, 18.5vh, 134px);
+}
+html:root[data-table-platform="android"] #table-board .hand {
+  right: var(--edge-r);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .hand-support
+  > .flower-rack {
+  left: var(--edge-l);
+  right: auto;
+  bottom: calc(var(--bottom) + var(--hand-height) + 5px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .hand-support
+  .flower-rack-tiles {
+  grid-template-columns: repeat(min(6, var(--flower-count)), var(--public-w));
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .my-info
+  > div:first-child {
+  top: 3px;
+  bottom: auto;
+  left: calc(var(--edge-l) + 65px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack {
+  flex-direction: column-reverse;
+  gap: 3px;
+  align-items: flex-start;
+}
+html:root[data-table-platform="android"] #table-board .action-bar {
+  bottom: calc(var(--bottom) + var(--hand-height) + 3px);
+}
+@media (max-width: 650px) {
+  html:root[data-table-platform="android"] #table-board {
+    --base-public-w: 14px;
+  }
+}
+html:root[data-table-platform="android"] #table-board .discard-field {
+  bottom: calc(var(--hand-height) + var(--bottom) + 18px);
+}
+html:root[data-table-platform="android"] #table-board .game-topbar > span,
+html:root[data-table-platform="android"]
+  #table-board
+  .game-topbar
+  > .table-brand.inspecting-discard {
+  left: calc(var(--edge-l) + 175px);
+  width: 140px;
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack {
+  --rack-cross: var(--side-back-h);
+  top: 64px;
+  bottom: auto;
+  right: auto;
+  left: calc(var(--edge-l) + 3 * var(--public-w) + 16px + var(--rack-cross));
+  transform-origin: 0 0;
+  transform: rotate(90deg);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right).has-melds
+  .opponent-rack {
+  --rack-cross: calc(var(--side-back-h) + var(--meld-h) + 3px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack:has(.opponent-melds > span:nth-child(2)) {
+  --rack-cross: calc(var(--side-back-h) + 2 * var(--meld-h) + 8px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+  --rack-cross: calc(var(--side-back-h) + 2 * var(--meld-h) + 8px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack:has(.opponent-melds > span:nth-child(4)) {
+  --rack-cross: calc(var(--side-back-h) + 2 * var(--meld-h) + 8px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-melds {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .opponent-right
+  .opponent-rack,
+html:root[data-table-platform="android"]
+  #table-board
+  .opponent-right
+  .opponent-rack:has(.opponent-melds > span:nth-child(3)),
+html:root[data-table-platform="android"]
+  #table-board
+  .opponent-right
+  .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+  left: calc(
+    100% - var(--edge-r) - 3 * var(--public-w) - 16px - var(--rack-cross)
+  );
+  right: auto;
+  top: calc(100% - var(--hand-height) - var(--bottom) - 60px);
+  bottom: auto;
+  transform: rotate(-90deg);
+}
+
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-melds:has(> span:nth-child(3)) {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 5px;
+}
+/* Several exposed sets occupy a compact tray. A kong keeps all four faces
+   visible in a two-by-two group instead of stretching beyond the table. */
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 5px;
+  --rack-cross: calc(4 * var(--meld-h) + 5px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-melds:has(> span:nth-child(3))
+  > span:has(> :nth-child(4)) {
+  display: grid;
+  grid-template-columns: repeat(2, var(--meld-w));
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .opponent-left
+  .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+  top: calc(31px + var(--meld-h) + 6px);
+}
+html:root[data-table-platform="android"] #table-board .action-bar {
+  bottom: calc(var(--bottom) + var(--hand-height) + 14px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .opponent-left
+  .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+  top: calc(31px + var(--public-h) + 6px);
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .hand-support
+  .flower-rack-tiles {
+  grid-template-columns: repeat(min(3, var(--flower-count)), var(--public-w));
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-info {
+  top: 54px;
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  > .flower-rack {
+  top: calc(116px + max(0px, (100vh - 360px) * 0.2));
+}
+@media (max-width: 650px) {
+  html:root[data-table-platform="android"] #table-board {
+    --edge-l: max(4px, calc(env(safe-area-inset-left) + 4px));
+    --edge-r: max(4px, calc(env(safe-area-inset-right) + 4px));
+  }
+  html:root[data-table-platform="android"]
+    #table-board
+    .opponent-top
+    .opponent-hand
+    .tile-back {
+    width: 9.1px;
+  }
+}
+@media (max-width: 650px) {
+  html:root[data-table-platform="android"]
+    #table-board
+    .opponent-top
+    .opponent-rack
+    > .flower-rack
+    .flower-rack-tiles {
+    grid-template-columns: repeat(min(8, var(--flower-count)), var(--public-w));
+  }
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-melds:has(> span:nth-child(3))
+  > span {
+  display: grid;
+  grid-template-columns: repeat(2, var(--meld-w));
+}
+html:root[data-table-platform="android"]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack:has(.opponent-melds > span:nth-child(3))
+  .opponent-hand {
+  display: grid;
+  grid-template-columns: repeat(3, var(--side-back-w));
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .opponent-right
+  .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+  top: calc(
+    100% - var(--hand-height) - var(--bottom) -
+      max(52px, var(--action-row-height, 30px) + 20px)
+  );
+}
+/* When we collect many flowers, use a wider outer tray and move the left
+   player's rack inward by the same amount; keep every flower face visible. */
+html:root[data-table-platform="android"]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .hand-support
+  .flower-rack-tiles,
+html:root[data-table-platform="android"]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .opponent-left
+  > .flower-rack
+  .flower-rack-tiles {
+  grid-template-columns: repeat(min(5, var(--flower-count)), var(--public-w));
+}
+html:root[data-table-platform="android"]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .opponent-left
+  .opponent-rack {
+  translate: calc(2 * var(--public-w) - 4px) 0;
+}
+html:root[data-table-platform="android"]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .opponent-left
+  .opponent-info {
+  top: 40px;
+}
+html:root[data-table-platform="android"]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .opponent-left
+  > .flower-rack {
+  top: 100px;
+}
+html:root[data-table-platform="android"] #table-board .game-topbar > span {
+  top: 2px;
+  font-size: 10px;
+  line-height: 12px;
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .game-topbar
+  > span
+  small {
+  line-height: 12px;
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .game-topbar
+  > .table-brand.inspecting-discard {
+  top: 2px;
+  font-size: 12px;
+}
+html:root[data-table-platform="android"]
+  #table-board
+  .table-brand.inspecting-discard
+  small {
+  margin-top: 2px;
+}

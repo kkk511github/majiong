@@ -13,6 +13,12 @@ import "./accounts.css";
 import "./online-home.css";
 import "./keyboard.css";
 import "./table-room.css";
+import "./table-android.css";
+import { androidTable } from "./table-platform";
+
+document.documentElement.dataset.tablePlatform = androidTable
+  ? "android"
+  : "standard";
 import { installKeyboardViewport } from "./keyboard-viewport";
 
 const disposeKeyboardViewport = installKeyboardViewport();
@@ -43,7 +49,9 @@ class ErrorBoundary extends React.Component<
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <LegalGate><App /></LegalGate>
+      <LegalGate>
+        <App />
+      </LegalGate>
     </ErrorBoundary>
   </React.StrictMode>,
 );

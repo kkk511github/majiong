@@ -1,0 +1,1083 @@
+import { voiceDuration, type RoomVoiceMessage } from "../shared/room-voice";
+import { newGameRules } from "../shared/nanjing-rules";
+import { ServerClock } from "./server-clock";
+import { decisionDeadline, setTrustee } from "../shared/timing";
+import { Capacitor } from "@capacitor/core";
+import { isAvatarPath } from "../shared/account-profile";
+import {
+  act,
+  botAction,
+  trusteeAction,
+  createGame,
+  dissolveGame,
+  newPlayer,
+  seats,
+  startRound,
+  viewFor,
+} from "../shared/engine";
+import type {
+  Account,
+  MatchDetails,
+  RecordsPage,
+  RoundReplay,
+  StoredRound,
+  Action,
+  ClientMessage,
+  Game,
+  Rules,
+  ServerMessage,
+  View,
+  TableSummary,
+  TableSettings,
+} from "../shared/types";
+
+export const storage = {
+  get<T>(key: string, fallback: T): T {
+    try {
+      return (
+        JSON.parse(localStorage.getItem("jinling:" + key) ?? "null") ?? fallback
+      );
+    } catch {
+      return fallback;
+    }
+  },
+  set(key: string, value: unknown) {
+    try {
+      localStorage.setItem("jinling:" + key, JSON.stringify(value));
+    } catch {
+      /* Gameplay remains available if storage is full. */
+    }
+  },
+};
+export interface ClientState {
+  account: Account | null;
+  authChecked: boolean;
+  authBusy: boolean;
+  authError: string;
+  view: View | null;
+  connected: boolean;
+  connecting: boolean;
+  mode: "local" | "online" | null;
+  error: string;
+  notice: string;
+  submitting: ClientMessage["type"] | null;
+  tables: TableSummary[];
+  tablesLoading: boolean;
+  tableLobby: boolean;
+  createdTables: string[];
+  lobbyNotice: string;
+  voiceMessages: RoomVoiceMessage[];
+}
+const base = import.meta.env.VITE_GAME_SERVER_URL as string | undefined;
+export const avatarURL = (path?: string) => isAvatarPath(path) ? (base?.replace(/\/$/, "") ?? "") + path : undefined;
+export const onlineAvailable = !Capacitor.isNativePlatform() || !!base;
+export class GameClient {
+  state: ClientState = {
+    account: null,
+    authChecked: false,
+    authBusy: false,
+    authError: "",
+    view: null,
+    connected: false,
+    connecting: false,
+    mode: null,
+    error: "",
+    notice: "",
+    submitting: null,
+    tables: [],
+    tablesLoading: false,
+    tableLobby: false,
+    createdTables: [],
+    lobbyNotice: "",
+    voiceMessages: [],
+  };
+  private local?: Game;
+  private authStarted = false;
+  private socket?: WebSocket;
+  private listeners = new Set<() => void>();
+  private tick?: ReturnType<typeof setInterval>;
+  private retry?: ReturnType<typeof setTimeout>;
+  private stopped = true;
+  private pending?: ClientMessage;
+  private name = "";
+  private attempt = 0;
+  private localPaused = false;
+  private pausedAt?: number;
+  private commandAck = false;
+  private commandId?: string;
+  private commandTimer?: ReturnType<typeof setTimeout>;
+  private commandSequence = 0;
+  private lobbyWanted = false;
+  private clock = new ServerClock();
+  private clockTimer?: ReturnType<typeof setInterval>;
+  private timeSync = false;
+  private clockPing?: number;
+  private pongTimer?: ReturnType<typeof setTimeout>;
+  private connectTimer?: ReturnType<typeof setTimeout>;
+  private tablesTimer?: ReturnType<typeof setTimeout>;
+  private networkVisible = true;
+  private resumePending = false;
+  private openedAt = 0;
+  private lastResumeAt = -Infinity;
+  now = () => (this.state.mode === "online" ? this.clock.now() : Date.now());
+  syncTime = (fresh = false) => {
+    if (
+      !this.timeSync ||
+      (!this.state.connected && !this.resumePending) ||
+      this.socket?.readyState !== WebSocket.OPEN
+    )
+      return;
+    if (fresh) {
+      this.clock.resample();
+      // A response requested before sleep may carry an old timestamp. Start a new exchange now.
+      this.clockPing = undefined;
+      clearTimeout(this.pongTimer);
+    }
+    const now = performance.now();
+    if (this.clockPing !== undefined && now - this.clockPing < 10000) return;
+    clearTimeout(this.pongTimer);
+    this.clockPing = now;
+    try {
+      this.socket.send(
+        JSON.stringify({
+          type: "ping",
+          sentAt: now,
+          ...(this.resumePending ? { sync: true } : {}),
+        }),
+      );
+      if (this.networkVisible)
+        this.pongTimer = setTimeout(
+          () => this.restartConnection("正在恢复牌桌连接…", this.resumePending),
+          this.resumePending ? 2000 : 10000,
+        );
+    } catch {
+      this.restartConnection("连接中断，正在重新连接…");
+    }
+  };
+  private stopClock() {
+    clearInterval(this.clockTimer);
+    this.clockTimer = undefined;
+    this.clockPing = undefined;
+    this.timeSync = false;
+    this.resumePending = false;
+    clearTimeout(this.pongTimer);
+    this.pongTimer = undefined;
+  }
+  private finishTables() {
+    clearTimeout(this.tablesTimer);
+    this.tablesTimer = undefined;
+  }
+  private restartConnection(notice: string, immediate = false) {
+    if (this.stopped || this.state.mode !== "online") return;
+    const previous = this.socket;
+    // A half-open socket may never emit close. Retire it before waiting or retrying.
+    this.socket = undefined;
+    this.stopClock();
+    this.finishTables();
+    clearTimeout(this.connectTimer);
+    clearTimeout(this.retry);
+    this.finishCommand();
+    previous?.close();
+    this.emit({
+      connected: false,
+      connecting: true,
+      tablesLoading: this.lobbyWanted,
+      notice,
+    });
+    // Keep a working socket while hidden, but don't run retry/timeout loops
+    // while the OS has suspended the WebView. Foreground resumes immediately.
+    if (!this.networkVisible) return;
+    const delay = immediate ? 0 : Math.min(15000, 1000 * 2 ** this.attempt++);
+    this.retry = setTimeout(() => this.open(), delay);
+  }
+  resumeConnection = () => {
+    if (
+      this.stopped ||
+      this.state.mode !== "online" ||
+      !this.networkVisible ||
+      this.resumePending
+    )
+      return;
+    if (this.state.connected && this.socket?.readyState === WebSocket.OPEN) {
+      if (Date.now() - this.lastResumeAt < 750) return;
+      this.lastResumeAt = Date.now();
+      if (!this.timeSync) {
+        this.restartConnection("正在恢复牌桌连接…", true);
+        return;
+      }
+      clearTimeout(this.commandTimer);
+      this.commandTimer = undefined;
+      this.finishTables();
+      this.resumePending = true;
+      this.emit({
+        connected: false,
+        connecting: true,
+        notice: "正在同步牌桌…",
+      });
+      this.syncTime(true);
+    } else if (
+      !this.socket ||
+      this.socket.readyState === WebSocket.CLOSING ||
+      this.socket.readyState === WebSocket.CLOSED ||
+      Date.now() - this.openedAt >= 2000
+    ) {
+      this.restartConnection("正在恢复牌桌连接…", true);
+    } else {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = setTimeout(
+        () => this.restartConnection("正在恢复牌桌连接…", true),
+        2000,
+      );
+    }
+  };
+  setNetworkVisible = (visible: boolean) => {
+    const returning = visible && !this.networkVisible;
+    this.networkVisible = visible;
+    if (visible) {
+      if (returning) this.lastResumeAt = -Infinity;
+      this.resumeConnection();
+    } else {
+      if (this.resumePending) {
+        this.resumePending = false;
+        this.emit({
+          connected: this.socket?.readyState === WebSocket.OPEN,
+          connecting: false,
+        });
+      }
+      clearTimeout(this.pongTimer);
+      this.pongTimer = undefined;
+      this.clockPing = undefined;
+      clearTimeout(this.connectTimer);
+      clearTimeout(this.commandTimer);
+      this.commandTimer = undefined;
+      this.finishTables();
+      clearTimeout(this.retry);
+      this.retry = undefined;
+    }
+  };
+  networkOffline = () =>
+    this.restartConnection("网络已断开，恢复后自动同步牌桌…");
+  private finishCommand() {
+    clearTimeout(this.commandTimer);
+    this.commandTimer = undefined;
+    this.commandId = undefined;
+    this.emit({ submitting: null });
+  }
+  subscribe = (fn: () => void) => {
+    this.listeners.add(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
+  };
+  snapshot = () => this.state;
+  private emit(patch: Partial<ClientState>) {
+    if (patch.view && (patch.mode ?? this.state.mode) === "local") {
+      const me = patch.view.players[patch.view.me];
+      if (me) me.avatar = this.state.account?.avatar;
+    }
+    if (
+      ("view" in patch && patch.view?.id !== this.state.view?.id) ||
+      ("mode" in patch && patch.mode !== "online")
+    )
+      patch.voiceMessages = [];
+    this.state = { ...this.state, ...patch };
+    this.listeners.forEach((fn) => fn());
+  }
+  pruneVoiceMessages() {
+    const keep = this.state.voiceMessages.filter(
+      (m) => this.now() - m.at < 60000,
+    );
+    if (keep.length !== this.state.voiceMessages.length)
+      this.emit({ voiceMessages: keep });
+  }
+  clearError() {
+    this.emit({ error: "" });
+  }
+  clearLobbyNotice() {
+    this.emit({ lobbyNotice: "" });
+  }
+  async api<T>(path: string, body?: unknown): Promise<T> {
+    const controller = new AbortController(),
+      timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const token = storage.get<string>("token", "");
+      const response = await fetch((base?.replace(/\/$/, "") ?? "") + path, {
+        method: body === undefined ? "GET" : "POST",
+        headers: {
+          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (
+          response.status === 401 &&
+          ![
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/session",
+          ].includes(path)
+        )
+          this.expireAuth();
+        throw Object.assign(new Error(data.error ?? "服务暂时不可用"), {
+          status: response.status,
+        });
+      }
+      return data as T;
+    } catch (error) {
+      if (
+        error instanceof TypeError ||
+        (error instanceof Error && error.name === "AbortError")
+      )
+        throw Error("暂时连接不上账号服务，请检查网络后重试");
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  async sendVoice(bytes: Uint8Array, game: string, signal: AbortSignal) {
+    voiceDuration(bytes);
+    if (
+      !this.state.connected ||
+      this.state.mode !== "online" ||
+      this.state.view?.id !== game
+    )
+      throw Error("请连接牌桌后再发送语音");
+    const timeout = new AbortController();
+    const cancel = () => timeout.abort();
+    signal.addEventListener("abort", cancel, { once: true });
+    if (signal.aborted) cancel();
+    const timer = setTimeout(cancel, 12000);
+    try {
+      const response = await fetch(
+        (base?.replace(/\/$/, "") ?? "") +
+          "/api/voice/" +
+          encodeURIComponent(game),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "audio/wav",
+            Authorization: `Bearer ${storage.get("token", "")}`,
+          },
+          body: new Blob([new Uint8Array(bytes)], { type: "audio/wav" }),
+          signal: timeout.signal,
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 401) this.expireAuth();
+        throw Error(data.error ?? "语音发送失败，请重试");
+      }
+    } finally {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", cancel);
+    }
+  }
+  private acceptAccount(data: { token: string; account: Account }) {
+    this.disconnect();
+    storage.set("token", data.token);
+    storage.set("name", data.account.name);
+    this.emit({
+      account: data.account,
+      authChecked: true,
+      authError: "",
+      view: null,
+      mode: null,
+      tables: [],
+    });
+    if (!data.account.mustChangePassword) this.connect(data.account.name);
+  }
+  private expireAuth() {
+    this.disconnect();
+    storage.set("onlineActive", false);
+    this.emit({
+      account: null,
+      authChecked: true,
+      view: null,
+      mode: null,
+      tables: [],
+      error: "",
+      authError: "登录已失效，请重新登录",
+    });
+  }
+  async authenticate(
+    mode: "login" | "register",
+    username: string,
+    password: string,
+    name?: string,
+  ) {
+    if (this.state.authBusy) return;
+    this.emit({ authBusy: true, authError: "" });
+    try {
+      const data = await this.api<{ token: string; account: Account }>(
+        `/api/auth/${mode}`,
+        {
+          username,
+          password,
+          name,
+          ...(mode === "register"
+            ? {
+                legacyToken: storage.get(
+                  "legacyToken",
+                  storage.get("token", ""),
+                ),
+              }
+            : {}),
+        },
+      );
+      this.acceptAccount(data);
+    } catch (error) {
+      this.emit({
+        authError: error instanceof Error ? error.message : "登录失败",
+      });
+    } finally {
+      this.emit({ authBusy: false });
+    }
+  }
+  async changePassword(currentPassword: string, password: string) {
+    this.emit({ authBusy: true, authError: "" });
+    try {
+      const data = await this.api<{ token: string; account: Account }>(
+        "/api/auth/password",
+        { currentPassword, password },
+      );
+      this.acceptAccount(data);
+      return true;
+    } catch (error) {
+      this.emit({
+        authError: error instanceof Error ? error.message : "修改失败",
+      });
+      return false;
+    } finally {
+      this.emit({ authBusy: false });
+    }
+  }
+  async updateProfile(name: string) {
+    const data = await this.api<{ account: Account }>("/api/auth/profile", {
+      name,
+    });
+    storage.set("name", name);
+    this.emit({ account: data.account });
+  }
+  async updateAvatar(image: string | null) {
+    const data = await this.api<{ account: Account }>("/api/auth/avatar", { image });
+    this.emit({ account: data.account });
+  }
+  async logout() {
+    if (this.state.authBusy) return;
+    this.emit({ authBusy: true, authError: "" });
+    try {
+      await this.api("/api/auth/logout", {});
+      this.disconnect();
+      storage.set("token", "");
+      storage.set("onlineActive", false);
+      this.emit({
+        account: null,
+        view: null,
+        mode: null,
+        tables: [],
+        authError: "",
+        error: "",
+      });
+    } catch (error) {
+      this.emit({
+        authError: error instanceof Error ? error.message : "退出失败",
+      });
+    } finally {
+      this.emit({ authBusy: false });
+    }
+  }
+  clearAuthError() {
+    this.emit({ authError: "" });
+  }
+  async restore() {
+    if (this.authStarted) return;
+    this.authStarted = true;
+    const token = storage.get<string>("token", "");
+    if (!token) {
+      this.emit({ authChecked: true });
+      return;
+    }
+    try {
+      const data = await this.api<{ account: Account }>("/api/auth/session");
+      this.emit({ account: data.account, authChecked: true, authError: "" });
+      if (
+        onlineAvailable &&
+        !data.account.mustChangePassword &&
+        this.stopped &&
+        !this.local
+      )
+        this.connect(data.account.name);
+    } catch (error) {
+      if ((error as { status?: number }).status === 401) {
+        storage.set("legacyToken", token);
+        storage.set("token", "");
+      }
+      this.emit({
+        authChecked: true,
+        authError:
+          (error as { status?: number }).status === 401
+            ? "请登录或注册账号，继续与牌友同桌"
+            : (error as Error).message,
+      });
+    }
+  }
+  history(): StoredRound[] {
+    const practice = storage.get<StoredRound[]>(
+      "history:practice",
+      storage.get<StoredRound[]>("history", []).filter((r) => r.practice),
+    );
+    const online = this.state.account
+      ? storage.get<StoredRound[]>(`history:${this.state.account.id}`, [])
+      : [];
+    return [...online, ...practice].sort((a, b) => b.record.at - a.record.at);
+  }
+  async loadRecords(admin: boolean, query: URLSearchParams) {
+    return this.api<RecordsPage>(
+      (admin ? "/api/admin/records" : "/api/records") + "?" + query.toString(),
+    );
+  }
+  async loadReplay(id: string): Promise<RoundReplay> {
+    const saved = storage
+      .get<RoundReplay[]>("replays:practice", [])
+      .find((r) => r.id === id);
+    if (saved) return saved;
+    return this.api<RoundReplay>("/api/replays/" + encodeURIComponent(id));
+  }
+  async loadMatch(id: string): Promise<MatchDetails> {
+    return this.api<MatchDetails>("/api/matches/" + encodeURIComponent(id));
+  }
+  private updateLocal() {
+    if (this.local) {
+      if (this.local.phase === "ended" && !this.local.deadline)
+        this.local.deadline = Date.now() + 10_000;
+      storage.set("practice", this.local);
+      if (this.local.replay?.endedAt) {
+        const saved = storage.get<RoundReplay[]>("replays:practice", []);
+        if (!saved.some((r) => r.id === this.local!.replay!.id))
+          storage.set(
+            "replays:practice",
+            [this.local.replay, ...saved].slice(0, 5),
+          );
+      }
+      this.emit({ view: viewFor(this.local, 0) });
+      this.archive();
+    }
+  }
+  private archive() {
+    const view = this.state.view;
+    if (!view?.history.length) return;
+    const key =
+      this.state.mode === "local"
+        ? "history:practice"
+        : `history:${this.state.account?.id ?? "unbound"}`;
+    const records = storage.get<StoredRound[]>(key, []);
+    for (const record of view.history)
+      if (!records.some((r) => r.record.id === record.id))
+        records.unshift({
+          game: view.id,
+          code: view.code,
+          me: view.me,
+          practice: this.state.mode === "local",
+          record,
+        });
+    if (view.phase === "finished" && this.state.mode === "local") {
+      const latest = records.find(
+        (r) => r.record.id === view.history.slice(-1)[0]?.id,
+      );
+      if (latest)
+        latest.record = {
+          ...latest.record,
+          matchFinished: true,
+          totalRounds: view.rules.rounds,
+        };
+    }
+    storage.set(key, records.slice(0, 100));
+  }
+  practice(name: string, rules: Partial<Rules>, resume = false) {
+    this.disconnect();
+    this.name = name;
+    this.localPaused = false;
+    this.pausedAt = undefined;
+    const candidate = resume
+      ? storage.get<Game | null>("practice", null)
+      : null;
+    const saved =
+      candidate?.version === 1 && candidate.players?.every(Boolean)
+        ? candidate
+        : null;
+    this.local =
+      saved ??
+      createGame(
+        "练习桌",
+        crypto.randomUUID?.() ??
+          Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+            b.toString(16).padStart(2, "0"),
+          ).join(""),
+        newGameRules(rules),
+      );
+    if (!saved) {
+      this.local.players = [
+        newPlayer("me", name),
+        newPlayer("bot-1", "秦淮", true),
+        newPlayer("bot-2", "钟山", true),
+        newPlayer("bot-3", "莫愁", true),
+      ];
+      this.local.players[0]!.ready = true;
+      this.local.ownerId = "me";
+      this.local = startRound(this.local);
+    } else {
+      this.local.players[0]!.name = name;
+      // A resumed result should still give the player a full ten seconds to read it.
+      this.local.deadline =
+        this.local.phase === "ended"
+          ? Date.now() + 10_000
+          : this.local.rules.turnSeconds
+            ? Date.now() + this.local.rules.turnSeconds * 1000
+            : 0;
+    }
+    this.emit({
+      mode: "local",
+      connected: true,
+      connecting: false,
+      error: "",
+      notice: "",
+    });
+    this.updateLocal();
+    this.tick = setInterval(() => {
+      if (this.local?.phase === "ended" && !this.localPaused) {
+        if (Date.now() >= this.local.deadline) this.ready();
+        return;
+      }
+      if (
+        !this.local ||
+        this.localPaused ||
+        !["playing", "claiming"].includes(this.local.phase)
+      )
+        return;
+      for (const seat of seats) {
+        const human = seat === 0 && !this.local.players[0]!.trustee;
+        if (
+          human &&
+          (!decisionDeadline(this.local, seat) ||
+            decisionDeadline(this.local, seat) > Date.now())
+        )
+          continue;
+        if (human && this.local.phase === "playing" && this.local.turn === seat)
+          this.local.players[0]!.trustee = true;
+        const action = this.local.players[seat]!.bot
+          ? botAction(this.local, seat)
+          : trusteeAction(this.local, seat);
+        if (action) {
+          this.local = act(this.local, seat, action);
+          this.updateLocal();
+          break;
+        }
+      }
+    }, 950);
+  }
+  pauseLocal(paused: boolean) {
+    if (paused === this.localPaused) return;
+    this.localPaused = paused;
+    if (paused) this.pausedAt = Date.now();
+    else if (this.local && this.pausedAt !== undefined) {
+      if (this.local.deadline)
+        this.local.deadline += Date.now() - this.pausedAt;
+      for (const p of this.local.players)
+        if (p?.resumedDeadline) p.resumedDeadline += Date.now() - this.pausedAt;
+      this.pausedAt = undefined;
+      this.updateLocal();
+    }
+  }
+  connect(name: string, pending?: ClientMessage) {
+    if (
+      this.state.authChecked &&
+      (!this.state.account || this.state.account.mustChangePassword)
+    ) {
+      this.emit({ error: "请先登录账号", tablesLoading: false });
+      return;
+    }
+    if (!onlineAvailable) {
+      this.emit({
+        error: "此安装包尚未配置好友约局服务，单人练习可以离线使用。",
+      });
+      return;
+    }
+    this.disconnect();
+    this.name = name;
+    this.pending = pending;
+    this.lobbyWanted =
+      pending?.type === "tables" || pending?.type === "createTables";
+    this.stopped = false;
+    this.emit({
+      mode: "online",
+      connecting: true,
+      connected: false,
+      error: "",
+      notice: "",
+    });
+    this.open();
+  }
+  browseTables(name: string) {
+    this.lobbyWanted = true;
+    this.emit({ tablesLoading: true, error: "" });
+    if (this.state.connected && this.state.mode === "online")
+      this.send({ type: "tables" });
+    else if (this.state.connecting) return;
+    else this.connect(name, { type: "tables" });
+  }
+  createTables(
+    name: string,
+    settings: TableSettings,
+    rules: Partial<Rules>,
+    count: number,
+  ) {
+    this.lobbyWanted = true;
+    const creationId =
+      crypto.randomUUID?.() ??
+      Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+        b.toString(16).padStart(2, "0"),
+      ).join("");
+    const message: ClientMessage = {
+      type: "createTables",
+      settings,
+      rules,
+      count,
+      creationId,
+    };
+    this.emit({ createdTables: [], error: "" });
+    if (this.state.connected && this.state.mode === "online")
+      this.send(message);
+    else this.connect(name, message);
+  }
+  joinTable(name: string, code: string, seat?: 0 | 1 | 2 | 3) {
+    const message: ClientMessage = { type: "join", code, seat };
+    if (this.state.connected && this.state.mode === "online")
+      this.send(message);
+    else this.connect(name, message);
+  }
+  private open() {
+    if (this.stopped || !this.networkVisible) return;
+    clearTimeout(this.retry);
+    this.retry = undefined;
+    this.stopClock();
+    this.clock.reset();
+    const url = base
+      ? base.replace(/^http/, "ws").replace(/\/$/, "") + "/ws"
+      : `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`;
+    const ws = new WebSocket(url);
+    this.socket = ws;
+    this.openedAt = Date.now();
+    this.connectTimer = setTimeout(
+      () => this.restartConnection("连接牌桌超时，正在重试…"),
+      10000,
+    );
+    ws.onopen = () => {
+      if (this.socket !== ws || this.stopped) return;
+      ws.send(
+        JSON.stringify({
+          type: "hello",
+          name: this.name,
+          token: storage.get("token", undefined),
+        }),
+      );
+    };
+    ws.onmessage = (event) => {
+      if (this.socket !== ws || this.stopped) return;
+      try {
+        const msg = JSON.parse(event.data) as ServerMessage;
+        this.clock.observe(msg.serverNow);
+        if (msg.type === "session") {
+          clearTimeout(this.connectTimer);
+          this.connectTimer = undefined;
+          this.commandAck = msg.commandAck === true;
+          this.timeSync = msg.timeSync === true;
+          storage.set("token", msg.token);
+          storage.set("onlineActive", !!msg.roomCode);
+          this.attempt = 0;
+          this.emit({
+            connected: true,
+            connecting: false,
+            notice: "",
+            error: "",
+            tableLobby: msg.tableLobby === true,
+            ...(msg.account ? { account: msg.account } : {}),
+            ...(!msg.roomCode ? { view: null } : {}),
+          });
+          if (this.timeSync) {
+            this.syncTime(true);
+            clearInterval(this.clockTimer);
+            this.clockTimer = setInterval(() => {
+              this.syncTime();
+            }, 30000);
+          }
+          if (this.pending && !msg.roomCode) this.send(this.pending);
+          else if (this.lobbyWanted && msg.tableLobby)
+            this.send({ type: "tables" });
+          this.pending = undefined;
+        } else if (msg.type === "pong") {
+          if (
+            msg.sentAt === this.clockPing &&
+            this.clockPing !== undefined &&
+            Number.isFinite(msg.serverNow)
+          ) {
+            this.clock.sample(msg.serverNow!, this.clockPing);
+            this.clockPing = undefined;
+            clearTimeout(this.pongTimer);
+            this.pongTimer = undefined;
+            if (this.resumePending) {
+              this.resumePending = false;
+              this.finishCommand();
+              if (msg.synced && !msg.roomCode)
+                storage.set("onlineActive", false);
+              this.emit({
+                connected: true,
+                connecting: false,
+                notice: "",
+                error: "",
+                ...(msg.synced && !msg.roomCode ? { view: null } : {}),
+              });
+              if (this.lobbyWanted) this.browseTables(this.name);
+            }
+          }
+        } else if (msg.type === "voice") {
+          const voice = msg.message;
+          if (
+            this.state.mode === "online" &&
+            this.state.view?.id === voice.game &&
+            !this.state.voiceMessages.some((item) => item.id === voice.id)
+          )
+            this.emit({
+              voiceMessages: [
+                ...this.state.voiceMessages.filter(
+                  (item) => this.now() - item.at < 60000,
+                ),
+                voice,
+              ].slice(-8),
+            });
+        } else if (msg.type === "accountUpdated") {
+          if (this.state.account?.id === msg.account.id)
+            this.emit({ account: msg.account });
+        } else if (msg.type === "tables") {
+          this.finishTables();
+          this.emit({ tables: msg.tables, tablesLoading: false });
+        } else if (msg.type === "tablesCreated") {
+          this.emit({ createdTables: msg.codes });
+        } else if (msg.type === "records") {
+          const previous = storage.get<
+            Extract<ServerMessage, { type: "records" }>["records"]
+          >(`history:${this.state.account?.id ?? "unbound"}`, []);
+          const merged = new Map(previous.map((r) => [r.record.id, r]));
+          for (const record of msg.records)
+            merged.set(record.record.id, record);
+          storage.set(
+            `history:${this.state.account?.id ?? "unbound"}`,
+            [...merged.values()]
+              .sort((a, b) => b.record.at - a.record.at)
+              .slice(0, 100),
+          );
+          this.emit({});
+        } else if (msg.type === "state") {
+          storage.set("onlineActive", true);
+          if (!this.commandAck) this.finishCommand();
+          this.emit({ view: msg.state });
+          this.archive();
+        } else if (msg.type === "ack") {
+          if (msg.requestId === this.commandId) this.finishCommand();
+        } else if (msg.type === "error") {
+          if (msg.code === "AUTH_REQUIRED") {
+            this.expireAuth();
+            return;
+          }
+          // A renewal/leave notification can finish the old command before its late reply arrives.
+          if (msg.requestId && msg.requestId !== this.commandId) return;
+          if (!msg.requestId || msg.requestId === this.commandId)
+            this.finishCommand();
+          if (!msg.requestId) this.finishTables();
+          this.emit({
+            error: msg.message,
+            ...(!msg.requestId ? { tablesLoading: false } : {}),
+          });
+        } else if (msg.type === "left") {
+          storage.set("onlineActive", false);
+          this.finishCommand();
+          if (msg.lobby) {
+            this.lobbyWanted = true;
+            this.emit({
+              view: null,
+              mode: "online",
+              error: "",
+              lobbyNotice: msg.message ?? "",
+            });
+            this.send({ type: "tables" });
+          } else {
+            this.emit({ view: null, mode: null });
+            this.disconnect();
+          }
+        }
+      } catch {
+        this.emit({ error: "收到无效牌局信息，请重新连接" });
+      }
+    };
+    ws.onclose = (event) => {
+      if (this.socket !== ws || this.stopped) return;
+      this.stopClock();
+      clearTimeout(this.connectTimer);
+      this.finishTables();
+      this.finishCommand();
+      if (event.code === 4003) {
+        this.expireAuth();
+        return;
+      }
+      if (event.code === 4001) {
+        this.stopped = true;
+        this.emit({
+          connected: false,
+          connecting: false,
+          notice: "账号已在另一处打开，请返回大厅后重新进入。",
+        });
+        return;
+      }
+      this.restartConnection("连接中断，正在重新连接…");
+    };
+    ws.onerror = () => {
+      if (this.socket !== ws || this.stopped) return;
+      if (!this.state.view)
+        this.emit({
+          error:
+            "暂时连接不上牌桌服务，正在重试。你也可以返回大厅，开始单人练习。",
+        });
+    };
+  }
+  send(msg: ClientMessage) {
+    // A read-only list refresh must not be blocked by (or acknowledge) a game command.
+    if (this.state.submitting && msg.type !== "tables") return;
+    if (msg.type === "tables" && this.tablesTimer) return;
+    if (!this.state.connected || this.socket?.readyState !== WebSocket.OPEN) {
+      this.emit({ error: "正在重连，请稍候" });
+      if (msg.type === "tables") this.restartConnection("正在重新同步牌桌…");
+      return;
+    }
+    if (
+      ["tables", "createTables", "closeTable"].includes(msg.type) &&
+      !this.state.tableLobby
+    ) {
+      this.emit({
+        error: "牌桌大厅服务正在更新，请稍后重试",
+        tablesLoading: false,
+      });
+      return;
+    }
+    const tracked =
+      [
+        "createTables",
+        "closeTable",
+        "action",
+        "ready",
+        "addBot",
+        "trustee",
+        "leave",
+        "dissolve",
+      ].includes(msg.type) ||
+      (this.state.tableLobby && ["create", "join"].includes(msg.type));
+    if (tracked) {
+      this.commandId = `command-${++this.commandSequence}`;
+      this.emit({ submitting: msg.type, error: "" });
+      this.commandTimer = setTimeout(() => {
+        // The server may have accepted the move: reconnect for authoritative state,
+        // never replay an unconfirmed discard or ready command.
+        this.restartConnection("牌桌响应较慢，正在重新同步…");
+      }, 8000);
+    }
+    if (msg.type === "tables") {
+      this.emit({ tablesLoading: true });
+      this.tablesTimer = setTimeout(
+        () => this.restartConnection("牌桌列表响应较慢，正在重新同步…"),
+        8000,
+      );
+    }
+    try {
+      this.socket.send(
+        JSON.stringify({
+          ...msg,
+          ...(tracked ? { requestId: this.commandId } : {}),
+        }),
+      );
+    } catch {
+      this.finishCommand();
+      this.emit({ error: "操作未发送，正在重新连接牌桌…" });
+      this.restartConnection("操作未发送，正在重新连接牌桌…");
+    }
+  }
+  action(action: Action) {
+    try {
+      if (this.local) {
+        this.local = act(this.local, 0, action);
+        this.updateLocal();
+      } else if (this.state.view)
+        this.send({
+          type: "action",
+          action,
+          revision: this.state.view.revision,
+        });
+    } catch (error) {
+      this.emit({ error: error instanceof Error ? error.message : "操作失败" });
+    }
+  }
+  ready() {
+    if (this.local) {
+      if (this.local.phase !== "ended") return;
+      this.local.players[0]!.ready = true;
+      this.local = startRound(this.local);
+      this.updateLocal();
+    } else this.send({ type: "ready" });
+  }
+  trustee(enabled: boolean) {
+    if (this.local) {
+      setTrustee(this.local, 0, enabled, Date.now());
+      this.updateLocal();
+    } else this.send({ type: "trustee", enabled });
+  }
+  dissolve(agree: boolean) {
+    if (this.local) {
+      if (agree) {
+        this.local = dissolveGame(this.local);
+        this.updateLocal();
+      }
+    } else this.send({ type: "dissolve", agree });
+  }
+  leave() {
+    if (this.local) {
+      this.updateLocal();
+      this.disconnect();
+      this.emit({ view: null, mode: null });
+    } else if (this.state.view) this.send({ type: "leave" });
+    else {
+      this.disconnect();
+      this.emit({ view: null, mode: null });
+    }
+  }
+  disconnect() {
+    this.stopClock();
+    this.finishTables();
+    clearTimeout(this.connectTimer);
+    this.connectTimer = undefined;
+    this.clock.reset();
+    this.stopped = true;
+    this.finishCommand();
+    this.commandAck = false;
+    this.lobbyWanted = false;
+    clearInterval(this.tick);
+    clearTimeout(this.retry);
+    this.tick = undefined;
+    this.retry = undefined;
+    this.socket?.close();
+    this.socket = undefined;
+    this.local = undefined;
+    this.pending = undefined;
+    this.emit({ connected: false, connecting: false, tablesLoading: false });
+  }
+}
+export const client = new GameClient();

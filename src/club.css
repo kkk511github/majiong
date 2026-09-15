@@ -1,0 +1,427 @@
+.polished .modal.club-dialog {
+  width: min(
+    1120px,
+    calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 20px)
+  );
+  height: calc(
+    var(--app-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
+      20px
+  );
+  max-height: calc(var(--app-height) - 20px);
+  padding: 12px;
+  gap: 8px;
+  overflow: hidden;
+}
+.polished .club-dialog .modal-head {
+  flex: 0 0 32px;
+  min-height: 32px;
+  padding: 0 2px 8px;
+}
+.polished .club-dialog .modal-head h2 {
+  font-size: 21px;
+}
+.club-header-note {
+  font-size: 12px;
+  color: #6b7e68;
+  margin-left: auto;
+}
+.polished .club-dialog .modal-body {
+  overflow: hidden;
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 14px;
+  padding: 0;
+  color: #244d3c;
+}
+.club-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-right: 1px solid #cbd4be;
+  padding-right: 12px;
+  min-width: 0;
+}
+.club-tabs button {
+  width: 100%;
+  min-height: 44px;
+  font-size: 14px;
+  padding: 8px 4px;
+}
+.club-help {
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 8px 2px 0;
+  color: #657561;
+}
+.club-workspace {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+}
+.club-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin: 0;
+}
+.club-filter-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.club-filter-main > input {
+  width: 130px;
+  flex: 1;
+}
+.club-filter-main > select {
+  width: 155px;
+  max-width: 30%;
+}
+.club-filter-dates {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.club-filters input,
+.club-filters select,
+.club-member select {
+  border: 1px solid #afc1aa;
+  background: #fffef6;
+  color: #244d3c;
+  border-radius: 7px;
+  height: 36px;
+  padding: 5px 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+.club-filters label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+.club-filters input[type="date"] {
+  width: 137px;
+}
+.club-filters button,
+.club-member button,
+.club-team button,
+.club-footer button {
+  font-size: 13px;
+  padding: 6px 10px;
+  min-height: 34px;
+  white-space: nowrap;
+}
+.club-notice,
+.club-error {
+  font-size: 12px;
+  margin: 0;
+  padding: 5px 9px;
+  line-height: 1.4;
+  background: #e6eddb;
+  border-radius: 5px;
+  flex: none;
+}
+.club-error,
+.club-blocked {
+  color: #a13c27;
+}
+.club-error {
+  background: #f7e6d7;
+}
+.club-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  position: relative;
+  border: 1px solid #c3cfb8;
+  border-radius: 10px;
+  background: #fffdf1;
+}
+.club-refresh {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 25px;
+  background: #e9efdded;
+  color: #416e50;
+}
+.club-list {
+  display: flex;
+  flex-direction: column;
+}
+.club-member {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 170px) 110px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid #d8dfcb;
+  background: #fffdf1;
+}
+.club-member:last-child,
+.club-team:last-child {
+  border-bottom: 0;
+}
+.club-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.club-identity strong {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.club-identity small {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  color: #728168;
+}
+.club-identity span {
+  font-size: 12px;
+  color: #4c8058;
+}
+.club-identity .club-blocked {
+  color: #a13c27;
+}
+.club-member label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  min-width: 0;
+}
+.club-member select {
+  width: 100%;
+}
+.club-member-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.club-member-actions button {
+  width: 100%;
+}
+.club-team {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid #d8dfcb;
+}
+.club-team strong {
+  flex: 1;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.club-team span {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.club-stats-scroll {
+  overflow: visible;
+}
+.club-stats-scroll table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 15px;
+}
+.club-col-team {
+  width: 28%;
+}
+.club-col-member {
+  width: 36%;
+}
+.club-stats-scroll th,
+.club-stats-scroll td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #d9dfcb;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.club-stats-scroll th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #e6ecda;
+  color: #53664d;
+  font-size: 13px;
+}
+.club-stats-scroll th:nth-child(n + 3),
+.club-stats-scroll td:nth-child(n + 3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.club-stats-scroll td:nth-child(n + 3) {
+  font-weight: 700;
+  font-size: 18px;
+}
+.club-stats-scroll td strong {
+  font-weight: 600;
+}
+.club-stats-scroll td small {
+  display: block;
+  font-size: 12px;
+  color: #71806a;
+  margin-top: 3px;
+}
+.club-positive {
+  color: #216747;
+}
+.club-negative {
+  color: #b34231;
+}
+.club-totals {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  justify-content: space-between;
+  flex: none;
+  padding: 2px 3px;
+}
+.club-totals b {
+  font-size: 18px;
+  margin-left: 5px;
+  color: #345b3e;
+}
+.club-empty {
+  padding: 26px 12px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.club-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  flex: none;
+}
+.club-footer small {
+  flex: 1;
+}
+.club-footer button {
+  min-height: 30px;
+  padding: 4px 9px;
+}
+.admission-notice {
+  color: #ffe8ab;
+  background: #294e42;
+  border: 1px solid #ae935e;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+@media (max-width: 700px) {
+  .polished .modal.club-dialog {
+    padding: 8px;
+    gap: 5px;
+  }
+  .polished .club-dialog .modal-head {
+    flex-basis: 28px;
+    min-height: 28px;
+    padding-bottom: 4px;
+  }
+  .polished .club-dialog .modal-head h2 {
+    font-size: 18px;
+  }
+  .polished .club-dialog .modal-body {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .club-tabs {
+    gap: 6px;
+    padding-right: 7px;
+  }
+  .club-tabs button {
+    font-size: 12px;
+    min-height: 38px;
+  }
+  .club-help {
+    font-size: 11px;
+  }
+  .club-workspace {
+    gap: 5px;
+  }
+  .club-member {
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) 122px 96px;
+    padding: 9px;
+  }
+  .club-member-actions button {
+    font-size: 11px;
+    padding: 5px;
+    min-height: 29px;
+  }
+  .club-filter-main {
+    gap: 4px;
+  }
+  .club-filter-main > input {
+    width: 95px;
+  }
+  .club-filters input,
+  .club-filters select {
+    height: 30px;
+    font-size: 12px;
+    padding: 4px 5px;
+  }
+  .club-filters button {
+    font-size: 12px;
+    min-height: 30px;
+    padding: 5px 7px;
+  }
+  .club-filter-dates {
+    gap: 8px;
+  }
+  .club-filter-dates input[type="date"] {
+    width: 128px;
+  }
+  .club-totals {
+    font-size: 11px;
+    gap: 6px;
+  }
+  .club-totals b {
+    font-size: 15px;
+    margin-left: 3px;
+  }
+  .club-stats-scroll th,
+  .club-stats-scroll td {
+    padding: 7px 8px;
+  }
+  .club-stats-scroll td {
+    font-size: 13px;
+  }
+  .club-stats-scroll td:nth-child(n + 3) {
+    font-size: 16px;
+  }
+  .club-notice,
+  .club-error {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+}
+:root[data-keyboard-open] .polished .modal.club-dialog {
+  height: calc(var(--input-viewport-height) - 12px);
+}
+:root[data-keyboard-open] .club-help {
+  display: none;
+}

@@ -1,0 +1,670 @@
+/* Always reserve the same strip above the hand: hints/calls never resize rivers. */
+html:root[data-table-platform] #table-board .hand-feedback {
+  position: absolute;
+  left: calc(
+    var(--edge-l) + var(--side-flower-cols) * (var(--public-w) + 2px) + 16px
+  );
+  right: calc(var(--edge-r) + 3 * var(--public-w) + 20px);
+  bottom: calc(var(--bottom) + var(--hand-height) + 14px);
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  z-index: 14;
+  pointer-events: none;
+}
+html:root[data-table-platform] #table-board .hand-feedback .action-bar {
+  position: static;
+  --action-size: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+html:root[data-table-platform] #table-board .hand-feedback .game-actions {
+  display: flex;
+  gap: 6px;
+}
+html:root[data-table-platform] #table-board .hand-feedback .claim-source {
+  position: fixed;
+  top: 2px;
+  left: calc(var(--edge-l) + 175px);
+  width: 132px;
+  height: 27px;
+  margin: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  .hand-feedback
+  .claim-source
+  > .tile {
+  width: 16px;
+  height: 23px;
+  flex-basis: 16px;
+}
+html:root[data-table-platform]
+  #table-board:has(.claim-source)
+  .game-topbar
+  > :is(span, .table-brand) {
+  visibility: hidden;
+}
+html:root[data-table-platform] #table-board .hand-listening {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid #b9a464;
+  border-radius: 9px;
+  color: #fff0b6;
+  background: #063c35ed;
+  pointer-events: auto;
+}
+html:root[data-table-platform] #table-board .hand-listening > span {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+html:root[data-table-platform] #table-board .hand-listening b {
+  display: block;
+  font-size: 14px;
+}
+html:root[data-table-platform] #table-board .hand-waits {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  max-width: 280px;
+  padding-bottom: 1px;
+}
+html:root[data-table-platform] #table-board .hand-waits .tile {
+  width: 27px;
+  height: 38px;
+  flex: 0 0 27px;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  html:root[data-table-platform] #table-board .hand-feedback {
+    right: calc(var(--edge-r) + 2 * var(--public-w) + 8px);
+    gap: 6px;
+  }
+  html:root[data-table-platform] #table-board .hand-feedback .action-bar {
+    --action-size: 32px;
+    gap: 4px;
+  }
+  html:root[data-table-platform] #table-board .hand-feedback .claim-source {
+    width: 66px;
+  }
+  html:root[data-table-platform] #table-board .hand-feedback .game-actions {
+    gap: 3px;
+  }
+  html:root[data-table-platform] #table-board .hand-waits .tile {
+    width: 23px;
+    height: 33px;
+    flex-basis: 23px;
+  }
+}
+
+/* Side metrics have intrinsic width; the compass cannot consume their columns. */
+html:root[data-table-platform] #table-board .table-hud {
+  --dial-size: max(
+    62px,
+    min(
+      var(--river-clock-height),
+      82px,
+      calc(8 * var(--river-tile-width) - 70px)
+    )
+  );
+  grid-template-columns: 30px var(--dial-size) 30px;
+  column-gap: 5px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-rounds b {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  font-size: 15px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-rounds b small {
+  font-size: 12px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center {
+  box-sizing: border-box;
+  padding: 4px;
+  grid-template-columns: 17px minmax(0, 1fr) 17px;
+  grid-template-rows: 17px minmax(0, 1fr) 17px;
+  column-gap: 1px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center > strong {
+  font-size: 20px;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  > strong.long-countdown {
+  font-size: 15px;
+}
+
+/* Concealed tiles stay in one line. Exposed sets get their own adjacent lane;
+   a complete pung/kong never splits, and every seat uses the same dimensions. */
+html:root[data-table-platform] #table-board {
+  --opponent-top: calc(
+    35px + max(var(--meld-h), 2 * var(--public-h) + 10px) + 6px
+  );
+  --opponent-room: calc(
+    100vh - var(--hand-height) - var(--bottom) - var(--opponent-top) - 10px
+  );
+  --right-flower-cols: 3;
+  --opponent-w: min(var(--public-w), calc((var(--opponent-room) - 13px) / 14));
+  --opponent-h: calc(var(--opponent-w) * 1.45);
+  --opponent-meld-w: min(
+    var(--meld-w),
+    calc((var(--opponent-room) - 8px) / 8),
+    calc(
+      (
+          50vw + var(--river-center-half) - var(--edge-l) - 3 *
+            var(--public-w) - 44px - 2 * var(--opponent-w)
+        ) /
+        16
+    )
+  );
+  --opponent-meld-h: calc(var(--opponent-meld-w) * 1.45);
+  --side-zone: calc(
+    3 * var(--public-w) + 16px + var(--opponent-h) + 2 *
+      var(--opponent-meld-h) + 8px
+  );
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack.side-rack {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  width: max-content;
+  height: auto;
+  gap: 4px;
+  transform: none;
+  top: var(--opponent-top);
+  left: calc(
+    var(--edge-l) + var(--side-flower-cols) * (var(--public-w) + 1px) + 10px
+  );
+  right: auto;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  .opponent-rack.side-rack {
+  flex-direction: row-reverse;
+  left: auto;
+  right: calc(
+    var(--edge-r) + var(--right-flower-cols) * (var(--public-w) + 1px) + 10px
+  );
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .side-rack
+  .opponent-hand {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: max-content;
+  height: auto;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .side-rack
+  .opponent-hand
+  :is(.tile, .tile-back) {
+  position: relative;
+  width: var(--opponent-h);
+  height: var(--opponent-w);
+  flex: 0 0 auto;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .side-rack
+  .opponent-hand
+  :is(.tile, .tile-back)
+  .tile-art {
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: var(--opponent-w);
+  height: var(--opponent-h);
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  .side-rack
+  .opponent-hand
+  :is(.tile, .tile-back)
+  .tile-art {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-hand
+  :is(.tile, .tile-back) {
+  position: relative;
+  width: var(--opponent-w);
+  height: var(--opponent-h);
+  flex: 0 0 auto;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-hand
+  :is(.tile, .tile-back)
+  .tile-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .side-rack
+  .opponent-melds {
+  display: grid;
+  grid-template-rows: repeat(min(2, var(--meld-count)), max-content);
+  grid-auto-flow: column;
+  align-items: start;
+  gap: 4px;
+  width: max-content;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .side-rack
+  .opponent-melds
+  > span {
+  display: flex;
+  flex-direction: column;
+  width: var(--opponent-meld-h);
+  height: auto;
+  gap: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .side-rack
+  .opponent-melds
+  :is(.tile, .tile-back) {
+  position: relative;
+  width: var(--opponent-meld-h);
+  height: var(--opponent-meld-w);
+  flex: 0 0 auto;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .side-rack
+  .opponent-melds
+  .tile-art {
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: var(--opponent-meld-w);
+  height: var(--opponent-meld-h);
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  .side-rack
+  .opponent-melds
+  .tile-art {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-melds
+  :is(.tile, .tile-back) {
+  position: relative;
+  width: var(--opponent-meld-w);
+  height: var(--opponent-meld-h);
+  flex: 0 0 auto;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-melds
+  > span {
+  height: var(--opponent-meld-h);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-melds
+  .tile-art {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+html:root[data-table-platform] #table-board .table-hud {
+  top: calc(var(--river-track-height) / 2);
+}
+
+/* Flower trays and concealed hands use the same lane boundaries. The top
+   band's two flower rows end before either side rack begins. */
+html:root[data-table-platform]
+  #table-board:has(.opponent-left > .flower-rack .tile:nth-child(13)) {
+  --side-flower-cols: 4;
+}
+html:root[data-table-platform]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7)) {
+  --side-flower-cols: 5;
+}
+html:root[data-table-platform]
+  #table-board:has(.opponent-right > .flower-rack .tile:nth-child(13)) {
+  --right-flower-cols: 4;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-rack
+  > .flower-rack
+  .flower-rack-tiles {
+  grid-template-columns: repeat(min(10, var(--flower-count)), var(--public-w));
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-left
+  > .flower-rack
+  .flower-rack-tiles {
+  grid-template-columns: repeat(
+    min(var(--side-flower-cols), var(--flower-count)),
+    var(--public-w)
+  );
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  > .flower-rack
+  .flower-rack-tiles {
+  grid-template-columns: repeat(
+    min(var(--right-flower-cols), var(--flower-count)),
+    var(--public-w)
+  );
+}
+/* A fixed central strip keeps every action on one line above the hand. Side
+   racks remain outside it; selecting a tile never changes the river size. */
+html:root[data-table-platform] #table-board .discard-field {
+  bottom: calc(var(--hand-height) + var(--bottom) + 70px);
+}
+html:root[data-table-platform] #table-board .hand-feedback {
+  left: calc(
+    var(--edge-l) + var(--side-zone) + (var(--side-flower-cols) - 3) *
+      (var(--public-w) + 1px) + 8px
+  );
+  right: calc(
+    var(--edge-r) + var(--side-zone) + (var(--right-flower-cols) - 3) *
+      (var(--public-w) + 1px) + 8px
+  );
+  height: 52px;
+  align-items: center;
+}
+html:root[data-table-platform] #table-board .hand-feedback .action-bar {
+  --action-size: 48px;
+  position: absolute;
+  right: 0;
+  left: auto;
+  top: auto;
+  bottom: 0;
+  height: auto;
+  margin: 0;
+}
+html:root[data-table-platform] #table-board .hand-feedback .game-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+html:root[data-table-platform] #table-board .hand-listening {
+  box-sizing: border-box;
+  max-width: calc(100% - var(--action-count) * 57px - 10px);
+  position: relative;
+}
+@media (max-width: 700px) {
+  html:root[data-table-platform] #table-board .hand-feedback .action-bar {
+    --action-size: 44px;
+  }
+  html:root[data-table-platform] #table-board .hand-feedback .game-actions {
+    gap: 4px;
+  }
+  html:root[data-table-platform] #table-board .hand-listening {
+    max-width: calc(100% - var(--action-count) * 48px - 8px);
+    padding: 2px 4px;
+    gap: 4px;
+  }
+  html:root[data-table-platform] #table-board .hand-listening > span {
+    font-size: 10px;
+  }
+}
+
+/* Keep across flowers to the right of its river, in the upper band. Their
+   anchor does not shift left when the across player has fewer exposed sets. */
+html:root[data-table-platform] #table-board .opponent-top .opponent-rack {
+  left: calc(var(--edge-l) + 3 * var(--public-w) + 16px);
+  right: auto;
+  width: calc(
+    50vw + var(--river-center-half) - var(--edge-l) - 3 * var(--public-w) - 30px
+  );
+  transform: none;
+  translate: none;
+  justify-content: flex-end;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-rack
+  > .flower-rack {
+  position: fixed;
+  left: calc(50% + var(--river-center-half) + 12px);
+  right: auto;
+  top: 30px;
+  bottom: auto;
+  margin: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-rack
+  > .flower-rack
+  .flower-rack-label {
+  display: block;
+}
+
+/* Use the empty felt immediately below the across rack for the larger rivers. */
+html:root[data-table-platform] #table-board {
+  --field-top: calc(28px + var(--opponent-meld-h) + 2px);
+}
+html:root[data-table-platform] #table-board .opponent-top .opponent-rack {
+  top: 28px;
+}
+html:root[data-table-platform] #table-board .opponent-top .opponent-info {
+  grid-template-rows: 12px 12px;
+  row-gap: 1px;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-info
+  .avatar {
+  width: 26px;
+  height: 26px;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-info
+  .opponent-meta {
+  margin: 0;
+  line-height: 12px;
+  font-size: 10px;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-rack
+  > .flower-rack {
+  top: 28px;
+}
+html:root[data-table-platform] #table-board .hand {
+  bottom: max(2px, env(safe-area-inset-bottom));
+}
+html:root[data-table-platform] #table-board .my-info > div:last-child,
+html:root[data-table-platform] #table-board .game-topbar > div:last-child {
+  top: 1px;
+}
+/* This corner is reserved by the hand's existing width calculation. */
+html:root[data-table-platform] #table-board .my-info > div:first-child {
+  position: absolute;
+  top: auto;
+  left: auto;
+  right: var(--edge-r);
+  bottom: calc(var(--bottom) + 5px);
+  width: min(156px, calc(var(--flower-width) - 8px));
+  min-height: 46px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-rows: 19px 22px;
+  column-gap: 7px;
+  row-gap: 2px;
+  padding: 5px 7px;
+  border: 1px solid #baa97780;
+  border-radius: 10px;
+  background: #073c34d9;
+}
+html:root[data-table-platform]
+  #table-board
+  .my-info
+  > div:first-child
+  .player-portrait {
+  grid-row: 1 / 3;
+  grid-column: 1;
+  align-self: center;
+}
+html:root[data-table-platform] #table-board .my-info .avatar {
+  width: 36px;
+  height: 36px;
+}
+html:root[data-table-platform]
+  #table-board
+  .my-info
+  > div:first-child
+  > strong {
+  grid-row: 1;
+  grid-column: 2 / 4;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 19px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html:root[data-table-platform] #table-board .my-info .my-score {
+  grid-row: 2;
+  grid-column: 2;
+  font-size: 17px;
+  line-height: 22px;
+  white-space: nowrap;
+}
+html:root[data-table-platform] #table-board .my-info .seat-tag {
+  grid-row: 2;
+  grid-column: 3;
+  align-self: center;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+/* Separate tracks remain wide enough even at 100 seconds. */
+html:root[data-table-platform] #table-board .table-hud {
+  --dial-size: 72px;
+  top: calc(var(--river-center-height) / 2);
+  grid-template-columns: 30px 72px 30px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center {
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  grid-template-rows: 16px minmax(0, 1fr) 16px;
+  gap: 1px;
+  padding: 4px;
+  width: 72px;
+  height: 72px;
+  align-items: center;
+  justify-items: center;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  .compass-wind {
+  font-size: 16px;
+  line-height: 16px;
+  width: 16px;
+  height: 16px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center > strong {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font:
+    700 20px/1 ui-monospace,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  > strong.long-countdown {
+  font-size: 15px;
+}
+html:root[data-table-platform] #table-board .table-stock {
+  gap: 2px;
+}
+html:root[data-table-platform] #table-board .table-stock > div {
+  gap: 0;
+}
+html:root[data-table-platform] #table-board .table-stock span {
+  line-height: 12px;
+}
+
+/* Wide boards have room for taller two-column flower trays and large rivers. */
+@media (min-width: 1100px) and (min-height: 500px) {
+  html:root[data-table-platform]
+    #table-board:not(
+      :has(.opponent-left > .flower-rack .tile:nth-child(7))
+    ):not(:has(.hand-support .flower-rack .tile:nth-child(7))) {
+    --side-flower-cols: 2;
+  }
+  html:root[data-table-platform]
+    #table-board:not(:has(.opponent-right > .flower-rack .tile:nth-child(7))) {
+    --right-flower-cols: 2;
+  }
+}

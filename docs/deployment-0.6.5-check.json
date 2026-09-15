@@ -1,0 +1,13 @@
+{
+  "version": "0.6.5",
+  "databaseBackup": "pre-0.6.5.sqlite",
+  "databaseIntegrity": "ok",
+  "rowCountsPreserved": true,
+  "noActiveGamesBeforeRestart": true,
+  "httpsHealth": "passed",
+  "sessionResyncPrivacyTest": "passed",
+  "nativeForegroundUi": "returned to same logged-in homepage",
+  "backgroundAudioBrowserTest": "resumed single loop, including initial resume failure",
+  "longBackgroundLimit": "Mobile OS may suspend execution; automatic foreground reconnection is supported",
+  "oldServer": "not restarted"
+}

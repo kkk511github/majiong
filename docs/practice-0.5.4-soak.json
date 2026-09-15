@@ -1,0 +1,266 @@
+{
+  "started": "2026-09-13T18:23:14.341Z",
+  "durationSeconds": 181,
+  "completedRounds": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "seconds": 0,
+      "round": 1,
+      "revision": 1,
+      "tiles": 14,
+      "nodes": 333
+    },
+    {
+      "seconds": 5,
+      "round": 1,
+      "revision": 6,
+      "tiles": 13,
+      "nodes": 346
+    },
+    {
+      "seconds": 10,
+      "round": 1,
+      "revision": 11,
+      "tiles": 13,
+      "nodes": 361
+    },
+    {
+      "seconds": 15,
+      "round": 1,
+      "revision": 17,
+      "tiles": 10,
+      "nodes": 373
+    },
+    {
+      "seconds": 20,
+      "round": 1,
+      "revision": 22,
+      "tiles": 10,
+      "nodes": 392
+    },
+    {
+      "seconds": 25,
+      "round": 1,
+      "revision": 27,
+      "tiles": 11,
+      "nodes": 413
+    },
+    {
+      "seconds": 30,
+      "round": 1,
+      "revision": 33,
+      "tiles": 7,
+      "nodes": 418
+    },
+    {
+      "seconds": 35,
+      "round": 1,
+      "revision": 38,
+      "tiles": 7,
+      "nodes": 421
+    },
+    {
+      "seconds": 40,
+      "round": 1,
+      "revision": 43,
+      "tiles": 7,
+      "nodes": 438
+    },
+    {
+      "seconds": 45,
+      "round": 1,
+      "revision": 48,
+      "tiles": 7,
+      "nodes": 452
+    },
+    {
+      "seconds": 50,
+      "round": 1,
+      "revision": 50,
+      "tiles": 13,
+      "nodes": 319
+    },
+    {
+      "seconds": 55,
+      "round": 2,
+      "revision": 56,
+      "tiles": 13,
+      "nodes": 334
+    },
+    {
+      "seconds": 60,
+      "round": 2,
+      "revision": 61,
+      "tiles": 13,
+      "nodes": 344
+    },
+    {
+      "seconds": 65,
+      "round": 2,
+      "revision": 67,
+      "tiles": 14,
+      "nodes": 368
+    },
+    {
+      "seconds": 70,
+      "round": 2,
+      "revision": 72,
+      "tiles": 13,
+      "nodes": 377
+    },
+    {
+      "seconds": 75,
+      "round": 2,
+      "revision": 77,
+      "tiles": 14,
+      "nodes": 388
+    },
+    {
+      "seconds": 80,
+      "round": 2,
+      "revision": 83,
+      "tiles": 13,
+      "nodes": 397
+    },
+    {
+      "seconds": 86,
+      "round": 2,
+      "revision": 88,
+      "tiles": 13,
+      "nodes": 407
+    },
+    {
+      "seconds": 91,
+      "round": 2,
+      "revision": 93,
+      "tiles": 14,
+      "nodes": 428
+    },
+    {
+      "seconds": 96,
+      "round": 2,
+      "revision": 98,
+      "tiles": 13,
+      "nodes": 316
+    },
+    {
+      "seconds": 101,
+      "round": 3,
+      "revision": 105,
+      "tiles": 14,
+      "nodes": 338
+    },
+    {
+      "seconds": 106,
+      "round": 3,
+      "revision": 110,
+      "tiles": 14,
+      "nodes": 359
+    },
+    {
+      "seconds": 111,
+      "round": 3,
+      "revision": 115,
+      "tiles": 13,
+      "nodes": 374
+    },
+    {
+      "seconds": 116,
+      "round": 3,
+      "revision": 117,
+      "tiles": 13,
+      "nodes": 328
+    },
+    {
+      "seconds": 121,
+      "round": 4,
+      "revision": 123,
+      "tiles": 13,
+      "nodes": 343
+    },
+    {
+      "seconds": 126,
+      "round": 4,
+      "revision": 128,
+      "tiles": 14,
+      "nodes": 378
+    },
+    {
+      "seconds": 131,
+      "round": 4,
+      "revision": 134,
+      "tiles": 13,
+      "nodes": 384
+    },
+    {
+      "seconds": 136,
+      "round": 4,
+      "revision": 139,
+      "tiles": 13,
+      "nodes": 401
+    },
+    {
+      "seconds": 141,
+      "round": 4,
+      "revision": 144,
+      "tiles": 13,
+      "nodes": 416
+    },
+    {
+      "seconds": 146,
+      "round": 4,
+      "revision": 149,
+      "tiles": 13,
+      "nodes": 421
+    },
+    {
+      "seconds": 151,
+      "round": 4,
+      "revision": 155,
+      "tiles": 10,
+      "nodes": 440
+    },
+    {
+      "seconds": 156,
+      "round": 4,
+      "revision": 160,
+      "tiles": 11,
+      "nodes": 454
+    },
+    {
+      "seconds": 161,
+      "round": 4,
+      "revision": 165,
+      "tiles": 10,
+      "nodes": 460
+    },
+    {
+      "seconds": 166,
+      "round": 4,
+      "revision": 171,
+      "tiles": 7,
+      "nodes": 467
+    },
+    {
+      "seconds": 171,
+      "round": 4,
+      "revision": 176,
+      "tiles": 7,
+      "nodes": 486
+    },
+    {
+      "seconds": 176,
+      "round": 4,
+      "revision": 181,
+      "tiles": 7,
+      "nodes": 501
+    }
+  ],
+  "scope": "真实时间浏览器连续练习与界面/账本一致性；不证明微乐计分一致性或 iOS 原生触摸验收"
+}

@@ -1,0 +1,545 @@
+/* Shared iOS/Android table anchors. Density is fixed for the entire hand.
+   Public zones are separate
+   from the concealed rack; melds never split an individual set into a grid. */
+html:root[data-table-platform="android"] #table-board {
+  --tile-scale: 1;
+}
+html:root[data-table-platform="standard"] #table-board {
+  --tile-scale: 1;
+}
+html:root[data-table-platform] #table-board {
+  --base-public-w: clamp(16px, 4.6vh, 26px);
+  --base-hand-tile: min(
+    74px,
+    calc(
+      (
+          100vw - var(--edge-l) - var(--edge-r) -
+            (var(--base-public-w) * 10 + 9px) - 26px
+        ) /
+        14
+    )
+  );
+  --public-w: calc(var(--base-public-w) * var(--tile-scale));
+  --side-back-w: calc(clamp(8px, 2.6vh, 16px) * var(--tile-scale));
+  --hand-tile: min(
+    calc(var(--base-hand-tile) * var(--tile-scale)),
+    calc((100vw - var(--edge-l) - var(--edge-r) - 12px) / 14)
+  );
+  --base-field-top: max(
+    clamp(70px, 18.5vh, 134px),
+    calc(35px + var(--meld-h) + 5px)
+  );
+  --field-top: var(--base-field-top);
+  --side-flower-cols: 3;
+}
+html:root[data-table-platform] #table-board .hand {
+  right: var(--edge-r);
+}
+html:root[data-table-platform] #table-board .discard-field {
+  bottom: calc(var(--hand-height) + var(--bottom) + 18px);
+}
+html:root[data-table-platform] #table-board .hand-support > .flower-rack {
+  left: var(--edge-l);
+  right: auto;
+  bottom: calc(var(--bottom) + var(--hand-height) + 5px);
+}
+html:root[data-table-platform] #table-board .hand-support .flower-rack-tiles {
+  grid-template-columns: repeat(
+    min(var(--side-flower-cols), var(--flower-count)),
+    var(--public-w)
+  );
+}
+html:root[data-table-platform] #table-board .my-info > div:first-child {
+  top: 3px;
+  bottom: auto;
+  left: calc(var(--edge-l) + 65px);
+}
+/* Explicit typography prevents inherited line heights from pushing scores
+   beneath tiles or flower frames, including Android system font differences. */
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-info {
+  top: 40px;
+  width: calc(3 * var(--public-w));
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  grid-template-rows: 26px 14px;
+  align-items: center;
+  gap: 3px 4px;
+}
+html:root[data-table-platform] #table-board .opponent-info > div {
+  display: contents;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-info
+  .avatar {
+  width: 26px;
+  height: 26px;
+}
+html:root[data-table-platform] #table-board .opponent-info strong {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-meta {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  text-align: center;
+  width: 100%;
+}
+html:root[data-table-platform] #table-board .opponent-info .opponent-meta {
+  display: block;
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  color: #f3dc99;
+}
+html:root[data-table-platform] #table-board .opponent-top .opponent-info {
+  top: 1px;
+  width: 126px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: 14px 14px;
+  gap: 1px 6px;
+}
+html:root[data-table-platform] #table-board .opponent-top .player-portrait {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-info
+  strong {
+  grid-column: 2;
+  grid-row: 1;
+}
+html:root[data-table-platform] #table-board .opponent-top .opponent-meta {
+  grid-column: 2;
+  grid-row: 2;
+}
+html:root[data-table-platform] #table-board .opponent-top .opponent-rack {
+  top: 35px;
+}
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  > .flower-rack {
+  top: calc(84px + max(0px, (100vh - 360px) * 0.2));
+}
+/* Concealed tiles face their owner in one continuous column. Exposed sets
+   use intact horizontal rows in a narrow tray, leaving the river lane clear. */
+html:root[data-table-platform]
+  #table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-rack.side-rack {
+  position: absolute;
+  left: calc(var(--edge-l) + var(--side-flower-cols) * var(--public-w) + 16px);
+  right: auto;
+  top: calc(35px + var(--meld-h) + 1px);
+  bottom: auto;
+  width: max-content;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  transform: none;
+  translate: none;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  .opponent-rack.side-rack {
+  left: auto;
+  right: calc(var(--edge-r) + 3 * var(--public-w) + 16px);
+  align-items: flex-end;
+}
+html:root[data-table-platform] #table-board .side-rack .opponent-hand {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: center;
+  width: max-content;
+}
+html:root[data-table-platform]
+  #table-board
+  .side-rack
+  .opponent-hand
+  .tile-back {
+  position: relative;
+  width: var(--side-back-h);
+  height: var(--side-back-w);
+  min-width: 0;
+  min-height: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  .side-rack
+  .opponent-hand
+  .tile-back
+  .tile-art {
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: var(--side-back-w);
+  height: var(--side-back-h);
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  .side-rack
+  .opponent-hand
+  .tile-back
+  .tile-art {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+html:root[data-table-platform] #table-board .side-rack .opponent-melds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  width: max-content;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-right
+  .side-rack
+  .opponent-melds {
+  align-items: flex-end;
+}
+html:root[data-table-platform] #table-board .side-rack .opponent-melds > span {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0;
+  width: max-content;
+  height: var(--meld-h);
+  padding: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  .side-rack
+  .opponent-melds
+  :is(.tile, .tile-back) {
+  position: relative;
+  width: var(--meld-w);
+  height: var(--meld-h);
+  min-width: 0;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+html:root[data-table-platform]
+  #table-board
+  .side-rack
+  .opponent-melds
+  .tile-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+html:root[data-table-platform]
+  #table-board
+  .side-rack
+  .opponent-hand:has(.tile) {
+  display: grid;
+  grid-template-columns: repeat(
+    min(4, var(--opponent-hand-count)),
+    var(--public-w)
+  );
+  gap: 1px;
+}
+html:root[data-table-platform] #table-board .side-rack .opponent-hand .tile {
+  position: relative;
+  width: var(--public-w);
+  height: var(--public-h);
+  min-width: 0;
+  min-height: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  .side-rack
+  .opponent-hand
+  .tile
+  .tile-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+/* The action buttons occupy the outer lower-right rail, outside the public
+   rack. A selected hand tile still has its complete nine-pixel lift space. */
+html:root[data-table-platform] #table-board .action-bar {
+  --action-size: clamp(30px, calc(1.5 * var(--public-w) - 2px), 42px);
+  bottom: calc(var(--bottom) + var(--hand-height) + 14px);
+  right: var(--edge-r);
+}
+html:root[data-table-platform] #table-board .game-actions {
+  display: grid;
+  grid-template-columns: repeat(2, var(--action-size));
+  height: auto;
+  gap: 4px;
+}
+html:root[data-table-platform]
+  #table-board
+  .game-actions:has(> button:only-child) {
+  grid-template-columns: var(--action-size);
+}
+html:root[data-table-platform] #table-board .claim-source {
+  position: fixed;
+  top: 2px;
+  left: calc(var(--edge-l) + 175px);
+  right: auto;
+  bottom: auto;
+  width: min(132px, calc(50vw - var(--edge-l) - 240px));
+  height: 27px;
+  padding: 2px 4px;
+  margin: 0;
+  gap: 4px;
+}
+html:root[data-table-platform] #table-board .claim-source > .tile {
+  width: 16px;
+  height: 23px;
+  flex-basis: 16px;
+}
+html:root[data-table-platform] #table-board .claim-source > span {
+  min-width: 0;
+  flex-direction: column;
+  gap: 0;
+}
+html:root[data-table-platform] #table-board .claim-source strong {
+  font-size: 10px;
+  line-height: 11px;
+  max-width: 100%;
+}
+html:root[data-table-platform] #table-board .claim-source small {
+  font-size: 9px;
+  line-height: 11px;
+}
+html:root[data-table-platform]
+  #table-board:has(.claim-source)
+  .game-topbar
+  > :is(span, .table-brand) {
+  visibility: hidden;
+}
+/* Give the number its own column and leave air around all four winds. */
+html:root[data-table-platform] #table-board .table-center {
+  width: calc(var(--river-clock-height) + 20px);
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+  column-gap: 5px;
+}
+html:root[data-table-platform] #table-board .table-center > strong {
+  height: 100%;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  font-size: clamp(18px, calc(var(--river-clock-height) - 42px), 24px);
+}
+html:root[data-table-platform]
+  #table-board
+  .table-center
+  > strong.long-countdown {
+  font-size: 16px;
+}
+/* More flowers use five columns in the outer left rail, with the adjacent
+   hand following that boundary rather than drifting into the same space. */
+html:root[data-table-platform]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7)) {
+  --side-flower-cols: 5;
+}
+html:root[data-table-platform]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .opponent-left
+  > .flower-rack
+  .flower-rack-tiles {
+  grid-template-columns: repeat(min(5, var(--flower-count)), var(--public-w));
+}
+html:root[data-table-platform]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .opponent-left
+  .opponent-info {
+  top: 40px;
+}
+html:root[data-table-platform]
+  #table-board:has(.hand-support .flower-rack-tiles > .tile:nth-child(7))
+  .opponent-left
+  > .flower-rack {
+  top: 94px;
+}
+html:root[data-table-platform] #table-board .game-topbar > span,
+html:root[data-table-platform]
+  #table-board
+  .game-topbar
+  > .table-brand.inspecting-discard {
+  left: calc(var(--edge-l) + 175px);
+  width: 140px;
+  top: 2px;
+  font-size: 10px;
+  line-height: 12px;
+}
+html:root[data-table-platform] #table-board .game-topbar > span small {
+  line-height: 12px;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-brand.inspecting-discard
+  small {
+  margin-top: 2px;
+}
+@media (max-width: 650px) {
+  html:root[data-table-platform] #table-board {
+    --base-public-w: 14px;
+    --edge-l: max(4px, calc(env(safe-area-inset-left) + 4px));
+    --edge-r: max(4px, calc(env(safe-area-inset-right) + 4px));
+  }
+  html:root[data-table-platform]
+    #table-board
+    .opponent-top
+    .opponent-hand
+    .tile-back {
+    width: calc(7px * var(--tile-scale));
+  }
+  html:root[data-table-platform]
+    #table-board
+    .opponent-top
+    .opponent-rack
+    > .flower-rack
+    .flower-rack-tiles {
+    grid-template-columns: repeat(min(8, var(--flower-count)), var(--public-w));
+  }
+  html:root[data-table-platform] #table-board .opponent-top .opponent-info {
+    width: 90px;
+  }
+  html:root[data-table-platform] #table-board .side-rack .opponent-melds {
+    gap: 1px;
+  }
+  html:root[data-table-platform]
+    #table-board
+    .action-bar:has(.game-actions > button:nth-child(4)) {
+    right: var(--edge-r);
+  }
+}
+/* Central metadata shares the clear corridor between all four rivers. */
+html:root[data-table-platform] #table-board .table-hud {
+  --metric-width: min(
+    34px,
+    calc((8 * var(--river-tile-width) - 62px - 12px) / 2)
+  );
+  --dial-size: min(
+    var(--river-clock-height),
+    calc(8 * var(--river-tile-width) - 2 * var(--metric-width) - 12px)
+  );
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: var(--metric-width) var(--dial-size) var(
+      --metric-width
+    );
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: var(--dial-size);
+  height: var(--dial-size);
+  grid-template-columns: 17px minmax(0, 1fr) 17px;
+  grid-template-rows: 17px minmax(0, 1fr) 17px;
+  column-gap: 2px;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  .compass-wind {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center > strong {
+  font-size: 22px;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  > strong.long-countdown {
+  font-size: 16px;
+}
+.table-stock {
+  display: grid;
+  gap: 5px;
+  text-align: center;
+}
+.table-stock > div,
+.table-rounds {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.table-hud :is(.table-stock, .table-rounds) span {
+  font-size: 11px;
+  line-height: 13px;
+  color: #c2d7bd;
+  white-space: nowrap;
+}
+.table-hud :is(.table-stock, .table-rounds) b {
+  font:
+    600 17px/18px ui-monospace,
+    monospace;
+  color: #fff0bd;
+  white-space: nowrap;
+}
+.table-rounds b small {
+  font-size: 12px;
+}
+/* A single lower-right action zone on both platforms, above the hand.
+   Four choices wrap within that zone rather than cross a river or flower tray. */
+html:root[data-table-platform] #table-board .action-bar {
+  bottom: calc(var(--bottom) + var(--hand-height) + 14px);
+  right: var(--edge-r);
+}
+
+html:root[data-table-platform] #table-board .table-layout-metrics {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  left: var(--edge-l);
+  margin-right: var(--edge-r);
+  width: var(--public-w);
+  height: calc(
+    100vh - var(--base-field-top) - var(--hand-height) - var(--bottom) - 60px
+  );
+  top: var(--base-field-top);
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-info
+  .avatar {
+  width: 28px;
+  height: 28px;
+}

@@ -1,0 +1,457 @@
+/* The safe rectangle includes the home indicator as well as both landscape edges. */
+.polished[data-page="table"] {
+  overflow: clip;
+}
+.polished .self-listening-hints {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: min(38vw, 310px);
+  min-width: 0;
+  padding: 3px 7px;
+  border: 1px solid #d6bd7570;
+  border-radius: 9px;
+  color: #f3dca2;
+  background: #123f34e8;
+}
+.polished .self-listening-hints > b {
+  display: grid;
+  place-items: center;
+  background: #b54e31;
+  color: #fff3c4;
+  font-size: 15px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex: 0 0 24px;
+}
+.polished .self-listening-hints > span {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.polished .self-listening-hints .listen-tiles {
+  display: flex;
+  overflow-x: auto;
+  max-width: 200px;
+  gap: 2px;
+  min-width: 0;
+  scrollbar-width: thin;
+}
+.polished .self-listening-hints .tile.small {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 26px;
+}
+@media (max-width: 750px) {
+  .polished .self-listening-hints {
+    max-width: 32vw;
+    gap: 3px;
+    padding: 2px 4px;
+  }
+  .polished .self-listening-hints > span {
+    display: none;
+  }
+}
+.polished .table-status:empty {
+  display: none;
+}
+.polished .table-status {
+  pointer-events: none;
+  bottom: 12px;
+}
+.polished .opponent-info .opponent-turn-status {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 94px;
+  padding: 3px 7px;
+  border-radius: 12px;
+  color: #fff2bc;
+  background: #174c3deb;
+  border: 1px solid #e7d78870;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.polished .opponent-top .opponent-turn-status {
+  left: auto;
+  right: calc(100% + 9px);
+  top: 5px;
+  transform: none;
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .polished[data-page="table"] {
+    --hand-tile: min(
+      72px,
+      calc(
+        (
+            100vw - env(safe-area-inset-left) - env(safe-area-inset-right) -
+              64px
+          ) /
+          14
+      )
+    );
+    --hand-height: calc(var(--hand-tile) * 1.48);
+  }
+  .polished .hand {
+    justify-content: flex-start;
+    gap: 1px;
+  }
+  .polished {
+    --phone-header: 57px;
+    --phone-nav: 52px;
+  }
+  .polished:not(.in-room) {
+    height: var(--app-height);
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: calc(var(--phone-nav) + env(safe-area-inset-bottom));
+  }
+  .polished .site-header {
+    height: calc(var(--phone-header) + env(safe-area-inset-top));
+  }
+  .polished .header-right .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+  .polished .brand {
+    min-height: 44px;
+  }
+  .polished:not(.in-room) .lobby {
+    height: calc(
+      var(--app-height) - var(--phone-header) - var(--phone-nav) -
+        env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    );
+    min-height: 0;
+  }
+  .polished:is(
+      [data-page="profile"],
+      [data-page="history"],
+      [data-page="rules"]
+    )
+    .lobby {
+    padding-left: max(28px, calc(env(safe-area-inset-left) + 16px));
+    padding-right: max(28px, calc(env(safe-area-inset-right) + 16px));
+  }
+  .polished .bottom-nav {
+    height: calc(var(--phone-nav) + env(safe-area-inset-bottom));
+    padding-left: max(15px, env(safe-area-inset-left));
+    padding-right: max(15px, env(safe-area-inset-right));
+  }
+  .polished .modal {
+    left: env(safe-area-inset-left);
+    right: env(safe-area-inset-right);
+    top: env(safe-area-inset-top);
+    bottom: env(safe-area-inset-bottom);
+    max-width: calc(
+      100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px
+    );
+    max-height: calc(
+      var(--app-height) - env(safe-area-inset-top) -
+        env(safe-area-inset-bottom) - 24px
+    );
+  }
+  .polished .game-wrap {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    grid-template-rows: 44px minmax(0, 1fr) calc(var(--hand-height) + 52px);
+  }
+  .polished .game-topbar {
+    height: 44px;
+  }
+  .polished .game-topbar .back-link {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .polished .game-topbar .icon-button {
+    position: relative;
+    isolation: isolate;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .polished .game-topbar .icon-button::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    background: linear-gradient(#4b865b99, #28533a99);
+    border: 1px solid #b5c38a60;
+    box-shadow:
+      inset 0 1px #d9e0b334,
+      0 2px 3px #18392850;
+  }
+  .polished .my-info {
+    min-height: 44px;
+  }
+  .polished .my-info .text-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .polished {
+    --phone-header: 48px;
+    --phone-nav: 48px;
+  }
+  .polished:is(
+      [data-page="profile"],
+      [data-page="history"],
+      [data-page="rules"]
+    )
+    .lobby {
+    padding-left: max(18px, calc(env(safe-area-inset-left) + 12px));
+    padding-right: max(18px, calc(env(safe-area-inset-right) + 12px));
+  }
+}
+/* The upper player moves to the corner when landscape usable width is narrow. */
+@media (orientation: landscape) and (max-width: 1000px) {
+  .polished .opponent-top .opponent-info {
+    right: calc(
+      50% - (100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) /
+        2 + 16px
+    );
+    top: -1px;
+  }
+  .polished .opponent-top .opponent-info .avatar {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Exposed flowers stay beside their owner's rack, separate from playable tiles. */
+.polished .flower-rack {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.polished .flower-rack-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #e4d39c;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.polished .flower-rack-tiles {
+  display: flex;
+  align-items: end;
+  gap: 1px;
+}
+.polished .flower-rack .tile.small {
+  width: 18px;
+  height: 25px;
+  flex: 0 0 auto;
+}
+@media (orientation: landscape) {
+  .polished .hand-support {
+    bottom: calc(var(--hand-height) + 57px);
+    max-width: calc(100% - 180px);
+  }
+  .polished .hand-support .flower-rack {
+    gap: 7px;
+  }
+  .polished .hand-support .flower-rack .tile.small {
+    width: min(
+      18px,
+      calc(
+        (
+            (100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) /
+              2 - 148px
+          ) /
+          var(--flower-count) - 1px
+      )
+    );
+    height: auto;
+    aspect-ratio: 18 / 25;
+  }
+  .polished .opponent-rack > .flower-rack {
+    gap: 4px;
+  }
+  .polished .opponent-top .opponent-rack > .flower-rack {
+    margin-right: 5px;
+  }
+  .polished .opponent-top .flower-rack .tile.small {
+    width: 12px;
+    height: 17px;
+  }
+  .polished .opponent-left .opponent-rack > .flower-rack,
+  .polished .opponent-right .opponent-rack > .flower-rack {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .polished :is(.opponent-left, .opponent-right) .flower-rack .tile.small {
+    width: min(
+      12px,
+      calc(
+        (
+            var(--app-height) - var(--hand-height) - 165px -
+              env(safe-area-inset-bottom)
+          ) /
+          var(--flower-count) - 1px
+      )
+    );
+    height: auto;
+    aspect-ratio: 12 / 17;
+  }
+  .polished .discard-field {
+    left: 158px;
+    right: 158px;
+  }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .polished .discard-field {
+    left: 130px;
+    right: 130px;
+    bottom: 8px;
+  }
+  .polished .opponent-top .flower-rack .tile.small {
+    width: 10px;
+    height: 14px;
+  }
+}
+
+.polished .self-meld-label {
+  font-size: 10px;
+  color: #e5d5a4;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  align-self: center;
+}
+/* Keep decisions in the footer so the river never moves between game phases. */
+@media (orientation: landscape) {
+  .polished .action-bar {
+    top: auto;
+    bottom: 4px;
+    left: 170px;
+    right: 72px;
+    height: 44px;
+    min-height: 0;
+    padding: 0;
+  }
+  .polished .game-actions {
+    height: 44px;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  .polished .game-actions > .action-button,
+  .polished .game-actions > .hu-button,
+  .polished .game-actions > .secondary {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+    padding: 2px 7px;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .polished .game-actions .claim-tile-focus > .tile {
+    width: 27px;
+    height: 38px;
+  }
+  .polished .game-wrap[data-claiming="true"] .my-info .flower-count,
+  .polished .game-wrap[data-claiming="true"] .my-info .self-listening-hints {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .polished .discards > .river-more {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: var(--river-tile-width);
+    height: var(--river-tile-height);
+    border: 1px solid #c9d69a80;
+    border-radius: 4px;
+    background: #073e35;
+    color: #e8e7b3;
+    line-height: 1.1;
+  }
+  .polished .river-more b {
+    font-size: 12px;
+  }
+  .polished .river-more small {
+    font-size: 9px;
+  }
+  .polished .discard-field {
+    bottom: -9px;
+  }
+  .polished :is(.discards-1, .discards-3) {
+    top: calc(50% - 21px);
+  }
+  .polished .hand {
+    pointer-events: none;
+  }
+  .polished .hand .tile {
+    pointer-events: auto;
+  }
+  .polished .discard-field > * {
+    --compass-size: clamp(58px, calc(var(--river-height, 180px) * 0.3), 86px);
+  }
+}
+/* A three-by-three grid gives each wind and the number a separate cell. */
+@media (orientation: landscape) {
+  .polished .table-center {
+    display: grid;
+    grid-template-columns:
+      clamp(16px, calc(var(--river-height, 180px) * 0.1), 20px)
+      minmax(0, 1fr) clamp(16px, calc(var(--river-height, 180px) * 0.1), 20px);
+    grid-template-rows:
+      clamp(14px, calc(var(--river-height, 180px) * 0.07), 18px)
+      minmax(0, 1fr) clamp(14px, calc(var(--river-height, 180px) * 0.07), 18px);
+    gap: 1px;
+    padding: 2px;
+    width: calc(var(--compass-size) * 1.28);
+    height: var(--compass-size);
+  }
+  .polished .table-center > small {
+    display: none;
+  }
+  .polished .table-center > strong {
+    position: static;
+    transform: none;
+    grid-area: 2 / 2;
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    margin: 0;
+    font-size: clamp(22px, calc(var(--river-height, 180px) * 0.115), 32px);
+    line-height: 1;
+  }
+  .polished .table-center .compass-wind {
+    position: static;
+    transform: none;
+    display: grid;
+    place-items: center;
+    width: auto;
+    height: auto;
+    margin: 0;
+    font-size: clamp(13px, calc(var(--river-height, 180px) * 0.08), 17px);
+    line-height: 1;
+    font-weight: 700;
+  }
+  .polished .table-center .wind-0 {
+    grid-area: 3 / 2;
+  }
+  .polished .table-center .wind-1 {
+    grid-area: 2 / 3;
+  }
+  .polished .table-center .wind-2 {
+    grid-area: 1 / 2;
+  }
+  .polished .table-center .wind-3 {
+    grid-area: 2 / 1;
+  }
+}

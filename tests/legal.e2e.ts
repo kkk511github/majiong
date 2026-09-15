@@ -1,0 +1,21 @@
+import { test, expect } from "@playwright/test";
+test.use({ storageState: { cookies: [], origins: [] }, viewport: { width: 874, height: 402 } });
+test("first launch needs explicit consent and makes no account/game requests before it", async ({ page }) => {
+  const calls: string[] = [];
+  page.on("request", r => { if (/\/api\/|\/ws(?:\?|$)/.test(r.url())) calls.push(r.url()); });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "同意并进入" })).toBeDisabled();
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await page.getByRole("button", { name: "隐私说明", exact: true }).click();
+  await expect(page.getByRole("article", { name: "隐私说明" })).toBeVisible();
+  await page.getByRole("button", { name: "不同意，暂不使用" }).click();
+  await expect(page.getByText("已暂停进入游戏")).toBeVisible();
+  expect(calls).toEqual([]);
+  await page.getByRole("button", { name: "重新阅读" }).click();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "同意并进入" }).click();
+  await expect(page.getByRole("button", { name: "登录，开始相聚" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "登录，开始相聚" })).toBeVisible();
+  await expect(page.getByText("开始前，请先了解")).toHaveCount(0);
+});

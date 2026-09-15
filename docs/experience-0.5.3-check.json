@@ -1,0 +1,36 @@
+{
+  "version": "0.5.3",
+  "build": 13,
+  "unitTestsPassed": 122,
+  "fullBrowserRunBeforeForegroundEdgeFix": {
+    "passed": 99,
+    "failed": 0
+  },
+  "finalClockHomePermissionRun": {
+    "passed": 10,
+    "failed": 0
+  },
+  "intermediateRun": {
+    "passed": 9,
+    "failed": 1,
+    "error": "Unexpected end of JSON input during Playwright expect; no stack. Same 10-case suite passed on rerun with no source changes.",
+    "status": "Not reproduced on rerun; retained in work/clock-browser-transient.log rather than omitted from history"
+  },
+  "serverAuthority": "Ping echoes timing identifier with server timestamp; arbitrary client time cannot mutate game state",
+  "deviceClockOffsets": [
+    "-6 hours",
+    "+6 hours",
+    "-12 hours",
+    "+12 hours"
+  ],
+  "realFourClientFlow": "Create, join assigned seats, manual ready and start with synchronized 10-second countdowns despite device wall-clock differences",
+  "fixtureBrowserChecks": "568x320 and 932x430: waiting-seat countdown, normal 10 seconds, cumulative overtime, date changes, disconnect and restored budget; authentication and clock use real test service, game snapshots are fixtures",
+  "nativeChecks": "iOS Simulator build 13 installed and launched; ordinary account home and lobby show no creation entry. Native taps through Profile, Lobby and Home succeeded.",
+  "physicalIPhoneInstalled": false,
+  "physicalIPhoneReason": "Device unavailable during this turn",
+  "releaseStatus": "Deployed and verified; final native artifacts exported and checked",
+  "deployedRelease": "0.5.3-41c06366",
+  "containerHealth": "healthy",
+  "backupPath": "/opt/jinling-mahjong/database-backups/0.5.3-41c06366.sqlite",
+  "nativeFinalBuildInstalled": true
+}

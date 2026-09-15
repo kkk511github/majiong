@@ -1,0 +1,201 @@
+{
+  "started": "2026-09-13T18:21:09.142Z",
+  "durationSeconds": 717,
+  "completedRounds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "reconnected": true,
+  "finalScores": [
+    90,
+    90,
+    90,
+    90
+  ],
+  "adminFinalRecords": 1,
+  "renewedSeats": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "seconds": 4,
+      "round": 1,
+      "phase": "playing",
+      "revision": 14,
+      "nodes": 295
+    },
+    {
+      "seconds": 34,
+      "round": 1,
+      "phase": "playing",
+      "revision": 44,
+      "nodes": 406
+    },
+    {
+      "seconds": 65,
+      "round": 1,
+      "phase": "playing",
+      "revision": 74,
+      "nodes": 502
+    },
+    {
+      "seconds": 95,
+      "round": 2,
+      "phase": "claiming",
+      "revision": 98,
+      "nodes": 322
+    },
+    {
+      "seconds": 125,
+      "round": 2,
+      "phase": "playing",
+      "revision": 128,
+      "nodes": 429
+    },
+    {
+      "seconds": 156,
+      "round": 2,
+      "phase": "playing",
+      "revision": 159,
+      "nodes": 517
+    },
+    {
+      "seconds": 186,
+      "round": 3,
+      "phase": "playing",
+      "revision": 181,
+      "nodes": 349
+    },
+    {
+      "seconds": 217,
+      "round": 3,
+      "phase": "playing",
+      "revision": 211,
+      "nodes": 430
+    },
+    {
+      "seconds": 247,
+      "round": 3,
+      "phase": "playing",
+      "revision": 242,
+      "nodes": 529
+    },
+    {
+      "seconds": 278,
+      "round": 4,
+      "phase": "playing",
+      "revision": 264,
+      "nodes": 340
+    },
+    {
+      "seconds": 308,
+      "round": 4,
+      "phase": "playing",
+      "revision": 294,
+      "nodes": 428
+    },
+    {
+      "seconds": 339,
+      "round": 4,
+      "phase": "playing",
+      "revision": 325,
+      "nodes": 519
+    },
+    {
+      "seconds": 369,
+      "round": 5,
+      "phase": "playing",
+      "revision": 347,
+      "nodes": 325
+    },
+    {
+      "seconds": 400,
+      "round": 5,
+      "phase": "playing",
+      "revision": 377,
+      "nodes": 447
+    },
+    {
+      "seconds": 430,
+      "round": 5,
+      "phase": "playing",
+      "revision": 408,
+      "nodes": 533
+    },
+    {
+      "seconds": 461,
+      "round": 6,
+      "phase": "playing",
+      "revision": 430,
+      "nodes": 364
+    },
+    {
+      "seconds": 492,
+      "round": 6,
+      "phase": "playing",
+      "revision": 461,
+      "nodes": 462
+    },
+    {
+      "seconds": 522,
+      "round": 6,
+      "phase": "playing",
+      "revision": 491,
+      "nodes": 541
+    },
+    {
+      "seconds": 553,
+      "round": 7,
+      "phase": "playing",
+      "revision": 513,
+      "nodes": 348
+    },
+    {
+      "seconds": 583,
+      "round": 7,
+      "phase": "playing",
+      "revision": 544,
+      "nodes": 450
+    },
+    {
+      "seconds": 614,
+      "round": 7,
+      "phase": "playing",
+      "revision": 574,
+      "nodes": 534
+    },
+    {
+      "seconds": 644,
+      "round": 8,
+      "phase": "playing",
+      "revision": 596,
+      "nodes": 360
+    },
+    {
+      "seconds": 675,
+      "round": 8,
+      "phase": "playing",
+      "revision": 627,
+      "nodes": 463
+    },
+    {
+      "seconds": 705,
+      "round": 8,
+      "phase": "playing",
+      "revision": 657,
+      "nodes": 550
+    }
+  ],
+  "scope": "四个真实账号、服务端真实洗牌和计时、真人账号主动托管、八局及续桌；仅关闭两家归零提前结束以覆盖八局，不代表原生键盘、网络容量或其他平台规则一致性。",
+  "serviceProcessScope": "This run started before the server-only automatic-hu correction; all eight rounds drew under the previous pass/draw-discard policy. Final automatic self-draw/discard hu was separately reproduced failing in four real WebSocket tests, then fixed and passed in the full 131-test run."
+}

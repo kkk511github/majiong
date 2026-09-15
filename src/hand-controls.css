@@ -1,0 +1,108 @@
+/* Always reserve the same strip above the hand: hints/calls never resize rivers. */
+html:root[data-table-platform] #table-board .hand-feedback {
+  position: absolute;
+  left: calc(
+    var(--edge-l) + var(--side-flower-cols) * (var(--public-w) + 2px) + 16px
+  );
+  right: calc(var(--edge-r) + 3 * var(--public-w) + 20px);
+  bottom: calc(var(--bottom) + var(--hand-height) + 14px);
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  z-index: 14;
+  pointer-events: none;
+}
+html:root[data-table-platform] #table-board .hand-feedback .action-bar {
+  position: static;
+  --action-size: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+html:root[data-table-platform] #table-board .hand-feedback .game-actions {
+  display: flex;
+  gap: 6px;
+}
+html:root[data-table-platform] #table-board .hand-feedback .claim-source {
+  position: fixed;
+  top: 2px;
+  left: calc(var(--edge-l) + 175px);
+  width: 132px;
+  height: 27px;
+  margin: 0;
+}
+html:root[data-table-platform]
+  #table-board
+  .hand-feedback
+  .claim-source
+  > .tile {
+  width: 16px;
+  height: 23px;
+  flex-basis: 16px;
+}
+html:root[data-table-platform]
+  #table-board:has(.claim-source)
+  .game-topbar
+  > :is(span, .table-brand) {
+  visibility: hidden;
+}
+html:root[data-table-platform] #table-board .hand-listening {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid #b9a464;
+  border-radius: 9px;
+  color: #fff0b6;
+  background: #063c35ed;
+  pointer-events: auto;
+}
+html:root[data-table-platform] #table-board .hand-listening > span {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+html:root[data-table-platform] #table-board .hand-listening b {
+  display: block;
+  font-size: 14px;
+}
+html:root[data-table-platform] #table-board .hand-waits {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  max-width: 280px;
+  padding-bottom: 1px;
+}
+html:root[data-table-platform] #table-board .hand-waits .tile {
+  width: 27px;
+  height: 38px;
+  flex: 0 0 27px;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  html:root[data-table-platform] #table-board .hand-feedback {
+    right: calc(var(--edge-r) + 2 * var(--public-w) + 8px);
+    gap: 6px;
+  }
+  html:root[data-table-platform] #table-board .hand-feedback .action-bar {
+    --action-size: 32px;
+    gap: 4px;
+  }
+  html:root[data-table-platform] #table-board .hand-feedback .claim-source {
+    width: 66px;
+  }
+  html:root[data-table-platform] #table-board .hand-feedback .game-actions {
+    gap: 3px;
+  }
+  html:root[data-table-platform] #table-board .hand-waits .tile {
+    width: 23px;
+    height: 33px;
+    flex-basis: 23px;
+  }
+}

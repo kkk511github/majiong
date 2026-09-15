@@ -1,0 +1,77 @@
+.avatar {
+  position: relative;
+}
+.avatar > .user-avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.avatar-editor {
+  border-top: 1px solid #d4ceaa;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.avatar-editor-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+.avatar-editor-heading span,
+.avatar-editor p {
+  font-size: 14px;
+  color: #58705c;
+}
+.avatar-editor-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.avatar-preview {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #b5a66a;
+}
+.avatar-choose {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 18px;
+  color: #1e5345;
+  background: #f3edd5;
+  border: 1px solid #b5a66a;
+  border-radius: 10px;
+  font-weight: 700;
+  overflow: hidden;
+  cursor: pointer;
+}
+.avatar-choose input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.avatar-choose:focus-within {
+  outline: 3px solid #318e74;
+  outline-offset: 2px;
+}
+.avatar-choose.busy {
+  opacity: 0.6;
+}
+.avatar-editor-controls button {
+  min-height: 44px;
+}
+.avatar-editor [role="alert"] {
+  color: #a43428;
+}

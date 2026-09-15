@@ -1,0 +1,343 @@
+{
+  "started": "2026-09-13T11:53:08.573Z",
+  "durationSeconds": 237,
+  "completedRounds": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "seconds": 0,
+      "round": 1,
+      "revision": 1,
+      "tiles": 14,
+      "nodes": 295
+    },
+    {
+      "seconds": 5,
+      "round": 1,
+      "revision": 6,
+      "tiles": 13,
+      "nodes": 306
+    },
+    {
+      "seconds": 10,
+      "round": 1,
+      "revision": 12,
+      "tiles": 13,
+      "nodes": 324
+    },
+    {
+      "seconds": 15,
+      "round": 1,
+      "revision": 17,
+      "tiles": 13,
+      "nodes": 334
+    },
+    {
+      "seconds": 20,
+      "round": 1,
+      "revision": 22,
+      "tiles": 13,
+      "nodes": 349
+    },
+    {
+      "seconds": 25,
+      "round": 1,
+      "revision": 27,
+      "tiles": 13,
+      "nodes": 356
+    },
+    {
+      "seconds": 30,
+      "round": 1,
+      "revision": 33,
+      "tiles": 11,
+      "nodes": 375
+    },
+    {
+      "seconds": 35,
+      "round": 1,
+      "revision": 38,
+      "tiles": 10,
+      "nodes": 386
+    },
+    {
+      "seconds": 40,
+      "round": 1,
+      "revision": 43,
+      "tiles": 10,
+      "nodes": 391
+    },
+    {
+      "seconds": 46,
+      "round": 1,
+      "revision": 49,
+      "tiles": 11,
+      "nodes": 415
+    },
+    {
+      "seconds": 51,
+      "round": 1,
+      "revision": 54,
+      "tiles": 10,
+      "nodes": 423
+    },
+    {
+      "seconds": 56,
+      "round": 1,
+      "revision": 59,
+      "tiles": 10,
+      "nodes": 437
+    },
+    {
+      "seconds": 61,
+      "round": 1,
+      "revision": 65,
+      "tiles": 11,
+      "nodes": 459
+    },
+    {
+      "seconds": 66,
+      "round": 1,
+      "revision": 70,
+      "tiles": 14,
+      "nodes": 297
+    },
+    {
+      "seconds": 71,
+      "round": 2,
+      "revision": 76,
+      "tiles": 13,
+      "nodes": 303
+    },
+    {
+      "seconds": 76,
+      "round": 2,
+      "revision": 82,
+      "tiles": 14,
+      "nodes": 320
+    },
+    {
+      "seconds": 81,
+      "round": 2,
+      "revision": 87,
+      "tiles": 13,
+      "nodes": 331
+    },
+    {
+      "seconds": 86,
+      "round": 2,
+      "revision": 92,
+      "tiles": 13,
+      "nodes": 346
+    },
+    {
+      "seconds": 91,
+      "round": 2,
+      "revision": 97,
+      "tiles": 14,
+      "nodes": 360
+    },
+    {
+      "seconds": 96,
+      "round": 2,
+      "revision": 103,
+      "tiles": 13,
+      "nodes": 374
+    },
+    {
+      "seconds": 101,
+      "round": 2,
+      "revision": 108,
+      "tiles": 13,
+      "nodes": 389
+    },
+    {
+      "seconds": 106,
+      "round": 2,
+      "revision": 113,
+      "tiles": 14,
+      "nodes": 403
+    },
+    {
+      "seconds": 111,
+      "round": 2,
+      "revision": 119,
+      "tiles": 13,
+      "nodes": 412
+    },
+    {
+      "seconds": 116,
+      "round": 2,
+      "revision": 124,
+      "tiles": 13,
+      "nodes": 424
+    },
+    {
+      "seconds": 121,
+      "round": 2,
+      "revision": 129,
+      "tiles": 13,
+      "nodes": 436
+    },
+    {
+      "seconds": 126,
+      "round": 2,
+      "revision": 135,
+      "tiles": 10,
+      "nodes": 446
+    },
+    {
+      "seconds": 131,
+      "round": 2,
+      "revision": 139,
+      "tiles": 13,
+      "nodes": 293
+    },
+    {
+      "seconds": 136,
+      "round": 3,
+      "revision": 145,
+      "tiles": 13,
+      "nodes": 308
+    },
+    {
+      "seconds": 141,
+      "round": 3,
+      "revision": 150,
+      "tiles": 14,
+      "nodes": 330
+    },
+    {
+      "seconds": 146,
+      "round": 3,
+      "revision": 156,
+      "tiles": 13,
+      "nodes": 341
+    },
+    {
+      "seconds": 151,
+      "round": 3,
+      "revision": 161,
+      "tiles": 13,
+      "nodes": 351
+    },
+    {
+      "seconds": 156,
+      "round": 3,
+      "revision": 166,
+      "tiles": 13,
+      "nodes": 361
+    },
+    {
+      "seconds": 161,
+      "round": 3,
+      "revision": 172,
+      "tiles": 14,
+      "nodes": 383
+    },
+    {
+      "seconds": 166,
+      "round": 3,
+      "revision": 177,
+      "tiles": 13,
+      "nodes": 394
+    },
+    {
+      "seconds": 171,
+      "round": 3,
+      "revision": 182,
+      "tiles": 13,
+      "nodes": 404
+    },
+    {
+      "seconds": 176,
+      "round": 3,
+      "revision": 188,
+      "tiles": 10,
+      "nodes": 419
+    },
+    {
+      "seconds": 182,
+      "round": 3,
+      "revision": 193,
+      "tiles": 10,
+      "nodes": 431
+    },
+    {
+      "seconds": 187,
+      "round": 3,
+      "revision": 198,
+      "tiles": 10,
+      "nodes": 441
+    },
+    {
+      "seconds": 192,
+      "round": 3,
+      "revision": 203,
+      "tiles": 10,
+      "nodes": 456
+    },
+    {
+      "seconds": 197,
+      "round": 3,
+      "revision": 207,
+      "tiles": 13,
+      "nodes": 286
+    },
+    {
+      "seconds": 202,
+      "round": 4,
+      "revision": 213,
+      "tiles": 13,
+      "nodes": 301
+    },
+    {
+      "seconds": 207,
+      "round": 4,
+      "revision": 218,
+      "tiles": 13,
+      "nodes": 316
+    },
+    {
+      "seconds": 212,
+      "round": 4,
+      "revision": 224,
+      "tiles": 10,
+      "nodes": 326
+    },
+    {
+      "seconds": 217,
+      "round": 4,
+      "revision": 229,
+      "tiles": 10,
+      "nodes": 341
+    },
+    {
+      "seconds": 222,
+      "round": 4,
+      "revision": 234,
+      "tiles": 7,
+      "nodes": 352
+    },
+    {
+      "seconds": 227,
+      "round": 4,
+      "revision": 240,
+      "tiles": 7,
+      "nodes": 369
+    },
+    {
+      "seconds": 232,
+      "round": 4,
+      "revision": 245,
+      "tiles": 7,
+      "nodes": 381
+    }
+  ],
+  "scope": "真实时间浏览器连续练习与界面/账本一致性；不证明微乐计分一致性或 iOS 原生触摸验收"
+}

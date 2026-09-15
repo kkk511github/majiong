@@ -1,0 +1,531 @@
+/* Seats sit on the rim; all public tiles have permanent slots on the felt. */
+@media (orientation: landscape) {
+  .polished .discard-field {
+    left: 52px;
+    right: 52px;
+  }
+  .polished .discards {
+    display: block;
+    width: var(--river-width);
+    height: var(--river-block-height);
+    pointer-events: none;
+  }
+  .polished .discards-0 {
+    left: calc(
+      50% + var(--river-center-shift) - var(--river-player-gap) / 2 -
+        var(--river-width)
+    );
+    top: auto;
+    bottom: 53px;
+    transform: none;
+  }
+  .polished .discards-2 {
+    left: calc(50% + var(--river-center-shift) + var(--river-player-gap) / 2);
+    top: 2px;
+    bottom: auto;
+    transform: none;
+  }
+  .polished .discards-1,
+  .polished .discards-3 {
+    width: var(--river-side-width);
+    height: var(--river-side-height);
+    top: 16px;
+    bottom: auto;
+    transform: none;
+  }
+  .polished .discards-1 {
+    left: auto;
+    right: var(--river-side-inset);
+  }
+  .polished .discards-3 {
+    left: var(--river-side-inset);
+    right: auto;
+  }
+  .polished .discards > .river-tile {
+    position: absolute;
+    display: block;
+    width: var(--river-tile-width);
+    height: var(--river-tile-height);
+    pointer-events: auto;
+  }
+  .polished .discard-field .table-center {
+    left: calc(
+      50% + var(--river-center-shift) + var(--river-player-gap) / 2 +
+        var(--river-compass-width) / 2
+    );
+    top: calc(var(--river-far-block-height) + 8px + var(--compass-size) / 2);
+    width: var(--river-compass-width);
+    grid-template-columns: 16px minmax(0, 1fr) 16px;
+  }
+  .polished .discard-field .table-center > strong {
+    font-size: 24px;
+  }
+  .polished .discards > .river-tile > .tile {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: none;
+  }
+  .polished .discards .tile > .tile-art,
+  .polished .discards .recent-discard .tile-art {
+    filter: none;
+  }
+  .polished .discards .recent-discard > .tile {
+    outline: 1px solid #ffe17c;
+    outline-offset: -2px;
+  }
+  .polished :is(.discards-1, .discards-3) > .river-tile {
+    width: var(--river-tile-height);
+    height: var(--river-tile-width);
+  }
+  .polished .discards-1 > .river-tile > .tile {
+    transform: translate(-50%, -50%) rotate(-90deg);
+  }
+  .polished .discards-2 > .river-tile > .tile {
+    transform: translate(-50%, -50%) rotate(180deg);
+  }
+  .polished .discards-3 > .river-tile > .tile {
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  .polished :is(.opponent-left, .opponent-right) {
+    width: 48px;
+  }
+  .polished .opponent-left {
+    left: -6px;
+  }
+  .polished .opponent-right {
+    right: -6px;
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-info {
+    position: absolute;
+    top: 0;
+    width: 30px;
+  }
+  .polished .opponent-left .opponent-info {
+    left: 0;
+    top: -36px;
+  }
+  .polished .opponent-right .opponent-info {
+    right: 0;
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-info > div {
+    min-width: 0;
+    max-width: 30px;
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-info strong {
+    max-width: 30px;
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-info .avatar {
+    width: 28px;
+    height: 28px;
+  }
+  .polished .opponent-left .opponent-rack {
+    left: 53px;
+  }
+  .polished .opponent-right .opponent-rack {
+    right: 53px;
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-rack > .flower-rack {
+    bottom: auto;
+    top: calc(100% + 4px);
+  }
+  .polished .hand-support {
+    bottom: calc(var(--hand-height) + 57px);
+  }
+  .polished .action-bar {
+    bottom: 10px;
+  }
+  .polished .opponent-info .turn-countdown {
+    right: 0;
+  }
+  .polished .opponent-top .opponent-info {
+    right: calc(
+      50% - (100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) / 2
+    );
+    top: -1px;
+    width: 30px;
+  }
+  .polished .opponent-top .opponent-info > div {
+    min-width: 0;
+    max-width: 30px;
+  }
+  .polished .opponent-top .opponent-info strong {
+    max-width: 30px;
+  }
+  .polished .opponent-left .opponent-turn-status {
+    left: 0;
+    right: auto;
+    top: -18px;
+    transform: none;
+  }
+  .polished .opponent-right .opponent-turn-status {
+    right: 0;
+    left: auto;
+    transform: none;
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-turn-status {
+    width: 28px;
+    max-width: 28px;
+    white-space: nowrap;
+    font-size: 7px;
+    padding: 2px 0;
+  }
+  .polished .my-info > .table-status {
+    position: static;
+    transform: none;
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    max-width: 240px;
+    padding: 0 8px;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: left;
+    font-size: 10px;
+  }
+  .polished .game-wrap[data-claiming="true"] .my-info > .table-status {
+    visibility: hidden;
+  }
+  .polished .hand-area,
+  .polished .opponent-info {
+    pointer-events: none;
+  }
+  .polished .my-info,
+  .polished .hand-support .tile,
+  .polished .opponent-info .avatar,
+  .polished .opponent-info strong,
+  .polished .opponent-info .seat-tag,
+  .polished .opponent-info .turn-countdown {
+    pointer-events: auto;
+  }
+}
+@media (orientation: landscape) and (max-width: 600px) {
+  .polished .discard-field {
+    left: 50px;
+    right: 50px;
+  }
+  .polished .opponent-left .opponent-rack {
+    left: 49px;
+  }
+  .polished .opponent-right .opponent-rack {
+    right: 49px;
+  }
+  .polished .discard-field .table-center {
+    grid-template-columns: 14px minmax(0, 1fr) 14px;
+  }
+  .polished .discard-field .table-center > strong {
+    font-size: 22px;
+  }
+  .polished .discard-field .table-center .compass-wind {
+    font-size: 14px;
+    min-width: 0;
+  }
+}
+/* The hand sits at the safe bottom edge; player details occupy the two rims. */
+@media (orientation: landscape) {
+  .polished .game-wrap {
+    grid-template-rows: 44px minmax(0, 1fr) calc(var(--hand-height) + 4px);
+  }
+  .polished .hand-area {
+    padding-bottom: 2px;
+  }
+  .polished .hand {
+    padding: 0;
+    min-height: var(--hand-height);
+  }
+  .polished .my-info {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+    pointer-events: none;
+  }
+  .polished .my-info > div:first-child {
+    position: absolute;
+    left: -8px;
+    bottom: calc(var(--hand-height) + 6px);
+    width: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    pointer-events: auto;
+  }
+  .polished .my-info > div:first-child strong {
+    max-width: 48px;
+    font-size: 10px;
+  }
+  .polished .my-info .seat-tag {
+    padding: 1px 4px;
+    font-size: 8px;
+  }
+  .polished .my-info .my-score {
+    font-size: 15px;
+  }
+  .polished .my-info .turn-countdown {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+  }
+  .polished .my-info > div:last-child {
+    position: absolute;
+    right: 0;
+    bottom: calc(var(--hand-height) + 14px);
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: auto;
+  }
+  .polished .my-info > .table-status {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 1px;
+    height: 1px;
+    max-width: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .polished .self-listening-hints {
+    position: absolute;
+    right: 56px;
+    bottom: 0;
+    max-width: min(34vw, 280px);
+  }
+  .polished .hand-support {
+    left: 55px;
+    bottom: calc(var(--hand-height) + 22px);
+  }
+  .polished .action-bar {
+    bottom: calc(var(--hand-height) + 18px);
+    right: 58px;
+  }
+  .polished :is(.opponent-left, .opponent-right) {
+    top: 35%;
+  }
+  .polished .discard-field > * {
+    --compass-size: clamp(58px, calc(var(--river-height, 180px) * 0.25), 86px);
+  }
+  .polished .discards .matching-discard > .tile::after {
+    content: "";
+    display: block;
+    position: absolute;
+    inset: 1px;
+    height: auto;
+    border: 1px solid #ffd960;
+    border-radius: 3px;
+    background: #ffd34830;
+    pointer-events: none;
+  }
+}
+/* Flowers use two fixed rows instead of shrinking as more are revealed. */
+@media (orientation: landscape) {
+  .polished .opponent .flower-rack-tiles {
+    display: grid;
+    grid-template-columns: repeat(min(10, var(--flower-count)), 16px);
+    gap: 2px 1px;
+  }
+  .polished .opponent .flower-rack .tile.small {
+    width: 16px;
+    height: 22px;
+    aspect-ratio: auto;
+  }
+  .polished .opponent .flower-rack-label {
+    font-size: 9px;
+  }
+}
+@media (orientation: landscape) and (max-width: 600px) {
+  .polished .opponent .flower-rack-tiles {
+    grid-template-columns: repeat(min(10, var(--flower-count)), 14px);
+  }
+  .polished .opponent .flower-rack .tile.small {
+    width: 14px;
+    height: 20px;
+  }
+}
+/* Use the full height between the top rack and the raised hand. */
+@media (orientation: landscape) {
+  .polished .discard-field {
+    top: -4px;
+    bottom: 11px;
+  }
+  .polished .discard-field .discards {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: none;
+  }
+  .polished .discard-field .table-center {
+    left: 50%;
+    top: 50%;
+  }
+  .polished .discard-field > * {
+    --compass-size: var(--river-clock-height);
+  }
+  .polished .opponent-top {
+    top: -38px;
+  }
+  .polished .opponent-top .opponent-rack {
+    position: relative;
+    align-items: start;
+  }
+  .polished .opponent-top .opponent-rack > .flower-rack {
+    position: absolute;
+    right: calc(100% + 16px);
+    top: 38px;
+    margin: 0;
+  }
+  .polished .opponent-top .flower-rack-tiles {
+    grid-template-columns: repeat(min(7, var(--flower-count)), 16px);
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-rack {
+    top: 40px;
+  }
+  .polished :is(.opponent-left, .opponent-right) .opponent-rack > .flower-rack {
+    top: auto;
+    bottom: calc(100% + 4px);
+  }
+}
+@media (orientation: landscape) and (max-width: 600px) {
+  .polished .opponent-top .flower-rack-tiles {
+    grid-template-columns: repeat(min(7, var(--flower-count)), 14px);
+  }
+}
+@media (orientation: landscape) {
+  .polished .game-topbar > span {
+    position: absolute;
+    left: 66px;
+    top: 4px;
+    width: 105px;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 0;
+    font-size: 9px;
+    line-height: 11px;
+  }
+  .polished .game-topbar > span small {
+    font-size: 8px;
+    line-height: 11px;
+    padding: 0;
+    background: none;
+  }
+  .polished .opponent-top .opponent-info {
+    top: 43px;
+  }
+  .polished .opponent-top .opponent-rack > .flower-rack {
+    right: calc(50% + var(--top-flowers-offset));
+  }
+  .polished .discard-field .table-center {
+    grid-template-rows: 13px minmax(0, 1fr) 13px;
+    grid-template-columns: 14px minmax(0, 1fr) 14px;
+  }
+  .polished .discard-field .table-center > strong {
+    min-width: 0;
+    min-height: 0;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .polished .discard-field .table-center .compass-wind {
+    font-size: 13px;
+    line-height: 1;
+    min-width: 0;
+  }
+}
+@media (orientation: landscape) and (max-width: 600px) {
+  .polished .opponent-top .flower-rack-tiles {
+    grid-template-columns: repeat(min(5, var(--flower-count)), 14px);
+  }
+}
+@media (orientation: landscape) {
+  .polished .game-topbar {
+    pointer-events: none;
+  }
+  .polished .game-topbar button {
+    pointer-events: auto;
+  }
+  .polished .my-info .flower-count {
+    display: none;
+  }
+  .polished .discard-field .table-center .compass-wind.current {
+    padding: 0;
+  }
+  .polished .discard-field .table-center .compass-wind {
+    padding: 0;
+  }
+}
+@media (orientation: landscape) {
+  .polished .action-bar {
+    top: calc(46px + var(--river-far-tile-height));
+    bottom: auto;
+    left: calc(50% + var(--river-center-half) + var(--river-player-gap));
+    right: auto;
+  }
+  .polished .game-actions {
+    gap: 4px;
+  }
+  .polished .game-actions > button {
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    font-size: 19px;
+    animation: none;
+  }
+  .polished .hand-support .flower-rack-tiles {
+    display: grid;
+    grid-template-columns: repeat(min(10, var(--flower-count)), 16px);
+    gap: 2px 1px;
+  }
+  .polished .hand-support .flower-rack .tile.small {
+    width: 16px;
+    height: 22px;
+    aspect-ratio: auto;
+  }
+}
+@media (orientation: landscape) and (max-width: 600px) {
+  .polished .hand-support {
+    bottom: calc(var(--hand-height) + 14px);
+  }
+  .polished .hand-support .flower-rack-tiles {
+    grid-template-columns: repeat(min(10, var(--flower-count)), 14px);
+  }
+  .polished .hand-support .flower-rack .tile.small {
+    width: 14px;
+    height: 20px;
+  }
+  .polished .opponent-left .opponent-turn-status {
+    left: -6px;
+  }
+  .polished .discard-field .table-center > strong {
+    font-size: 20px;
+  }
+}
+@media (orientation: landscape) {
+  .polished .game-wrap .action-bar {
+    position: fixed;
+  }
+  .polished .game-wrap .action-bar .game-actions > button {
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    font-size: 19px;
+    animation: none;
+    transform: none;
+  }
+}
+@media (orientation: landscape) and (max-width: 600px) {
+  .polished .hand-support .flower-rack-tiles {
+    grid-template-columns: repeat(min(7, var(--flower-count)), 14px);
+  }
+}

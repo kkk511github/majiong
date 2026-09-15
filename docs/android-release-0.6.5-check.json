@@ -1,0 +1,22 @@
+{
+  "version": "0.6.5",
+  "build": 25,
+  "variant": "release",
+  "certificateSha256": "d07fd4c522490b38e1d1d7aa8ea5c86cc3bd14a0e46cd86d86ec183e430b0928",
+  "sameCertificateAsPreviousRelease": true,
+  "signature": "APK Signature Scheme v2 verified",
+  "releaseShrinking": true,
+  "debuggable": false,
+  "webViewDebugging": false,
+  "cleartextTraffic": false,
+  "allowBackup": false,
+  "sourceMaps": false,
+  "qaProbe": false,
+  "zipalign16k": true,
+  "bundledFilesMatched": 86,
+  "bytes": 41187992,
+  "sha256": "f0bac033ce50c47d1507411a0dbb2fc29fb8e126cfd40f1d25e6c42d6b6fecf9",
+  "requiresUninstallOfPreviousDebugBuild": true,
+  "canUpgradePreviousRelease": true,
+  "physicalAndroidInstallTested": false
+}

@@ -1,0 +1,1498 @@
+/* One responsive coordinate space. Only the felt extends under device cutouts;
+   controls and tile tracks use the usable screen, without any canvas scaling. */
+.polished[data-page="table"] {
+  padding: 0;
+  overflow: hidden;
+  background: #063e3e;
+}
+#table-board {
+  --edge-l: max(16px, calc(env(safe-area-inset-left) + 6px));
+  --edge-r: max(16px, calc(env(safe-area-inset-right) + 6px));
+  --rail: clamp(120px, 17vw, 185px);
+  --public-w: clamp(16px, 4.6vh, 26px);
+  --public-h: calc(var(--public-w) * 1.45);
+  --meld-w: calc(var(--public-w) * 1.2);
+  --meld-h: calc(var(--meld-w) * 1.45);
+  --side-back-w: clamp(8px, 2.6vh, 16px);
+  --side-back-h: calc(var(--public-h) * 1.12);
+  --flower-width: calc(var(--public-w) * 10 + 9px);
+  --hand-tile: min(
+    74px,
+    calc(
+      (100vw - var(--edge-l) - var(--edge-r) - var(--flower-width) - 26px) / 14
+    )
+  );
+  --hand-height: calc(var(--hand-tile) * 1.45);
+  --footer: 0px;
+  --previous-footer: 36px;
+  --safe-bottom: max(9px, env(safe-area-inset-bottom));
+  --bottom: calc(var(--safe-bottom) + var(--footer));
+  --field-top: clamp(76px, 19vh, 134px);
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  padding: 0;
+  margin: 0;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  transform: none;
+  overflow: hidden;
+  background: #07504c;
+  box-shadow: none;
+  isolation: isolate;
+}
+#table-board::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: solid transparent;
+  border-width: 34px 16px 8px;
+  border-radius: 0;
+  border-image: url("/qinhuai-table-v2.png") 145 110 85 110 fill / 34px 16px
+    8px / 0 stretch;
+}
+#table-board::after,
+#table-board .mahjong-table::before,
+#table-board .mahjong-table::after,
+#table-board .hand-area::before {
+  display: none;
+}
+#table-board .mahjong-table,
+#table-board .hand-area,
+#table-board .opponent {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: block;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  transform: none;
+  overflow: visible;
+  pointer-events: none;
+}
+#table-board button,
+#table-board .tile,
+#table-board .flower-rack {
+  pointer-events: auto;
+}
+#table-board .game-topbar {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  padding: 0;
+  pointer-events: none;
+  color: #eedab0;
+  text-shadow: 0 1px 3px #001e1c;
+}
+#table-board .game-topbar .back-link {
+  position: absolute;
+  left: var(--edge-l);
+  top: 8px;
+  height: 32px;
+  font-size: 13px;
+  gap: 4px;
+  padding: 0;
+}
+#table-board .game-topbar > span {
+  position: absolute;
+  left: calc(var(--edge-l) + 58px);
+  top: 7px;
+  width: 150px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font-size: 11px;
+  line-height: 14px;
+  align-items: center;
+}
+#table-board .game-topbar > span small {
+  font-size: 10px;
+  padding: 0;
+  background: none;
+  color: #d5ccac;
+  line-height: 14px;
+}
+#table-board .game-topbar > .table-brand {
+  display: none;
+}
+#table-board .game-topbar > .table-brand.inspecting-discard {
+  position: absolute;
+  display: block;
+  left: calc(var(--edge-l) + 58px);
+  top: 9px;
+  width: 170px;
+  font: 14px sans-serif;
+  white-space: nowrap;
+  color: #ffe1a0;
+}
+#table-board .table-brand.inspecting-discard small {
+  display: block;
+  font: 10px sans-serif;
+  margin-top: 3px;
+  padding: 0;
+  background: none;
+  color: #e0cf9f;
+}
+#table-board[data-inspecting="true"] .game-topbar > span {
+  visibility: hidden;
+}
+#table-board .game-topbar > div:last-child {
+  position: absolute;
+  left: auto;
+  right: var(--edge-r);
+  top: 6px;
+  display: flex;
+  gap: 8px;
+}
+#table-board .game-topbar .icon-button {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 6px;
+  color: #e8d9b2;
+  border: 1px solid #b79d6266;
+  border-radius: 50%;
+  background: #102f2de0;
+}
+#table-board .game-topbar .icon-button::before {
+  display: none;
+}
+#table-board .network-indicator {
+  display: none;
+}
+#table-board .table-pattern {
+  position: absolute;
+  display: block;
+  left: 50%;
+  top: 57%;
+  bottom: auto;
+  transform: translateX(-50%);
+  font:
+    26px "Mahjong Brush",
+    "Kaiti SC",
+    serif;
+  color: #bbcca42a;
+  letter-spacing: 4px;
+  pointer-events: none;
+}
+#table-board .table-pattern small {
+  display: block;
+  text-align: center;
+  font: 7px sans-serif;
+  color: #bbcca433;
+  margin-top: 5px;
+  letter-spacing: 3px;
+}
+/* Avatars live outside the public rivers, across-seat identity stays across. */
+#table-board .opponent-info {
+  position: absolute;
+  top: calc(var(--field-top) + 10px);
+  width: calc(var(--rail) - 35px);
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  padding: 0;
+  transform: none;
+  background: none;
+}
+#table-board .opponent-left .opponent-info {
+  left: var(--edge-l);
+  right: auto;
+}
+#table-board .opponent-right .opponent-info {
+  right: var(--edge-r);
+  left: auto;
+}
+#table-board .opponent-top .opponent-info {
+  left: 50%;
+  right: auto;
+  top: 4px;
+  width: 120px;
+  transform: translateX(-50%);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 7px;
+}
+#table-board .opponent-info .avatar,
+#table-board .my-info .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e6ce8b;
+  box-shadow:
+    0 0 0 2px #18302c,
+    0 2px 4px #001e1c;
+}
+#table-board .opponent-info > div {
+  min-width: 0;
+  max-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: none;
+}
+#table-board .opponent-info strong {
+  pointer-events: auto;
+  max-width: 85px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff1d3;
+}
+#table-board .opponent-info div > span {
+  font-size: 11px;
+  white-space: nowrap;
+  color: #edcf86;
+}
+#table-board .opponent-info > small {
+  position: absolute;
+  top: -8px;
+  right: 0;
+  left: auto;
+  font-size: 7px;
+  padding: 0 3px;
+}
+#table-board .turn-countdown,
+#table-board .opponent-turn-status {
+  display: none;
+}
+/* Each seat owns one horizontal rack, rotated as a unit toward that player. */
+#table-board .opponent-rack {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  width: max-content;
+  height: auto;
+  margin: 0;
+  padding: 0;
+}
+#table-board .opponent-top .opponent-rack {
+  left: 46%;
+  right: auto;
+  top: 40px;
+  transform: translateX(-50%);
+}
+#table-board .opponent-left .opponent-rack {
+  left: calc(var(--edge-l) + var(--rail) - 42px);
+  right: auto;
+  top: calc(
+    (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) / 2
+  );
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+#table-board .opponent-right .opponent-rack {
+  right: calc(var(--edge-r) + var(--rail) - 30px);
+  left: auto;
+  top: calc(
+    (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) / 2
+  );
+  transform: translate(50%, -50%) rotate(-90deg);
+}
+#table-board .opponent-hand {
+  position: static;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 1px;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  transform: none;
+}
+#table-board .opponent-hand .tile-back {
+  width: var(--side-back-w);
+  height: var(--side-back-h);
+  flex: 0 0 auto;
+  margin: 0;
+  transform: none;
+}
+#table-board .opponent-top .opponent-hand .tile-back {
+  width: var(--public-w);
+  height: var(--public-h);
+}
+#table-board .opponent-hand .tile.small {
+  width: var(--public-w);
+  height: var(--public-h);
+  flex: 0 0 auto;
+  aspect-ratio: auto;
+  margin: 0;
+  transform: none;
+}
+#table-board .opponent-melds :is(.tile.small, .tile-back) {
+  width: var(--meld-w);
+  height: var(--meld-h);
+  flex: 0 0 auto;
+  aspect-ratio: auto;
+  margin: 0;
+  transform: none;
+}
+#table-board .opponent-melds {
+  position: static;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 5px;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  transform: none;
+}
+#table-board .opponent-melds > span {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+}
+#table-board
+  :is(.opponent-left, .opponent-right)
+  .opponent-melds:has(> span:nth-child(3)) {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 1px 5px;
+}
+/* Flowers have their own trays, never participate in hand/meld rotation. */
+#table-board .flower-rack {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 4px;
+  margin: 0;
+  transform: none;
+  background: #083d38dc;
+  border: 1px solid #aa99666b;
+  border-radius: 4px;
+  color: #e7d4a6;
+}
+#table-board .flower-rack::before {
+  display: none;
+}
+#table-board .flower-rack-label {
+  font-size: 10px;
+  line-height: 12px;
+  padding: 0;
+  color: #e2d1aa;
+}
+#table-board .flower-rack-tiles {
+  display: grid;
+  grid-template-columns: repeat(min(10, var(--flower-count)), var(--public-w));
+  grid-auto-rows: var(--public-h);
+  gap: 2px 1px;
+}
+#table-board .flower-rack .tile.small {
+  width: var(--public-w);
+  height: var(--public-h);
+  aspect-ratio: auto;
+  margin: 0;
+  transform: none;
+}
+#table-board .opponent > .flower-rack {
+  top: calc(var(--field-top) + 56px);
+  bottom: auto;
+}
+#table-board .opponent-left > .flower-rack {
+  left: calc(var(--edge-l) - 6px);
+  right: auto;
+}
+#table-board .opponent-right > .flower-rack {
+  right: var(--edge-r);
+  left: auto;
+}
+#table-board
+  :is(.opponent-left, .opponent-right)
+  > .flower-rack
+  .flower-rack-tiles {
+  grid-template-columns: repeat(min(3, var(--flower-count)), var(--public-w));
+}
+#table-board
+  :is(.opponent-left, .opponent-right)
+  > .flower-rack
+  .flower-rack-tiles:has(> .tile:nth-child(13)) {
+  grid-template-columns: repeat(4, var(--public-w));
+}
+
+#table-board .opponent-top > .flower-rack {
+  top: 40px;
+  right: var(--edge-r);
+  left: auto;
+  bottom: auto;
+}
+#table-board .hand-support {
+  position: static;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+#table-board .hand-support > .flower-rack {
+  left: auto;
+  right: var(--edge-r);
+  bottom: var(--bottom);
+  top: auto;
+}
+/* Four permanent, non-overlapping public discard tracks. */
+#table-board .discard-field {
+  position: absolute;
+  left: calc(var(--edge-l) + var(--rail) + 12px);
+  right: calc(var(--edge-r) + var(--rail) + 12px);
+  top: var(--field-top);
+  bottom: calc(
+    var(--hand-height) + var(--safe-bottom) + var(--previous-footer) + 18px
+  );
+  margin: 0;
+  pointer-events: none;
+}
+#table-board .discard-field .discards {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: block;
+  transform: none;
+  pointer-events: none;
+  overflow: visible;
+}
+#table-board .river-tile {
+  position: absolute;
+  display: block;
+  width: var(--river-tile-width);
+  height: var(--river-tile-height);
+  pointer-events: auto;
+}
+#table-board :is(.discards-1, .discards-3) > .river-tile {
+  width: var(--river-tile-height);
+  height: var(--river-tile-width);
+}
+#table-board .river-tile > .tile {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--river-tile-width);
+  height: var(--river-tile-height);
+  padding: 0;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  box-shadow: none;
+}
+#table-board .discards-1 .river-tile > .tile {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+#table-board .discards-2 .river-tile > .tile {
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+#table-board .discards-3 .river-tile > .tile {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+#table-board .discards .tile-art {
+  filter: none;
+}
+#table-board .discards .matching-discard > .tile::after {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 1px;
+  height: auto;
+  border: 1px solid #ffd960;
+  border-radius: 3px;
+  background: #ffd34830;
+  pointer-events: none;
+}
+#table-board .table-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--river-clock-height);
+  height: var(--river-clock-height);
+  transform: translate(-50%, -50%);
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+  grid-template-rows: 18px minmax(0, 1fr) 18px;
+  border: 1px solid #b6a16a;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #174b48, #052e32);
+  box-shadow:
+    0 0 0 3px #123c36,
+    0 0 0 4px #aa96664d;
+  overflow: visible;
+}
+#table-board .table-center::before {
+  display: none;
+}
+#table-board .table-center .compass-wind {
+  position: static;
+  inset: auto;
+  display: grid;
+  place-items: center;
+  place-self: center;
+  width: 18px;
+  height: 18px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font:
+    18px/1 "Kaiti SC",
+    serif;
+  color: #dac488;
+  transform: none;
+}
+#table-board .table-center .wind-0 {
+  grid-area: 3 / 2;
+}
+#table-board .table-center .wind-2 {
+  grid-area: 1 / 2;
+}
+#table-board .table-center .wind-1 {
+  grid-area: 2 / 3;
+}
+#table-board .table-center .wind-3 {
+  grid-area: 2 / 1;
+}
+#table-board .table-center .current {
+  color: #ffeb9c;
+  text-shadow: 0 0 5px #edba5777;
+  font-weight: 800;
+}
+#table-board .table-center > strong {
+  position: static;
+  inset: auto;
+  grid-area: 2 / 2;
+  place-self: center;
+  width: 100%;
+  height: 26px;
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  display: block;
+  font:
+    600 clamp(18px, calc(var(--river-clock-height) - 45px), 25px)/26px
+      ui-monospace,
+    monospace;
+  letter-spacing: 0;
+  text-align: center;
+  color: #62e6ce;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+#table-board .table-center > strong.long-countdown {
+  font-size: clamp(15px, calc(var(--river-clock-height) - 53px), 19px);
+}
+#table-board .table-center > small {
+  display: none;
+}
+/* Large, contiguous hand at the bottom. The single drawn tile keeps its gap. */
+#table-board .hand {
+  position: absolute;
+  left: var(--edge-l);
+  right: calc(var(--edge-r) + var(--flower-width) + 16px);
+  top: auto;
+  bottom: var(--bottom);
+  width: auto;
+  height: var(--hand-height);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0;
+  overflow: visible;
+  pointer-events: auto;
+}
+#table-board .hand > .tile {
+  flex: 0 0 var(--hand-tile);
+  width: var(--hand-tile);
+  height: var(--hand-height);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  transform: none;
+}
+#table-board .hand > .tile.drawn {
+  margin-left: 12px;
+}
+#table-board .hand > .tile.selected {
+  transform: translateY(-9px);
+}
+#table-board .self-melds {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  margin: 0 8px 0 0;
+  padding: 0;
+}
+#table-board .self-melds .meld {
+  position: relative;
+  display: flex;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+#table-board .self-melds .tile.small {
+  width: calc(var(--hand-tile) * 0.78);
+  height: calc(var(--hand-height) * 0.78);
+  flex: 0 0 auto;
+}
+#table-board .self-melds small,
+#table-board .self-meld-label {
+  display: none;
+}
+#table-board .my-info {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+#table-board .my-info > div:first-child {
+  position: absolute;
+  left: var(--edge-l);
+  top: auto;
+  bottom: calc(var(--bottom) + var(--hand-height) + 4px);
+  width: max-content;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  background: none;
+}
+#table-board .my-info strong {
+  font: 11px sans-serif;
+  max-width: 65px;
+  color: #eadfc6;
+}
+#table-board .my-info .avatar {
+  width: 28px;
+  height: 28px;
+}
+#table-board .my-info .my-score {
+  font-size: 14px;
+  color: #edcd80;
+}
+#table-board .my-info .seat-tag {
+  font-size: 9px;
+  padding: 2px 3px;
+}
+#table-board .my-info > .table-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+#table-board .my-info > div:last-child {
+  position: absolute;
+  left: calc(var(--edge-l) + 195px);
+  right: auto;
+  top: auto;
+  bottom: calc(var(--bottom) + var(--hand-height) + 4px);
+  width: 60px;
+  height: 32px;
+  display: flex;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+#table-board .my-info > div:last-child > button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  left: auto;
+  bottom: auto;
+  min-height: 30px;
+  width: 60px;
+  height: 30px;
+  min-width: 0;
+  padding: 0;
+  font-size: 12px;
+  color: #e4d4af;
+  border: 1px solid #b6a16a66;
+  border-radius: 8px;
+  background: linear-gradient(#244c40, #12382e);
+}
+#table-board .my-info .flower-count {
+  display: none;
+}
+#table-board .self-listening-hints {
+  position: fixed;
+  left: auto;
+  right: auto;
+  left: calc(var(--edge-l) + 350px);
+  top: auto;
+  bottom: calc(var(--bottom) + var(--hand-height) + 10px);
+  transform: none;
+  max-width: 76px;
+  min-height: 0;
+  padding: 0;
+  z-index: 12;
+  background: #073b34f5;
+  border: 1px solid #c4ad6b;
+  pointer-events: auto;
+}
+#table-board .self-listening-hints summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 3px 7px;
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+}
+#table-board .self-listening-hints summary::-webkit-details-marker {
+  display: none;
+}
+#table-board .self-listening-hints .listen-options {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  width: 180px;
+  padding: 10px;
+  margin-right: 6px;
+  background: #093d35fa;
+  border: 1px solid #c8b474;
+  border-radius: 6px;
+}
+#table-board .listen-options > span {
+  font-size: 12px;
+  color: #eadcb8;
+}
+#table-board .listen-options .listen-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 6px;
+}
+#table-board .listen-options .tile {
+  width: 22px;
+  height: 32px;
+}
+/* Dedicated action strip above the lower-right hand/flower area. */
+#table-board .action-bar {
+  --action-size: clamp(
+    30px,
+    calc(
+      (50vw - var(--edge-r) - var(--other-river-edge) - 22px) /
+        max(1, var(--action-count))
+    ),
+    52px
+  );
+  position: absolute;
+  left: auto;
+  right: var(--edge-r);
+  top: auto;
+  bottom: calc(
+    var(--bottom) +
+      max(
+        var(--hand-height),
+        25px + var(--own-flower-rows) * (var(--public-h) + 2px)
+      ) +
+      2px
+  );
+  width: max-content;
+  height: auto;
+  padding: 0;
+  display: block;
+  z-index: 10;
+}
+#table-board .game-actions {
+  height: var(--action-size);
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: center;
+}
+#table-board .game-actions > button {
+  position: relative;
+  flex: 0 0 var(--action-size);
+  min-width: var(--action-size);
+  width: var(--action-size);
+  height: var(--action-size);
+  min-height: var(--action-size);
+  padding: 0;
+  display: grid;
+  place-content: center;
+  font:
+    800 calc(var(--action-size) * 0.76)/1 "Kaiti SC",
+    serif;
+  letter-spacing: -2px;
+  border: 2px solid #ffe8a6;
+  border-radius: 50%;
+  color: #fff5cf;
+  background: radial-gradient(circle at 35% 20%, #ba9450, #8a611e 65%, #48391d);
+  text-shadow: 0 2px 2px #452509;
+  box-shadow:
+    inset 0 0 0 2px #765724,
+    0 3px 6px #001c1bcc,
+    0 0 9px #f9d16e66;
+  animation:
+    claim-appear 220ms ease-out both,
+    claim-glow 1.8s ease-in-out 220ms 2;
+  transform: none;
+}
+#table-board .game-actions > .secondary {
+  color: #efffef;
+  border-color: #bde8ca;
+  background: radial-gradient(circle at 35% 20%, #679a73, #286342 65%, #163e2c);
+  box-shadow:
+    inset 0 0 0 2px #387754,
+    0 3px 6px #001c1bcc;
+  animation: claim-appear 220ms ease-out both;
+}
+#table-board .game-actions > .hu-button {
+  color: #fff8d3;
+  border-color: #fff0a5;
+  background: radial-gradient(circle at 35% 20%, #ffbb66, #d34b1a 65%, #8b291a);
+  box-shadow:
+    inset 0 0 0 2px #e99743,
+    0 3px 6px #001c1bcc,
+    0 0 12px #ffb33c99;
+  font-size: calc(var(--action-size) * 0.7);
+}
+#table-board .game-actions > button:active:not(:disabled) {
+  transform: translateY(2px);
+  filter: brightness(1.18);
+}
+#table-board .game-actions > button:focus-visible {
+  outline: 3px solid #fff3b2;
+  outline-offset: 3px;
+}
+#table-board .game-actions > button:disabled {
+  opacity: 0.55;
+  animation: none;
+}
+#table-board .self-kong-button small {
+  font: 9px/1 sans-serif;
+  letter-spacing: 0;
+}
+@keyframes claim-appear {
+  from {
+    opacity: 0;
+    translate: 0 7px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes claim-glow {
+  50% {
+    filter: brightness(1.22);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #table-board .game-actions > button {
+    animation: none;
+  }
+}
+#table-board .hand-help {
+  position: fixed;
+  left: calc(var(--edge-l) + 268px);
+  right: auto;
+  top: auto;
+  bottom: calc(var(--bottom) + var(--hand-height) + 10px);
+  width: max-content;
+  max-width: none;
+  display: block;
+}
+#table-board .hand-help .tap-instruction,
+#table-board .hand-help > span {
+  display: none;
+}
+#table-board .hint-button svg {
+  display: none;
+}
+#table-board .hint-button {
+  font-size: 11px;
+  padding: 5px 7px;
+  min-height: 28px;
+  background: #103d35dd;
+  border: 1px solid #a8935955;
+  border-radius: 5px;
+}
+#table-board .reopen-result {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translateX(-50%);
+  width: max-content;
+}
+@media (max-width: 650px) {
+  #table-board {
+    --rail: 120px;
+    --public-w: 14px;
+    --field-top: 76px;
+    --footer: 0px;
+    --previous-footer: 28px;
+    --hand-tile: calc(
+      (100vw - var(--edge-l) - var(--edge-r) - var(--flower-width) - 26px) / 14
+    );
+  }
+  #table-board .game-topbar > .table-brand.inspecting-discard {
+    width: 150px;
+    font-size: 12px;
+  }
+  #table-board .opponent-info .avatar {
+    width: 28px;
+    height: 28px;
+  }
+  #table-board .opponent-info strong {
+    pointer-events: auto;
+    font-size: 10px;
+  }
+  #table-board .opponent-info div > span {
+    font-size: 9px;
+  }
+  #table-board .game-topbar > span {
+    width: 116px;
+    font-size: 9px;
+  }
+  #table-board .opponent-top .opponent-info {
+    width: 90px;
+  }
+  #table-board .game-topbar > div:last-child {
+    gap: 3px;
+  }
+  #table-board .game-topbar .icon-button {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+  }
+  #table-board .my-info > div:last-child > button {
+    right: 0;
+    height: 26px;
+    min-height: 26px;
+  }
+  #table-board .game-actions:has(> button:nth-child(4)) {
+    display: grid;
+    grid-template-columns: repeat(2, var(--action-size));
+    height: auto;
+    gap: 4px;
+  }
+  #table-board .hand-help {
+    display: none;
+  }
+
+  #table-board .opponent-left .opponent-info {
+    top: 66px;
+  }
+  #table-board .opponent > .flower-rack {
+    top: 100px;
+  }
+  #table-board .opponent-top > .flower-rack {
+    top: 40px;
+  }
+}
+
+#table-board :is(.opponent-left, .opponent-right) .opponent-info {
+  width: 85px;
+  flex-direction: row;
+  gap: 5px;
+}
+#table-board :is(.opponent-left, .opponent-right) .opponent-info .avatar {
+  width: 32px;
+  height: 32px;
+}
+#table-board :is(.opponent-left, .opponent-right) .opponent-info > div {
+  max-width: 44px;
+}
+/* Across-seat flowers use the upper-right rim; the adjacent identity follows
+   below that tray, with enough room for all twenty flowers in the set. */
+#table-board .opponent-top > .flower-rack .flower-rack-tiles {
+  grid-template-columns: repeat(min(4, var(--flower-count)), var(--public-w));
+}
+#table-board .opponent-right .opponent-info {
+  top: max(
+    calc(var(--field-top) + 10px),
+    calc(62px + var(--top-flower-rows) * (var(--public-h) + 2px))
+  );
+}
+#table-board .opponent-right > .flower-rack {
+  top: max(
+    calc(var(--field-top) + 56px),
+    calc(108px + var(--top-flower-rows) * (var(--public-h) + 2px))
+  );
+}
+@media (max-width: 650px) {
+  #table-board :is(.opponent-left, .opponent-right) .opponent-info .avatar {
+    width: 28px;
+    height: 28px;
+  }
+  #table-board :is(.opponent-left, .opponent-right) .opponent-info {
+    width: 70px;
+    flex-direction: row;
+    gap: 3px;
+  }
+  #table-board :is(.opponent-left, .opponent-right) .opponent-info > div {
+    max-width: 36px;
+  }
+  #table-board .opponent-right .opponent-info {
+    top: max(
+      66px,
+      calc(62px + var(--top-flower-rows) * (var(--public-h) + 2px))
+    );
+  }
+  #table-board .opponent-right > .flower-rack {
+    top: max(
+      100px,
+      calc(92px + var(--top-flower-rows) * (var(--public-h) + 2px))
+    );
+  }
+}
+
+#table-board .game-actions > .hu-button.self-draw {
+  font-size: calc(var(--action-size) * 0.43);
+  letter-spacing: -1px;
+}
+@media (max-width: 650px) {
+  #table-board .opponent-left .opponent-rack {
+    left: calc(var(--edge-l) + var(--rail) - 54px);
+  }
+}
+/* The marker belongs to the actual discard, so a claimed tile removes it too. */
+:is(#table-board, .replay-table) .last-discard-arrow {
+  position: absolute;
+  pointer-events: none;
+  z-index: 8;
+  background: linear-gradient(#fff5a2, #ffbe27);
+  clip-path: polygon(25% 0, 75% 0, 75% 47%, 100% 47%, 50% 100%, 0 47%, 25% 47%);
+  --pointer-dx: 0px;
+  --pointer-dy: calc(-1 * var(--pointer-travel, 2px));
+  animation: discard-pointer 1100ms ease-in-out infinite;
+}
+:is(#table-board, .replay-table) .last-discard-arrow[data-direction="up"] {
+  --pointer-dy: var(--pointer-travel, 2px);
+  clip-path: polygon(
+    50% 0,
+    100% 53%,
+    75% 53%,
+    75% 100%,
+    25% 100%,
+    25% 53%,
+    0 53%
+  );
+}
+:is(#table-board, .replay-table) .last-discard-arrow[data-direction="left"] {
+  --pointer-dx: var(--pointer-travel, 2px);
+  --pointer-dy: 0px;
+  clip-path: polygon(
+    0 50%,
+    53% 0,
+    53% 25%,
+    100% 25%,
+    100% 75%,
+    53% 75%,
+    53% 100%
+  );
+}
+:is(#table-board, .replay-table) .last-discard-arrow[data-direction="right"] {
+  --pointer-dx: calc(-1 * var(--pointer-travel, 2px));
+  --pointer-dy: 0px;
+  clip-path: polygon(100% 50%, 47% 0, 47% 25%, 0 25%, 0 75%, 47% 75%, 47% 100%);
+}
+@keyframes discard-pointer {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    filter: brightness(1);
+  }
+  50% {
+    transform: translate(var(--pointer-dx), var(--pointer-dy));
+    filter: brightness(1.3);
+  }
+}
+#table-board .claim-source {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  border: 1px solid #d4b661;
+  border-radius: 8px;
+  background: #073b35f5;
+  color: #fff1c1;
+  max-width: 190px;
+  margin-left: auto;
+  pointer-events: none;
+}
+#table-board .claim-source > .tile {
+  width: 25px;
+  height: 36px;
+  flex: 0 0 25px;
+  margin: 0;
+}
+#table-board .claim-source > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+#table-board .claim-source strong {
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+#table-board .claim-source small {
+  font-size: 12px;
+  white-space: nowrap;
+}
+#table-board .my-info > div:last-child > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
+  letter-spacing: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(#table-board, .replay-table) .last-discard-arrow {
+    animation: none;
+  }
+}
+@media (max-height: 600px) {
+  #table-board .opponent-top .opponent-rack {
+    top: 33px;
+  }
+  #table-board .opponent-top .opponent-info {
+    top: 1px;
+  }
+  #table-board .opponent-top .opponent-info .avatar {
+    width: 28px;
+    height: 28px;
+  }
+}
+#table-board .discard-field {
+  left: calc(var(--edge-l) + var(--rail) + 12px - min(48px, 6vw));
+  right: calc(var(--edge-r) + var(--rail) + 12px - min(48px, 6vw));
+}
+#table-board .opponent-right .opponent-rack {
+  right: calc(var(--edge-r) + var(--rail) - 24px);
+}
+#table-board .my-info > div:last-child {
+  left: auto;
+  right: calc(var(--edge-r) + 116px);
+  top: 4px;
+  bottom: auto;
+  z-index: 14;
+}
+#table-board .my-info > div:first-child {
+  display: grid;
+  grid-template-columns: 28px 62px;
+  grid-template-rows: 14px 16px;
+  gap: 2px 5px;
+  width: 95px;
+}
+#table-board .my-info > div:first-child > span:first-child {
+  grid-row: 1 / 3;
+}
+#table-board .my-info > div:first-child > strong {
+  grid-column: 2;
+  grid-row: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#table-board .my-info .seat-tag {
+  display: none;
+}
+#table-board .my-info .my-score {
+  grid-column: 2;
+  grid-row: 2;
+}
+@media (max-height: 600px) {
+  #table-board .opponent-right .opponent-rack {
+    top: calc(
+      (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
+        2 + 30px
+    );
+  }
+}
+@media (max-height: 600px) {
+  #table-board .opponent-right .opponent-rack {
+    top: calc(
+      (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
+        2 + 32px
+    );
+  }
+  #table-board
+    .opponent-right
+    .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+    right: calc(var(--edge-r) + var(--rail) - 30px);
+    top: calc(
+      (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
+        2 + 5px
+    );
+  }
+}
+#table-board .self-listening-hints {
+  left: auto;
+  right: calc(var(--edge-r) + 184px);
+  top: 4px;
+  bottom: auto;
+}
+#table-board .self-listening-hints .listen-options {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+@media (max-height: 600px) {
+  #table-board
+    .opponent-right
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    top: calc(
+      (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
+        2 + 28px
+    );
+  }
+}
+@media (min-width: 651px) and (max-height: 600px) {
+  #table-board
+    .opponent-right
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    top: calc(
+      (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
+        2 + 20px
+    );
+  }
+}
+@media (max-width: 650px) {
+  #table-board
+    .opponent-right
+    .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+    top: calc(
+      (var(--field-top) + 100% - var(--hand-height) - var(--bottom) - 32px) /
+        2 - 10px
+    );
+  }
+  #table-board .claim-source {
+    position: absolute;
+    right: calc(100% + 8px);
+    bottom: -3px;
+    height: 24px;
+    width: max-content;
+    max-width: 125px;
+    padding: 2px 5px;
+    margin: 0;
+    gap: 4px;
+  }
+  #table-board .claim-source > .tile {
+    width: 15px;
+    height: 22px;
+    flex-basis: 15px;
+  }
+  #table-board .claim-source > span {
+    flex-direction: row;
+    gap: 4px;
+    align-items: center;
+  }
+  #table-board .claim-source strong {
+    font-size: 11px;
+    max-width: 44px;
+  }
+  #table-board .claim-source small {
+    font-size: 10px;
+  }
+  #table-board .self-listening-hints {
+    right: calc(var(--edge-r) + 179px);
+    max-width: 49px;
+  }
+  #table-board .self-listening-hints summary {
+    font-size: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+}
+/* The across player's public flowers belong to their rack, beside their hand. */
+#table-board .opponent-top .opponent-rack {
+  left: 50%;
+  gap: 3px;
+  align-items: flex-start;
+}
+#table-board .opponent-top .opponent-melds {
+  gap: 2px;
+}
+#table-board .opponent-top .opponent-rack > .flower-rack {
+  position: static;
+  inset: auto;
+  flex-direction: row;
+  align-items: center;
+  margin-left: 5px;
+}
+#table-board .opponent-top .opponent-rack > .flower-rack .flower-rack-label {
+  white-space: nowrap;
+}
+#table-board .opponent-top .opponent-rack > .flower-rack .flower-rack-tiles {
+  grid-template-columns: repeat(min(10, var(--flower-count)), var(--public-w));
+}
+#table-board .opponent-right .opponent-info {
+  top: 64px;
+}
+#table-board .opponent-right > .flower-rack {
+  top: calc(var(--field-top) + 56px);
+}
+@media (max-width: 650px) {
+  #table-board .opponent-top .opponent-hand .tile-back {
+    width: 7px;
+  }
+  #table-board .opponent-right .opponent-info {
+    top: 66px;
+  }
+  #table-board .opponent-right > .flower-rack {
+    top: 100px;
+  }
+}
+@media (max-height: 600px) {
+  #table-board .opponent-top .opponent-rack {
+    top: 31px;
+  }
+}
+
+@media (max-width: 650px) {
+  #table-board
+    .opponent-left
+    .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+    left: calc(var(--edge-l) + var(--rail) - 30px);
+  }
+}
+
+/* Anchor rotated racks above the action row instead of guessing their center
+   from the screen height. Their width becomes their on-screen vertical span. */
+@media (min-width: 651px) and (max-height: 600px) {
+  #table-board .opponent-right .opponent-rack {
+    --rack-height: var(--side-back-h);
+    --rack-inset: 24px;
+    --action-row-height: clamp(
+      30px,
+      calc((50vw - var(--edge-r) - var(--other-river-edge) - 22px) / 4),
+      52px
+    );
+  }
+  #table-board .opponent-right.has-melds .opponent-rack {
+    --rack-height: var(--meld-h);
+  }
+  #table-board
+    .opponent-right
+    .opponent-rack:has(.opponent-melds > span:nth-child(3)) {
+    --rack-height: calc(2 * var(--meld-h) + 1px);
+    --rack-inset: 30px;
+  }
+  #table-board .opponent-right .opponent-rack,
+  #table-board
+    .opponent-right
+    .opponent-rack:has(.opponent-melds > span:nth-child(3)),
+  #table-board
+    .opponent-right
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    left: calc(
+      100% - var(--edge-r) - var(--rail) + var(--rack-inset) -
+        var(--rack-height) / 2
+    );
+    right: auto;
+    top: auto;
+    bottom: calc(
+      var(--hand-height) + var(--bottom) + var(--action-row-height) + 6px -
+        var(--rack-height)
+    );
+    transform-origin: 0 0;
+    transform: rotate(-90deg);
+  }
+  #table-board .claim-source {
+    width: 84px;
+    padding: 4px;
+    gap: 4px;
+  }
+  #table-board .claim-source > .tile {
+    width: 20px;
+    height: 29px;
+    flex-basis: 20px;
+  }
+  #table-board .claim-source strong {
+    font-size: 12px;
+    max-width: 100%;
+  }
+  #table-board .claim-source small {
+    font-size: 10px;
+  }
+}
+
+/* Larger side racks have their own outer lane, clear of long river rows. */
+@media (max-height: 600px) {
+  #table-board :is(.opponent-left, .opponent-right) .opponent-info {
+    top: 64px;
+    width: calc(3 * var(--public-w));
+    flex-direction: column;
+    gap: 2px;
+  }
+  #table-board :is(.opponent-left, .opponent-right) .opponent-info > div {
+    width: 100%;
+    max-width: 100%;
+  }
+  #table-board :is(.opponent-left, .opponent-right) .opponent-info strong {
+    max-width: 100%;
+  }
+}
+@media (min-width: 651px) and (max-height: 600px) {
+  #table-board
+    .opponent-left
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    left: calc(
+      var(--edge-l) + 3 * var(--public-w) + 5px + var(--side-back-h) / 2
+    );
+  }
+  #table-board
+    .opponent-right
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    --rack-inset: calc(
+      var(--rail) - 3 * var(--public-w) - 10px - var(--rack-height) / 2
+    );
+  }
+}
+@media (max-width: 650px) {
+  #table-board :is(.opponent-left, .opponent-right) .opponent-info {
+    top: 38px;
+  }
+  #table-board
+    .opponent-right
+    .opponent-rack:not(:has(.opponent-melds > span:nth-child(3))) {
+    right: calc(var(--edge-r) + var(--rail) - 48px);
+  }
+  #table-board .action-bar:has(.game-actions > button:nth-child(4)) {
+    right: calc(var(--edge-r) - 8px);
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "version": "0.5.1",
+  "build": 11,
+  "unitTests": 108,
+  "unitTestFiles": 10,
+  "browserTests": 88,
+  "huSimulation": {
+    "games": 1000,
+    "hu": 925,
+    "draw": 75,
+    "stuck": 0
+  },
+  "androidInstalledOnEmulator": true,
+  "iOSArchiveExportSignatureVerified": true,
+  "iPhoneUpdated": false,
+  "iPhoneStatus": "unavailable at build time",
+  "iOSSimulatorInstalledAndVisuallyChecked": true,
+  "deployment": {
+    "ok": true,
+    "version": "0.5.1",
+    "backend": "https://safelink.chat/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-13T16:47:03.452Z",
+    "release": "0.5.1-2698b234",
+    "tablePermissionAnonymousGET": 401,
+    "tablePermissionAnonymousPOST": 401
+  }
+}

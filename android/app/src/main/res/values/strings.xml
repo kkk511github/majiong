@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">金陵麻将</string>
+    <string name="title_activity_main">金陵麻将</string>
+    <string name="package_name">com.jinling.mahjong</string>
+    <string name="custom_url_scheme">com.jinling.mahjong</string>
+</resources>

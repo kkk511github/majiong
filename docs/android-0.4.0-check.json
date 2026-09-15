@@ -1,0 +1,16 @@
+{
+  "version": "0.4.0",
+  "versionCode": 9,
+  "applicationId": "com.jinling.mahjong",
+  "apk": "金陵麻将-0.4.0-安卓测试版.apk",
+  "bytes": 30508128,
+  "sha256": "07eb1105d732fd05f2725f9485386b2079436db1018a9595552909fcfe70e2c2",
+  "build": "Gradle assembleDebug: BUILD SUCCESSFUL",
+  "signature": "APK v2 signature verified; same certificate as previously delivered 0.1.0 APK",
+  "embeddedAssets": 76,
+  "backend": "https://safelink.chat/mahjong",
+  "install": "Android 11 / API 30 arm64 emulator: Success",
+  "launch": "Status: ok; MainActivity resumed, process alive",
+  "scope": "Installation and launch smoke test; not physical Android device or full native gameplay acceptance",
+  "jdkRepair": "Original runtime lacked lib/modules. Restored official Temurin 21.0.12.1 archive with verified SHA-256."
+}

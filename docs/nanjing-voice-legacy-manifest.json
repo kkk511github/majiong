@@ -1,0 +1,731 @@
+{
+  "tempo": 0.85,
+  "timeStretch": "FFmpeg atempo via PyAV; pitch preserved",
+  "sampleRate": 24000,
+  "duration": 60.180125,
+  "entries": [
+    {
+      "phrase": "一万",
+      "cue": [
+        0.0,
+        0.947583
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        0.04925,
+        0.721958
+      ]
+    },
+    {
+      "phrase": "二万",
+      "cue": [
+        0.947583,
+        0.624375
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        0.881375,
+        1.278875
+      ]
+    },
+    {
+      "phrase": "三万",
+      "cue": [
+        1.571958,
+        0.829083
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        1.278875,
+        1.852292
+      ]
+    },
+    {
+      "phrase": "四万",
+      "cue": [
+        2.401042,
+        0.976083
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        1.977708,
+        2.67575
+      ]
+    },
+    {
+      "phrase": "五万",
+      "cue": [
+        3.377125,
+        0.475583
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        2.744167,
+        3.015292
+      ]
+    },
+    {
+      "phrase": "六万",
+      "cue": [
+        3.852708,
+        0.874667
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        3.541833,
+        4.154458
+      ]
+    },
+    {
+      "phrase": "七万",
+      "cue": [
+        4.727375,
+        0.570083
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        4.154458,
+        4.507292
+      ]
+    },
+    {
+      "phrase": "八万",
+      "cue": [
+        5.297458,
+        0.503542
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        4.507292,
+        4.803167
+      ]
+    },
+    {
+      "phrase": "九万",
+      "cue": [
+        5.801,
+        0.715125
+      ],
+      "source": "wan.wav",
+      "sourceRange": [
+        4.803167,
+        5.278625
+      ]
+    },
+    {
+      "phrase": "一筒",
+      "cue": [
+        6.516125,
+        0.523458
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        0.057417,
+        0.37
+      ]
+    },
+    {
+      "phrase": "二筒",
+      "cue": [
+        7.039583,
+        0.636333
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        0.872375,
+        1.281833
+      ]
+    },
+    {
+      "phrase": "三筒",
+      "cue": [
+        7.675917,
+        0.699292
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        1.53425,
+        1.997083
+      ]
+    },
+    {
+      "phrase": "四筒",
+      "cue": [
+        8.375208,
+        0.609958
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        2.223125,
+        2.609417
+      ]
+    },
+    {
+      "phrase": "五筒",
+      "cue": [
+        8.985167,
+        0.649833
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        3.003083,
+        3.422875
+      ]
+    },
+    {
+      "phrase": "六筒",
+      "cue": [
+        9.635,
+        0.574542
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        3.634042,
+        3.991333
+      ]
+    },
+    {
+      "phrase": "七筒",
+      "cue": [
+        10.209542,
+        0.623125
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        4.405292,
+        4.801542
+      ]
+    },
+    {
+      "phrase": "八筒",
+      "cue": [
+        10.832667,
+        0.554167
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        5.156375,
+        5.4965
+      ]
+    },
+    {
+      "phrase": "九筒",
+      "cue": [
+        11.386833,
+        0.597375
+      ],
+      "source": "dots.wav",
+      "sourceRange": [
+        5.783083,
+        6.16
+      ]
+    },
+    {
+      "phrase": "一条",
+      "cue": [
+        11.984208,
+        0.820375
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        0.050083,
+        0.614792
+      ]
+    },
+    {
+      "phrase": "二条",
+      "cue": [
+        12.804583,
+        0.720125
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        0.849083,
+        1.329542
+      ]
+    },
+    {
+      "phrase": "三条",
+      "cue": [
+        13.524708,
+        0.656375
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        1.329542,
+        1.755875
+      ]
+    },
+    {
+      "phrase": "四条",
+      "cue": [
+        14.181083,
+        0.714417
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        1.856667,
+        2.331417
+      ]
+    },
+    {
+      "phrase": "五条",
+      "cue": [
+        14.8955,
+        0.549208
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        2.421667,
+        2.756833
+      ]
+    },
+    {
+      "phrase": "六条",
+      "cue": [
+        15.444708,
+        0.584583
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        2.756833,
+        3.120958
+      ]
+    },
+    {
+      "phrase": "七条",
+      "cue": [
+        16.029292,
+        0.545167
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        3.250667,
+        3.581792
+      ]
+    },
+    {
+      "phrase": "八条",
+      "cue": [
+        16.574458,
+        0.550333
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        3.682667,
+        4.018958
+      ]
+    },
+    {
+      "phrase": "九条",
+      "cue": [
+        17.124792,
+        0.573917
+      ],
+      "source": "bamboo.wav",
+      "sourceRange": [
+        4.123333,
+        4.48
+      ]
+    },
+    {
+      "phrase": "东风",
+      "cue": [
+        17.698708,
+        0.881958
+      ],
+      "source": "honors.wav",
+      "sourceRange": [
+        0.0535,
+        0.670208
+      ]
+    },
+    {
+      "phrase": "南风",
+      "cue": [
+        18.580667,
+        0.821125
+      ],
+      "source": "honors.wav",
+      "sourceRange": [
+        0.925917,
+        1.491375
+      ]
+    },
+    {
+      "phrase": "西风",
+      "cue": [
+        19.401792,
+        0.7615
+      ],
+      "source": "honors.wav",
+      "sourceRange": [
+        1.491375,
+        2.006833
+      ]
+    },
+    {
+      "phrase": "北风",
+      "cue": [
+        20.163292,
+        0.661667
+      ],
+      "source": "honors.wav",
+      "sourceRange": [
+        2.006833,
+        2.438458
+      ]
+    },
+    {
+      "phrase": "红中",
+      "cue": [
+        20.824958,
+        0.693
+      ],
+      "source": "honors.wav",
+      "sourceRange": [
+        2.533458,
+        2.99
+      ]
+    },
+    {
+      "phrase": "发财",
+      "cue": [
+        21.517958,
+        0.711167
+      ],
+      "source": "honors.wav",
+      "sourceRange": [
+        2.99,
+        3.4615
+      ]
+    },
+    {
+      "phrase": "白板",
+      "cue": [
+        22.229125,
+        0.570542
+      ],
+      "source": "honors.wav",
+      "sourceRange": [
+        3.646708,
+        4.0
+      ]
+    },
+    {
+      "phrase": "碰",
+      "cue": [
+        22.799667,
+        0.656667
+      ],
+      "source": "pung.wav",
+      "sourceRange": [
+        0.053375,
+        0.48
+      ]
+    },
+    {
+      "phrase": "杠",
+      "cue": [
+        23.456333,
+        0.752417
+      ],
+      "source": "kong.wav",
+      "sourceRange": [
+        0.053208,
+        0.559583
+      ]
+    },
+    {
+      "phrase": "暗杠",
+      "cue": [
+        24.20875,
+        0.649292
+      ],
+      "source": "concealed-kong.wav",
+      "sourceRange": [
+        0.06075,
+        0.48
+      ]
+    },
+    {
+      "phrase": "补杠",
+      "cue": [
+        24.858042,
+        1.247125
+      ],
+      "source": "actions-clear.wav",
+      "sourceRange": [
+        1.744208,
+        2.671667
+      ]
+    },
+    {
+      "phrase": "补花",
+      "cue": [
+        26.105167,
+        1.250917
+      ],
+      "source": "actions-clear.wav",
+      "sourceRange": [
+        2.755583,
+        3.686833
+      ]
+    },
+    {
+      "phrase": "胡了",
+      "cue": [
+        27.356083,
+        0.815333
+      ],
+      "source": "actions-clear.wav",
+      "sourceRange": [
+        3.993667,
+        4.553333
+      ]
+    },
+    {
+      "phrase": "自摸",
+      "cue": [
+        28.171417,
+        1.295667
+      ],
+      "source": "actions-clear.wav",
+      "sourceRange": [
+        4.870375,
+        5.84
+      ]
+    },
+    {
+      "phrase": "杠上开花",
+      "cue": [
+        29.467083,
+        1.187875
+      ],
+      "source": "actions.wav",
+      "sourceRange": [
+        6.178583,
+        7.056417
+      ]
+    },
+    {
+      "phrase": "海底捞月",
+      "cue": [
+        30.654958,
+        1.248708
+      ],
+      "source": "actions.wav",
+      "sourceRange": [
+        7.408542,
+        8.337583
+      ]
+    },
+    {
+      "phrase": "抢杠胡",
+      "cue": [
+        31.903667,
+        1.607542
+      ],
+      "source": "rob-kong.wav",
+      "sourceRange": [
+        0.0465,
+        1.28
+      ]
+    },
+    {
+      "phrase": "流局",
+      "cue": [
+        33.511208,
+        1.036792
+      ],
+      "source": "draw-round.wav",
+      "sourceRange": [
+        0.050875,
+        0.8
+      ]
+    },
+    {
+      "phrase": "清一色",
+      "cue": [
+        34.548,
+        1.093958
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        0.047042,
+        0.84375
+      ]
+    },
+    {
+      "phrase": "混一色",
+      "cue": [
+        35.641958,
+        1.56925
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        0.928167,
+        2.12975
+      ]
+    },
+    {
+      "phrase": "字一色",
+      "cue": [
+        37.211208,
+        1.531542
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        2.12975,
+        3.300042
+      ]
+    },
+    {
+      "phrase": "对对胡",
+      "cue": [
+        38.74275,
+        2.3095
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        3.396208,
+        5.226042
+      ]
+    },
+    {
+      "phrase": "七对",
+      "cue": [
+        41.05225,
+        2.012375
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        5.226042,
+        6.803542
+      ]
+    },
+    {
+      "phrase": "豪华七对",
+      "cue": [
+        43.064625,
+        2.790375
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        6.852458,
+        9.092792
+      ]
+    },
+    {
+      "phrase": "双豪华七对",
+      "cue": [
+        45.855,
+        3.643167
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        9.092792,
+        12.057917
+      ]
+    },
+    {
+      "phrase": "三豪华七对",
+      "cue": [
+        49.498167,
+        4.0395
+      ],
+      "source": "patterns.wav",
+      "sourceRange": [
+        12.059375,
+        15.36
+      ]
+    },
+    {
+      "phrase": "天胡",
+      "cue": [
+        53.537667,
+        0.84175
+      ],
+      "source": "special.wav",
+      "sourceRange": [
+        0.047958,
+        0.630833
+      ]
+    },
+    {
+      "phrase": "地胡",
+      "cue": [
+        54.379417,
+        1.029125
+      ],
+      "source": "special.wav",
+      "sourceRange": [
+        0.630833,
+        1.372292
+      ]
+    },
+    {
+      "phrase": "补花胡",
+      "cue": [
+        55.408542,
+        1.26575
+      ],
+      "source": "special.wav",
+      "sourceRange": [
+        1.485667,
+        2.428542
+      ]
+    },
+    {
+      "phrase": "全球独钓",
+      "cue": [
+        56.674292,
+        1.478875
+      ],
+      "source": "special.wav",
+      "sourceRange": [
+        3.027958,
+        4.151958
+      ]
+    },
+    {
+      "phrase": "无花果",
+      "cue": [
+        58.153167,
+        1.34825
+      ],
+      "source": "special.wav",
+      "sourceRange": [
+        4.494375,
+        5.506958
+      ]
+    },
+    {
+      "phrase": "门清",
+      "cue": [
+        59.501417,
+        0.678708
+      ],
+      "source": "special.wav",
+      "sourceRange": [
+        5.714542,
+        6.16
+      ]
+    }
+  ],
+  "sources": {
+    "wan": "f9295b79b0fb334aa5b182097404ee1b97dbab0f07858f2d0b9eb75a03b280d0",
+    "dots": "8b700e2b860547ece87ba149823b784bf84b7bd5f79e2d7e188674c7dd332370",
+    "bamboo": "48f3f1a78b99cb05fcc4cd9f3dae40a56467ea4ccf3479e823830729506e436b",
+    "honors": "6d91e5f1b05ca020a970e3a702190542b87320281cbf9443066ef0c681f25a06",
+    "pung": "fe6e50faeca023ee1dd711f5779dfddd40b080345c4449b677e8db2cf89b97ab",
+    "kong": "ca14ce90e49e7a250868de4e983975c410c7e80c1787cfdc6a96a6c6feae94d9",
+    "concealed-kong": "1b8b632aeb90073b8f19022a4bc4ffd566138fb9a9fba9eb3a294fb572a90213",
+    "actions-clear": "38c4345445e300f1512b667db624d912e8cda0cb4d99214fc12fb4d4a5395215",
+    "actions": "d09c1b62c4d244b1f59aff039374f17586a902afd52f6e5055a577e00201171b",
+    "rob-kong": "91d7cb8562b4f36d80c17da1a8e963de27c865740ace7fc32d2637aebd952080",
+    "draw-round": "24ef5766913d27896265b49d5204caf3c756bd2ef32ada5f2a4b32042835a499",
+    "patterns": "4351c6ed1e152a125c8793bd81cbc894bad3685449b97d99f6c46441a3a585e8",
+    "special": "052044a7babefd921299f9c93591b32782e4f74c4c23876d6ad54af6ab9228ba"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "version": "0.5.6",
+  "backend": "https://safelink.chat/mahjong",
+  "anonymousEndpointsProtected": true,
+  "nativeCors": true,
+  "anonymousWebSocketRejected": true,
+  "at": "2026-09-13T23:59:59.869Z",
+  "release": "0.5.6-cc3a9371",
+  "container": "healthy",
+  "databaseBackup": {
+    "path": "/opt/jinling-mahjong/database-backups/0.5.6-cc3a9371.sqlite",
+    "bytes": 126976,
+    "mode": "600"
+  },
+  "sourceServiceSha256": "d22037e1f6a4456647aee4787a462d20125be828cbf1e6e578be5168b7aefb4c",
+  "remoteAndContainerServiceHashMatches": true,
+  "predeployRooms": {
+    "waiting": 5,
+    "onlineHumans": 0
+  }
+}

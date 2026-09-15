@@ -1,0 +1,26 @@
+[
+  {
+    "scene": "lobby",
+    "source": "微乐麻将_大厅背景音乐.mp3",
+    "sourceSha256": "5fc16737cce6f79c3e141c979e10ba2f8f6cfbbf59af455eb2480bf141ecb4ab",
+    "asset": "public/audio/mahjong-lobby.m4a",
+    "sha256": "a8b504c41e30504f3268794ca71509f8ee0da38eca92e7a3240d6b022ae350a7",
+    "duration": 128.26122448979592,
+    "gain": 2.2483213445572194,
+    "edgeFadeMs": 30,
+    "peakBefore": 0.1817120462656021,
+    "rmsBefore": 0.028910458087921143
+  },
+  {
+    "scene": "table",
+    "source": "微乐麻将_牌局背景音乐.mp3",
+    "sourceSha256": "1bae3f144bcd4df1e71fa7ef9b0574ef384f9e66c445d77976435b6feca416a2",
+    "asset": "public/audio/mahjong-table.m4a",
+    "sha256": "7fafed8fe7e09085e6eab38858d954c13a3ed32c50380086a06b4677e6b53dc6",
+    "duration": 61.71433106575964,
+    "gain": 1.7368444532041674,
+    "edgeFadeMs": 30,
+    "peakBefore": 0.3078882694244385,
+    "rmsBefore": 0.03742419183254242
+  }
+]

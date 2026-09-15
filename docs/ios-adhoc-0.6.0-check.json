@@ -1,0 +1,14 @@
+{
+  "version": "0.6.0",
+  "build": 20,
+  "method": "Ad Hoc / release-testing",
+  "signature": "Apple Distribution; strict signature verification passed",
+  "debuggable": false,
+  "registeredDevices": 4,
+  "currentIPhoneIncluded": true,
+  "profileExpiresAt": "2027-05-13T14:36:41Z",
+  "bytes": 41409432,
+  "sha256": "144e8b0af74cc9f598063491209350d3ea2aaf833263e53915cc671f0a1c3f4a",
+  "backend": "https://safelink.chat/mahjong",
+  "landscapeOnly": true
+}

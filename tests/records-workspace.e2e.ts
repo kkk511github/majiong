@@ -1,0 +1,277 @@
+import { test, expect, type Page } from "./browser-fixtures";
+import { recordDate, recordDayRange } from "../src/record-dates";
+import { mkdirSync } from "node:fs";
+import { replayedRound } from "./fixtures/replayed-round";
+import type { StoredRound } from "../shared/types";
+
+const old = "2026-08-25";
+const roundChanges = [
+  [18, -6, -12, 0],
+  [-6, 18, -12, 0],
+  [30, -6, -24, 0],
+  [0, -18, 18, 0],
+];
+function item(
+  index: number,
+  at = recordDayRange(recordDate(Date.now())).from +
+    (14 * 60 + 36 + index * 15) * 60000,
+): StoredRound {
+  return {
+    game: "record-" + index,
+    code: String(582619 + index),
+    me: 0,
+    practice: false,
+    record: {
+      id: "record-" + index + "-final",
+      at,
+      round: 4,
+      totalRounds: 4,
+      matchFinished: true,
+      initialScore: 90,
+      scoreDivisor: 1,
+      tableName: "好友桌",
+      names: ["秦淮月", "月白", "江宁", "金陵牌友"],
+      memberIds: ["100001", "100002", "100003", "100004"],
+      teamNames: ["一生所爱战队", "冰茉莉战队", "日结丁战队", "日结冰战队"],
+      scores: [132, 78, 60, 90],
+      result: {
+        reason: "hu",
+        winners: [0],
+        details: {},
+        deltas: roundChanges[3],
+      },
+    },
+  };
+}
+async function fixture(page: Page, member = false) {
+  const today = recordDate(Date.now());
+  const queries: string[] = [];
+  if (member) {
+    await page.route("**/api/auth/session", async (route) => {
+      const response = await route.fetch(),
+        data = await response.json();
+      data.account = {
+        ...data.account,
+        role: "member",
+        canManageAdmins: false,
+        canCreateTables: false,
+      };
+      await route.fulfill({ response, json: data });
+    });
+    await page.routeWebSocket("**/ws", (ws) => {
+      ws.connectToServer().onMessage((raw) => {
+        const m = JSON.parse(String(raw));
+        if (m.account)
+          m.account = {
+            ...m.account,
+            role: "member",
+            canManageAdmins: false,
+            canCreateTables: false,
+          };
+        ws.send(JSON.stringify(m));
+      });
+    });
+  }
+  await page.route(
+    member ? "**/api/records*" : "**/api/admin/records*",
+    (route) => {
+      const q = new URL(route.request().url()).searchParams;
+      queries.push(q.toString());
+      const isOld = q.get("from") === String(recordDayRange(old).from);
+      const records = isOld
+        ? [item(25, recordDayRange(old).from + 14 * 3600000)]
+        : Array.from({ length: 20 }, (_, i) => item(i));
+      const filtered = q.has("code")
+        ? records.filter((r) => r.code.startsWith(q.get("code")!))
+        : records;
+      return route.fulfill({
+        json: {
+          records: filtered,
+          total: isOld ? 1 : q.has("code") ? filtered.length : 30,
+          page: Number(q.get("page") ?? 1),
+          pageSize: 20,
+          dates: [
+            { date: today, count: 29 },
+            { date: old, count: 1 },
+          ],
+          dateTotal: 30,
+        },
+      });
+    },
+  );
+  const played = replayedRound().history[0];
+  await page.route("**/api/matches/*", (route) =>
+    route.fulfill({
+      json: {
+        match: item(25, recordDayRange(old).from + 15 * 3600000),
+        rounds: [1, 2, 3, 4].map((n) => ({
+          ...item(25),
+          record: {
+            ...item(25).record,
+            id: "REPLAY-20260825-" + n,
+            at: recordDayRange(old).from + (14 * 60 + n * 15) * 60000,
+            matchFinished: false,
+            round: n,
+            hands: member ? undefined : played.hands,
+            result: { ...item(25).record.result, deltas: roundChanges[n - 1] },
+            scores: [90, 90, 90, 90].map(
+              (base, seat) =>
+                base +
+                roundChanges
+                  .slice(0, n)
+                  .reduce((sum, row) => sum + row[seat], 0),
+            ),
+          },
+        })),
+      },
+    }),
+  );
+  return queries;
+}
+for (const [width, height] of [
+  [568, 320],
+  [844, 390],
+  [1280, 590],
+]) {
+  test(`战绩按日期查看整桌和每把详情 ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const queries = await fixture(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "战绩", exact: true }).click();
+    await expect(page.locator(".match-card")).toHaveCount(20);
+    mkdirSync("test-results/screenshots", { recursive: true });
+    await page.screenshot({
+      path: `test-results/screenshots/records-all-${width}.png`,
+    });
+    const first = (await page.locator(".match-card").first().boundingBox())!;
+    const list = (await page.locator(".records-list").boundingBox())!;
+    expect(
+      first.y + first.height,
+      "一整桌的四人分数必须在列表可视高度内完整显示",
+    ).toBeLessThanOrEqual(list.y + list.height + 1);
+    const before = await page.locator(".record-dates").boundingBox();
+    await page
+      .locator(".records-list")
+      .evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    expect(await page.locator(".record-dates").boundingBox()).toEqual(before);
+    await page
+      .getByRole("button", { name: "8月25日 1 桌", exact: true })
+      .click();
+    await expect(page.locator(".match-card")).toHaveCount(1);
+    await expect(page.locator(".record-date[aria-pressed=true]")).toContainText(
+      "8月25日",
+    );
+    expect(queries.at(-1)).toContain("from=" + recordDayRange(old).from);
+    expect(
+      await page.locator(".records-list").evaluate((el) => el.scrollTop),
+    ).toBe(0);
+    const sidebar = (await page.locator(".record-dates").boundingBox())!;
+    expect(sidebar.x + sidebar.width).toBeLessThan(list.x);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const button = page.getByRole("button", {
+      name: "查看房间 582644 最终战绩",
+    });
+    await expect(button).toContainText("100004");
+    await expect(button.locator(".match-points b")).toHaveText([
+      "+42",
+      "-12",
+      "-30",
+      "0",
+    ]);
+    const playerEnd = (await button
+      .locator(".match-player")
+      .last()
+      .boundingBox())!;
+    const detailBox = (await button
+      .locator(".match-detail-link")
+      .boundingBox())!;
+    expect(playerEnd.x + playerEnd.width).toBeLessThanOrEqual(detailBox.x);
+    await page.screenshot({
+      path: `test-results/screenshots/records-workspace-${width}.png`,
+    });
+    await button.click();
+    const dialog = page.getByRole("dialog", {
+      name: "牌桌战绩详情",
+      exact: true,
+    });
+    await expect(dialog).toBeVisible();
+    expect(await dialog.boundingBox()).toEqual({ x: 0, y: 0, width, height });
+    const firstRound = page.getByLabel("第 1 把明细");
+    await expect(firstRound).toContainText("REPLAY-20260825-1");
+    await expect(firstRound.locator(".round-player-points b")).toHaveText([
+      "+18",
+      "-6",
+      "-12",
+      "0",
+    ]);
+    await expect(
+      dialog.locator(".match-details-summary .match-points b"),
+    ).toHaveText(["+42", "-12", "-30", "0"]);
+    await page.screenshot({
+      path: `test-results/screenshots/records-details-${width}.png`,
+    });
+    const last = page.getByLabel("第 4 把明细");
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toContainText("REPLAY-20260825-4");
+    await expect(
+      last.getByRole("button", { name: "回放", exact: true }),
+    ).toBeVisible();
+    await last.getByRole("button", { name: "查看牌面", exact: true }).click();
+    await expect(page.getByLabel("第 4 把战绩详情")).toBeVisible();
+    await expect(dialog.getByLabel("本局四家牌面")).toBeVisible();
+    expect(await dialog.boundingBox()).toEqual({ x: 0, y: 0, width, height });
+    await page.screenshot({
+      path: `test-results/screenshots/records-round-${width}.png`,
+    });
+    await dialog
+      .getByRole("button", { name: "返回整桌明细", exact: true })
+      .click();
+    await expect(page.getByLabel("第 1 把明细")).toBeVisible();
+    await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+    await expect(page.locator(".record-date[aria-pressed=true]")).toContainText(
+      "8月25日",
+    );
+    await page.getByRole("button", { name: "返回大厅", exact: true }).click();
+    await expect(page.locator(".records-workspace")).toHaveCount(0);
+  });
+}
+
+test("普通会员可看 ID 和每把回放 ID，战队名不显示；房间查询与日期可组合", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 590 });
+  const queries = await fixture(page, true);
+  await page.goto("/");
+  await page.getByRole("button", { name: "战绩", exact: true }).click();
+  await expect(page.locator(".match-card")).toHaveCount(20);
+  await expect(page.locator(".record-team")).toHaveCount(0);
+  await expect(page.locator(".records-heading h1")).toHaveText("我的战绩");
+  await page.screenshot({
+    path: "test-results/screenshots/records-member-1280.png",
+  });
+  await page.getByRole("button", { name: "8月25日 1 桌", exact: true }).click();
+  await page.getByLabel("战绩房间号").fill("582644");
+  await page.getByRole("button", { name: "查询战绩", exact: true }).click();
+  await expect.poll(() => queries.at(-1)).toContain("code=582644");
+  expect(queries.at(-1)).toContain("from=" + recordDayRange(old).from);
+  await page.getByRole("button", { name: "查看房间 582644 最终战绩" }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "牌桌战绩详情",
+    exact: true,
+  });
+  await expect(dialog.getByLabel("第 1 把明细")).toContainText("100001");
+  await expect(dialog.getByLabel("第 1 把明细")).toContainText(
+    "REPLAY-20260825-1",
+  );
+  await expect(dialog.locator(".record-team")).toHaveCount(0);
+  await dialog
+    .getByLabel("第 1 把明细")
+    .getByRole("button", { name: "积分明细", exact: true })
+    .click();
+  await expect(dialog.getByLabel("牌桌结算")).toBeVisible();
+  await expect(dialog.locator(".record-team")).toHaveCount(0);
+});

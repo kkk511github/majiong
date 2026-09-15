@@ -1,0 +1,22 @@
+{
+  "version": "0.5.8",
+  "build": 18,
+  "variant": "release",
+  "signature": "dedicated release key; v2 and v3 verified",
+  "certificateSha256": "d07fd4c522490b38e1d1d7aa8ea5c86cc3bd14a0e46cd86d86ec183e430b0928",
+  "keyBits": 3072,
+  "releaseShrinking": true,
+  "debuggable": false,
+  "webViewDebugging": false,
+  "cleartextTraffic": false,
+  "allowBackup": false,
+  "sourceMaps": false,
+  "zipalign16k": true,
+  "bundledFilesMatched": 80,
+  "bytes": 32062145,
+  "sha256": "ecb44ab276cb4b227b1e1c8fbc67de8bc6c6f53e475884c9ddb058a933096b28",
+  "requiresUninstallOfPreviousDebugBuild": true,
+  "physicalAndroidInstallTested": false,
+  "gradleEnvironmentSigningVerified": true,
+  "gradleSignedPayloadMatchesDeliveredApk": true
+}

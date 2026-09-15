@@ -1,0 +1,17 @@
+node_modules
+data
+dist
+ios
+android
+.git
+.codegraph
+.env*
+test-results
+playwright-report
+
+cocos-table/library
+cocos-table/temp
+cocos-table/local
+cocos-table/profiles
+cocos-table/build
+cocos-table/art-source

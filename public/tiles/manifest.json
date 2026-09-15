@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "viewBox": "0 0 64 88",
+  "tiles": [
+    {
+      "kind": 0,
+      "name": "一万",
+      "file": "0.svg"
+    },
+    {
+      "kind": 1,
+      "name": "二万",
+      "file": "1.svg"
+    },
+    {
+      "kind": 2,
+      "name": "三万",
+      "file": "2.svg"
+    },
+    {
+      "kind": 3,
+      "name": "四万",
+      "file": "3.svg"
+    },
+    {
+      "kind": 4,
+      "name": "五万",
+      "file": "4.svg"
+    },
+    {
+      "kind": 5,
+      "name": "六万",
+      "file": "5.svg"
+    },
+    {
+      "kind": 6,
+      "name": "七万",
+      "file": "6.svg"
+    },
+    {
+      "kind": 7,
+      "name": "八万",
+      "file": "7.svg"
+    },
+    {
+      "kind": 8,
+      "name": "九万",
+      "file": "8.svg"
+    },
+    {
+      "kind": 9,
+      "name": "一筒",
+      "file": "9.svg"
+    },
+    {
+      "kind": 10,
+      "name": "二筒",
+      "file": "10.svg"
+    },
+    {
+      "kind": 11,
+      "name": "三筒",
+      "file": "11.svg"
+    },
+    {
+      "kind": 12,
+      "name": "四筒",
+      "file": "12.svg"
+    },
+    {
+      "kind": 13,
+      "name": "五筒",
+      "file": "13.svg"
+    },
+    {
+      "kind": 14,
+      "name": "六筒",
+      "file": "14.svg"
+    },
+    {
+      "kind": 15,
+      "name": "七筒",
+      "file": "15.svg"
+    },
+    {
+      "kind": 16,
+      "name": "八筒",
+      "file": "16.svg"
+    },
+    {
+      "kind": 17,
+      "name": "九筒",
+      "file": "17.svg"
+    },
+    {
+      "kind": 18,
+      "name": "一条",
+      "file": "18.svg"
+    },
+    {
+      "kind": 19,
+      "name": "二条",
+      "file": "19.svg"
+    },
+    {
+      "kind": 20,
+      "name": "三条",
+      "file": "20.svg"
+    },
+    {
+      "kind": 21,
+      "name": "四条",
+      "file": "21.svg"
+    },
+    {
+      "kind": 22,
+      "name": "五条",
+      "file": "22.svg"
+    },
+    {
+      "kind": 23,
+      "name": "六条",
+      "file": "23.svg"
+    },
+    {
+      "kind": 24,
+      "name": "七条",
+      "file": "24.svg"
+    },
+    {
+      "kind": 25,
+      "name": "八条",
+      "file": "25.svg"
+    },
+    {
+      "kind": 26,
+      "name": "九条",
+      "file": "26.svg"
+    },
+    {
+      "kind": 27,
+      "name": "东风",
+      "file": "27.svg"
+    },
+    {
+      "kind": 28,
+      "name": "南风",
+      "file": "28.svg"
+    },
+    {
+      "kind": 29,
+      "name": "西风",
+      "file": "29.svg"
+    },
+    {
+      "kind": 30,
+      "name": "北风",
+      "file": "30.svg"
+    },
+    {
+      "kind": 31,
+      "name": "红中",
+      "file": "31.svg"
+    },
+    {
+      "kind": 32,
+      "name": "发财",
+      "file": "32.svg"
+    },
+    {
+      "kind": 33,
+      "name": "白板",
+      "file": "33.svg"
+    },
+    {
+      "kind": 34,
+      "name": "春",
+      "file": "34.svg"
+    },
+    {
+      "kind": 35,
+      "name": "夏",
+      "file": "35.svg"
+    },
+    {
+      "kind": 36,
+      "name": "秋",
+      "file": "36.svg"
+    },
+    {
+      "kind": 37,
+      "name": "冬",
+      "file": "37.svg"
+    },
+    {
+      "kind": 38,
+      "name": "梅",
+      "file": "38.svg"
+    },
+    {
+      "kind": 39,
+      "name": "蘭",
+      "file": "39.svg"
+    },
+    {
+      "kind": 40,
+      "name": "竹",
+      "file": "40.svg"
+    },
+    {
+      "kind": 41,
+      "name": "菊",
+      "file": "41.svg"
+    }
+  ],
+  "back": "back.svg"
+}

@@ -1,0 +1,100 @@
+/* The rim has perspective; tiles and hit targets stay in screen space for legibility. */
+@media (orientation: landscape) {
+  .polished .game-wrap {
+    background: #104f40 url("/table-frame.svg") center / 100% 100% no-repeat;
+    box-shadow: inset 0 0 35px #001d1840;
+  }
+  .polished .game-wrap::before {
+    border: 0;
+    box-shadow: none;
+  }
+  .polished .mahjong-table::before {
+    border: 0;
+    box-shadow: none;
+  }
+  .polished .game-topbar {
+    color: #e5e9d7;
+    text-shadow: 0 1px 2px #04291f;
+  }
+  .polished .game-topbar small {
+    color: #d9e6ce;
+    background: #092f299e;
+    box-shadow: inset 0 1px #b6cda317;
+    border-radius: 4px;
+  }
+  .polished .game-topbar .icon-button::before {
+    border-color: #d3cb9938;
+    background: linear-gradient(#344b4080, #17372b80);
+    box-shadow:
+      inset 0 1px #d4ddbd20,
+      0 2px 4px #001e1b40;
+  }
+  .polished .opponent-info .avatar {
+    border-radius: 7px;
+    border-color: #d5ccaa;
+    box-shadow: 0 3px 6px #001b1760;
+  }
+  .polished .opponent-info strong {
+    color: #f1eedb;
+    text-shadow: 0 1px 2px #09281e;
+  }
+  .polished .opponent-info div > span {
+    color: #d7cfa7;
+  }
+  .polished .opponent.active .avatar {
+    box-shadow:
+      0 0 0 2px #e6d38d,
+      0 3px 9px #001b1799;
+  }
+  .polished .opponent-turn-status {
+    background: #0d332ded;
+    border-color: #a4b17e55;
+  }
+  .polished .table-center {
+    border: 1px solid #a6ab82;
+    border-radius: 12%;
+    background: conic-gradient(
+      from 45deg,
+      #193b36 0 25%,
+      #234942 0 50%,
+      #193b36 0 75%,
+      #234942 0
+    );
+    box-shadow:
+      0 0 0 2px #0b332c,
+      0 4px 9px #012b2499,
+      inset 0 1px #d1d1a848;
+  }
+  .polished .table-center::before {
+    display: none;
+  }
+  .polished .table-center > strong {
+    border: 1px solid #8fbca647;
+    border-radius: 4px;
+    background: linear-gradient(#082a26, #113b34);
+    box-shadow: inset 0 2px 4px #001e1a;
+  }
+  .polished .table-center .compass-wind {
+    color: #bed1be;
+  }
+  .polished .table-center .compass-wind.current {
+    color: #1e432f;
+    background: linear-gradient(#f1e8a6, #cfcc83);
+    box-shadow: 0 1px 4px #061c1c60;
+  }
+  .polished .table-center > strong {
+    color: #f8edb2;
+    text-shadow: 0 1px 3px #001b16;
+  }
+  .polished .table-center.urgent > strong {
+    color: #ffbd85;
+  }
+  .polished .hand-area::before {
+    height: 48px;
+    background: linear-gradient(transparent, #031f1b80);
+  }
+  .polished .my-info .text-button {
+    background: linear-gradient(#31544699, #15392e99);
+    border-color: #c6c89a60;
+  }
+}

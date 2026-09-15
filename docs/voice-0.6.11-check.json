@@ -1,0 +1,59 @@
+{
+  "version": "0.6.11",
+  "defaultVoice": "male",
+  "fixedSuitMapping": {
+    "wan": "card_1..9; card_2 uses direct 二万 edit",
+    "dots": "card_33..41 (source filenames say 条)",
+    "bamboo": "card_17..25 (source filenames say 筒)"
+  },
+  "twoWan": "Same-speaker 二 from card_34 + 万 from card_1; full source ranges and fades in nanjing-voice-import.json",
+  "recognizer": "faster-whisper small, zh, CPU int8",
+  "recognitionLimit": "Nanjing dialect contains homophones and ASR errors (e.g. 万→般/玩, 筒→桶, male 八万→二般). ASR assists review and is not an exact transcript certification. No other rank recordings changed.",
+  "samples": [
+    {
+      "sample": "female-actions.wav",
+      "recognition": "噴,鋼,聽,喉啦! / 子夢,不話!"
+    },
+    {
+      "sample": "female-bamboo.wav",
+      "recognition": "一條、二條、三條、四條、五條、六條、七條、八條、九條"
+    },
+    {
+      "sample": "female-dots.wav",
+      "recognition": "一桶 / 二桶 / 三桶 / 四桶 / 五桶 / 六桶 / 七桶 / 八桶 / 九桶"
+    },
+    {
+      "sample": "female-wan.wav",
+      "recognition": "一玩、二玩、三玩、四玩、五玩、六玩、七玩、八玩、九玩"
+    },
+    {
+      "sample": "female-winds.wav",
+      "recognition": "豆粉 蓝粉 细粉 杯粉"
+    },
+    {
+      "sample": "male-actions.wav",
+      "recognition": "喷,鋼,聽,胡了,滋沒,不化。"
+    },
+    {
+      "sample": "male-bamboo.wav",
+      "recognition": "一条,二条,三条,四条,五条,六条,七条,八条,九条"
+    },
+    {
+      "sample": "male-dots.wav",
+      "recognition": "一桶,二桶,三桶,四桶,五桶,六桶,七桶,八桶,九桶"
+    },
+    {
+      "sample": "male-wan.wav",
+      "recognition": "一般,二般,三般,四般,五般,六般,七般,二般,九般。"
+    },
+    {
+      "sample": "male-winds.wav",
+      "recognition": "東鳳、南鳳、西鳳、北鳳"
+    }
+  ],
+  "tests": {
+    "sourceCueContentFingerprints": 62,
+    "physicalTilePlaybackChecks": 248,
+    "defaultMaleAndFemaleSelectionPersistence": "Chromium and WebKit, 3 viewport sizes each"
+  }
+}

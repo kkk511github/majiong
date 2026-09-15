@@ -1,0 +1,1126 @@
+.polished.account-shell {
+  padding: 0;
+  min-height: var(--app-height);
+  background: #114c3c;
+  overflow: auto;
+}
+.account-screen {
+  min-height: var(--app-height);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.85fr);
+  gap: clamp(20px, 4vw, 80px);
+  align-items: center;
+  padding: max(24px, env(safe-area-inset-top))
+    max(36px, calc(env(safe-area-inset-right) + 20px))
+    max(24px, env(safe-area-inset-bottom))
+    max(36px, calc(env(safe-area-inset-left) + 20px));
+  background:
+    linear-gradient(100deg, #063c32e8, #0d563b95 48%, #123b31de 76%),
+    url("/lobby-scene.png") center / cover;
+}
+.account-welcome {
+  color: #f8e5a8;
+  max-width: 550px;
+  justify-self: center;
+  width: 100%;
+}
+.account-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: "Mahjong Brush", serif;
+  font-size: 28px;
+}
+.account-brand img {
+  width: 54px;
+  height: 54px;
+  border-radius: 13px;
+  box-shadow: 0 5px 15px #001f2055;
+}
+.account-brand small {
+  display: block;
+  font: 10px/2 sans-serif;
+  letter-spacing: 3px;
+  opacity: 0.7;
+}
+.account-invitation {
+  margin: 56px 0 40px;
+}
+.account-invitation > span {
+  font-size: 12px;
+  letter-spacing: 7px;
+  color: #d0dcc0;
+}
+.account-invitation h1 {
+  font-family: "Mahjong Brush", serif;
+  font-size: clamp(34px, 4.9vw, 64px);
+  line-height: 1.3;
+  font-weight: 400;
+  margin: 18px 0;
+  text-shadow:
+    0 3px 0 #865b2670,
+    0 6px 24px #002a2280;
+}
+.account-invitation p {
+  color: #d0e0cb;
+  line-height: 1.9;
+  font-size: 14px;
+  margin: 0;
+}
+.account-promise {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #d3dfb5;
+}
+.account-promise i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  margin: 0 5px;
+}
+.account-card {
+  width: 100%;
+  max-width: 510px;
+  justify-self: center;
+  padding: 30px;
+  border: 1px solid #ffe6a5;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #fffdf0, #f2e7c9);
+  color: #254f40;
+  box-shadow:
+    inset 0 2px 0 #fff,
+    0 22px 70px #001d2570;
+}
+.account-card-heading > span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #7d8b6a;
+  font-size: 12px;
+}
+.account-card-heading h2 {
+  font:
+    700 27px/1.3 "Noto Serif SC",
+    serif;
+  margin: 10px 0 22px;
+}
+.account-tabs {
+  display: flex;
+  padding: 4px;
+  border-radius: 11px;
+  background: #dedbc477;
+  margin-bottom: 20px;
+}
+.account-tabs button {
+  flex: 1;
+  min-height: 38px;
+  border: 0;
+  color: #7c8671;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.account-tabs button[aria-selected="true"] {
+  background: #fffdf2;
+  color: #22634a;
+  font-weight: 750;
+  box-shadow: 0 2px 6px #47513b14;
+}
+.account-form {
+  display: grid;
+  gap: 14px;
+}
+.account-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: #5e715b;
+}
+.account-form input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  border-radius: 9px;
+  border: 1px solid #d9d8be;
+  padding: 9px 12px;
+  background: #fffcf2;
+  color: #284d3d;
+  font-size: 16px;
+  box-shadow: inset 0 2px 3px #77865d08;
+}
+.account-form input:focus {
+  outline: 2px solid #569472;
+  outline-offset: 1px;
+}
+.password-field {
+  position: relative;
+  display: flex;
+}
+.password-field input {
+  padding-right: 44px;
+}
+.password-field button {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  height: 42px;
+  width: 42px;
+  color: #899078;
+  background: none;
+  border: 0;
+  display: grid;
+  place-items: center;
+}
+.account-card .account-submit {
+  min-height: 44px;
+  margin: 4px 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 15px;
+}
+.account-form-pairs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.account-form-pairs .account-error {
+  grid-column: 1 / -1;
+}
+.account-error {
+  color: #a1432a;
+  background: #f3dcc788;
+  border: 1px solid #d9a88670;
+  border-radius: 7px;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.account-footnote {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  color: #93927a;
+}
+.account-footnote > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.account-footnote button {
+  border: 0;
+  background: none;
+  color: #36745a;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.account-loading {
+  min-height: 160px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+}
+.polished[data-page="history"] .site-header {
+  display: none;
+}
+.polished[data-page="history"] .lobby {
+  height: calc(var(--app-height) - 70px - env(safe-area-inset-bottom));
+  padding: max(12px, env(safe-area-inset-top))
+    max(24px, calc(env(safe-area-inset-right) + 12px)) 10px
+    max(24px, calc(env(safe-area-inset-left) + 12px));
+  overflow: hidden;
+}
+.records-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 10px;
+}
+.records-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+.records-heading h1 {
+  font-size: 25px;
+  line-height: 1.2;
+  margin: 3px 0 0;
+  color: #f3e5b9;
+}
+.records-heading .eyebrow {
+  font-size: 10px;
+}
+.records-admin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8e7434;
+  background: #ece4c2;
+  border: 1px solid #d2ca9d;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.records-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.records-toolbar nav {
+  display: flex;
+  gap: 4px;
+}
+.records-toolbar nav button {
+  background: transparent;
+  border: 0;
+  color: #bdc9ac;
+  border-radius: 8px;
+  padding: 10px 12px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.records-toolbar nav button[aria-pressed="true"] {
+  color: #fff7d2;
+  background: #337051;
+  box-shadow: inset 0 1px #93b897;
+}
+.records-toolbar form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.records-toolbar input {
+  border: 1px solid #cfd6be;
+  border-radius: 7px;
+  background: #fffdf1;
+  color: #31533e;
+  font-size: 12px;
+  height: 36px;
+  padding: 6px 9px;
+  width: 106px;
+  min-width: 0;
+}
+.records-toolbar input[type="date"] {
+  width: 135px;
+}
+.records-toolbar .secondary {
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.records-clear {
+  border: 0;
+  background: none;
+  color: #617950;
+  font-size: 11px;
+}
+.records-description {
+  color: #b4c1a1;
+  font-size: 11px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+.records-list {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.record-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 0 auto;
+  text-align: left;
+  border: 1px solid #d7dcc4;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #fff9e6, #f8f7ec);
+  box-shadow: 0 2px 0 #d5dcc380;
+  padding: 14px 16px;
+  color: #385d47;
+  min-height: 78px;
+}
+.record-room {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 0 0 100px;
+  padding-right: 12px;
+  border-right: 1px solid #dddcc4;
+}
+.record-room b {
+  font-size: 19px;
+  letter-spacing: 1px;
+}
+.record-room small {
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+}
+.record-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.record-info strong {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.record-info strong small {
+  font-size: 10px;
+  margin-left: 10px;
+  color: #8c967b;
+  font-weight: 400;
+}
+.record-info time {
+  font-size: 10px;
+  color: #939781;
+  white-space: nowrap;
+}
+.record-players {
+  color: #788672;
+  font-size: 11px;
+  line-height: 1.6;
+  flex: 1;
+}
+.record-score {
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+}
+.record-score small {
+  display: block;
+  font-size: 10px;
+  color: #8e937b;
+  max-width: 130px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.record-score b {
+  display: block;
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
+}
+.record-card .positive {
+  color: #b47b26;
+}
+.records-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #8b987b;
+  padding: 24px;
+  text-align: center;
+}
+.records-empty h3,
+.records-empty p {
+  margin: 0;
+}
+.records-empty p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.records-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  font-size: 11px;
+  color: #778568;
+  flex: 0 0 auto;
+}
+.records-pagination > span:first-child {
+  margin-right: auto;
+}
+.records-pagination button {
+  display: grid;
+  place-items: center;
+  border: 1px solid #d2d8bd;
+  border-radius: 7px;
+  width: 32px;
+  height: 30px;
+  color: #597752;
+  background: #fffbe8;
+}
+.records-pagination button:disabled {
+  opacity: 0.35;
+}
+.polished .modal.settlement-dialog {
+  width: min(
+    950px,
+    calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px)
+  );
+  padding: 12px 18px;
+  gap: 6px;
+  background: linear-gradient(135deg, #173f36, #13332f);
+  color: #e9e6c9;
+  border: 1px solid #bba462;
+  box-shadow:
+    inset 0 0 0 3px #7a895040,
+    0 25px 80px #001e2460;
+}
+.polished .settlement-dialog .modal-head {
+  min-height: 34px;
+  border-bottom: 1px solid #d3c28730;
+  padding-bottom: 5px;
+}
+.polished .settlement-dialog .modal-head h2 {
+  font-size: 16px;
+  color: #eee2b6;
+}
+.polished .settlement-dialog .modal-head .icon-button {
+  height: 44px;
+  width: 44px;
+  flex-basis: 44px;
+  background: #235145;
+  color: #e5d8ab;
+  border-color: #b1ac7140;
+}
+.polished .settlement-dialog .modal-body {
+  display: block;
+  overflow: auto;
+  padding: 0;
+}
+.polished .settlement-dialog .result-highlight {
+  border: 0;
+}
+.polished .settlement-dialog .result-highlight small {
+  color: #a4b99a;
+}
+.polished .settlement-dialog .result-highlight strong {
+  color: #f6d675;
+  font-size: 22px;
+}
+.polished .settlement-dialog .result-footer > span {
+  color: #b9c8a7;
+}
+.polished .result-next-info { min-width: 0; color: #b9c8a7; font-size: 11px; }
+.polished .result-next-info > span { display: block; }
+.polished .result-next-info > p { color: #f0dda1; font-size: 11px; line-height: 1.4; margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settlement-player .settlement-readiness { display: flex; align-items: center; gap: 4px; color: #ebc57f; }
+.settlement-readiness > i { width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: currentColor; }
+.settlement-player .settlement-readiness[data-state="ready"] { color: #c4e8a1; }
+.settlement-player .settlement-readiness[data-state="offline"] { color: #ffc39a; }
+.settlement-player .settlement-readiness[data-state="syncing"] { color: #b6c4b3; }
+.settlement {
+  width: 100%;
+}
+.settlement-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+.settlement-kicker {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #b9bf98;
+}
+.settlement-heading h3 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-family: "Mahjong Brush", serif;
+  font-size: 28px;
+  color: #f9dc86;
+  font-weight: 400;
+  margin: 6px 0 0;
+  text-shadow: 0 2px #79512b;
+}
+.settlement-game-name {
+  padding: 6px 14px;
+  border: 1px solid #c9ad6255;
+  background: linear-gradient(90deg, #9e7a3430, #e2c77920);
+  color: #e6cd89;
+  border-radius: 20px 4px;
+  font-size: 13px;
+  max-width: 210px;
+}
+.settlement-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 20px;
+  font-size: 11px;
+  color: #b9c5b3;
+  margin: 0 0 8px;
+}
+.settlement-meta b {
+  color: #ddd4a6;
+  font-weight: 600;
+}
+.settlement-meta time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.settlement-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0 5px;
+  margin: 0;
+  text-align: right;
+}
+.settlement-table th {
+  font-size: 10px;
+  font-weight: 400;
+  color: #b7b992;
+  padding: 0 16px 1px;
+  border: 0;
+  text-align: right;
+}
+.settlement-table th:first-child {
+  width: 15%;
+  text-align: center;
+}
+.settlement-table th:nth-child(2) {
+  width: 40%;
+  text-align: left;
+}
+.settlement-table td {
+  padding: 8px 16px;
+  background: #244c4490;
+  border-top: 1px solid #95b4a433;
+  border-bottom: 1px solid #061b2738;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  color: #e0dcbf;
+}
+.settlement-table td:first-child {
+  border-radius: 8px 0 0 8px;
+  text-align: center;
+  padding: 8px;
+}
+.settlement-table td:last-child {
+  border-radius: 0 8px 8px 0;
+  background: #a0a87812;
+}
+.settlement-table .settlement-winner td {
+  background: linear-gradient(100deg, #8b6e3355, #bca06528);
+  border-top-color: #e0c17565;
+}
+.settlement-rank {
+  font:
+    12px "Noto Serif SC",
+    serif;
+  color: #bcc9bc;
+  white-space: nowrap;
+}
+.settlement-rank b {
+  font-size: 28px;
+  font-style: italic;
+  margin: 0 2px;
+}
+.settlement-winner .settlement-rank {
+  color: #f5d77f;
+}
+.settlement-player {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  min-width: 0;
+}
+.settlement-player .avatar {
+  height: 40px;
+  width: 40px;
+  flex: 0 0 40px;
+  border-radius: 8px;
+}
+.settlement-player > span:last-child {
+  min-width: 0;
+}
+.settlement-player strong {
+  display: block;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settlement-player small {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  color: #adbaa4;
+}
+.settlement-player strong small {
+  display: inline-block;
+  padding: 1px 4px;
+  border: 1px solid #a6bd9780;
+  border-radius: 3px;
+  margin: 0 0 0 5px;
+  vertical-align: middle;
+}
+.settlement-table .settlement-balance {
+  font-size: 17px;
+  color: #a7bbad;
+}
+.settlement-table .settlement-positive {
+  color: #f6d679;
+}
+.settlement-table .settlement-negative {
+  color: #98c8df;
+}
+.settlement-table .settlement-recorded {
+  font-weight: 750;
+}
+.settlement-caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  margin: 8px 0 3px;
+}
+.settlement-caption p {
+  font-size: 10px;
+  color: #a8b498;
+  line-height: 1.6;
+  margin: 0;
+}
+.settlement-caption button {
+  border: 1px solid #91a77070;
+  color: #e1d3a2;
+  background: #305347;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settlement-copy-status {
+  margin: 4px 0;
+  font-size: 11px;
+  color: #e6d398;
+}
+.settlement-detail-toggle {
+  margin-top: 8px;
+  border-top: 1px solid #9dab7d40;
+}
+.settlement-detail-toggle > summary {
+  font-size: 11px;
+  padding: 10px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #b7c5a6;
+}
+.settlement-detail-toggle .score-details {
+  background: #f5f3e5;
+  color: #35523b;
+  padding: 12px;
+  border-radius: 10px;
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .account-screen {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    gap: 30px;
+    grid-template-columns: minmax(0, 0.88fr) minmax(320px, 1fr);
+  }
+  .account-brand {
+    font-size: 24px;
+    gap: 10px;
+  }
+  .account-brand img {
+    width: 44px;
+    height: 44px;
+  }
+  .account-brand small {
+    font-size: 8px;
+  }
+  .account-invitation {
+    margin: 26px 0 20px;
+  }
+  .account-invitation h1 {
+    font-size: 37px;
+    margin: 10px 0;
+  }
+  .account-invitation p {
+    font-size: 11px;
+  }
+  .account-card {
+    padding: 18px 22px;
+    border-radius: 18px;
+  }
+  .account-card-heading h2 {
+    font-size: 23px;
+    margin: 6px 0 12px;
+  }
+  .account-tabs {
+    margin-bottom: 12px;
+  }
+  .account-tabs button {
+    min-height: 30px;
+  }
+  .account-form {
+    gap: 9px;
+  }
+  .account-form label {
+    font-size: 11px;
+    gap: 4px;
+  }
+  .account-form input {
+    height: 38px;
+    font-size: 16px;
+    padding: 7px 10px;
+  }
+  .password-field button {
+    height: 36px;
+  }
+  .password-field input {
+    padding-right: 39px;
+  }
+  .account-card .account-submit {
+    min-height: 39px;
+    margin-top: 3px;
+  }
+  .account-footnote {
+    margin-top: 12px;
+    gap: 4px;
+    font-size: 9px;
+  }
+  .polished[data-page="history"] .lobby {
+    height: calc(
+      var(--app-height) - var(--phone-nav) - env(safe-area-inset-bottom)
+    );
+  }
+  .records-panel {
+    gap: 7px;
+  }
+  .records-heading h1 {
+    font-size: 21px;
+  }
+  .records-toolbar {
+    gap: 7px;
+  }
+  .records-toolbar nav button {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .records-toolbar input {
+    height: 31px;
+    width: 84px;
+  }
+  .records-toolbar input[type="date"] {
+    width: 125px;
+  }
+  .records-toolbar .secondary {
+    min-height: 31px;
+  }
+  .record-card {
+    gap: 12px;
+    min-height: 66px;
+    padding: 10px 12px;
+  }
+  .record-room {
+    flex-basis: 88px;
+  }
+  .record-room b {
+    font-size: 17px;
+  }
+  .record-players {
+    font-size: 10px;
+  }
+  .settlement-heading {
+    padding: 5px 0;
+  }
+  .settlement-heading h3 {
+    font-size: 23px;
+    margin-top: 3px;
+  }
+  .settlement-heading h3 svg {
+    width: 20px;
+  }
+  .settlement-meta {
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+  .settlement-table {
+    border-spacing: 0 4px;
+  }
+  .settlement-table td {
+    padding: 5px 12px;
+    font-size: 22px;
+  }
+  .settlement-table td:first-child {
+    padding: 4px;
+  }
+  .settlement-player .avatar {
+    height: 32px;
+    width: 32px;
+    flex-basis: 32px;
+  }
+  .settlement-player strong {
+    font-size: 14px;
+  }
+  .settlement-caption {
+    margin: 5px 0 0;
+  }
+  .polished .settlement-dialog .result-footer .primary {
+    min-height: 44px;
+    padding: 7px 18px;
+  }
+}
+@media (orientation: landscape) and (max-width: 730px) {
+  .account-screen {
+    grid-template-columns: minmax(140px, 0.72fr) minmax(290px, 1fr);
+    gap: 14px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  .account-card {
+    padding: 12px 16px;
+  }
+  .account-invitation h1 {
+    font-size: 30px;
+  }
+  .account-invitation p,
+  .account-promise {
+    font-size: 10px;
+  }
+  .account-brand {
+    font-size: 20px;
+  }
+  .account-brand img {
+    width: 37px;
+    height: 37px;
+  }
+  .account-brand small {
+    letter-spacing: 1px;
+    font-size: 7px;
+  }
+  .account-card-heading > span {
+    display: none;
+  }
+  .account-card-heading h2 {
+    font-size: 21px;
+    margin-top: 0;
+  }
+  .record-players {
+    display: none;
+  }
+  .records-toolbar {
+    flex-wrap: wrap;
+  }
+  .records-toolbar form {
+    gap: 4px;
+  }
+  .records-toolbar nav button {
+    padding: 7px;
+    font-size: 10px;
+  }
+  .records-toolbar input {
+    width: 70px;
+    font-size: 11px;
+  }
+  .records-toolbar input[type="date"] {
+    width: 116px;
+  }
+  .records-description {
+    font-size: 10px;
+  }
+  .record-info strong small {
+    margin-left: 6px;
+  }
+  .settlement-game-name {
+    font-size: 11px;
+    max-width: 150px;
+  }
+  .settlement-table th:nth-child(2) {
+    width: 35%;
+  }
+  .settlement-table td {
+    padding: 5px 7px;
+    font-size: 19px;
+  }
+  .settlement-table th {
+    padding: 0 7px;
+  }
+  .settlement-player {
+    gap: 7px;
+  }
+  .settlement-heading h3 {
+    font-size: 20px;
+  }
+  .settlement-rank b {
+    font-size: 22px;
+  }
+  .settlement-caption p {
+    font-size: 9px;
+  }
+}
+/* Keep the four final rows, ratio and copy action in one landscape viewport. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .settlement-kicker {
+    display: none;
+  }
+  .settlement-heading {
+    padding: 3px 0;
+  }
+  .settlement-heading h3 {
+    font-size: 21px;
+    margin: 0;
+  }
+  .settlement-rank b {
+    font-size: 24px;
+  }
+  .settlement-table td {
+    padding-top: 3px;
+    padding-bottom: 3px;
+    line-height: 1.1;
+  }
+  .settlement-caption button {
+    min-height: 36px;
+  }
+}
+@media (orientation: landscape) and (max-height: 380px) {
+  .settlement-heading {
+    display: none;
+  }
+  .settlement-table {
+    border-spacing: 0 3px;
+  }
+  .settlement-table td {
+    font-size: 18px;
+  }
+  .settlement-player .avatar {
+    width: 25px;
+    height: 25px;
+    flex-basis: 25px;
+  }
+  .settlement-player strong {
+    font-size: 12px;
+  }
+  .settlement-player small {
+    font-size: 8px;
+    margin-top: 1px;
+  }
+  .settlement-rank b {
+    font-size: 19px;
+  }
+  .settlement-caption {
+    margin-top: 2px;
+  }
+}
+@media (orientation: landscape) and (max-height: 410px) {
+  .settlement-heading {
+    display: none;
+  }
+}
+@media (orientation: landscape) and (max-height: 450px) {
+  .account-card {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    max-height: calc(
+      var(--app-height) - max(12px, env(safe-area-inset-top)) -
+        max(12px, env(safe-area-inset-bottom))
+    );
+    overflow-y: auto;
+  }
+  .account-card-heading > span {
+    display: none;
+  }
+  .account-card-heading h2 {
+    margin: 0 0 8px;
+  }
+  .account-tabs {
+    margin-bottom: 8px;
+  }
+  .account-form {
+    gap: 6px;
+  }
+  .account-footnote {
+    margin-top: 6px;
+  }
+  .account-error {
+    padding: 4px 8px;
+  }
+}
+@media (orientation: landscape) and (max-height: 350px) {
+  .account-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .account-form .account-error,
+  .account-card .account-submit {
+    grid-column: 1 / -1;
+  }
+  .account-footnote > span {
+    display: none;
+  }
+}
+@media (orientation: landscape) and (max-height: 380px) {
+  .polished .modal.settlement-dialog {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    gap: 4px;
+  }
+}
+@media (orientation: landscape) and (max-height: 350px) {
+  .settlement-meta { margin-bottom: 3px; }
+  .settlement-table td, .settlement-table td:first-child {
+    padding-top: 1px;
+    padding-bottom: 1px;
+  }
+  .settlement-player .avatar { width: 22px; height: 22px; flex-basis: 22px; }
+}
+
+.account-card > .account-submit { width: 100%; margin-top: 12px; }
+
+/* Give all four settlement rows room in the native landscape safe area. */
+@media (orientation: landscape) and (max-height: 450px) {
+  .polished .modal.settlement-dialog {
+    max-height: calc(var(--app-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+    padding: 8px 12px;
+    gap: 4px;
+  }
+  .polished .settlement-dialog .modal-head { padding-bottom: 0; }
+  .polished .settlement-dialog .result-footer { padding-top: 5px; }
+  .polished .settlement-dialog .result-footer .primary { margin-bottom: 0; }
+  .settlement-table { border-spacing: 0 3px; }
+  .settlement-table th { line-height: 12px; }
+  .settlement-table td, .settlement-table td:first-child { padding-top: 2px; padding-bottom: 2px; }
+  .settlement-rank { line-height: 26px; }
+  .settlement-rank b { font-size: 22px; line-height: 26px; }
+  .settlement-player .avatar { height: 28px; width: 28px; flex-basis: 28px; }
+  .settlement-player strong { font-size: 13px; line-height: 16px; }
+  .settlement-player small { line-height: 11px; margin-top: 1px; }
+}
+@media (orientation: landscape) and (max-height: 350px) {
+  .polished .modal.settlement-dialog { padding-top: 6px; padding-bottom: 6px; gap: 3px; }
+  .polished .settlement-dialog .result-footer { padding-top: 3px; }
+  .settlement-table td, .settlement-table td:first-child { padding-top: 1px; padding-bottom: 1px; }
+  .settlement-rank, .settlement-rank b { font-size: 19px; line-height: 20px; }
+  .settlement-rank { font-size: 11px; }
+  .settlement-player .avatar { height: 22px; width: 22px; flex-basis: 22px; }
+  .settlement-player strong { font-size: 11px; line-height: 13px; }
+  .settlement-player small { font-size: 8px; line-height: 9px; }
+}

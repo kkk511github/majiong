@@ -1,0 +1,116 @@
+{
+  "version": "0.6.8",
+  "build": 28,
+  "changes": [
+    "Separate side meld and multi-column discard zones, including revealed final hands",
+    "Shared platform layout with stock, flower and round counts",
+    "Completed table records with per-round replay IDs",
+    "Stable numeric member IDs; server-enforced team-name visibility"
+  ],
+  "unitAndServerTests": 176,
+  "accountsRecordsAndReplayBrowserChecks": 9,
+  "layoutViewportChecks": 12,
+  "discardMarkerChecks": 2,
+  "androidPinsBundled": true,
+  "iosPinHookBundled": true,
+  "sourceSha256": {
+    "src/audio.ts": "023a898dca40ff20f18df914c399ec512c42465e308f0758e4085fce45db65c3",
+    "src/game-client.ts": "b55e6e16c17a4d6f2a93505f6d99ad7ad23e11556c4f21c1de328ce8c73f436d",
+    "server/service.ts": "c53c35d25604ff49cf11d86f6058bc31038647298adf01c1ce84d70b0febeb01",
+    "src/table-layout.css": "fefda4bdb5f68fc7d9fd8378f183664a9b3d1a9debcb219c50e902d13023347f",
+    "src/river-layout.ts": "3c7b8faeb4727a0bbff50966abf5d093ec77376734da4a52583e7fc8f5651635",
+    "src/MatchRecordDetails.tsx": "908873e6235762bf7c64551f4ecc0d3192c839158b37681f4df5ce928c3a537a",
+    "src/RecordsPanel.tsx": "c5b66e7b94504b359a4a80ea8cb866a6d9a02fb1a140c3e03fc9f4b096be2c2e",
+    "server/accounts.ts": "1aa43b6b721f807ebd8dfd6db85be067695fa3bb2f50a363ae8082d2d03cd143",
+    "server/records.ts": "a7bbd7a7ea05ccc7535feaf30d70acc247d8d1fb1a39de2965cf79dbb7267128",
+    "public/audio/qinhuai-evening.m4a": "828c04ac0955b74da626220c336ac2842854bbcac30e2b83071cb449158825b2"
+  },
+  "bgmAnalysis": {
+    "title": "秦淮晚风",
+    "durationSeconds": 106.66666666666667,
+    "sampleRate": 44100,
+    "channels": 2,
+    "peak": 0.7200000000000001,
+    "rms": 0.0658124604707908,
+    "clippedSamples": 0,
+    "loopBoundaryJump": 3.708486342666203e-37
+  },
+  "android": {
+    "version": "0.6.8",
+    "build": 28,
+    "variant": "release",
+    "certificateSha256": "d07fd4c522490b38e1d1d7aa8ea5c86cc3bd14a0e46cd86d86ec183e430b0928",
+    "sameCertificateAsPreviousRelease": true,
+    "signature": "APK Signature Scheme v2 verified",
+    "releaseShrinking": true,
+    "debuggable": false,
+    "webViewDebugging": false,
+    "cleartextTraffic": false,
+    "allowBackup": false,
+    "sourceMaps": false,
+    "qaProbe": false,
+    "zipalign16k": true,
+    "bundledFilesMatched": 86,
+    "bytes": 41192792,
+    "sha256": "7e17e075d4c726fce75eb9fbc65f019ae44bacfabe979c634da9c54f4946646a",
+    "requiresUninstallOfPreviousDebugBuild": true,
+    "canUpgradePreviousRelease": true,
+    "physicalAndroidInstallTested": false,
+    "androidViewportChecks": 6,
+    "standardViewportChecks": 6,
+    "discardMarkerChecks": 2,
+    "mixedHiddenKongChecked": true,
+    "revealedHandsChecked": true,
+    "tileArtBoundsChecked": true,
+    "scoreAndFlowerBoundsChecked": true
+  },
+  "ios": {
+    "version": "0.6.8",
+    "build": 28,
+    "method": "Ad Hoc / release-testing",
+    "signature": "Apple Distribution; strict signature verification passed",
+    "debuggable": false,
+    "registeredDevices": 4,
+    "currentIPhoneIncluded": true,
+    "profileExpiresAt": "2027-05-13T14:36:41Z",
+    "bytes": 43556181,
+    "sha256": "20fda1adb6e02cd918e56eeac98cfa11a5d60aa740b2bec0b96eca458540e15e",
+    "backend": "https://212.189.31.194/mahjong",
+    "landscapeOnly": true
+  },
+  "notes": [
+    "Android layout checked in six Chrome viewports; no physical Android device installation test",
+    "iOS Ad Hoc package installs only on registered devices in its provisioning profile",
+    "WeChat login requires platform approval and configuration; not enabled in this release"
+  ],
+  "staging": {
+    "version": "0.6.8",
+    "stageOnly": true,
+    "integrity": "ok",
+    "accounts": 8,
+    "uniqueIds": 8,
+    "idRange": {
+      "first": 100001,
+      "last": 100008
+    },
+    "idBackfillIdempotent": true,
+    "recordsAndDetails": true,
+    "adminTeamPrivacy": true,
+    "memberAndGuestPermissionChecks": true
+  },
+  "production": {
+    "version": "0.6.8",
+    "countsMatched": true,
+    "originalTableCount": 16,
+    "accounts": 8,
+    "uniqueMemberIds": 8,
+    "roundRecords": 10,
+    "matchRecords": 3,
+    "integrity": {
+      "integrity_check": "ok"
+    }
+  },
+  "simulatorNativeBuildAndLaunch": true,
+  "fourMeldsWith24DiscardsAndRevealedPairChecked": true,
+  "wechatLoginEnabled": false
+}

@@ -46,6 +46,16 @@ for (const [width, height] of [
     await page.getByRole("button", { name: "碰", exact: true }).click();
     const call = page.locator(".feedback-pung");
     await expect(call).toHaveCount(1);
+    await expect(call).toBeVisible();
+    await expect
+      .poll(() =>
+        call
+          .locator("img")
+          .evaluate(
+            (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
+          ),
+      )
+      .toBe(true);
     await expect(call.locator("strong")).toHaveText("碰");
     await expect(page.locator(".hand > .tile")).toHaveCount(11);
     await expect(page.locator('.hand > [data-tile="4"]')).toHaveAttribute(
@@ -76,13 +86,20 @@ for (const [width, height] of [
     expect(
       await call.evaluate((el) => {
         const r = el.getBoundingClientRect(),
-          c = document.querySelector(".table-center")!.getBoundingClientRect();
-        return (
-          r.right <= c.left ||
-          r.left >= c.right ||
-          r.bottom <= c.top ||
-          r.top >= c.bottom
-        );
+          occupied = [
+            ...document.querySelectorAll(
+              ".tile,.tile-back,.table-hud,.flower-rack,.game-actions",
+            ),
+          ];
+        return occupied.every((node) => {
+          const c = node.getBoundingClientRect();
+          return (
+            r.right <= c.left ||
+            r.left >= c.right ||
+            r.bottom <= c.top ||
+            r.top >= c.bottom
+          );
+        });
       }),
     ).toBe(true);
     mkdirSync("test-results/screenshots", { recursive: true });

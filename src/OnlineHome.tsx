@@ -144,21 +144,19 @@ export function OnlineHome({
   const waiting = active.filter(
     (t) => t.phase === "waiting" && t.seats.some((p) => !p),
   );
-  const recommended = [...active]
-    .sort((a, b) => {
-      const rank = (t: TableSummary) =>
-        t.phase === "waiting" && t.seats.some((p) => !p)
-          ? 0
-          : t.phase === "waiting"
-            ? 1
-            : 2;
-      return (
-        rank(a) - rank(b) ||
-        b.seats.filter(Boolean).length - a.seats.filter(Boolean).length ||
-        a.code.localeCompare(b.code)
-      );
-    })
-    .slice(0, 2);
+  const visibleTables = [...active].sort((a, b) => {
+    const rank = (t: TableSummary) =>
+      t.phase === "waiting" && t.seats.some((p) => !p)
+        ? 0
+        : t.phase === "waiting"
+          ? 1
+          : 2;
+    return (
+      rank(a) - rank(b) ||
+      b.seats.filter(Boolean).length - a.seats.filter(Boolean).length ||
+      a.code.localeCompare(b.code)
+    );
+  });
   return (
     <section className="online-home" aria-label="联机首页">
       <div className="home-welcome">
@@ -268,11 +266,14 @@ export function OnlineHome({
         </div>
         <div
           className="home-live-body"
+          role="region"
+          aria-label="全部实时牌桌，可上下滑动"
+          tabIndex={0}
           aria-busy={!live}
           data-refreshing={refreshing || undefined}
         >
-          {connected && recommended.length ? (
-            recommended.map((t) => (
+          {connected && visibleTables.length ? (
+            visibleTables.map((t) => (
               <HomeTable
                 key={t.code}
                 table={t}
@@ -325,8 +326,8 @@ export function OnlineHome({
           <span>
             {refreshing
               ? "正在更新空位 · 稍后即可入座"
-              : live && recommended.length
-                ? "点击空位入座 · 全员准备后开局"
+              : live && visibleTables.length
+                ? `共 ${visibleTables.length} 桌 · 上下滑动选桌`
                 : "好友联机 · 四人同桌"}
           </span>
           <button onClick={openTables}>

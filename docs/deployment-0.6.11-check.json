@@ -1,0 +1,43 @@
+{
+  "version": "0.6.11",
+  "health": {
+    "ok": true,
+    "service": "jinling-mahjong",
+    "version": "0.6.11"
+  },
+  "httpsValidated": true,
+  "internalAssets": {
+    "audio/mahjong-lobby.m4a": {
+      "sha256": "a8b504c41e30504f3268794ca71509f8ee0da38eca92e7a3240d6b022ae350a7",
+      "mime": "audio/mp4"
+    },
+    "audio/mahjong-table.m4a": {
+      "sha256": "7fafed8fe7e09085e6eab38858d954c13a3ed32c50380086a06b4677e6b53dc6",
+      "mime": "audio/mp4"
+    },
+    "art/effects/pung-gold-v1.png": {
+      "sha256": "c84d462aafb65a44a4b10693dc3ed67537ec19ca13917e3845ee9f9783e0488b",
+      "mime": "image/png"
+    }
+  },
+  "publicStaticBlocked": true,
+  "m4aContentType": "audio/mp4",
+  "stage": {
+    "version": "0.6.11",
+    "stageOnly": true,
+    "integrity": "ok",
+    "accounts": 9,
+    "uniqueIds": 9,
+    "idBackfillIdempotent": true,
+    "recordsAndDetails": true,
+    "adminTeamPrivacy": true,
+    "memberAndGuestPermissionChecks": true
+  },
+  "promotion": {
+    "onlinePlayersBeforeUpdate": 0,
+    "activeGamesBeforeUpdate": 0,
+    "databaseBackupCreated": true,
+    "allTableRowCountsPreserved": true,
+    "integrity": "ok"
+  }
+}

@@ -88,6 +88,27 @@ for (const [width, height, edge, bottom] of [
     await page.waitForTimeout(150);
     const board = await page.locator("#table-board").boundingBox();
     expect(board).toEqual({ x: 0, y: 0, width, height });
+    const profile = (await page
+      .locator(".my-info > div:first-child")
+      .boundingBox())!;
+    expect(profile.x).toBeGreaterThan(width * 0.6);
+    expect(profile.y).toBeGreaterThan(height * 0.7);
+    expect(profile.x + profile.width).toBeLessThanOrEqual(width);
+    expect(profile.y + profile.height).toBeLessThanOrEqual(height);
+    expect(
+      await page.locator(".my-info > div:first-child").evaluate((el) => {
+        const p = el.getBoundingClientRect();
+        return [...document.querySelectorAll(".hand .tile")].every((tile) => {
+          const b = tile.getBoundingClientRect();
+          return (
+            p.right <= b.left ||
+            p.left >= b.right ||
+            p.bottom <= b.top ||
+            p.top >= b.bottom
+          );
+        });
+      }),
+    ).toBe(true);
     for (const side of ["left", "right"]) {
       const matrix = await page
         .locator(`.opponent-${side} .opponent-hand .tile-back .tile-art`)

@@ -1,6 +1,7 @@
 import { test, expect } from "./browser-fixtures";
 import { mkdirSync, readFileSync } from "node:fs";
-const voice = JSON.parse(readFileSync("src/nanjing-female.json", "utf8"));
+const voice = JSON.parse(readFileSync("src/nanjing-male.json", "utf8"));
+const female = JSON.parse(readFileSync("src/nanjing-female.json", "utf8"));
 
 for (const [width, height] of [
   [568, 320],
@@ -48,6 +49,9 @@ for (const [width, height] of [
     await page.goto("/");
     await page.getByRole("button", { name: "设置", exact: true }).click();
     await expect(
+      page.getByRole("button", { name: "南京男声", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
       page.getByRole("switch", { name: "南京话报牌", exact: true }),
     ).toBeChecked();
     const preview = page.getByRole("button", {
@@ -82,6 +86,15 @@ for (const [width, height] of [
         return Math.max(...data.map(Math.abs));
       });
     await expect.poll(peak, { intervals: [20, 30, 50] }).toBeGreaterThan(0.001);
+    await page.getByRole("button", { name: "南京女声", exact: true }).click();
+    await preview.click();
+    await expect
+      .poll(() => page.evaluate(() => (window as any).__voiceStarts.length))
+      .toBe(2);
+    expect(await page.evaluate(() => (window as any).__voiceStarts[1])).toEqual(
+      [0, ...female.actions["自摸"]],
+    );
+    await expect.poll(peak, { intervals: [20, 30, 50] }).toBeGreaterThan(0.001);
     await page.getByRole("switch", { name: "南京话报牌", exact: true }).click();
     await expect(preview).toBeDisabled();
     await expect.poll(peak).toBeLessThan(0.0001);
@@ -93,6 +106,9 @@ for (const [width, height] of [
     });
     await page.reload();
     await page.getByRole("button", { name: "设置", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "南京女声", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(
       page.getByRole("slider", { name: "南京话报牌音量" }),
     ).toHaveValue("35");

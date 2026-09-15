@@ -16,7 +16,7 @@ export function AudioSettings({
             key: "music",
             volume: "musicVolume",
             label: "背景音乐",
-            detail: `${BACKGROUND_MUSIC.title} · 舒缓钢琴`,
+            detail: `${BACKGROUND_MUSIC.lobby.title} · ${BACKGROUND_MUSIC.table.title}`,
             icon: Music2,
           },
           {
@@ -74,7 +74,7 @@ export function AudioSettings({
                 {(["female", "male"] as const).map((gender) => (
                   <button
                     key={gender}
-                    aria-pressed={(value.voiceGender ?? "female") === gender}
+                    aria-pressed={(value.voiceGender ?? "male") === gender}
                     onClick={() => change({ voiceGender: gender })}
                   >
                     {gender === "female" ? "南京女声" : "南京男声"}

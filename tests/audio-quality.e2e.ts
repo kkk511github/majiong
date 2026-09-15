@@ -51,42 +51,49 @@ test("开局提示没有噪声、无叠播，静音与后台不会残留开局�
   expect(result.hidden.energy).toBe(0);
 });
 
-test("离线钢琴配乐可完整解码，循环边缘平滑，无削波", async ({ page }) => {
-  await page.goto("/");
-  const result = await page.evaluate(async () => {
-    const { BACKGROUND_MUSIC } = await import("/src/audio.ts" as string);
-    const context = new AudioContext();
-    const data = await (await fetch(BACKGROUND_MUSIC.file)).arrayBuffer();
-    const buffer = await context.decodeAudioData(data);
-    let peak = 0,
-      invalid = 0,
-      energy = 0,
-      edgePeak = 0;
-    for (let c = 0; c < buffer.numberOfChannels; c++) {
-      const s = buffer.getChannelData(c);
-      for (let i = 0; i < s.length; i++) {
-        if (!Number.isFinite(s[i])) invalid++;
-        peak = Math.max(peak, Math.abs(s[i]));
-        energy += s[i] ** 2;
-        if (i < 100 || i >= s.length - 100)
-          edgePeak = Math.max(edgePeak, Math.abs(s[i]));
+for (const [scene, duration] of [
+  ["lobby", 128.26],
+  ["table", 61.714],
+] as const)
+  test(`用户提供的${scene}配乐可完整解码，循环边缘平滑，无削波`, async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const result = await page.evaluate(async (scene) => {
+      const { BACKGROUND_MUSIC } = await import("/src/audio.ts" as string);
+      const context = new AudioContext();
+      const data = await (
+        await fetch(BACKGROUND_MUSIC[scene].file)
+      ).arrayBuffer();
+      const buffer = await context.decodeAudioData(data);
+      let peak = 0,
+        invalid = 0,
+        energy = 0,
+        edgePeak = 0;
+      for (let c = 0; c < buffer.numberOfChannels; c++) {
+        const s = buffer.getChannelData(c);
+        for (let i = 0; i < s.length; i++) {
+          if (!Number.isFinite(s[i])) invalid++;
+          peak = Math.max(peak, Math.abs(s[i]));
+          energy += s[i] ** 2;
+          if (i < 100 || i >= s.length - 100)
+            edgePeak = Math.max(edgePeak, Math.abs(s[i]));
+        }
       }
-    }
-    await context.close();
-    return {
-      duration: buffer.duration,
-      channels: buffer.numberOfChannels,
-      peak,
-      invalid,
-      rms: Math.sqrt(energy / buffer.length / buffer.numberOfChannels),
-      edgePeak,
-    };
+      await context.close();
+      return {
+        duration: buffer.duration,
+        channels: buffer.numberOfChannels,
+        peak,
+        invalid,
+        rms: Math.sqrt(energy / buffer.length / buffer.numberOfChannels),
+        edgePeak,
+      };
+    }, scene);
+    expect(Math.abs(result.duration - duration)).toBeLessThan(0.1);
+    expect(result.channels).toBe(2);
+    expect(result.peak).toBeLessThan(0.95);
+    expect(result.invalid).toBe(0);
+    expect(result.rms).toBeGreaterThan(0.04);
+    expect(result.edgePeak).toBeLessThan(0.01);
   });
-  expect(result.duration).toBeGreaterThan(106);
-  expect(result.duration).toBeLessThan(108);
-  expect(result.channels).toBe(2);
-  expect(result.peak).toBeLessThan(0.95);
-  expect(result.invalid).toBe(0);
-  expect(result.rms).toBeGreaterThan(0.04);
-  expect(result.edgePeak).toBeLessThan(0.01);
-});

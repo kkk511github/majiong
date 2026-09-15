@@ -9,7 +9,7 @@ export interface VoiceSprite {
   actions?: Record<string, number[]>;
 }
 export const voicePacks = { female, male };
-export const nanjingVoice: VoiceSprite = female;
+export const nanjingVoice: VoiceSprite = male;
 export const hasNanjingVoice =
   !!nanjingVoice.file && nanjingVoice.cues.length === 34;
 

@@ -36,12 +36,10 @@ export function gameCues(before: View | null, after: View | null): Cue[] {
   return types;
 }
 
-// An original arrangement rendered ahead of time: no real-time music synthesis
-// or repeated note scheduler competes with dealing/rendering the table.
+// User-provided scene tracks, normalized with smooth loop boundaries offline.
 export const BACKGROUND_MUSIC = {
-  file: "/audio/qinhuai-evening.m4a",
-  title: "秦淮晚风",
-  loopSeconds: 106.66666666666667,
+  lobby: { file: "/audio/mahjong-lobby.m4a", title: "大厅背景音乐" },
+  table: { file: "/audio/mahjong-table.m4a", title: "牌局背景音乐" },
 };
 const hz = (note: number) => 440 * 2 ** ((note - 69) / 12);
 const clamp = (n: number) =>
@@ -56,7 +54,8 @@ export class GameAudio {
   private speaking = false;
   private communication: "off" | "recording" | "playing" = "off";
   private previewEpoch = 0;
-  private musicBuffer?: Promise<AudioBuffer | undefined>;
+  private musicBuffers = new Map<string, Promise<AudioBuffer | undefined>>();
+  private musicEpoch = 0;
   private musicAbort?: AbortController;
   private musicSource?: AudioBufferSourceNode;
   private musicEnvelope?: GainNode;
@@ -78,14 +77,45 @@ export class GameAudio {
   };
 
   configure(preferences: AudioPreferences, table: boolean) {
+    const track = this.musicTrack;
     this.preferences = preferences;
     this.table = table;
-    this.voice?.setPack(voicePacks[preferences.voiceGender ?? "female"]);
+    if (track !== this.musicTrack) this.changeMusic();
+    this.voice?.setPack(voicePacks[preferences.voiceGender ?? "male"]);
     this.voice?.setEnabled(
       preferences.voice && this.visible && (table || this.replayActive),
     );
     this.setGains();
     this.ensureMusic();
+  }
+  private get musicTrack() {
+    return BACKGROUND_MUSIC[
+      this.table || this.replayActive ? "table" : "lobby"
+    ];
+  }
+  private changeMusic() {
+    this.musicEpoch++;
+    this.musicLoading = false;
+    clearTimeout(this.musicRetry);
+    const source = this.musicSource,
+      envelope = this.musicEnvelope;
+    this.musicSource = undefined;
+    this.musicEnvelope = undefined;
+    if (!source || !envelope || !this.context) return;
+    const now = this.context.currentTime;
+    envelope.gain.cancelScheduledValues(now);
+    envelope.gain.setValueAtTime(envelope.gain.value, now);
+    envelope.gain.linearRampToValueAtTime(0, now + 0.18);
+    source.onended = () => {
+      source.disconnect();
+      envelope.disconnect();
+    };
+    try {
+      source.stop(now + 0.2);
+    } catch {
+      source.disconnect();
+      envelope.disconnect();
+    }
   }
   setCommunication(state: "off" | "recording" | "playing") {
     this.communication = state;
@@ -187,7 +217,7 @@ export class GameAudio {
         this.speaking = speaking;
         this.setGains();
       },
-      voicePacks[this.preferences.voiceGender ?? "female"],
+      voicePacks[this.preferences.voiceGender ?? "male"],
     );
     this.voice.setEnabled(
       this.preferences.voice &&
@@ -209,30 +239,36 @@ export class GameAudio {
       this.musicLoading
     )
       return;
+    const track = this.musicTrack,
+      epoch = this.musicEpoch;
     this.musicLoading = true;
-    this.musicBuffer ??= (async () => {
-      const abort = (this.musicAbort = new AbortController());
-      const timeout = setTimeout(() => abort.abort(), 10000);
-      try {
-        const response = await fetch(BACKGROUND_MUSIC.file, {
-          signal: abort.signal,
-        });
-        const bundled =
-          globalThis.location?.protocol === "capacitor:" &&
-          globalThis.location.host === "localhost";
-        if (!response.ok && !(response.status === 0 && bundled))
-          throw new Error("Music asset unavailable");
-        return await context.decodeAudioData(await response.arrayBuffer());
-      } catch {
-        if (this.context === context) this.musicBuffer = undefined;
-        return undefined;
-      } finally {
-        clearTimeout(timeout);
-      }
-    })();
-    void this.musicBuffer
+    let pending = this.musicBuffers.get(track.file);
+    if (!pending) {
+      pending = (async () => {
+        const abort = (this.musicAbort = new AbortController());
+        const timeout = setTimeout(() => abort.abort(), 10000);
+        try {
+          const response = await fetch(track.file, {
+            signal: abort.signal,
+          });
+          const bundled =
+            globalThis.location?.protocol === "capacitor:" &&
+            globalThis.location.host === "localhost";
+          if (!response.ok && !(response.status === 0 && bundled))
+            throw new Error("Music asset unavailable");
+          return await context.decodeAudioData(await response.arrayBuffer());
+        } catch {
+          if (this.context === context) this.musicBuffers.delete(track.file);
+          return undefined;
+        } finally {
+          clearTimeout(timeout);
+        }
+      })();
+      this.musicBuffers.set(track.file, pending);
+    }
+    void pending
       .then((buffer) => {
-        if (this.context !== context) return;
+        if (this.context !== context || this.musicEpoch !== epoch) return;
         this.musicLoading = false;
         if (!buffer) {
           clearTimeout(this.musicRetry);
@@ -251,10 +287,7 @@ export class GameAudio {
         const envelope = context.createGain();
         source.buffer = buffer;
         source.loop = true;
-        source.loopEnd = Math.min(
-          BACKGROUND_MUSIC.loopSeconds,
-          buffer.duration,
-        );
+        source.loopEnd = buffer.duration;
         envelope.gain.setValueAtTime(0, context.currentTime);
         envelope.gain.linearRampToValueAtTime(1, context.currentTime + 0.65);
         source.connect(envelope);
@@ -264,7 +297,8 @@ export class GameAudio {
         source.start(context.currentTime + 0.02);
       })
       .catch(() => {
-        if (this.context === context) this.musicLoading = false;
+        if (this.context === context && this.musicEpoch === epoch)
+          this.musicLoading = false;
       });
   }
 
@@ -391,7 +425,12 @@ export class GameAudio {
     );
   }
   setReplayActive(active: boolean) {
+    const track = this.musicTrack;
     this.replayActive = active;
+    if (track !== this.musicTrack) {
+      this.changeMusic();
+      this.ensureMusic();
+    }
     if (!active) this.stopVoice();
     this.voice?.setEnabled(
       this.preferences.voice && this.visible && (this.table || active),
@@ -427,6 +466,7 @@ export class GameAudio {
     this.voice?.stop();
   }
   dispose() {
+    this.musicEpoch++;
     this.previewEpoch++;
     this.voice?.dispose();
     this.voice = undefined;
@@ -443,7 +483,7 @@ export class GameAudio {
     this.musicEnvelope?.disconnect();
     this.musicSource = undefined;
     this.musicEnvelope = undefined;
-    this.musicBuffer = undefined;
+    this.musicBuffers.clear();
     this.musicLoading = false;
     this.speaking = false;
     this.lastDealAt = -Infinity;

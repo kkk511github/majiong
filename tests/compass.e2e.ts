@@ -38,7 +38,7 @@ for (const [width, height] of [
     });
     await page.goto("/");
     await expect(page.locator("#table-board")).toBeVisible();
-    for (const seconds of [0, 9, 90, 100, 300]) {
+    for (const seconds of [0, 9, 10, 90, 100, 300]) {
       view.deadline = Date.now() + seconds * 1000;
       push();
       await expect(page.locator(".table-center > strong")).toHaveText(
@@ -46,6 +46,16 @@ for (const [width, height] of [
       );
       const issues = await page.locator(".table-center").evaluate((el) => {
         const dial = el.getBoundingClientRect();
+        const number = el.querySelector("strong")!.getBoundingClientRect();
+        if (
+          Math.abs(
+            number.left + number.width / 2 - dial.left - dial.width / 2,
+          ) > 0.5 ||
+          Math.abs(
+            number.top + number.height / 2 - dial.top - dial.height / 2,
+          ) > 0.5
+        )
+          return ["countdown not centered"];
         const rects = [...el.querySelectorAll(".compass-wind, strong")].map(
           (node) => {
             const range = document.createRange();

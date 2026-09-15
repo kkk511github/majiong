@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TileVoice, discardedVoice, type VoiceSprite } from "../src/tile-voice";
+import {
+  TileVoice,
+  discardedVoice,
+  voicePacks,
+  nanjingVoice,
+  type VoiceSprite,
+} from "../src/tile-voice";
 import { createGame, newPlayer, startRound, viewFor } from "../shared/engine";
 import { seededRandom } from "../shared/tiles";
 import type { Seat } from "../shared/types";
@@ -51,6 +57,32 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("四家报牌", () => {
+  it.each(["male", "female"] as const)(
+    "%s 所有实体牌都使用对应牌面片段，默认男声",
+    async (gender) => {
+      expect(nanjingVoice).toBe(voicePacks.male);
+      const { player, sources } = fixture();
+      player.setPack(voicePacks[gender]);
+      player.setEnabled(true);
+      for (let tile = 0; tile < 124; tile++) {
+        player.say(`tile-${tile}`, tile);
+        await vi.waitFor(() => expect(sources).toHaveLength(tile + 1), {
+          interval: 1,
+        });
+        expect(sources[tile].start).toHaveBeenCalledWith(
+          0,
+          ...voicePacks[gender].cues[Math.floor(tile / 4)],
+        );
+        sources[tile].onended();
+      }
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledWith(
+        voicePacks[gender].file,
+        expect.anything(),
+      );
+      player.dispose();
+    },
+  );
   it("四个座位只报服务器确认的新弃牌，同牌面不同实体也各报一次", () => {
     let a = before();
     for (const seat of [0, 1, 2, 3] as Seat[]) {

@@ -3,6 +3,7 @@
   "archiveSha256": "adf3010e24cacaf5a8e7e78586b7a1e7c062d931bce5bc1954b01f67974e416f",
   "tempo": 0.9,
   "sampleRate": 24000,
+  "mappingNote": "按录音内容：33–41 为筒，17–25 为条；二万使用同一说话人的二、万音节，不使用双眼皮外号。",
   "packs": {
     "male": {
       "card_1": {
@@ -10,296 +11,418 @@
           0.0,
           0.5725
         ],
+        "spoken": "一万",
         "source": "card_1_一万.mp3",
-        "sha256": "8ab18bfabb3518772a2e8cc00a03ee005772239202487b8bb28fcccf00f770bc"
+        "sha256": "8ab18bfabb3518772a2e8cc00a03ee005772239202487b8bb28fcccf00f770bc",
+        "pcmSha256": "dae650e974fa19972919ed15b88063ca9e95df2c6284ed472e5b3582458bcb7b",
+        "tileKind": 0
       },
       "card_2": {
         "cue": [
           0.5725,
-          0.888208
+          0.688667
         ],
-        "source": "card_2_二万.mp3",
-        "sha256": "c2156e6874f5dc0e6150ef1a16fe6cc3b674905f029cd39d4d6963fca66ccfab"
+        "spoken": "二万",
+        "source": "same-speaker 二 + 万",
+        "edits": [
+          {
+            "source": "card_34_二条.mp3",
+            "sha256": "a8bedc8d9a613e175a3acdc453aace33551edec320493cb8c236f3065d8fd61e",
+            "start": 0,
+            "end": 0.445,
+            "spoken": "二"
+          },
+          {
+            "source": "card_1_一万.mp3",
+            "sha256": "8ab18bfabb3518772a2e8cc00a03ee005772239202487b8bb28fcccf00f770bc",
+            "start": 0.29,
+            "end": null,
+            "spoken": "万"
+          }
+        ],
+        "joinSilenceMs": 10,
+        "joinFadeMs": 5,
+        "pcmSha256": "ab04a26df2c20e647465b891152a73dda605735d9997e6aad8eb240af4b5705e",
+        "tileKind": 1
       },
       "card_3": {
         "cue": [
-          1.460708,
+          1.261167,
           0.702208
         ],
+        "spoken": "三万",
         "source": "card_3_三万.mp3",
-        "sha256": "459da5c826b2319f9d911c0eff0b7f672661a90f204213dd31a7a88fdcfb16bb"
+        "sha256": "459da5c826b2319f9d911c0eff0b7f672661a90f204213dd31a7a88fdcfb16bb",
+        "pcmSha256": "4a876b893b067ac02a7a62f89ab2a9fc926033e5d56635cac80dd093481bfd59",
+        "tileKind": 2
       },
       "card_4": {
         "cue": [
-          2.162917,
+          1.963375,
           0.656042
         ],
+        "spoken": "四万",
         "source": "card_4_四万.mp3",
-        "sha256": "95d8e738a5c478cc0e3558cefcb461fe1f18d92727b38fb4b83479a075a0491e"
+        "sha256": "95d8e738a5c478cc0e3558cefcb461fe1f18d92727b38fb4b83479a075a0491e",
+        "pcmSha256": "b86f04eacf215b0d3048c6b3bdb92048633ffa04313a575ed2081ba716a0a2cf",
+        "tileKind": 3
       },
       "card_5": {
         "cue": [
-          2.818958,
+          2.619417,
           0.854042
         ],
+        "spoken": "五万",
         "source": "card_5_五万.mp3",
-        "sha256": "490790f2b76388dc3570f42ab8b4a7e0e4db289cb3a9de4854fc9831cc216b59"
+        "sha256": "490790f2b76388dc3570f42ab8b4a7e0e4db289cb3a9de4854fc9831cc216b59",
+        "pcmSha256": "bf23568da70e9fd10f74da115972630dfb8b6b94685e2ceb2de406a4c7d6460c",
+        "tileKind": 4
       },
       "card_6": {
         "cue": [
-          3.673,
+          3.473458,
           0.710208
         ],
+        "spoken": "六万",
         "source": "card_6_六万.mp3",
-        "sha256": "5e649fcd14226d2c6d6d134397e8fb5c01e9f30cc9783818d1f0af15d8231842"
+        "sha256": "5e649fcd14226d2c6d6d134397e8fb5c01e9f30cc9783818d1f0af15d8231842",
+        "pcmSha256": "2c7ef7cc3fea0bad308ce6a68155c1152bbe2dd68cb1ac57e6c5e3095778a90b",
+        "tileKind": 5
       },
       "card_7": {
         "cue": [
-          4.383208,
+          4.183667,
           0.61625
         ],
+        "spoken": "七万",
         "source": "card_7_七万.mp3",
-        "sha256": "a3f87f9e0d16f61589c32569efc5097372945ace0673b24f0a12a570d8c78cd7"
+        "sha256": "a3f87f9e0d16f61589c32569efc5097372945ace0673b24f0a12a570d8c78cd7",
+        "pcmSha256": "b6776feaa89701b23d2257827420dcb4f41c911651c21c1a66b2a25e1ae27e97",
+        "tileKind": 6
       },
       "card_8": {
         "cue": [
-          4.999458,
+          4.799917,
           0.629
         ],
+        "spoken": "八万",
         "source": "card_8_八万.mp3",
-        "sha256": "d71388b24475992675ea63c4390c175cf7dcb9ed218dd7cc50bf703d42fdeef7"
+        "sha256": "d71388b24475992675ea63c4390c175cf7dcb9ed218dd7cc50bf703d42fdeef7",
+        "pcmSha256": "d200447c103c975c526969e99776f50063750a1c458c9e9147fdff1584590024",
+        "tileKind": 7
       },
       "card_9": {
         "cue": [
-          5.628458,
+          5.428917,
           0.887833
         ],
+        "spoken": "九万",
         "source": "card_9_九万.mp3",
-        "sha256": "92f1ba8ccc80b38ef125c0909e5ca539b75654b0eade3b6c96bee82b30793a2d"
-      },
-      "card_17": {
-        "cue": [
-          6.516292,
-          0.660667
-        ],
-        "source": "card_17_一筒.mp3",
-        "sha256": "94431853423432e1717616e5fca1884f6d82b629a23f8fbdc0a9f4578b03c4bf"
-      },
-      "card_18": {
-        "cue": [
-          7.176958,
-          0.720667
-        ],
-        "source": "card_18_二筒.mp3",
-        "sha256": "c55d908577a6ccaac4dfa2e6ab6bfadcb7c28198bc6ad636caa6c1bacfa1a6e0"
-      },
-      "card_19": {
-        "cue": [
-          7.897625,
-          0.917875
-        ],
-        "source": "card_19_三筒.mp3",
-        "sha256": "1ab3dcfa1029835cc59eb0ab419d015a0cba2bf000861645e7429d2e7826b979"
-      },
-      "card_20": {
-        "cue": [
-          8.8155,
-          0.615833
-        ],
-        "source": "card_20_四筒.mp3",
-        "sha256": "814823a5877276b76773cd5edd5ef4ab1b2e79e073890f3d26c3bd802414aa27"
-      },
-      "card_21": {
-        "cue": [
-          9.431333,
-          0.75775
-        ],
-        "source": "card_21_五筒.mp3",
-        "sha256": "52e61fc53c481506e476581fd00a5188b5586b13ee395967ea280709dcd0ad1e"
-      },
-      "card_22": {
-        "cue": [
-          10.189083,
-          0.715
-        ],
-        "source": "card_22_六筒.mp3",
-        "sha256": "fc71b7276b326723763d86fe1e9fa6896afa0b67f13942e913a5359ca8539fa7"
-      },
-      "card_23": {
-        "cue": [
-          10.904083,
-          0.728917
-        ],
-        "source": "card_23_七筒.mp3",
-        "sha256": "5e0281c8cb6e2ff0186cca8f3d7ab53b23b1c3cf3f1052e53979554dc1da37f3"
-      },
-      "card_24": {
-        "cue": [
-          11.633,
-          0.905917
-        ],
-        "source": "card_24_八筒.mp3",
-        "sha256": "b8e07347f4a8b4ce621cad1fb8579dddd2019d06ae8ef6111a8f31701247b65b"
-      },
-      "card_25": {
-        "cue": [
-          12.538917,
-          0.808042
-        ],
-        "source": "card_25_九筒.mp3",
-        "sha256": "991cf97ea388ebb1c2d7e34fa0d62f7e840df920ca6b50f6f6a530f1069571b8"
+        "sha256": "92f1ba8ccc80b38ef125c0909e5ca539b75654b0eade3b6c96bee82b30793a2d",
+        "pcmSha256": "6349382257bd05da8994468dc0138229e7ac38c9e319b1ab94f6c65eb4963923",
+        "tileKind": 8
       },
       "card_33": {
         "cue": [
-          13.346958,
+          6.31675,
           0.608833
         ],
+        "spoken": "一筒",
         "source": "card_33_一条.mp3",
-        "sha256": "7731c6b83a5b7ae6ba468b3458f9866613725c07e8889fa834a18dd0143f8348"
+        "sha256": "7731c6b83a5b7ae6ba468b3458f9866613725c07e8889fa834a18dd0143f8348",
+        "pcmSha256": "566ea4e87ec2b06c224464c0fcb5d30b221273af94f54b2d0749490d94b38210",
+        "tileKind": 9
       },
       "card_34": {
         "cue": [
-          13.955792,
+          6.925583,
           0.658625
         ],
+        "spoken": "二筒",
         "source": "card_34_二条.mp3",
-        "sha256": "a8bedc8d9a613e175a3acdc453aace33551edec320493cb8c236f3065d8fd61e"
+        "sha256": "a8bedc8d9a613e175a3acdc453aace33551edec320493cb8c236f3065d8fd61e",
+        "pcmSha256": "1876a58c75240584aff10bd423e8f859e82d553a5b70e468866eb095563747e8",
+        "tileKind": 10
       },
       "card_35": {
         "cue": [
-          14.614417,
+          7.584208,
           0.824458
         ],
+        "spoken": "三筒",
         "source": "card_35_三条.mp3",
-        "sha256": "34a27363866c3731f719c4b3d2e4f7179a4ad9b16adb4bf4bc34c7fee331bdb6"
+        "sha256": "34a27363866c3731f719c4b3d2e4f7179a4ad9b16adb4bf4bc34c7fee331bdb6",
+        "pcmSha256": "3e5a447dce943fa566a0ad563b9799fd6548583941403ad2ddaa5b01e496caf0",
+        "tileKind": 11
       },
       "card_36": {
         "cue": [
-          15.438875,
+          8.408667,
           0.570333
         ],
+        "spoken": "四筒",
         "source": "card_36_四条.mp3",
-        "sha256": "fc705ec49a174ffa4a408ccae3ba1abf3ff85be11c7d87e037eb1e0da6f970d3"
+        "sha256": "fc705ec49a174ffa4a408ccae3ba1abf3ff85be11c7d87e037eb1e0da6f970d3",
+        "pcmSha256": "771f075e5edda20689a38937cffb2644b566f111dc0f1584910146540d07e43a",
+        "tileKind": 12
       },
       "card_37": {
         "cue": [
-          16.009208,
+          8.979,
           0.665
         ],
+        "spoken": "五筒",
         "source": "card_37_五条.mp3",
-        "sha256": "2833ed4d509f16111c96aa7325c22a041c7384256732599605b83bd31cdf5a80"
+        "sha256": "2833ed4d509f16111c96aa7325c22a041c7384256732599605b83bd31cdf5a80",
+        "pcmSha256": "8dbc78bfc9ecb6fde5b23412afd3b76d00753cde610c7a6436dc2c239f81a5e0",
+        "tileKind": 13
       },
       "card_38": {
         "cue": [
-          16.674208,
+          9.644,
           0.677667
         ],
+        "spoken": "六筒",
         "source": "card_38_六条.mp3",
-        "sha256": "36106b82b5fed85a5e21bcd7fe2b38ef02d461a99992ab917c6e73ba56e190db"
+        "sha256": "36106b82b5fed85a5e21bcd7fe2b38ef02d461a99992ab917c6e73ba56e190db",
+        "pcmSha256": "fdf9fd834f2096c4ed4401ab85d52b20deaa5cf0f74d0e8c4e0d670cb95f4e76",
+        "tileKind": 14
       },
       "card_39": {
         "cue": [
-          17.351875,
+          10.321667,
           0.601417
         ],
+        "spoken": "七筒",
         "source": "card_39_七条.mp3",
-        "sha256": "8009ff04705464fd7cb8a59e7e49438dbb77286b30697093d3893cbefacc3f33"
+        "sha256": "8009ff04705464fd7cb8a59e7e49438dbb77286b30697093d3893cbefacc3f33",
+        "pcmSha256": "800e1a28ea6f0a2bcb38c50e72f0c751150b581c686f044914ab925de96fb7ba",
+        "tileKind": 15
       },
       "card_40": {
         "cue": [
-          17.953292,
+          10.923083,
           0.807542
         ],
+        "spoken": "八筒",
         "source": "card_40_八条.mp3",
-        "sha256": "7bcbe87d2fd34f896b785d2d52dd92c80e1e2a45b8256e872f587f8af3f29cb0"
+        "sha256": "7bcbe87d2fd34f896b785d2d52dd92c80e1e2a45b8256e872f587f8af3f29cb0",
+        "pcmSha256": "a95cc2e4a32d638fef7ec7fdeb3cb6caa292cfc019c8ced16ce486fdb528b89f",
+        "tileKind": 16
       },
       "card_41": {
         "cue": [
-          18.760833,
+          11.730625,
           0.688208
         ],
+        "spoken": "九筒",
         "source": "card_41_九条.mp3",
-        "sha256": "8a4ab53e629b59b4f81caa95730de56f9633dcef91af3fc8a43514d10312281d"
+        "sha256": "8a4ab53e629b59b4f81caa95730de56f9633dcef91af3fc8a43514d10312281d",
+        "pcmSha256": "920bed1d186777816c2259a2e24113d07d5c6d42df47762822c6b7f6e1570385",
+        "tileKind": 17
+      },
+      "card_17": {
+        "cue": [
+          12.418833,
+          0.660667
+        ],
+        "spoken": "一条",
+        "source": "card_17_一筒.mp3",
+        "sha256": "94431853423432e1717616e5fca1884f6d82b629a23f8fbdc0a9f4578b03c4bf",
+        "pcmSha256": "1ab82ae587ea47b947df3bd75e7cb8a21ee89a11207d90a6023f9d61bfe500eb",
+        "tileKind": 18
+      },
+      "card_18": {
+        "cue": [
+          13.0795,
+          0.720667
+        ],
+        "spoken": "二条",
+        "source": "card_18_二筒.mp3",
+        "sha256": "c55d908577a6ccaac4dfa2e6ab6bfadcb7c28198bc6ad636caa6c1bacfa1a6e0",
+        "pcmSha256": "0e02b3050d74c7a2d31b360db1919c4c245a65abbb9638bef603df9b4536e87d",
+        "tileKind": 19
+      },
+      "card_19": {
+        "cue": [
+          13.800167,
+          0.917875
+        ],
+        "spoken": "三条",
+        "source": "card_19_三筒.mp3",
+        "sha256": "1ab3dcfa1029835cc59eb0ab419d015a0cba2bf000861645e7429d2e7826b979",
+        "pcmSha256": "25aec6d7c314ca76f0b490953255f31a2e982b8882e0d1c58e9a98d885e256e9",
+        "tileKind": 20
+      },
+      "card_20": {
+        "cue": [
+          14.718042,
+          0.615833
+        ],
+        "spoken": "四条",
+        "source": "card_20_四筒.mp3",
+        "sha256": "814823a5877276b76773cd5edd5ef4ab1b2e79e073890f3d26c3bd802414aa27",
+        "pcmSha256": "5359da9a081f7644bb8cc8b61e0af86afb1e4b6bd8540c12477071db0830b6bb",
+        "tileKind": 21
+      },
+      "card_21": {
+        "cue": [
+          15.333875,
+          0.75775
+        ],
+        "spoken": "五条",
+        "source": "card_21_五筒.mp3",
+        "sha256": "52e61fc53c481506e476581fd00a5188b5586b13ee395967ea280709dcd0ad1e",
+        "pcmSha256": "07280bb7320b83e119473f8a185e578d090e2052668079553ca0ef28703c8366",
+        "tileKind": 22
+      },
+      "card_22": {
+        "cue": [
+          16.091625,
+          0.715
+        ],
+        "spoken": "六条",
+        "source": "card_22_六筒.mp3",
+        "sha256": "fc71b7276b326723763d86fe1e9fa6896afa0b67f13942e913a5359ca8539fa7",
+        "pcmSha256": "748597d0522833319acdb380a32164ea80a2ff92628a3d7467b9c665757997b9",
+        "tileKind": 23
+      },
+      "card_23": {
+        "cue": [
+          16.806625,
+          0.728917
+        ],
+        "spoken": "七条",
+        "source": "card_23_七筒.mp3",
+        "sha256": "5e0281c8cb6e2ff0186cca8f3d7ab53b23b1c3cf3f1052e53979554dc1da37f3",
+        "pcmSha256": "9c9b61469e17310df867ddfbdc303be5fe87150773dc94bbe306e5af815e596c",
+        "tileKind": 24
+      },
+      "card_24": {
+        "cue": [
+          17.535542,
+          0.905917
+        ],
+        "spoken": "八条",
+        "source": "card_24_八筒.mp3",
+        "sha256": "b8e07347f4a8b4ce621cad1fb8579dddd2019d06ae8ef6111a8f31701247b65b",
+        "pcmSha256": "1e4682006351c26bb79e5ef8de62b95dbe8dc5f95709ed55c7fdabce28968edb",
+        "tileKind": 25
+      },
+      "card_25": {
+        "cue": [
+          18.441458,
+          0.808042
+        ],
+        "spoken": "九条",
+        "source": "card_25_九筒.mp3",
+        "sha256": "991cf97ea388ebb1c2d7e34fa0d62f7e840df920ca6b50f6f6a530f1069571b8",
+        "pcmSha256": "6548ae96a3ff79d5efe81a694aa3de24adce5a95b92fd3200ff2555339827d83",
+        "tileKind": 26
       },
       "card_49": {
         "cue": [
-          19.449042,
+          19.2495,
           0.618792
         ],
+        "spoken": "东",
         "source": "card_49_东风.mp3",
-        "sha256": "1be35b1777da95646a94efaf4e63004f59acaed2469c16b941055bf916ec3f48"
+        "sha256": "1be35b1777da95646a94efaf4e63004f59acaed2469c16b941055bf916ec3f48",
+        "pcmSha256": "4935f44e575727ea12c46518ede430871805c4bfd505c29ed19bd9989ad13ffa",
+        "tileKind": 27
       },
       "card_50": {
         "cue": [
-          20.067833,
+          19.868292,
           0.844583
         ],
+        "spoken": "南",
         "source": "card_50_南风.mp3",
-        "sha256": "e0f6437dc4b767ca5578b027667461ab1f47e52c04d1db1bfd00b53e23648fa7"
+        "sha256": "e0f6437dc4b767ca5578b027667461ab1f47e52c04d1db1bfd00b53e23648fa7",
+        "pcmSha256": "37b4b5771e20ad504fa591b0acae48fccbf908b3d2e596855f93f23262d5763f",
+        "tileKind": 28
       },
       "card_51": {
         "cue": [
-          20.912417,
+          20.712875,
           0.657333
         ],
+        "spoken": "西",
         "source": "card_51_西风.mp3",
-        "sha256": "42faad2544ca48f738e2662e31eaefd5486d94da8f18c54f56e6b01f406ba01f"
+        "sha256": "42faad2544ca48f738e2662e31eaefd5486d94da8f18c54f56e6b01f406ba01f",
+        "pcmSha256": "bfa2db0216e94443a73663f734f9ce0f94f27d1a798156016ff8e1d982721ce7",
+        "tileKind": 29
       },
       "card_52": {
         "cue": [
-          21.56975,
+          21.370208,
           0.59525
         ],
+        "spoken": "北",
         "source": "card_52_北风.mp3",
-        "sha256": "4695f966ecbad127cb1979757768b73a4dcd227c0bfe50e748b215d876f380b9"
+        "sha256": "4695f966ecbad127cb1979757768b73a4dcd227c0bfe50e748b215d876f380b9",
+        "pcmSha256": "9b14a490f1bfe24e32c0ce0c529973020352ade008f50aca665e42dbdb835112",
+        "tileKind": 30
       },
       "碰": {
         "cue": [
-          22.165,
+          21.965458,
           0.508458
         ],
+        "spoken": "碰",
         "source": "event_2_吃(左).mp3",
-        "sha256": "c7fa32a8043c75f76d474dcaa98c78ffc433d77817868aae1d6a3705f43d6500"
+        "sha256": "c7fa32a8043c75f76d474dcaa98c78ffc433d77817868aae1d6a3705f43d6500",
+        "pcmSha256": "0f48040a67f11614974fc4400eba3abeb8c7b288eb33a09c5d2b1ce00964d239"
       },
       "杠": {
         "cue": [
-          22.673458,
+          22.473917,
           0.5215
         ],
+        "spoken": "杠",
         "source": "event_3_吃(中).mp3",
-        "sha256": "45cb1495aa412c4d6da0cffe412130a024cc7839862360e8390e62df19ada2ca"
+        "sha256": "45cb1495aa412c4d6da0cffe412130a024cc7839862360e8390e62df19ada2ca",
+        "pcmSha256": "76b24a7f470563527b711dc57b9b25b062afb5a769b937b24f9ceb7e15286af5"
       },
       "听": {
         "cue": [
-          23.194958,
+          22.995417,
           0.485875
         ],
+        "spoken": "听",
         "source": "event_4_吃(右).mp3",
-        "sha256": "5729039049d102e90db2deacdfbd159438f978f12844bbb600526d8d4b69bd69"
+        "sha256": "5729039049d102e90db2deacdfbd159438f978f12844bbb600526d8d4b69bd69",
+        "pcmSha256": "eff8353db1ede0f455a8ad5cc05dc0f6d5e51f12a6f9a6bf133113c4a9733ff1"
       },
       "胡了": {
         "cue": [
-          23.680833,
+          23.481292,
           0.51825
         ],
+        "spoken": "胡了",
         "source": "event_5_碰.mp3",
-        "sha256": "bf73464675a260ff6bb54d746d99f240f35e8368a0e9b7349919ca4ec992ba7f"
+        "sha256": "bf73464675a260ff6bb54d746d99f240f35e8368a0e9b7349919ca4ec992ba7f",
+        "pcmSha256": "18678f80e13591be972ce1387e01abd6405118b02584ea20dd7ac85de90156d8"
       },
       "自摸": {
         "cue": [
-          24.199083,
+          23.999542,
           0.720833
         ],
+        "spoken": "自摸",
         "source": "event_6_定章(自摸).mp3",
-        "sha256": "3b4ff671d9e96e306e15e759264e0881707e20d54c678a29918711786d430e74"
+        "sha256": "3b4ff671d9e96e306e15e759264e0881707e20d54c678a29918711786d430e74",
+        "pcmSha256": "f8b1370fa752ef1ec4305b8820c4c4583da9ac3a2f9ea1375ae0a376181ac74d"
       },
       "补花": {
         "cue": [
-          24.919917,
+          24.720375,
           0.613208
         ],
+        "spoken": "补花",
         "source": "event_11_补花.mp3",
-        "sha256": "6512c8cc0792ab0331b512b764d269c8184cc3cd56e60d7e73951e52cea497e1"
+        "sha256": "6512c8cc0792ab0331b512b764d269c8184cc3cd56e60d7e73951e52cea497e1",
+        "pcmSha256": "35da3fda780b5f1ce4ef7903581a1b6a76c733d03cb8e41aa11020bb541b1e98"
       }
     },
     "female": {
@@ -308,296 +431,418 @@
           0.0,
           0.613292
         ],
+        "spoken": "一万",
         "source": "card_1_一万.mp3",
-        "sha256": "ceab63161ffd33cd5cc0dba9dc7a4f048aac60ed7dd5a11fd13cc2d7a004b1e0"
+        "sha256": "ceab63161ffd33cd5cc0dba9dc7a4f048aac60ed7dd5a11fd13cc2d7a004b1e0",
+        "pcmSha256": "328f4652f85b575ec6cf6e1e5e2fb8e731e30e478f579bb438692d85bc5935c7",
+        "tileKind": 0
       },
       "card_2": {
         "cue": [
           0.613292,
-          0.937333
+          0.685042
         ],
-        "source": "card_2_二万.mp3",
-        "sha256": "9abc677817d9e587c442ca3d96462d02519b9589898e275380b84f4bf5e071d0"
+        "spoken": "二万",
+        "source": "same-speaker 二 + 万",
+        "edits": [
+          {
+            "source": "card_34_二条.mp3",
+            "sha256": "55ea4d9e97c92143e22b3d50af29807d477e0fd8f916320365102fb9c2a899fc",
+            "start": 0,
+            "end": 0.405,
+            "spoken": "二"
+          },
+          {
+            "source": "card_1_一万.mp3",
+            "sha256": "ceab63161ffd33cd5cc0dba9dc7a4f048aac60ed7dd5a11fd13cc2d7a004b1e0",
+            "start": 0.39,
+            "end": null,
+            "spoken": "万"
+          }
+        ],
+        "joinSilenceMs": 10,
+        "joinFadeMs": 5,
+        "pcmSha256": "affdb49c6b582dfeaf3c03c3d336c31e6b6ceafc9cf9092631dc60193d7036ed",
+        "tileKind": 1
       },
       "card_3": {
         "cue": [
-          1.550625,
+          1.298333,
           0.75325
         ],
+        "spoken": "三万",
         "source": "card_3_三万.mp3",
-        "sha256": "f1875d0307bd09883a2abee3bdbbeac8b194605c5c19f1787a500f254b5db0ee"
+        "sha256": "f1875d0307bd09883a2abee3bdbbeac8b194605c5c19f1787a500f254b5db0ee",
+        "pcmSha256": "b18b994ad73808ff45b8890491b8942b71aa7a99ac103bdb1ed39603d21b76f2",
+        "tileKind": 2
       },
       "card_4": {
         "cue": [
-          2.303875,
+          2.051583,
           0.619333
         ],
+        "spoken": "四万",
         "source": "card_4_四万.mp3",
-        "sha256": "a28de5a8e2e706d731b34f9090f88dfbc23033a15f86c7ef86dcc75c41090a19"
+        "sha256": "a28de5a8e2e706d731b34f9090f88dfbc23033a15f86c7ef86dcc75c41090a19",
+        "pcmSha256": "bf93f9909c30fa146ac0085473d7ca08ccfcb9c2acee92507e4e08f5b1a57091",
+        "tileKind": 3
       },
       "card_5": {
         "cue": [
-          2.923208,
+          2.670917,
           0.746375
         ],
+        "spoken": "五万",
         "source": "card_5_五万.mp3",
-        "sha256": "db62d72cd96dfe233ea7d5f09da3e8bd7be1422c15b8940563a73456e4446e4a"
+        "sha256": "db62d72cd96dfe233ea7d5f09da3e8bd7be1422c15b8940563a73456e4446e4a",
+        "pcmSha256": "a0656dda43671754a20ffa7250976df410da1732a5fe90a2de42f37adc6f4940",
+        "tileKind": 4
       },
       "card_6": {
         "cue": [
-          3.669583,
+          3.417292,
           0.65075
         ],
+        "spoken": "六万",
         "source": "card_6_六万.mp3",
-        "sha256": "8287eb8eab3b0209d9ba80dffc6c023f65692ea07b30460bcb803580fd9b517e"
+        "sha256": "8287eb8eab3b0209d9ba80dffc6c023f65692ea07b30460bcb803580fd9b517e",
+        "pcmSha256": "bacd9bb9f14b07734a8c2ea020aababd1a6471fc6df9aab28b23d1a23d7f165a",
+        "tileKind": 5
       },
       "card_7": {
         "cue": [
-          4.320333,
+          4.068042,
           0.688792
         ],
+        "spoken": "七万",
         "source": "card_7_七万.mp3",
-        "sha256": "9a1ab97f0ab3778c716b0b97b4dad7fd01aec0f3f74b398a84f8dc0d7a7fa748"
+        "sha256": "9a1ab97f0ab3778c716b0b97b4dad7fd01aec0f3f74b398a84f8dc0d7a7fa748",
+        "pcmSha256": "08cf24127c15f57d505c3ab50091dc34d56461ec352ffa4913c1a31daaf1a88d",
+        "tileKind": 6
       },
       "card_8": {
         "cue": [
-          5.009125,
+          4.756833,
           0.693083
         ],
+        "spoken": "八万",
         "source": "card_8_八万.mp3",
-        "sha256": "e5cd84cacd5194ea0e539eb2c0189a9434e1767dd00285156f9bb86b0af776b1"
+        "sha256": "e5cd84cacd5194ea0e539eb2c0189a9434e1767dd00285156f9bb86b0af776b1",
+        "pcmSha256": "ae8454c8056aa5101c5bfe0f4e2e7165b1f24c3595b404b81eaa2b388cbd14bb",
+        "tileKind": 7
       },
       "card_9": {
         "cue": [
-          5.702208,
+          5.449917,
           0.853792
         ],
+        "spoken": "九万",
         "source": "card_9_九万.mp3",
-        "sha256": "d4208d912155cdb9d4974041bcbb83073eb396faf196cf3a22ac03bb463422e1"
-      },
-      "card_17": {
-        "cue": [
-          6.556,
-          0.734917
-        ],
-        "source": "card_17_一筒.mp3",
-        "sha256": "84868bc0a72cdbd86fb157562d9669990f930a2036623be0e6b0e68c1b41460b"
-      },
-      "card_18": {
-        "cue": [
-          7.290917,
-          0.805292
-        ],
-        "source": "card_18_二筒.mp3",
-        "sha256": "905d6eb7e08dcf0f7d361c62129f3f96780cc09e8b0861819a27cfff03bbdba7"
-      },
-      "card_19": {
-        "cue": [
-          8.096208,
-          0.835333
-        ],
-        "source": "card_19_三筒.mp3",
-        "sha256": "0fe1c72582e457e68784a038044e92093a6edace0c807d142feaebad6934278a"
-      },
-      "card_20": {
-        "cue": [
-          8.931542,
-          0.556833
-        ],
-        "source": "card_20_四筒.mp3",
-        "sha256": "d9e9b67f57e309616f2634533e0fc43843afae5429e998c3ae2bf29fda854de6"
-      },
-      "card_21": {
-        "cue": [
-          9.488375,
-          0.823167
-        ],
-        "source": "card_21_五筒.mp3",
-        "sha256": "356ddeefd96b92a193079739d2f0689c3385068acbcff1fa297b88ab3656f3ee"
-      },
-      "card_22": {
-        "cue": [
-          10.311542,
-          0.831
-        ],
-        "source": "card_22_六筒.mp3",
-        "sha256": "27e5cc71444c4f6f576960c4c8f1589812bca7f1135d75385b1d8fc062ead7fe"
-      },
-      "card_23": {
-        "cue": [
-          11.142542,
-          0.789708
-        ],
-        "source": "card_23_七筒.mp3",
-        "sha256": "b08b9ad96ff75dfb44350cc2a18de0b46357a32bc6795b79c9a23a20d629b77e"
-      },
-      "card_24": {
-        "cue": [
-          11.93225,
-          0.745708
-        ],
-        "source": "card_24_八筒.mp3",
-        "sha256": "e37fefdaa6e3610255e1c24c3aa2fff1c77371c45441ce8b46f0cb1f411dc3e1"
-      },
-      "card_25": {
-        "cue": [
-          12.677958,
-          0.84375
-        ],
-        "source": "card_25_九筒.mp3",
-        "sha256": "9b0987fd1f48be5098129b8d77d86ee83c21f4332938aa347daa7caf3f739275"
+        "sha256": "d4208d912155cdb9d4974041bcbb83073eb396faf196cf3a22ac03bb463422e1",
+        "pcmSha256": "903b36d4e89b94251d2cc5aad07f8859e3539b7106514f853a49bd7d6463519b",
+        "tileKind": 8
       },
       "card_33": {
         "cue": [
-          13.521708,
+          6.303708,
           0.788792
         ],
+        "spoken": "一筒",
         "source": "card_33_一条.mp3",
-        "sha256": "fa229643a73269e21cb8607fd1f9934146cda86b5efc15121bd1696a28129d41"
+        "sha256": "fa229643a73269e21cb8607fd1f9934146cda86b5efc15121bd1696a28129d41",
+        "pcmSha256": "a5050da53d6d1fe1e91208b9fdf2a9864737eefbfdfe5bca08c21f538799ddbb",
+        "tileKind": 9
       },
       "card_34": {
         "cue": [
-          14.3105,
+          7.0925,
           0.836417
         ],
+        "spoken": "二筒",
         "source": "card_34_二条.mp3",
-        "sha256": "55ea4d9e97c92143e22b3d50af29807d477e0fd8f916320365102fb9c2a899fc"
+        "sha256": "55ea4d9e97c92143e22b3d50af29807d477e0fd8f916320365102fb9c2a899fc",
+        "pcmSha256": "64a2ddeda62aaba228254ec1f451ca9ac7f49f975d957d3c7e6d46a3a0730ebd",
+        "tileKind": 10
       },
       "card_35": {
         "cue": [
-          15.146917,
+          7.928917,
           0.829542
         ],
+        "spoken": "三筒",
         "source": "card_35_三条.mp3",
-        "sha256": "f01cc3df1d3f4b154ddbf3ecd3b2df59c8c9f6943d9a0b586b89f5937c9593ad"
+        "sha256": "f01cc3df1d3f4b154ddbf3ecd3b2df59c8c9f6943d9a0b586b89f5937c9593ad",
+        "pcmSha256": "786d8b3c0bf5a0008887877860236d7f05d3c2b74957befe2d11a9c4fea6c1b0",
+        "tileKind": 11
       },
       "card_36": {
         "cue": [
-          15.976458,
+          8.758458,
           0.772625
         ],
+        "spoken": "四筒",
         "source": "card_36_四条.mp3",
-        "sha256": "f80b4dc361cf2c98f31a32a00af2be5f8d6ad7672c4278ac44afe86c8796f3fd"
+        "sha256": "f80b4dc361cf2c98f31a32a00af2be5f8d6ad7672c4278ac44afe86c8796f3fd",
+        "pcmSha256": "8652057c60097d068b66f8eac0f1ed43de86543839d61562b9a4307b998748d3",
+        "tileKind": 12
       },
       "card_37": {
         "cue": [
-          16.749083,
+          9.531083,
           0.844333
         ],
+        "spoken": "五筒",
         "source": "card_37_五条.mp3",
-        "sha256": "cea75cf7b92ecd103d984bb310ae02650cd741d49ee60cbbcf2c25575cfb6c33"
+        "sha256": "cea75cf7b92ecd103d984bb310ae02650cd741d49ee60cbbcf2c25575cfb6c33",
+        "pcmSha256": "1e81dd21280d62a287d9ecfd2b4602ffc773681f43def5c1148617b768ea0008",
+        "tileKind": 13
       },
       "card_38": {
         "cue": [
-          17.593417,
+          10.375417,
           0.7955
         ],
+        "spoken": "六筒",
         "source": "card_38_六条.mp3",
-        "sha256": "957051cc9b33489265573dbca3b2f74ad83efcf110ddfd38219ae64de0701fe5"
+        "sha256": "957051cc9b33489265573dbca3b2f74ad83efcf110ddfd38219ae64de0701fe5",
+        "pcmSha256": "ed5ebd5871edd50ab86aeab3f17be5df9d430b227afc3f26403f30ffb4b59dbb",
+        "tileKind": 14
       },
       "card_39": {
         "cue": [
-          18.388917,
+          11.170917,
           0.769292
         ],
+        "spoken": "七筒",
         "source": "card_39_七条.mp3",
-        "sha256": "5686543a03d0c7c578e56cf87bc00f73131fa23e6b5f5fd856d1c268df1de755"
+        "sha256": "5686543a03d0c7c578e56cf87bc00f73131fa23e6b5f5fd856d1c268df1de755",
+        "pcmSha256": "ca45d693656119a0e84d8ad4c74794e3f9300654aa81fee03d655de118e68c2d",
+        "tileKind": 15
       },
       "card_40": {
         "cue": [
-          19.158208,
+          11.940208,
           0.780792
         ],
+        "spoken": "八筒",
         "source": "card_40_八条.mp3",
-        "sha256": "c87757e39444407e72a9756c8a252f57740765caa0f97478ac31e213c425a5cd"
+        "sha256": "c87757e39444407e72a9756c8a252f57740765caa0f97478ac31e213c425a5cd",
+        "pcmSha256": "ae0703b479611ef0d464f595b426bb85b70c84eecea45bae6a60dc68b50d53b6",
+        "tileKind": 16
       },
       "card_41": {
         "cue": [
-          19.939,
+          12.721,
           0.828417
         ],
+        "spoken": "九筒",
         "source": "card_41_九条.mp3",
-        "sha256": "36735a944a3d8172d42149c1fa07844622ef1fdc6d535883a48e656fe7c71135"
+        "sha256": "36735a944a3d8172d42149c1fa07844622ef1fdc6d535883a48e656fe7c71135",
+        "pcmSha256": "e2cdd92d6d575af24e327ce4197b47519a7bd59afd0b9ed9372e540cdd3e0a96",
+        "tileKind": 17
+      },
+      "card_17": {
+        "cue": [
+          13.549417,
+          0.734917
+        ],
+        "spoken": "一条",
+        "source": "card_17_一筒.mp3",
+        "sha256": "84868bc0a72cdbd86fb157562d9669990f930a2036623be0e6b0e68c1b41460b",
+        "pcmSha256": "0ff63de30cb6faf8afd3d715f41a5d963aa1b5760f871351bbe50d6ce0e2c883",
+        "tileKind": 18
+      },
+      "card_18": {
+        "cue": [
+          14.284333,
+          0.805292
+        ],
+        "spoken": "二条",
+        "source": "card_18_二筒.mp3",
+        "sha256": "905d6eb7e08dcf0f7d361c62129f3f96780cc09e8b0861819a27cfff03bbdba7",
+        "pcmSha256": "a39ab0ea4f921ddd708372fdd9a4f4317945ec8a4f8d04ab5459a83b0cdace65",
+        "tileKind": 19
+      },
+      "card_19": {
+        "cue": [
+          15.089625,
+          0.835333
+        ],
+        "spoken": "三条",
+        "source": "card_19_三筒.mp3",
+        "sha256": "0fe1c72582e457e68784a038044e92093a6edace0c807d142feaebad6934278a",
+        "pcmSha256": "061bee8f8cef0606f6efc65d87bf0b1565385125d5698521cb313250ca0056ca",
+        "tileKind": 20
+      },
+      "card_20": {
+        "cue": [
+          15.924958,
+          0.556833
+        ],
+        "spoken": "四条",
+        "source": "card_20_四筒.mp3",
+        "sha256": "d9e9b67f57e309616f2634533e0fc43843afae5429e998c3ae2bf29fda854de6",
+        "pcmSha256": "4e222e15d9d7ac4af97e7f5d72a34672c2aa1115661c846e89ae67cd3175729a",
+        "tileKind": 21
+      },
+      "card_21": {
+        "cue": [
+          16.481792,
+          0.823167
+        ],
+        "spoken": "五条",
+        "source": "card_21_五筒.mp3",
+        "sha256": "356ddeefd96b92a193079739d2f0689c3385068acbcff1fa297b88ab3656f3ee",
+        "pcmSha256": "ecfbe30ec1b32d12c4329d98e10569707b699b905d2ac3c0a78f05d318fb1c25",
+        "tileKind": 22
+      },
+      "card_22": {
+        "cue": [
+          17.304958,
+          0.831
+        ],
+        "spoken": "六条",
+        "source": "card_22_六筒.mp3",
+        "sha256": "27e5cc71444c4f6f576960c4c8f1589812bca7f1135d75385b1d8fc062ead7fe",
+        "pcmSha256": "c8204565c239b11f5cfb24c1ff59cfbe0dad6efd6b46d13d8930f7b0f3a6f55e",
+        "tileKind": 23
+      },
+      "card_23": {
+        "cue": [
+          18.135958,
+          0.789708
+        ],
+        "spoken": "七条",
+        "source": "card_23_七筒.mp3",
+        "sha256": "b08b9ad96ff75dfb44350cc2a18de0b46357a32bc6795b79c9a23a20d629b77e",
+        "pcmSha256": "f2a41b6f455499559a5118cf4bbafd3cc944417821dcf91231e1275eaca0e25e",
+        "tileKind": 24
+      },
+      "card_24": {
+        "cue": [
+          18.925667,
+          0.745708
+        ],
+        "spoken": "八条",
+        "source": "card_24_八筒.mp3",
+        "sha256": "e37fefdaa6e3610255e1c24c3aa2fff1c77371c45441ce8b46f0cb1f411dc3e1",
+        "pcmSha256": "3db2de460ed5211727fd67edb5546843c92bf7184def5966ad4f07a21fe77d2a",
+        "tileKind": 25
+      },
+      "card_25": {
+        "cue": [
+          19.671375,
+          0.84375
+        ],
+        "spoken": "九条",
+        "source": "card_25_九筒.mp3",
+        "sha256": "9b0987fd1f48be5098129b8d77d86ee83c21f4332938aa347daa7caf3f739275",
+        "pcmSha256": "d917f1ff5c25cf4eea6677f9c9b11e9a53edf363755618dc84c98f0e9aa588d8",
+        "tileKind": 26
       },
       "card_49": {
         "cue": [
-          20.767417,
+          20.515125,
           0.832917
         ],
+        "spoken": "东",
         "source": "card_49_东风.mp3",
-        "sha256": "cfca77473214da258ca7b480030e0eddc882ba10cf122846e0f23f519683f180"
+        "sha256": "cfca77473214da258ca7b480030e0eddc882ba10cf122846e0f23f519683f180",
+        "pcmSha256": "5529e08bca664481c5d31095b60539ec7faac34d8468f77896c823794acef1fe",
+        "tileKind": 27
       },
       "card_50": {
         "cue": [
-          21.600333,
+          21.348042,
           0.864458
         ],
+        "spoken": "南",
         "source": "card_50_南风.mp3",
-        "sha256": "c8dc808c1cbb0b142516373fad61e680c90d37f8fe5500b2d3b715247638b6df"
+        "sha256": "c8dc808c1cbb0b142516373fad61e680c90d37f8fe5500b2d3b715247638b6df",
+        "pcmSha256": "14b26c9e1ef2143a7d09b3ccb9f92ff094ab659d8a54aebad0dc1dc33af40844",
+        "tileKind": 28
       },
       "card_51": {
         "cue": [
-          22.464792,
+          22.2125,
           0.848875
         ],
+        "spoken": "西",
         "source": "card_51_西风.mp3",
-        "sha256": "8e5ed73c5e31759003008d979c073522a644c75266126bbf810834b6eba67920"
+        "sha256": "8e5ed73c5e31759003008d979c073522a644c75266126bbf810834b6eba67920",
+        "pcmSha256": "4808e6259337b7e85a094e56986b927d270f864c188bb23e2730f3e674f8425a",
+        "tileKind": 29
       },
       "card_52": {
         "cue": [
-          23.313667,
+          23.061375,
           0.757292
         ],
+        "spoken": "北",
         "source": "card_52_北风.mp3",
-        "sha256": "8fb287c300ecd3145f44c5350c5463e53089f67c3816263c1b066f07091e0109"
+        "sha256": "8fb287c300ecd3145f44c5350c5463e53089f67c3816263c1b066f07091e0109",
+        "pcmSha256": "8d1f91e59dc121d5f7db6615843ef02ea6368ce3b89d584d7db31ecd6e508595",
+        "tileKind": 30
       },
       "碰": {
         "cue": [
-          24.070958,
+          23.818667,
           0.578208
         ],
+        "spoken": "碰",
         "source": "event_2_吃(左).mp3",
-        "sha256": "7cca9f3360f4253f1f23858332c6c67018cdfcf4e27b9f5ac3efd6842047cac7"
+        "sha256": "7cca9f3360f4253f1f23858332c6c67018cdfcf4e27b9f5ac3efd6842047cac7",
+        "pcmSha256": "dfdaf46eafc9ed2ffe92404be762c2173a6ad8e9de735b1cc01381ba2e5cddcc"
       },
       "杠": {
         "cue": [
-          24.649167,
+          24.396875,
           0.497417
         ],
+        "spoken": "杠",
         "source": "event_3_吃(中).mp3",
-        "sha256": "a4d05937e8d27bfe8976aabd9228439d396d5532250558c8193911a5ff548763"
+        "sha256": "a4d05937e8d27bfe8976aabd9228439d396d5532250558c8193911a5ff548763",
+        "pcmSha256": "b0e63abfee6e45d74456ebb72c53d73425507c0af3456639fd19ca462d75c5a5"
       },
       "听": {
         "cue": [
-          25.146583,
+          24.894292,
           0.558208
         ],
+        "spoken": "听",
         "source": "event_4_吃(右).mp3",
-        "sha256": "8af1bc5fb02e93e1c2cd9bc24b506f24302403e76af888e29f4fa30f3fdcb9d0"
+        "sha256": "8af1bc5fb02e93e1c2cd9bc24b506f24302403e76af888e29f4fa30f3fdcb9d0",
+        "pcmSha256": "65a1b6c08001a9e40e6e76a2d9dfbb5bd37667dc6f7bd6ad1d42a09f26b3e485"
       },
       "胡了": {
         "cue": [
-          25.704792,
+          25.4525,
           0.7435
         ],
+        "spoken": "胡了",
         "source": "event_5_碰.mp3",
-        "sha256": "1f270542b3a0b80e6f2c8daee3f31b279f0a6aad49d86e6fea859464eb1a0181"
+        "sha256": "1f270542b3a0b80e6f2c8daee3f31b279f0a6aad49d86e6fea859464eb1a0181",
+        "pcmSha256": "dda2c000af44b3da52f77a3fcd42f6817de9b58401c187c138fa97a465511a70"
       },
       "自摸": {
         "cue": [
-          26.448292,
+          26.196,
           0.524208
         ],
+        "spoken": "自摸",
         "source": "event_6_定章.mp3",
-        "sha256": "c3037d99b4288b37c9111b4d25002ab8dd11d388547025d7316e8ec5c3122be7"
+        "sha256": "c3037d99b4288b37c9111b4d25002ab8dd11d388547025d7316e8ec5c3122be7",
+        "pcmSha256": "f81c3a986a718d3809b27eae5984ee93e43d729051469467fe8b1a71972bcb5a"
       },
       "补花": {
         "cue": [
-          26.9725,
+          26.720208,
           0.714
         ],
+        "spoken": "补花",
         "source": "event_11_杠(幺).mp3",
-        "sha256": "0804a02a2b670bcc46166b8b967c109a2d39e44768ad3f5398eacac65350e1b6"
+        "sha256": "0804a02a2b670bcc46166b8b967c109a2d39e44768ad3f5398eacac65350e1b6",
+        "pcmSha256": "9200b9c99ed62c10289d1f6ebe366221045b74b3f039cb8014fda77f588323eb"
       }
     }
   }

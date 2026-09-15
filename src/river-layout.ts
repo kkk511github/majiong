@@ -36,6 +36,10 @@ export function riverLayoutFor(
     (maxTrackBottom - compass - 12) / 4,
     (maxTrackBottom - topOffset - 6) / (sideColumns * 0.72 + 2),
   );
+  // Apply the requested increase AFTER the old viewport caps. Otherwise those
+  // caps silently cancel it on phones. Slots use this same fixed larger size.
+  tileHeight *= 1.2;
+  compass = 72;
   if (tileScale > 1)
     compass = Math.min(
       compass,
@@ -49,14 +53,16 @@ export function riverLayoutFor(
   // tiles, not a new fit-to-count scale that would undo the 20% increase.
   const trackHeight = Math.max(
     height,
+    4 * tileHeight + compass + 2,
     tileScale > 1 ? 4 * tileHeight + compass + 12 : 0,
     sideColumns * farTileWidth + 2 * farTileHeight + 1 + trackGap,
     sideColumns * farTileWidth + 2 * tileHeight + 1 + trackGap,
   );
+  const ownHeight = Math.max(height, 4 * tileHeight + compass + 2);
   return {
     width,
     height: trackHeight,
-    ownHeight: trackHeight,
+    ownHeight,
     topShift: Math.max(0, 12 * farTileWidth + trackGap - width / 2 - 30),
     topOffset,
     compass,
@@ -104,7 +110,7 @@ export function riverSlot(
         }
       : {
           left: left - 8 * w + col * w - 8,
-          top: l.topOffset + l.ownHeight - h - (row - 2) * (h + 1),
+          top: l.topOffset + l.height - h - (row - 2) * (h + 1),
         };
   if (seat === 2)
     return row < 2

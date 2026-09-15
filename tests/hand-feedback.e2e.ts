@@ -111,9 +111,17 @@ for (const platform of ["standard", "android"])
           buttons.map((b) => b.getBoundingClientRect().top),
         );
       expect(Math.max(...rows) - Math.min(...rows)).toBeLessThan(1);
+      expect(
+        (await page.locator(".game-actions > button").first().boundingBox())!
+          .width,
+      ).toBeGreaterThanOrEqual(width <= 700 ? 44 : 48);
       const actions = (await page.locator(".game-actions").boundingBox())!;
       expect(actions.y).toBeGreaterThan(height * 0.45);
-      expect(actions.y + actions.height).toBeLessThanOrEqual(hand.y - 5);
+      expect(actions.y + actions.height).toBeLessThanOrEqual(hand.y - 2 + 0.1);
+      await expect(page.locator(".hand-feedback .action-bar")).toHaveAttribute(
+        "data-placement",
+        "clear",
+      );
       expect(actions.x + actions.width).toBeLessThan(width - 35);
       expect(
         await page.locator(".game-actions").evaluate((el) => {

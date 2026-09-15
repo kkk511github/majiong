@@ -224,8 +224,21 @@
 .home-live-body {
   min-height: 0;
   display: grid;
-  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-rows: minmax(126px, calc((100% - 10px) / 2));
+  align-content: start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #b4c18d #083f36;
+  scroll-padding-block: 4px;
   gap: 10px;
+}
+.home-live-body:focus-visible {
+  outline: 2px solid #edce73;
+  outline-offset: 2px;
 }
 .home-table {
   padding: 10px 12px;
@@ -539,6 +552,7 @@
   }
   .home-live-body {
     gap: 7px;
+    grid-auto-rows: minmax(106px, calc((100% - 7px) / 2));
   }
   .home-table {
     border-radius: 9px;

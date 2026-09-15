@@ -25,10 +25,11 @@ html:root[data-table-platform] #table-board {
     calc(var(--base-hand-tile) * var(--tile-scale)),
     calc((100vw - var(--edge-l) - var(--edge-r) - 12px) / 14)
   );
-  --field-top: max(
+  --base-field-top: max(
     clamp(70px, 18.5vh, 134px),
     calc(35px + var(--meld-h) + 5px)
   );
+  --field-top: var(--base-field-top);
   --side-flower-cols: 3;
 }
 html:root[data-table-platform] #table-board .hand {
@@ -529,7 +530,10 @@ html:root[data-table-platform] #table-board .table-layout-metrics {
   left: var(--edge-l);
   margin-right: var(--edge-r);
   width: var(--public-w);
-  height: var(--side-back-h);
+  height: calc(
+    100vh - var(--base-field-top) - var(--hand-height) - var(--bottom) - 60px
+  );
+  top: var(--base-field-top);
 }
 html:root[data-table-platform]
   #table-board

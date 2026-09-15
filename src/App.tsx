@@ -1,4 +1,5 @@
 import { RoomVoice } from "./RoomVoice";
+import { useActionPlacement } from "./action-placement";
 import { decisionCountdown } from "../shared/timing";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
@@ -168,9 +169,9 @@ export function App() {
       voice: storage.get("voice", storage.get("sound", true)),
       voiceVolume: storage.get("voiceVolume", 0.85),
       voiceGender:
-        storage.get<string>("voiceGender", "female") === "male"
-          ? "male"
-          : "female",
+        storage.get<string>("voiceGender", "male") === "female"
+          ? "female"
+          : "male",
       chat: storage.get("chat", true),
     }),
   );
@@ -497,7 +498,6 @@ export function App() {
     if (!gameActive || !viewport) return;
     const observer = new ResizeObserver(([entry]) => {
       const scale = 1;
-      const legacyHeight = entry.contentRect.height;
       const sideColumns = 6;
       // Resolve CSS lengths through an inert, permanent box. These dimensions
       // depend only on the viewport and safe areas, never on drawn/flower tiles.
@@ -505,6 +505,8 @@ export function App() {
         ".table-layout-metrics",
       )!;
       const metricBox = metrics.getBoundingClientRect();
+      const legacyHeight = metricBox.height;
+      const legacyBottom = legacyHeight;
       const edge = Math.max(
         metricBox.left,
         parseFloat(getComputedStyle(metrics).marginRight),
@@ -531,9 +533,7 @@ export function App() {
           Math.min(48, window.innerWidth * 0.06),
           // The hand container stays put when a selected tile rises 9px.
           // Leave another 9px of visible felt above that raised tile.
-          (handRef.current?.getBoundingClientRect().top ?? window.innerHeight) -
-            viewport.getBoundingClientRect().top -
-            60,
+          legacyBottom,
           scale,
           sideColumns,
           legacyHeight,
@@ -544,6 +544,9 @@ export function App() {
     observer.observe(viewport);
     return () => observer.disconnect();
   }, [gameActive, handRef]);
+  useActionPlacement(
+    `${gameActive}:${v?.revision}:${selected}:${riverLayout.tileHeight}:${riverLayout.height}:${riverLayout.width}`,
+  );
   const hintDiscard =
     mine?.hand.length && mine.hand.length % 3 === 2
       ? (selected ?? drawnTile)
@@ -826,7 +829,7 @@ export function App() {
                       查看已结束牌局的回放。声音设置和单人练习保存在此设备。
                     </p>
                   </div>
-                  <span className="version">金陵麻将 0.6.10 · 试打版</span>
+                  <span className="version">金陵麻将 0.6.11 · 试打版</span>
                 </section>
               </div>
             </>
@@ -1135,6 +1138,7 @@ export function App() {
                 {
                   "--river-rows": riverLayout.rows,
                   "--river-track-height": `${riverLayout.height}px`,
+                  "--river-center-height": `${riverLayout.ownHeight}px`,
                   "--river-columns": riverLayout.columns,
                   "--river-tile-height": `${riverLayout.tileHeight}px`,
                   "--river-tile-width": `${riverLayout.tileWidth}px`,
@@ -1415,7 +1419,7 @@ export function App() {
                   } as CSSProperties
                 }
               >
-                {hintKinds.length > 0 && (
+                {hintKinds.length > 0 && !v.actions.length && (
                   <div
                     className="hand-listening"
                     role="status"

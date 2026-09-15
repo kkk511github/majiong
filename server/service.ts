@@ -514,7 +514,7 @@ export function makeServer(
         JSON.stringify({
           ok: true,
           service: "jinling-mahjong",
-          version: "0.6.10",
+          version: "0.6.11",
         }),
       );
       return;
@@ -588,6 +588,7 @@ export function makeServer(
         ".json",
         ".wav",
         ".mp3",
+        ".m4a",
         ".woff",
         ".woff2",
       ]);
@@ -615,6 +616,7 @@ export function makeServer(
           ".json": "application/json",
           ".wav": "audio/wav",
           ".mp3": "audio/mpeg",
+          ".m4a": "audio/mp4",
           ".webp": "image/webp",
           ".jpg": "image/jpeg",
           ".jpeg": "image/jpeg",

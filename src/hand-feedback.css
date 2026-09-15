@@ -190,7 +190,7 @@ html:root[data-table-platform]
   transform: none;
   top: var(--opponent-top);
   left: calc(
-    var(--edge-l) + var(--side-flower-cols) * (var(--public-w) + 1px) + 16px
+    var(--edge-l) + var(--side-flower-cols) * (var(--public-w) + 1px) + 10px
   );
   right: auto;
 }
@@ -201,7 +201,7 @@ html:root[data-table-platform]
   flex-direction: row-reverse;
   left: auto;
   right: calc(
-    var(--edge-r) + var(--right-flower-cols) * (var(--public-w) + 1px) + 16px
+    var(--edge-r) + var(--right-flower-cols) * (var(--public-w) + 1px) + 10px
   );
 }
 html:root[data-table-platform]
@@ -405,7 +405,7 @@ html:root[data-table-platform]
 /* A fixed central strip keeps every action on one line above the hand. Side
    racks remain outside it; selecting a tile never changes the river size. */
 html:root[data-table-platform] #table-board .discard-field {
-  bottom: calc(var(--hand-height) + var(--bottom) + 60px);
+  bottom: calc(var(--hand-height) + var(--bottom) + 70px);
 }
 html:root[data-table-platform] #table-board .hand-feedback {
   left: calc(
@@ -416,17 +416,17 @@ html:root[data-table-platform] #table-board .hand-feedback {
     var(--edge-r) + var(--side-zone) + (var(--right-flower-cols) - 3) *
       (var(--public-w) + 1px) + 8px
   );
-  height: 44px;
+  height: 52px;
   align-items: center;
 }
 html:root[data-table-platform] #table-board .hand-feedback .action-bar {
-  --action-size: 40px;
+  --action-size: 48px;
   position: absolute;
   right: 0;
   left: auto;
   top: auto;
   bottom: 0;
-  height: 44px;
+  height: auto;
   margin: 0;
 }
 html:root[data-table-platform] #table-board .hand-feedback .game-actions {
@@ -437,18 +437,18 @@ html:root[data-table-platform] #table-board .hand-feedback .game-actions {
 }
 html:root[data-table-platform] #table-board .hand-listening {
   box-sizing: border-box;
-  max-width: calc(100% - var(--action-count) * 45px - 10px);
+  max-width: calc(100% - var(--action-count) * 57px - 10px);
   position: relative;
 }
 @media (max-width: 700px) {
   html:root[data-table-platform] #table-board .hand-feedback .action-bar {
-    --action-size: 34px;
+    --action-size: 44px;
   }
   html:root[data-table-platform] #table-board .hand-feedback .game-actions {
     gap: 4px;
   }
   html:root[data-table-platform] #table-board .hand-listening {
-    max-width: calc(100% - var(--action-count) * 38px - 8px);
+    max-width: calc(100% - var(--action-count) * 48px - 8px);
     padding: 2px 4px;
     gap: 4px;
   }
@@ -477,7 +477,7 @@ html:root[data-table-platform]
   position: fixed;
   left: calc(50% + var(--river-center-half) + 12px);
   right: auto;
-  top: 35px;
+  top: 30px;
   bottom: auto;
   margin: 0;
 }
@@ -488,4 +488,183 @@ html:root[data-table-platform]
   > .flower-rack
   .flower-rack-label {
   display: block;
+}
+
+/* Use the empty felt immediately below the across rack for the larger rivers. */
+html:root[data-table-platform] #table-board {
+  --field-top: calc(28px + var(--opponent-meld-h) + 2px);
+}
+html:root[data-table-platform] #table-board .opponent-top .opponent-rack {
+  top: 28px;
+}
+html:root[data-table-platform] #table-board .opponent-top .opponent-info {
+  grid-template-rows: 12px 12px;
+  row-gap: 1px;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-info
+  .avatar {
+  width: 26px;
+  height: 26px;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-info
+  .opponent-meta {
+  margin: 0;
+  line-height: 12px;
+  font-size: 10px;
+}
+html:root[data-table-platform]
+  #table-board
+  .opponent-top
+  .opponent-rack
+  > .flower-rack {
+  top: 28px;
+}
+html:root[data-table-platform] #table-board .hand {
+  bottom: max(2px, env(safe-area-inset-bottom));
+}
+html:root[data-table-platform] #table-board .my-info > div:last-child,
+html:root[data-table-platform] #table-board .game-topbar > div:last-child {
+  top: 1px;
+}
+/* This corner is reserved by the hand's existing width calculation. */
+html:root[data-table-platform] #table-board .my-info > div:first-child {
+  position: absolute;
+  top: auto;
+  left: auto;
+  right: var(--edge-r);
+  bottom: calc(var(--bottom) + 5px);
+  width: min(156px, calc(var(--flower-width) - 8px));
+  min-height: 46px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-rows: 19px 22px;
+  column-gap: 7px;
+  row-gap: 2px;
+  padding: 5px 7px;
+  border: 1px solid #baa97780;
+  border-radius: 10px;
+  background: #073c34d9;
+}
+html:root[data-table-platform]
+  #table-board
+  .my-info
+  > div:first-child
+  .player-portrait {
+  grid-row: 1 / 3;
+  grid-column: 1;
+  align-self: center;
+}
+html:root[data-table-platform] #table-board .my-info .avatar {
+  width: 36px;
+  height: 36px;
+}
+html:root[data-table-platform]
+  #table-board
+  .my-info
+  > div:first-child
+  > strong {
+  grid-row: 1;
+  grid-column: 2 / 4;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 19px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html:root[data-table-platform] #table-board .my-info .my-score {
+  grid-row: 2;
+  grid-column: 2;
+  font-size: 17px;
+  line-height: 22px;
+  white-space: nowrap;
+}
+html:root[data-table-platform] #table-board .my-info .seat-tag {
+  grid-row: 2;
+  grid-column: 3;
+  align-self: center;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+/* Separate tracks remain wide enough even at 100 seconds. */
+html:root[data-table-platform] #table-board .table-hud {
+  --dial-size: 72px;
+  top: calc(var(--river-center-height) / 2);
+  grid-template-columns: 30px 72px 30px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center {
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  grid-template-rows: 16px minmax(0, 1fr) 16px;
+  gap: 1px;
+  padding: 4px;
+  width: 72px;
+  height: 72px;
+  align-items: center;
+  justify-items: center;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  .compass-wind {
+  font-size: 16px;
+  line-height: 16px;
+  width: 16px;
+  height: 16px;
+}
+html:root[data-table-platform] #table-board .table-hud .table-center > strong {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font:
+    700 20px/1 ui-monospace,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+html:root[data-table-platform]
+  #table-board
+  .table-hud
+  .table-center
+  > strong.long-countdown {
+  font-size: 15px;
+}
+html:root[data-table-platform] #table-board .table-stock {
+  gap: 2px;
+}
+html:root[data-table-platform] #table-board .table-stock > div {
+  gap: 0;
+}
+html:root[data-table-platform] #table-board .table-stock span {
+  line-height: 12px;
+}
+
+/* Wide boards have room for taller two-column flower trays and large rivers. */
+@media (min-width: 1100px) and (min-height: 500px) {
+  html:root[data-table-platform]
+    #table-board:not(
+      :has(.opponent-left > .flower-rack .tile:nth-child(7))
+    ):not(:has(.hand-support .flower-rack .tile:nth-child(7))) {
+    --side-flower-cols: 2;
+  }
+  html:root[data-table-platform]
+    #table-board:not(:has(.opponent-right > .flower-rack .tile:nth-child(7))) {
+    --right-flower-cols: 2;
+  }
 }

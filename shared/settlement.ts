@@ -1,4 +1,6 @@
-import type { RoundRecord } from "./types";
+import type { Result, RoundRecord } from "./types";
+export const roundNet = (result: Result, seat: number) =>
+  (result.deltas[seat] ?? 0) + (result.externalDeltas?.[seat] ?? 0);
 export const signedScore = (value: number) =>
   value > 0 ? `+${value}` : String(value);
 export function settlementRows(record: RoundRecord) {
@@ -10,8 +12,11 @@ export function settlementRows(record: RoundRecord) {
       name,
       id: record.playerIds?.[seat] ?? "",
       score: record.scores[seat],
-      net: record.scores[seat] - initial,
-      recorded: (record.scores[seat] - initial) / divisor,
+      external: record.externalScores?.[seat] ?? 0,
+      net: record.scores[seat] - initial + (record.externalScores?.[seat] ?? 0),
+      recorded:
+        (record.scores[seat] - initial + (record.externalScores?.[seat] ?? 0)) /
+        divisor,
     }))
     .sort((a, b) => b.net - a.net || a.seat - b.seat)
     .map((row, _, rows) => ({

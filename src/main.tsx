@@ -16,6 +16,7 @@ import "./table-room.css";
 import "./room-voice.css";
 import "./hand-controls.css";
 import "./table-redesign.css";
+import "./profile-page.css";
 import { androidTable } from "./table-platform";
 
 document.documentElement.dataset.tablePlatform = androidTable

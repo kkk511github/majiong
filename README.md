@@ -1,9 +1,12 @@
 # 金陵麻将
 
-南京麻将联机 App，使用 React、TypeScript、Cocos Creator、Capacitor 与 Node.js。当前源码为 **0.7.0 / build 33**，包含 iOS、Android、Web 客户端和完整服务端。源码更新不代表安装包已发布。
+南京麻将联机 App，使用 React、TypeScript、Cocos Creator、Capacitor 与 Node.js。当前源码为 **0.7.0 / build 34**，包含 iOS、Android、Web 客户端和完整服务端。源码更新不代表安装包已发布。
 
 ## 本次更新
 
+- 重做“我的”页面，支持照片头像、昵称和设置弹窗；普通成员不显示管理及开桌授权入口。注册和修改密码最低 4 位。
+- 碰牌来源使用金色内凹箭头，固定显示在中间牌面；明杠显示在上叠的中间牌面，暗杠不显示来源。自己的副露使用带厚度的平放牌图，两侧花牌紧贴排列。
+- 同步当前南京进园子、敞开头规则开发代码、比下胡状态、独立桌外记分及战绩回放明细，旧牌局保留原规则版本。规则口径及安装包仍待最终确认，本次仅推送源码，不部署、不发布原生安装包。
 - 牌桌与回放统一使用 Cocos Creator 3.8.8 和多角度预渲染牌图，iOS、Android 共用布局与素材。保留独立的手牌、花槽、碰杠和弃牌区域，杠牌第四张叠在中间。
 - 四家弃牌围绕方形区域排列；花牌按各自卡槽投影摆放。碰杠、胡牌和弃牌指向器使用独立特效层。
 - 战绩左侧按日期筛选，右侧展示整桌四人总战绩；详情全屏展示每把积分、牌面与回放 ID，支持复制 ID 和直接播放。
@@ -44,6 +47,9 @@ Cocos 工程在 `cocos-table/`，预渲染素材和源图包含在仓库中。`n
 ```sh
 npm test
 npx playwright test -c playwright.records.config.ts
+npx playwright test -c playwright.nanjing.config.ts
+npx playwright test -c playwright.profile.config.ts
+npx playwright test -c playwright.meld-marker.config.ts
 npm run build
 ```
 

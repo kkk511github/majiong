@@ -1,5 +1,5 @@
-import { _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp } from 'cc';
-import { layoutTable, layoutActions, layoutFlowerRacks, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
+import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp } from 'cc';
+import { layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 const { ccclass } = _decorator;
 const GOLD='#e4c573', INK='#fcf1d0', GREEN='#093f37';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
@@ -9,6 +9,7 @@ export class TableScene extends Component {
  private root!:Node; private hud!:Node; private racks!:Node; private effectsRoot!:Node; private state?:TableSceneState;
  private effectData=new Map<string,sp.SkeletonData>();
  private frames=new Map<string,SpriteFrame>(); private nodes=new Map<string,Node>(); private shadows=new Map<string,Node>();
+ private avatarLoads=new Set<string>();
  private ready=false; private channel=''; private lastEffect='';
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
  private pointer?:Node; private pointerKey=''; private pointerAt='';
@@ -32,9 +33,12 @@ export class TableScene extends Component {
     const texture=new Texture2D();texture.image=await load<ImageAsset>('tiles/'+pose,ImageAsset);
     data.rects.forEach((r,k)=>{const f=new SpriteFrame();f.texture=texture;f.rect=new Rect(r.x,r.y,r.w,r.h);this.frames.set(pose+'-'+k,f);});
    }));
-   await Promise.all(['table','avatars','pointer'].map(async name=>{
+   await Promise.all(['table','avatars','pointer','meld-source-dart'].map(async name=>{
     const img=await load<ImageAsset>('art/'+name,ImageAsset),tex=new Texture2D();tex.image=img;
-    const f=new SpriteFrame();f.texture=tex;this.frames.set(name,f);
+    const f=new SpriteFrame();f.texture=tex;
+    // Trim transparent padding in the sprite UVs; preserve the generated PNG.
+    if(name==='meld-source-dart')f.rect=new Rect(190,161,867,902);
+    this.frames.set(name,f);
     if(name==='avatars')for(let k=0;k<4;k++){const a=new SpriteFrame();a.texture=tex;a.rect=new Rect(k%2*img.width/2,Math.floor(k/2)*img.height/2,img.width/2,img.height/2);this.frames.set('avatar-'+k,a);}
    }));
    const effects=(await load<JsonAsset>('art/action-fx-data',JsonAsset)).json as any;
@@ -53,6 +57,17 @@ export class TableScene extends Component {
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}
  private text(parent:Node,str:string,x:number,y:number,w:number,h:number,size=20,color=INK){const n=this.make(str,x,y,w,h,parent),l=n.addComponent(Label);l.string=str;l.fontSize=size;l.lineHeight=size+4;l.color=new Color(color);l.isBold=true;l.overflow=Label.Overflow.SHRINK;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;return n;}
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
+ private avatar(url:string|undefined,seat:number,x:number,y:number,w:number,h:number,parent:Node){
+  const key=url||'avatar-'+seat,n=this.image(this.frames.has(key)?key:'avatar-'+seat,x,y,w,h,parent);n.name=key;
+  if(url&&!this.frames.has(url)&&!this.avatarLoads.has(url)){
+   this.avatarLoads.add(url);
+   assetManager.loadRemote<ImageAsset>(url,{ext:'.jpg'},(error,img)=>{
+    if(error||!img||!this.isValid)return;
+    const texture=new Texture2D();texture.image=img;const frame=new SpriteFrame();frame.texture=texture;this.frames.set(url,frame);
+    for(const node of this.hud.children)if(node.name===url&&node.isValid){const sprite=node.getComponent(Sprite);if(sprite)sprite.spriteFrame=frame;}
+   });
+  }return n;
+ }
  private plate(parent:Node,x:number,y:number,w:number,h:number,color=GREEN,border=GOLD,r=8){const n=this.make('panel',x,y,w,h,parent),g=n.addComponent(Graphics);g.fillColor=new Color(color);g.roundRect(-w/2,-h/2,w,h,r);g.fill();g.strokeColor=new Color(border);g.lineWidth=1.3;g.stroke();return n;}
  private button(parent:Node,label:string,x:number,y:number,w:number,h:number,command:TableSceneCommand,gold=false){
   const n=this.make('button-'+label,x,y,w,h,parent),g=n.addComponent(Graphics);
@@ -83,6 +98,10 @@ export class TableScene extends Component {
   this.hud.destroy();this.hud=this.make('HUD',640,295,1280,590);
   this.drawRacks(s,tiles);
   for(const t of tiles)this.drawTile(t);
+  for(const marker of layoutMeldSources(tiles,s.me)){
+   const n=this.image('meld-source-dart',marker.x,marker.y,marker.size*867/902,marker.size,this.hud);
+   n.name=marker.id;n.setRotationFromEuler(0,0,marker.rotation);
+  }
   this.drawHud(s);
   const last=tiles.find(t=>t.last);
   if(last){
@@ -120,7 +139,6 @@ export class TableScene extends Component {
   let pose=t.pose;
   const sp=n.getComponent(Sprite)!;sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(pose+'-'+(t.tile===undefined?0:tileKind(t.tile)))||null;n.getComponent(UITransform)!.setContentSize(t.w,t.h);sp.color=new Color(t.selected||t.highlight?'#fff7b1':'#ffffff');
   n.off(Node.EventType.TOUCH_END);if(t.clickable&&t.tile!==undefined)n.on(Node.EventType.TOUCH_END,()=>this.emit({type:'select',tile:t.tile!}));n.setSiblingIndex(this.root.children.length-1);
-  if(t.source!==undefined)this.text(this.hud,['↓','→','↑','←'][sceneOffset(t.source,this.state!.me)],t.x,t.y-t.h/2+5,24,20,21,'#fbb830');
  }
  private drawHud(s:TableSceneState){
   const h=this.hud;if(s.presentation!=='replay'){
@@ -131,9 +149,9 @@ export class TableScene extends Component {
   }this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,90,135,30,18);this.text(h,`第 ${s.round} / ${s.rounds} 局`,80,119,135,28,16,'#cfc291');
   for(const p of s.players){
    const o=sceneOffset(p.seat,s.me);
-   if(o===2){this.plate(h,950,32,166,56,'#0b332ed9','#a7965b');const avatar=this.image('avatar-'+p.seat,892,32,44,44,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,963,20,91,24,18);this.text(h,`${p.score} 分`,963,43,92,22,18,GOLD);if(p.seat===s.dealer)this.text(h,'庄',1020,16,24,23,17,'#ffd374');continue;}
+   if(o===2){this.plate(h,950,32,166,56,'#0b332ed9','#a7965b');const avatar=this.avatar(p.avatar,p.seat,892,32,44,44,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,963,20,91,24,18);this.text(h,`${p.score} 分`,963,43,92,22,18,GOLD);if(p.seat===s.dealer)this.text(h,'庄',1020,16,24,23,17,'#ffd374');continue;}
    const x=o===0?1198:o===3?68:1200,y=o===0?508:207;
-   this.plate(h,x,y+25,100,126,'#0b332ed9','#a7965b');const avatar=this.image('avatar-'+p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
+   this.plate(h,x,y+25,100,126,'#0b332ed9','#a7965b');const avatar=this.avatar(p.avatar,p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
   }
   const center=this.make('center',640,282,1280,590,h);
   const g=this.make('compass',640,278,116,108,center).addComponent(Graphics);g.fillColor=new Color('#092724');g.roundRect(-61,-57,122,114,16);g.fill();g.fillColor=new Color('#283633');g.moveTo(-52,-45);g.lineTo(52,-45);g.lineTo(61,-28);g.lineTo(61,28);g.lineTo(43,50);g.lineTo(-43,50);g.lineTo(-61,28);g.lineTo(-61,-28);g.close();g.fill();g.strokeColor=new Color('#697264');g.lineWidth=2;g.stroke();g.fillColor=new Color('#09201e');g.roundRect(-30,-19,60,38,13);g.fill();

@@ -9,6 +9,13 @@ import {
   type ShuffleRandom,
 } from "./tiles";
 import { scoreHand, type WinContext } from "./scoring";
+import { structuralWaits, threeMouths } from "./scoring-nanjing";
+import {
+  flowerFactor,
+  isNanjingV2,
+  nanjingValues,
+  ruleDefaults,
+} from "./nanjing-rules";
 import { chargeOvertime } from "./timing";
 import { captureReplay } from "./replay";
 import {
@@ -49,13 +56,32 @@ export function newPlayer(
     melds: [],
     discards: [],
     score: initialScore,
+    externalScore: 0,
     passedHu: false,
     passedPung: [],
   };
 }
 export function normalizeRules(input: Partial<Rules> = {}): Rules {
+  const base = ruleDefaults(input.id ?? "nj-casual-v1");
   return {
-    ...DEFAULT_RULES,
+    ...base,
+    ...(isNanjingV2(base)
+      ? {
+          biXiaHu: ["off", "next", "cumulative"].includes(input.biXiaHu ?? "")
+            ? input.biXiaHu
+            : base.biXiaHu,
+          ...Object.fromEntries(
+            [
+              "doubleSidePayments",
+              "successorDouble",
+              "fourWinds",
+              "discardPenalties",
+            ]
+              .filter((key) => typeof input[key as keyof Rules] === "boolean")
+              .map((key) => [key, input[key as keyof Rules]]),
+          ),
+        }
+      : {}),
     ...(typeof input.flowerDouble === "boolean"
       ? { flowerDouble: input.flowerDouble }
       : {}),
@@ -74,7 +100,7 @@ export function normalizeRules(input: Partial<Rules> = {}): Rules {
       (input.turnSeconds === 0 ||
         (input.turnSeconds! >= 10 && input.turnSeconds! <= 300))
         ? input.turnSeconds!
-        : 30,
+        : base.turnSeconds,
   };
 }
 export function createGame(
@@ -122,6 +148,7 @@ function remove(p: Player, tiles: Tile[]) {
   p.hand = p.hand.filter((t) => !tiles.includes(t));
 }
 function finish(g: Game, result: Result, now: number) {
+  finishNanjingRound(g, result);
   g.phase =
     g.round >= g.rules.rounds ||
     result.reason === "dissolved" ||
@@ -139,10 +166,15 @@ function finish(g: Game, result: Result, now: number) {
   result.deltas = g.players.map(
     (p, i) => (p?.score ?? 0) - g.roundStartScores[i],
   );
+  result.externalDeltas = g.players.map(
+    (p, i) => (p?.externalScore ?? 0) - (g.roundStartExternalScores?.[i] ?? 0),
+  );
   result.transfers =
     g.roundTransfers === undefined ? undefined : clone(g.roundTransfers);
   captureReplay(g, "finish", now);
   g.history.push({
+    rules: clone(g.rules),
+    multiplier: g.ruleState?.multiplier ?? 1,
     replayAvailable:
       g.replay?.id === `${g.id}-${g.round}` && !!g.replay.endedAt,
     hands: g.players.map((p) => ({
@@ -156,6 +188,7 @@ function finish(g: Game, result: Result, now: number) {
     result: clone(result),
     names: g.players.map((p) => p?.name ?? "空位"),
     scores: g.players.map((p) => p?.score ?? 0),
+    externalScores: g.players.map((p) => p?.externalScore ?? 0),
     initialScore: g.initialScore ?? 0,
     settlementBase: g.settlementBase ?? g.initialScore ?? 0,
     scoreDivisor: g.scoreDivisor ?? 1,
@@ -200,13 +233,263 @@ function bankrupt(g: Game): boolean {
     g.players.filter((p) => p && p.score <= 0).length >= 2
   );
 }
+/** Garden external liability is a separate, uncapped ledger, not table chips. */
+function transferExternal(g: Game, entry: Bill) {
+  const payer = g.players[entry.from]!,
+    winner = g.players[entry.to]!;
+  const debit = (payer.externalScore ?? 0) - entry.amount;
+  const credit = (winner.externalScore ?? 0) + entry.amount;
+  if (!Number.isSafeInteger(debit) || !Number.isSafeInteger(credit))
+    throw Error("桌外记分超出安全范围");
+  payer.externalScore = debit;
+  winner.externalScore = credit;
+  g.roundTransfers?.push({ ...entry, scope: "external" });
+}
 function finishBankrupt(g: Game, now: number): boolean {
   if (!bankrupt(g)) return false;
   finish(g, { reason: "bankrupt", winners: [], details: {}, deltas: [] }, now);
   return true;
 }
-function winContext(g: Game, tile?: Tile): WinContext {
+type Bill = NonNullable<Result["transfers"]>[number];
+/** Settle a simultaneous set of debts from opening balances, with deterministic penny allocation. */
+function payBills(g: Game, bills: Bill[]) {
+  const opening = g.players.map((p) => p!.score);
+  const paid: Bill[] = [];
+  for (const payer of seats) {
+    const due = bills.filter(
+      (b) => b.from === payer && b.to !== payer && b.amount > 0,
+    );
+    const total = due.reduce((sum, b) => sum + b.amount, 0);
+    if (!Number.isSafeInteger(total)) throw Error("牌局计分超出安全范围");
+    const available = g.rules.twoBankrupt
+      ? Math.min(total, Math.max(0, opening[payer]))
+      : total;
+    const split = due.map((b) => ({
+      ...b,
+      exact: total ? (b.amount / total) * available : 0,
+      amount:
+        total > available
+          ? Math.floor((b.amount / total) * available)
+          : b.amount,
+    }));
+    let remainder = available - split.reduce((sum, b) => sum + b.amount, 0);
+    split.sort(
+      (a, b) =>
+        b.exact - b.amount - (a.exact - a.amount) ||
+        ((a.to - payer + 4) % 4) - ((b.to - payer + 4) % 4),
+    );
+    for (const b of split)
+      if (remainder > 0) {
+        b.amount++;
+        remainder--;
+      }
+    paid.push(...split.map(({ exact, ...b }) => b));
+  }
+  for (const b of paid) transfer(g, b.from, b.to, b.amount, b.reason);
+}
+function sideAmount(g: Game, flowers: number) {
+  const amount =
+    flowers *
+    flowerFactor(g.rules) *
+    (g.rules.doubleSidePayments ? (g.ruleState?.multiplier ?? 1) : 1);
+  if (!Number.isSafeInteger(amount)) throw Error("牌局计分超出安全范围");
+  return amount;
+}
+function flagNext(g: Game, reason: string) {
+  if (g.ruleState && !g.ruleState.nextReasons.includes(reason))
+    g.ruleState.nextReasons.push(reason);
+}
+function finishNanjingRound(g: Game, result: Result) {
+  const state = g.ruleState;
+  if (!isNanjingV2(g.rules) || !state) return;
+  if (result.reason === "draw") flagNext(g, "流局");
+  if (result.winners.includes(g.dealer)) flagNext(g, "庄家胡牌");
+  if (Object.values(result.details).some((s) => s?.major)) flagNext(g, "大胡");
+  if (result.winners.length > 1) flagNext(g, "一炮多响");
+  if (
+    g.roundTransfers?.some((t) =>
+      [
+        "三口承包",
+        "杠开包三家",
+        "抢杠包三家",
+        "清一色承包",
+        "全球独钓承包",
+      ].includes(t.reason),
+    )
+  )
+    flagNext(g, "包牌");
+  state.keepDealer = state.nextReasons.length > 0;
+  if (!state.keepDealer && result.reason === "hu" && g.rules.successorDouble)
+    flagNext(g, "接庄");
+  const mode = g.rules.biXiaHu ?? "next";
+  state.nextMultiplier =
+    mode === "off" || !state.nextReasons.length
+      ? 1
+      : mode === "cumulative"
+        ? state.multiplier * 2
+        : 2;
+  if (!Number.isSafeInteger(state.nextMultiplier))
+    throw Error("牌局倍率超出安全范围");
+}
+/** Complete the initial deal before replacing flowers, in dealer-relative rounds. */
+function dealNanjing(g: Game, now: number): boolean {
+  const order = seats.map((s) => ((g.dealer + s) % 4) as Seat);
+  for (let n = 0; n < 13; n++)
+    for (const s of order) g.players[s]!.hand.push(g.wall.shift()!);
+  const dealerTile = g.wall.shift()!;
+  g.players[g.dealer]!.hand.push(dealerTile);
+  let dealerLast: Tile = dealerTile;
+  let replacing = true;
+  let stoppedPayments = bankrupt(g);
+  while (replacing) {
+    replacing = false;
+    for (const s of order) {
+      const p = g.players[s]!,
+        flowers = p.hand.filter(isFlower);
+      p.hand = p.hand.filter((t) => !isFlower(t));
+      for (const t of flowers) {
+        p.flowers.push(t);
+        if (!stoppedPayments) {
+          flowersKong(g, s, t, true);
+          stoppedPayments = bankrupt(g);
+        }
+      }
+      const target = s === g.dealer ? 14 : 13;
+      while (p.hand.length < target) {
+        const t = g.wall.pop();
+        if (t === undefined) throw Error("起手补花牌墙不足");
+        p.hand.push(t);
+        if (s === g.dealer) dealerLast = t;
+        if (isFlower(t)) replacing = true;
+      }
+    }
+  }
+  for (const s of order) {
+    sortTiles(g.players[s]!.hand);
+    if (s !== g.dealer) {
+      const waits = structuralWaits(g.players[s]!);
+      if (waits.length) g.ruleState!.heavenlyWaits[s] = waits;
+    }
+  }
+  g.turn = g.dealer;
+  g.lastDraw = dealerLast;
+  g.canSelfWin = true;
+  clock(g, now);
+  return !finishBankrupt(g, now);
+}
+function preservesHeavenlyWait(
+  g: Game,
+  seat: Seat,
+  tile: Tile,
+  external = false,
+): boolean {
+  const previous = g.ruleState?.heavenlyWaits[seat];
+  if (!previous?.length) return true;
+  const p = clone(g.players[seat]!),
+    k = kind(tile);
+  const pung = p.melds.find((m) => m.type === "pung" && kind(m.tiles[0]) === k);
+  const removeCount = external ? 3 : pung ? 1 : 4;
+  const selected = p.hand.filter((t) => kind(t) === k).slice(0, removeCount);
+  if (selected.length !== removeCount) return false;
+  remove(p, selected);
+  if (pung) {
+    pung.type = "kong";
+    pung.tiles.push(...selected);
+    pung.added = true;
+  } else
+    p.melds.push({
+      type: "kong",
+      tiles: external ? [...selected, tile] : selected,
+      from: seat,
+      concealed: !external,
+    });
+  const waits = structuralWaits(p);
+  return waits.length > 0 && waits.every((k) => previous.includes(k));
+}
+function updateHeavenlyWait(g: Game, seat: Seat) {
+  const previous = g.ruleState?.heavenlyWaits[seat];
+  if (!previous?.length) return;
+  const waits = structuralWaits(g.players[seat]!);
+  if (waits.length && waits.every((k) => previous.includes(k)))
+    g.ruleState!.heavenlyWaits[seat] = waits;
+  else delete g.ruleState!.heavenlyWaits[seat];
+}
+function recordKong(g: Game, seat: Seat) {
+  if (!g.ruleState) return;
+  g.ruleState.heavenlyEligible = false;
+  g.ruleState.kongOccurred = true;
+  g.ruleState.discards = [];
+  updateHeavenlyWait(g, seat);
+}
+function kongReplacement(
+  g: Game,
+  from: Seat | undefined,
+  direct: boolean,
+): Game["replacement"] {
+  if (
+    isNanjingV2(g.rules) &&
+    g.replacement?.type === "kong" &&
+    g.replacement.from !== undefined
+  )
+    return { ...g.replacement };
+  return { type: "kong", ...(from === undefined ? {} : { from }), direct };
+}
+function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
+  const state = g.ruleState;
+  if (!state) return;
+  const k = kind(tile),
+    own = state.ownDiscards[seat];
+  own.push(k);
+  state.discards = [...state.discards.slice(-3), { seat, tile }];
+  const bills: Bill[] = [];
+  const payOthers = (payer: Seat, flowers: number, reason: Bill["reason"]) => {
+    for (const to of seats)
+      if (to !== payer)
+        bills.push({ from: payer, to, amount: sideAmount(g, flowers), reason });
+    flagNext(g, reason);
+  };
+  if (g.rules.discardPenalties) {
+    if (own.filter((n) => n === k).length === 4)
+      payOthers(seat, nanjingValues(g.rules).penaltyFlowers, "四张同牌");
+    const chain = state.discards;
+    if (
+      chain.length === 4 &&
+      new Set(chain.map((d) => d.seat)).size === 4 &&
+      chain.every((d) => kind(d.tile) === k)
+    )
+      payOthers(
+        chain[0].seat,
+        nanjingValues(g.rules).penaltyFlowers,
+        "四家跟牌",
+      );
+  }
+  if (
+    g.rules.fourWinds &&
+    own.length === 4 &&
+    new Set(own).size === 4 &&
+    own.every((n) => n >= 27 && n <= 30)
+  ) {
+    for (const from of seats)
+      if (from !== seat)
+        bills.push({
+          from,
+          to: seat,
+          amount: sideAmount(g, nanjingValues(g.rules).fourWindsFlowers),
+          reason: "四连风",
+        });
+    flagNext(g, "四连风");
+  }
+  payBills(g, bills);
+}
+function winContext(g: Game, tile?: Tile, seat: Seat = g.turn): WinContext {
   return {
+    multiplier: g.ruleState?.multiplier ?? 1,
+    heavenly:
+      isNanjingV2(g.rules) &&
+      !!g.ruleState?.heavenlyEligible &&
+      seat === g.dealer &&
+      tile === undefined,
+    earthly: isNanjingV2(g.rules) && !!g.ruleState?.heavenlyWaits[seat]?.length,
     tile,
     winTile: tile === undefined ? g.lastDraw : undefined,
     replacement: tile === undefined ? g.replacement?.type : undefined,
@@ -230,9 +513,13 @@ function flowersKong(g: Game, seat: Seat, t: Tile, initial: boolean) {
           k <= 37 ? kind(f) >= 34 && kind(f) <= 37 : kind(f) >= 38,
         );
   if (set.length === 4) {
+    const amount = isNanjingV2(g.rules)
+      ? sideAmount(g, nanjingValues(g.rules).flowerKongFlowers)
+      : 12;
     for (const other of seats)
-      if (other !== seat) transfer(g, other, seat, 12, "花杠");
-    note(g, `${p.name} 花杠，每家 12 分${initial ? "（起手）" : ""}`);
+      if (other !== seat) transfer(g, other, seat, amount, "花杠");
+    flagNext(g, "花杠");
+    note(g, `${p.name} 花杠，每家 ${amount} 分${initial ? "（起手）" : ""}`);
   }
 }
 function draw(
@@ -282,13 +569,28 @@ export function startRound(
   const g = clone(source);
   if (
     g.round > 0 &&
-    g.result?.reason !== "draw" &&
-    !g.result?.winners.includes(g.dealer)
+    (isNanjingV2(g.rules) && g.ruleState
+      ? !g.ruleState.keepDealer
+      : g.result?.reason !== "draw" && !g.result?.winners.includes(g.dealer))
   )
     g.dealer = next(g.dealer);
+  if (isNanjingV2(g.rules))
+    g.ruleState = {
+      multiplier: g.ruleState?.nextMultiplier ?? 1,
+      nextMultiplier: 1,
+      nextReasons: [],
+      keepDealer: false,
+      heavenlyEligible: true,
+      heavenlyWaits: {},
+      discards: [],
+      ownDiscards: [[], [], [], []],
+      kongOccurred: false,
+    };
   if (g.table) g.table.readyDeadline = undefined;
   g.round++;
   g.replay = {
+    rules: clone(g.rules),
+    multiplier: g.ruleState?.multiplier ?? 1,
     version: 1,
     id: `${g.id}-${g.round}`,
     code: g.code,
@@ -306,6 +608,7 @@ export function startRound(
   g.dissolve = undefined;
   g.events = [];
   g.roundStartScores = g.players.map((p) => p!.score);
+  g.roundStartExternalScores = g.players.map((p) => p!.externalScore ?? 0);
   g.roundTransfers = [];
   for (const p of g.players)
     Object.assign(p!, {
@@ -317,15 +620,22 @@ export function startRound(
       passedPung: [],
       ready: false,
     });
-  for (let n = 0; n < 13; n++)
-    for (let j = 0; j < 4; j++)
-      if (!draw(g, ((g.dealer + j) % 4) as Seat, now, false, true)) {
-        g.revision++;
-        return g;
-      }
-  if (!draw(g, g.dealer, now, false, true)) {
-    g.revision++;
-    return g;
+  if (isNanjingV2(g.rules)) {
+    if (!dealNanjing(g, now)) {
+      g.revision++;
+      return g;
+    }
+  } else {
+    for (let n = 0; n < 13; n++)
+      for (let j = 0; j < 4; j++)
+        if (!draw(g, ((g.dealer + j) % 4) as Seat, now, false, true)) {
+          g.revision++;
+          return g;
+        }
+    if (!draw(g, g.dealer, now, false, true)) {
+      g.revision++;
+      return g;
+    }
   }
   g.replacement = undefined;
   g.revision++;
@@ -344,9 +654,19 @@ export function selfKongs(g: Game, seat: Seat): Tile[] {
     c = counts(p.hand);
   return p.hand.filter(
     (t) =>
-      (c[kind(t)] === 4 && t === p.hand.find((a) => kind(a) === kind(t))) ||
-      p.melds.some((m) => m.type === "pung" && kind(m.tiles[0]) === kind(t)),
+      ((c[kind(t)] === 4 && t === p.hand.find((a) => kind(a) === kind(t))) ||
+        p.melds.some(
+          (m) => m.type === "pung" && kind(m.tiles[0]) === kind(t),
+        )) &&
+      preservesHeavenlyWait(g, seat, t),
   );
+}
+function scoreForWin(g: Game, seat: Seat, tile?: Tile, robbed = false) {
+  return scoreHand(g.players[seat]!, g.rules, {
+    ...winContext(g, tile, seat),
+    seat,
+    robbed,
+  });
 }
 function settle(
   g: Game,
@@ -369,30 +689,98 @@ function settle(
     amount: number;
     reason: NonNullable<Result["transfers"]>[number]["reason"];
   }[] = [];
+  const externalBills: Bill[] = [];
   const bill = (
     from: Seat,
     to: Seat,
     amount: number,
     reason: NonNullable<Result["transfers"]>[number]["reason"],
   ) => bills.push({ from, to, amount, reason });
+  const liability = (
+    from: Seat,
+    to: Seat,
+    total: number,
+    reason: Bill["reason"],
+  ) => {
+    if (g.rules.id === "nj-garden-v2") {
+      // User-confirmed fixed external payment: 50 normally, 100 on a 比下胡 hand.
+      const amount = (g.ruleState?.multiplier ?? 1) > 1 ? 100 : 50;
+      externalBills.push({ from, to, amount, reason, scope: "external" });
+    } else bill(from, to, total * 3, reason);
+  };
   for (const seat of winners) {
     const p = g.players[seat]!;
-    const score = scoreHand(
-      p,
-      g.rules,
-      winContext(g, from === undefined ? undefined : g.pending!.tile),
+    const score = scoreForWin(
+      g,
+      seat,
+      from === undefined ? undefined : g.pending!.tile,
+      robbed,
     );
     if (!score) throw Error("当前牌型还不能胡牌");
     result.details[seat] = score;
-    // Three exposed groups from one player establish responsibility for a fourth-group all-triplets hand.
-    const responsibility = seats.find(
-      (s) =>
-        s !== seat &&
-        p.melds.length === 4 &&
-        p.melds.filter((m) => !m.concealed && m.from === s).length >= 3,
-    );
-    if (responsibility !== undefined)
-      bill(responsibility, seat, score.total * 3, "三口承包");
+    // User-confirmed: three mouths already establish liability, including a later sequence win or robbed kong.
+    const responsibility = isNanjingV2(g.rules)
+      ? threeMouths(p, seat)
+      : seats.find(
+          (s) =>
+            s !== seat &&
+            p.melds.length === 4 &&
+            p.melds.filter((m) => !m.concealed && m.from === s).length >= 3,
+        );
+    const pure =
+      p.melds.length >= 3 &&
+      p.melds
+        .flatMap((m) => m.tiles)
+        .every(
+          (t) =>
+            kind(t) < 27 &&
+            Math.floor(kind(t) / 9) ===
+              Math.floor(kind(p.melds[0].tiles[0]) / 9),
+        );
+    const purePayer =
+      score.items.some((i) => i.label === "清一色") && pure
+        ? p.melds.length === 4
+          ? p.melds[3].concealed
+            ? undefined
+            : p.melds[3].from
+          : score.snapshot
+            ? from
+            : undefined
+        : undefined;
+    if (score.allIn) {
+      score.total = seats
+        .filter((s) => s !== seat)
+        .reduce<number>((n, s) => n + Math.max(0, g.players[s]!.score), 0);
+      score.items = [{ label: "天胡（三家归零）", value: score.total }];
+      for (const other of seats)
+        if (other !== seat)
+          bill(other, seat, Math.max(0, g.players[other]!.score), "天胡");
+      result.bankrupt = true;
+    } else if (isNanjingV2(g.rules) && robbed && from !== undefined) {
+      if (responsibility !== undefined)
+        liability(responsibility, seat, score.total, "三口承包");
+      else bill(from, seat, score.total * 3, "抢杠包三家");
+    } else if (
+      isNanjingV2(g.rules) &&
+      from === undefined &&
+      g.replacement?.type === "kong" &&
+      g.replacement.from !== undefined
+    )
+      bill(g.replacement.from, seat, score.total * 3, "杠开包三家");
+    else if (responsibility !== undefined)
+      liability(responsibility, seat, score.total, "三口承包");
+    else if (
+      isNanjingV2(g.rules) &&
+      purePayer !== undefined &&
+      purePayer !== seat
+    )
+      liability(purePayer, seat, score.total, "清一色承包");
+    else if (
+      g.rules.id === "nj-garden-v2" &&
+      from !== undefined &&
+      (p.melds.length === 4 || score.snapshot)
+    )
+      liability(from, seat, score.total, "全球独钓承包");
     else if (from !== undefined)
       bill(
         from,
@@ -411,39 +799,37 @@ function settle(
         if (other !== seat) bill(other, seat, score.total, "自摸");
     note(
       g,
-      `${p.name} ${from === undefined ? "自摸" : robbed ? "抢杠胡" : "胡牌"} · ${score.total} 分`,
+      `${p.name} ${from === undefined ? "自摸" : robbed ? "抢杠胡" : "胡牌"} · ${externalBills.some((b) => b.to === seat) ? `桌外记分 ${externalBills.find((b) => b.to === seat)!.amount} 分` : `${score.total} 分`}`,
     );
   }
-  for (const payer of seats) {
-    const due = bills.filter((b) => b.from === payer),
-      total = due.reduce((n, b) => n + b.amount, 0);
-    const available = g.rules.twoBankrupt
-      ? Math.max(0, g.players[payer]!.score)
-      : total;
-    if (total > available) {
-      const split = due.map((b) => ({
-        ...b,
-        exact: (b.amount * available) / total,
-        amount: Math.floor((b.amount * available) / total),
-      }));
-      let remainder = available - split.reduce((n, b) => n + b.amount, 0);
-      split.sort(
-        (a, b) =>
-          b.exact - b.amount - (a.exact - a.amount) ||
-          ((a.to - payer + 4) % 4) - ((b.to - payer + 4) % 4),
-      );
-      for (const b of split)
-        if (remainder > 0) {
-          b.amount++;
-          remainder--;
-        }
-      for (const b of split) transfer(g, b.from, b.to, b.amount, b.reason);
-    } else for (const b of due) transfer(g, b.from, b.to, b.amount, b.reason);
-  }
-  result.bankrupt = bankrupt(g);
+  payBills(g, bills);
+  for (const entry of externalBills) transferExternal(g, entry);
+  result.bankrupt = result.bankrupt || bankrupt(g);
   if (result.bankrupt && g.rules.protectWinner) {
     // User-confirmed: the finishing winner is topped up to 100 points (user-confirmed fixed target, initial stake remains 90).
     for (const winner of winners) {
+      if (isNanjingV2(g.rules)) {
+        for (const donor of seats
+          .filter((s) => s !== winner)
+          .sort((a, b) => g.players[b]!.score - g.players[a]!.score || a - b)) {
+          const missing = Math.max(0, 100 - g.players[winner]!.score),
+            amount = Math.min(
+              missing,
+              Math.max(
+                0,
+                g.players[donor]!.score - (winners.includes(donor) ? 100 : 0),
+              ),
+            );
+          if (amount > 0) {
+            transfer(g, donor, winner, amount, "保米");
+            note(
+              g,
+              `${g.players[winner]!.name} 保米，由 ${g.players[donor]!.name} 补 ${amount} 分`,
+            );
+          }
+        }
+        continue;
+      }
       const missing = Math.max(0, 100 - g.players[winner]!.score);
       const donor = seats
         .filter((s) => s !== winner)
@@ -471,11 +857,14 @@ function offerClaims(
     if (seat !== from) {
       const p = g.players[seat]!,
         options: Claim[] = [];
-      if (!p.passedHu && scoreHand(p, g.rules, winContext(g, tile)))
-        options.push("hu");
+      if (!p.passedHu && scoreForWin(g, seat, tile, robbed)) options.push("hu");
       const c = p.hand.filter((t) => kind(t) === kind(tile)).length;
       if (!robbed && !p.passedPung.includes(kind(tile))) {
-        if (c >= 3 && g.wall.length > (g.rules.seaBottom ? 0 : 16))
+        if (
+          c >= 3 &&
+          g.wall.length > (g.rules.seaBottom ? 0 : 16) &&
+          preservesHeavenlyWait(g, seat, tile, true)
+        )
           options.push("kong");
         if (c >= 2) options.push("pung");
       }
@@ -502,10 +891,20 @@ function completeAddedKong(g: Game, from: Seat, tile: Tile, now: number) {
   remove(p, [tile]);
   meld.tiles.push(tile);
   meld.type = "kong";
-  transfer(g, meld.from, from, 12, "补杠");
+  if (isNanjingV2(g.rules)) meld.added = true;
+  transfer(
+    g,
+    meld.from,
+    from,
+    isNanjingV2(g.rules)
+      ? sideAmount(g, nanjingValues(g.rules).openKongFlowers)
+      : 12,
+    "补杠",
+  );
   g.phase = "playing";
   g.pending = undefined;
-  g.replacement = { type: "kong", from: meld.from, direct: true };
+  g.replacement = kongReplacement(g, meld.from, true);
+  recordKong(g, from);
   note(g, `${p.name} 补杠 ${tileName(tile)}`);
   captureReplay(g, "addedKong", now, from, tile);
   draw(g, from, now, true);
@@ -557,11 +956,24 @@ function resolveClaims(g: Game, now: number) {
   g.replacement = undefined;
   note(g, `${p.name} ${isKong ? "杠" : "碰"} ${tileName(pending.tile)}`);
   if (isKong) {
-    transfer(g, pending.from, chosen, 12, "直杠");
+    transfer(
+      g,
+      pending.from,
+      chosen,
+      isNanjingV2(g.rules)
+        ? sideAmount(g, nanjingValues(g.rules).openKongFlowers)
+        : 12,
+      "直杠",
+    );
     captureReplay(g, "kong", now, chosen, pending.tile);
     g.replacement = { type: "kong", from: pending.from, direct: true };
+    recordKong(g, chosen);
     draw(g, chosen, now, true);
   } else {
+    if (g.ruleState) {
+      delete g.ruleState.heavenlyWaits[chosen];
+      g.ruleState.discards = [];
+    }
     clock(g, now);
     captureReplay(g, "pung", now, chosen, pending.tile);
   }
@@ -607,11 +1019,20 @@ export function act(
       p.discards.push(action.tile);
       p.passedHu = false;
       p.passedPung = [];
+      if (g.ruleState) {
+        g.ruleState.heavenlyEligible = false;
+        updateHeavenlyWait(g, seat);
+        applyDiscardPenalties(g, seat, action.tile);
+      }
       g.lastDiscard = { tile: action.tile, seat };
       g.lastDraw = undefined;
       g.canSelfWin = false;
       note(g, `${p.name} 打出 ${tileName(action.tile)}`);
       captureReplay(g, "discard", now, seat, action.tile);
+      if (finishBankrupt(g, now)) {
+        g.revision++;
+        return g;
+      }
       if (!offerClaims(g, seat, action.tile, false, now))
         draw(g, next(seat), now);
     } else if (action.type === "hu") {
@@ -625,8 +1046,18 @@ export function act(
         remove(p, tiles);
         p.melds.push({ type: "kong", tiles, from: seat, concealed: true });
         for (const other of seats)
-          if (other !== seat) transfer(g, other, seat, 6, "暗杠");
-        g.replacement = { type: "kong", direct: false };
+          if (other !== seat)
+            transfer(
+              g,
+              other,
+              seat,
+              isNanjingV2(g.rules)
+                ? sideAmount(g, nanjingValues(g.rules).concealedKongFlowers)
+                : 6,
+              "暗杠",
+            );
+        g.replacement = kongReplacement(g, undefined, false);
+        recordKong(g, seat);
         note(g, `${p.name} 暗杠`);
         captureReplay(g, "concealedKong", now, seat, action.tile);
         draw(g, seat, now, true);
@@ -646,12 +1077,20 @@ export function viewFor(g: Game, me: Seat): View {
     replacement,
     canSelfWin,
     replay: _replay,
+    ruleState: _ruleState,
     ...rest
   } = g;
   const reveal = ["ended", "finished"].includes(g.phase);
   return clone({
     ...rest,
     me,
+    ...(g.ruleState
+      ? {
+          roundMultiplier: g.ruleState.multiplier,
+          nextRoundMultiplier: g.ruleState.nextMultiplier,
+          earthlyWaits: g.ruleState.heavenlyWaits[me] ?? [],
+        }
+      : {}),
     remaining: wall.length,
     players: players.map((p, seat) => {
       if (!p) return null;
@@ -681,7 +1120,7 @@ export function viewFor(g: Game, me: Seat): View {
         : g.phase === "playing" &&
             g.turn === me &&
             canSelfWin &&
-            scoreHand(players[me]!, g.rules, winContext(g))
+            scoreForWin(g, me)
           ? ["hu"]
           : [],
     selfKongs: selfKongs(g, me),
@@ -693,13 +1132,19 @@ export function viewFor(g: Game, me: Seat): View {
 export function trusteeAction(g: Game, seat: Seat): Action | null {
   const p = g.players[seat];
   if (!p) return null;
-  if (g.phase === "claiming" && g.pending?.offers[seat] && g.pending.replies[seat] === undefined)
+  if (
+    g.phase === "claiming" &&
+    g.pending?.offers[seat] &&
+    g.pending.replies[seat] === undefined
+  )
     return { type: "pass" };
   if (g.phase !== "playing" || g.turn !== seat || !p.hand.length) return null;
   // A timeout immediately after a manual pung has no drawn tile. Only then
   // discard the rightmost legal tile; never inspect or optimise the hand.
-  const tile = g.lastDraw !== undefined && p.hand.includes(g.lastDraw)
-    ? g.lastDraw : p.hand[p.hand.length - 1];
+  const tile =
+    g.lastDraw !== undefined && p.hand.includes(g.lastDraw)
+      ? g.lastDraw
+      : p.hand[p.hand.length - 1];
   return { type: "discard", tile };
 }
 

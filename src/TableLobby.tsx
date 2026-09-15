@@ -15,6 +15,7 @@ import { mayCreateTables } from "../shared/permissions";
 import { Dialog } from "./Dialog";
 import { client, storage, type ClientState } from "./game-client";
 import { DEFAULT_TABLE_SETTINGS } from "../shared/table-settings";
+import { newGameRules } from "../shared/nanjing-rules";
 import type {
   Rules,
   Seat,
@@ -128,7 +129,10 @@ export function TableSetup({
     seaBottom?: boolean;
     protectWinner?: boolean;
     count: number;
-  }>("tableDraft-v2", {
+    ruleId?: Rules["id"];
+    successorDouble?: boolean;
+    fourWinds?: boolean;
+  }>("tableDraft-v3", {
     settings: DEFAULT_TABLE_SETTINGS,
     rounds: 8,
     seconds: 10,
@@ -145,6 +149,9 @@ export function TableSetup({
   const [flowerDouble, setFlowerDouble] = useState(saved.flowerDouble ?? true),
     [seaBottom, setSeaBottom] = useState(saved.seaBottom ?? true),
     [protectWinner, setProtectWinner] = useState(saved.protectWinner ?? true);
+  const [ruleId,setRuleId]=useState<Rules["id"]>(saved.ruleId==="nj-open-v2"?"nj-open-v2":"nj-garden-v2");
+  const [successorDouble,setSuccessorDouble]=useState(saved.successorDouble??true),
+    [fourWinds,setFourWinds]=useState(saved.fourWinds??true);
   const [rounds, setRounds] = useState(saved.rounds),
     [seconds, setSeconds] = useState(String(saved.seconds)),
     [count, setCount] = useState(saved.count),
@@ -203,7 +210,10 @@ export function TableSetup({
       name: settings.name.trim(),
       kickAfterSeconds: Number(kick),
     };
-    storage.set("tableDraft-v2", {
+    storage.set("tableDraft-v3", {
+      ruleId,
+      successorDouble,
+      fourWinds,
       settings: finalSettings,
       rounds,
       seconds: Number(seconds),
@@ -215,11 +225,14 @@ export function TableSetup({
     submit(
       finalSettings,
       {
+        ...newGameRules({id:ruleId}),
+        successorDouble,
+        fourWinds,
         rounds,
         flowerDouble,
         seaBottom,
-        protectWinner,
-        twoBankrupt: true,
+        protectWinner: ruleId==="nj-garden-v2"&&protectWinner,
+        twoBankrupt: ruleId==="nj-garden-v2",
         turnSeconds: settings.trusteeMode === "disabled" ? 0 : Number(seconds),
       },
       count,
@@ -296,9 +309,15 @@ export function TableSetup({
                 固定四人 · 碰杠不吃
               </span>
             </Setting>
+            <Setting label="计分规则" help="进园子为默认；每桌按所选规则独立结算">
+              <Choices label="计分规则" value={ruleId} choices={[
+                {value:"nj-garden-v2",label:"进园子"},
+                {value:"nj-open-v2",label:"敞开头"},
+              ]} change={setRuleId}/>
+            </Setting>
             <Setting
               label="初始分"
-              help="本金 100 分，扣桌费 10 分；两家归零立即结算"
+              help={ruleId==="nj-garden-v2"?"本金 100 分，扣桌费 10 分；两家归零立即结算":"本金 100 分，扣桌费 10 分；敞开头按约定局数结算"}
             >
               <span className="setup-badge">90 分 / 人</span>
             </Setting>
@@ -330,6 +349,8 @@ export function TableSetup({
                 checked={seaBottom}
                 change={setSeaBottom}
               />
+              <Toggle label="接庄比" checked={successorDouble} change={setSuccessorDouble}/>
+              <Toggle label="四连风" checked={fourWinds} change={setFourWinds}/>
             </Setting>
             <Setting
               label="保米"
@@ -337,14 +358,15 @@ export function TableSetup({
             >
               <Toggle
                 label="保米"
-                checked={protectWinner}
+                checked={ruleId==="nj-garden-v2"&&protectWinner}
                 change={setProtectWinner}
+                disabled={ruleId!=="nj-garden-v2"}
               />
             </Setting>
             <p className="setup-note">
               花砸 2：硬花、软花按两倍计；海底捞月：牌墙摸至最后，剩余不超过 4
               张时自摸加 20 花。两家归零结束时，保米由大赢家补最后胡牌者至固定
-              100 分。风罚分、接庄比仍在核对，暂未启用。
+              100 分（仅进园子）。比下胡下一把 ×2，胡牌、杠分、罚分均翻倍；同一把多个触发条件不重复相乘。四连风及四张同牌罚分已启用。
             </p>
             <Setting label="局数选择">
               <Choices
@@ -555,6 +577,10 @@ export function TableSetup({
             </div>
             <dl>
               <div>
+                <dt>计分规则</dt>
+                <dd>{ruleId==="nj-garden-v2"?"南京麻将 · 进园子":"南京麻将 · 敞开头"}</dd>
+              </div>
+              <div>
                 <dt>开桌人</dt>
                 <dd>{name}</dd>
               </div>
@@ -594,7 +620,7 @@ export function TableSetup({
             </dl>
             <p className="setup-note">
               每人本金 100 分，扣 10 分桌费后入桌 90
-              分，两家归零结束；最终记分为（桌上分 − 100）×{" "}
+              分，{ruleId==="nj-garden-v2"?"两家归零结束":"按所选局数结算"}；最终记分为（桌上分 − 100）×{" "}
               {settings.scoreMultiplier ?? 0.5}
               。创建后会进入牌桌大厅。你可以选择座位，也可以复制房号邀请朋友；未满四人时不会发牌。
             </p>

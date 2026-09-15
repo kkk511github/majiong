@@ -16,6 +16,17 @@ location ^~ /mahjong/api/voice/ {
     client_body_timeout 10s;
     proxy_read_timeout 15s;
 }
+# Profile photos are cropped and compressed by the client, then re-encoded by the server.
+location = /mahjong/api/auth/avatar {
+    proxy_pass http://127.0.0.1:18887/api/auth/avatar;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    client_max_body_size 180k;
+    client_body_timeout 10s;
+    proxy_read_timeout 15s;
+}
 location ^~ /mahjong/api/ {
     proxy_pass http://127.0.0.1:18887/api/;
     proxy_http_version 1.1;

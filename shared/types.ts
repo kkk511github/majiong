@@ -1,7 +1,7 @@
 export type Tile = number;
 export type Seat = 0 | 1 | 2 | 3;
 export interface Rules {
-  id: "nj-casual-v1";
+  id: "nj-casual-v1" | "nj-garden-v2" | "nj-open-v2";
   rounds: number;
   turnSeconds: number;
   minimumFlowers: number;
@@ -9,6 +9,11 @@ export interface Rules {
   seaBottom?: boolean;
   twoBankrupt?: boolean;
   protectWinner?: boolean;
+  biXiaHu?: "off" | "next" | "cumulative";
+  doubleSidePayments?: boolean;
+  successorDouble?: boolean;
+  fourWinds?: boolean;
+  discardPenalties?: boolean;
 }
 export const DEFAULT_RULES: Rules = {
   id: "nj-casual-v1",
@@ -72,6 +77,8 @@ export interface Meld {
   tiles: Tile[];
   from: Seat;
   concealed: boolean;
+  /** Distinguishes a direct exposed kong (still closed in v2) from an added pung. */
+  added?: boolean;
 }
 export interface Player {
   id: string;
@@ -85,6 +92,8 @@ export interface Player {
   melds: Meld[];
   discards: Tile[];
   score: number;
+  /** Cumulative garden external payments; never spendable as table balance. */
+  externalScore?: number;
   passedHu: boolean;
   passedPung: number[];
   disconnectedAt?: number;
@@ -113,8 +122,13 @@ export interface WinScore {
   total: number;
   items: { label: string; value: number }[];
   kinds: number[];
+  major?: boolean;
+  allIn?: boolean;
+  snapshot?: boolean;
 }
 export interface ScoreTransfer {
+  /** Missing means table balance, including legacy records. */
+  scope?: "external";
   from: Seat;
   to: Seat;
   amount: number;
@@ -128,6 +142,12 @@ export interface ScoreTransfer {
     | "补杠"
     | "暗杠"
     | "花杠"
+    | "四连风"
+    | "四家跟牌"
+    | "四张同牌"
+    | "清一色承包"
+    | "全球独钓承包"
+    | "天胡"
     | "保米";
 }
 export interface Result {
@@ -138,10 +158,14 @@ export interface Result {
   from?: Seat;
   details: Partial<Record<Seat, WinScore>>;
   deltas: number[];
+  /** External changes for this round, separate from table-balance deltas. */
+  externalDeltas?: number[];
   /** Absent on older rounds whose full transfer history was not recorded. */
   transfers?: ScoreTransfer[];
 }
 export interface RoundRecord {
+  rules?: Rules;
+  multiplier?: number;
   replayAvailable?: boolean;
   /** Revealed only after a completed round, for its hand review and final record. */
   hands?: { hand: Tile[]; melds: Meld[]; flowers: Tile[] }[];
@@ -151,6 +175,7 @@ export interface RoundRecord {
   result: Result;
   names: string[];
   scores: number[];
+  externalScores?: number[];
   /** Missing in pre-0.5 records, which started at zero and used no divisor. */
   initialScore?: number;
   /** Balance before the per-table fee. Legacy/practice falls back to initialScore. */
@@ -171,6 +196,7 @@ export interface Account {
   memberId?: string;
   username: string;
   name: string;
+  avatar?: string;
   role: "admin" | "member";
   mustChangePassword: boolean;
   canCreateTables?: boolean;
@@ -241,6 +267,8 @@ export interface MatchDetails {
   rounds: StoredRound[];
 }
 export interface Game {
+  /** Versioned rule state is authoritative and persists across reconnect/restart. */
+  ruleState?: NanjingRuleState;
   /** Server/local engine only. Never included in a live player View. */
   replay?: RoundReplay;
   version: 1;
@@ -269,6 +297,7 @@ export interface Game {
   revision: number;
   result?: Result;
   roundStartScores: number[];
+  roundStartExternalScores?: number[];
   roundTransfers?: ScoreTransfer[];
   history: RoundRecord[];
   events: string[];
@@ -278,6 +307,7 @@ export interface PublicPlayer extends Omit<
   Player,
   "hand" | "passedHu" | "passedPung"
 > {
+  avatar?: string;
   hand: Tile[];
   handCount: number;
 }
@@ -290,7 +320,12 @@ export interface View extends Omit<
   | "replacement"
   | "canSelfWin"
   | "replay"
+  | "ruleState"
 > {
+  roundMultiplier?: number;
+  nextRoundMultiplier?: number;
+  /** Only this viewer's original heavenly listening waits; other seats remain private. */
+  earthlyWaits?: number[];
   admissionMessage?: string;
   players: (PublicPlayer | null)[];
   remaining: number;
@@ -331,10 +366,13 @@ export interface ReplayFrame {
     flowers: Tile[];
     discards: Tile[];
     score: number;
+    externalScore?: number;
   }[];
   result?: Result;
 }
 export interface RoundReplay {
+  rules?: Rules;
+  multiplier?: number;
   version: 1;
   id: string;
   code: string;
@@ -344,6 +382,19 @@ export interface RoundReplay {
   names: string[];
   frames: ReplayFrame[];
   summaryOnly?: boolean;
+}
+
+export interface NanjingRuleState {
+  multiplier: number;
+  nextMultiplier: number;
+  nextReasons: string[];
+  keepDealer: boolean;
+  /** Only the server may read these waits; never include in a live public View. */
+  heavenlyEligible: boolean;
+  heavenlyWaits: Partial<Record<Seat, number[]>>;
+  discards: { seat: Seat; tile: Tile }[];
+  ownDiscards: number[][];
+  kongOccurred: boolean;
 }
 export type ClientMessage = (
   | { type: "hello"; token?: string; name: string }

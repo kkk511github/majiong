@@ -22,6 +22,7 @@ export function captureReplay(
       melds: (p?.melds ?? []).map((m) => ({ ...m, tiles: [...m.tiles] })),
       discards: [...(p?.discards ?? [])],
       score: p?.score ?? 0,
+      externalScore: p?.externalScore ?? 0,
     })),
     ...(type === "finish" && g.result
       ? { result: structuredClone(g.result) }

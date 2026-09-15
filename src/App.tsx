@@ -1,3 +1,5 @@
+import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
+import { ProfilePage } from "./ProfilePage";
 import { CocosTable } from "./CocosTable";
 import { cocosState } from "./cocos-state";
 import { referenceRiverSlot } from "./table-camera";
@@ -42,7 +44,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { client, storage } from "./game-client";
+import { client, storage, avatarURL } from "./game-client";
 import { Tile, TileBack } from "./Tile";
 import { GameMotion, useGameMotion, useHandMotion } from "./GameMotion";
 import { Dialog } from "./Dialog";
@@ -99,7 +101,7 @@ function RulesContent({ view }: { view?: View | null }) {
     <div className="rules-content">
       <div className="edition">
         <Flower2 size={20} />
-        <span>南京休闲玩法 · 当前试打规则</span>
+        <span>{view?.rules.id==="nj-open-v2"?"南京麻将 · 敞开头":view?.rules.id==="nj-casual-v1"?"南京麻将 · 历史规则":"南京麻将 · 进园子"}</span>
       </div>
       {ruleSections(view?.rules, view?.table?.settings).map(
         ([title, text], i) => (
@@ -120,21 +122,16 @@ function Avatar({
   seat = 0,
   big = false,
 }: {
-  player?: { name: string; bot: boolean } | null;
+  player?: { name: string; bot: boolean; avatar?: string } | null;
   seat?: number;
   big?: boolean;
 }) {
   return (
     <span className={`avatar avatar-${seat} ${big ? "big" : ""}`}>
-      {player ? (
-        player.bot ? (
-          <span className="portrait-art" aria-hidden="true" />
-        ) : (
-          <span className="portrait-art" aria-hidden="true" />
-        )
-      ) : (
-        <Plus size={24} />
-      )}
+      {player ? <>
+        <span className="portrait-art" aria-hidden="true" />
+        {avatarURL(player.avatar) && <img key={player.avatar} className="user-avatar" src={avatarURL(player.avatar)} alt={`${player.name}的头像`} onError={e => { e.currentTarget.style.visibility = 'hidden'; }} />}
+      </> : <Plus size={24} />}
     </span>
   );
 }
@@ -144,7 +141,6 @@ export function App() {
   const [page, setPage] = useState<Page>("home"),
     [modal, setModal] = useState<Modal>(null);
   const [name, setName] = useState(storage.get("name", "金陵牌友"));
-  const [profileName, setProfileName] = useState(name);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -157,12 +153,8 @@ export function App() {
   useEffect(() => {
     if (state.account) {
       setName(state.account.name);
-      setProfileName(state.account.name);
     }
   }, [state.account?.id, state.account?.name]);
-  const [profileStatus, setProfileStatus] = useState<"" | "saved" | "invalid">(
-    "",
-  );
   const [rounds, setRounds] = useState(4),
     [seconds, setSeconds] = useState(30),
     [code, setCode] = useState("");
@@ -370,23 +362,6 @@ export function App() {
     storage.set("name", value);
     return true;
   }
-  async function saveProfile() {
-    const value = profileName.trim();
-    if (!value || value.length > 12) {
-      setProfileStatus("invalid");
-      return;
-    }
-    try {
-      if (state.account) await client.updateProfile(value);
-    } catch (error) {
-      setToast((error as Error).message);
-      return;
-    }
-    setName(value);
-    setProfileName(value);
-    storage.set("name", value);
-    setProfileStatus("saved");
-  }
   function practice(resume = false) {
     if (!saveName()) return;
     setPage("home");
@@ -533,9 +508,9 @@ export function App() {
   const hintKinds = useMemo(
     () =>
       mine && v && ["playing", "claiming"].includes(v.phase)
-        ? listeningHints(mine, v.rules, hintDiscard)
+        ? listeningHints(mine, v.rules, hintDiscard, v.players, {seat:v.me,earthlyWaits:v.earthlyWaits})
         : [],
-    [mine, v?.rules, v?.phase, hintDiscard],
+    [mine, v?.rules, v?.phase, v?.players, v?.me, v?.earthlyWaits, hintDiscard],
   );
   if (
     (!state.authChecked ||
@@ -577,6 +552,7 @@ export function App() {
             金陵麻将<small>JINLING MAHJONG</small>
           </span>
         </button>
+        {!v && page === "profile" && <h1 className="profile-header-title">我的</h1>}
         <div className="header-right">
           <span className="header-note">{name}</span>
           <button
@@ -586,7 +562,7 @@ export function App() {
           >
             <Settings size={21} />
           </button>
-          <Avatar player={{ name, bot: false }} />
+          <Avatar player={{ name, bot: false, avatar: state.account?.avatar }} />
         </div>
       </header>
       {state.notice && (
@@ -643,164 +619,15 @@ export function App() {
               onBack={() => setPage("home")}
             />
           )}
-          {page === "profile" && (
-            <>
-              <div className="page-heading">
-                <h1>我的</h1>
-                <p>你的牌桌名片与声音设置</p>
-              </div>
-              <div className="profile-layout">
-                <section className="profile-identity">
-                  <div className="profile-card">
-                    <Avatar player={{ name, bot: false }} big />
-                    <div>
-                      <h2>{name}</h2>
-                      <p>
-                        {state.account?.username} ·{" "}
-                        {admin ? "管理员" : canOpen ? "可开桌牌友" : "牌友"}
-                      </p>
-                      {state.account?.memberId && (
-                        <p className="profile-member-id">
-                          会员 ID：{state.account.memberId}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="profile-name-editor">
-                    <label htmlFor="profile-name">
-                      牌桌昵称 <small>{profileName.length} / 12</small>
-                    </label>
-                    <div>
-                      <input
-                        id="profile-name"
-                        maxLength={12}
-                        value={profileName}
-                        aria-invalid={profileStatus === "invalid"}
-                        aria-describedby="profile-name-status"
-                        onChange={(e) => {
-                          setProfileName(e.target.value);
-                          setProfileStatus("");
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveProfile();
-                        }}
-                      />
-                      <button
-                        className="primary"
-                        onClick={saveProfile}
-                        disabled={
-                          profileName === name && profileStatus !== "invalid"
-                        }
-                      >
-                        保存昵称
-                      </button>
-                    </div>
-                    <p
-                      id="profile-name-status"
-                      role={profileStatus === "invalid" ? "alert" : "status"}
-                    >
-                      {profileStatus === "invalid"
-                        ? "请填写 1–12 个字的昵称。"
-                        : profileStatus === "saved"
-                          ? "昵称已保存，下次入桌使用新昵称。"
-                          : "保存后，朋友可以在牌桌上认出你。"}
-                    </p>
-                  </div>
-                </section>
-                <section className="preferences">
-                  <button
-                    className="setting-row"
-                    onClick={() => setModal("legal")}
-                  >
-                    <span>
-                      <ShieldCheck size={20} />
-                      用户协议与隐私说明
-                    </span>
-                    <ChevronRight size={18} />
-                  </button>
-                  {admin && (
-                    <button
-                      className="setting-row"
-                      onClick={() => setModal("club")}
-                    >
-                      <span>
-                        <ShieldCheck size={20} />
-                        战队与会员 · 积分统计
-                      </span>
-                      <ChevronRight size={18} />
-                    </button>
-                  )}
-                  {admin && (
-                    <button
-                      className="setting-row"
-                      onClick={() => setModal("permissions")}
-                    >
-                      <span>
-                        <ShieldCheck size={20} />
-                        开桌授权
-                      </span>
-                      <ChevronRight size={18} />
-                    </button>
-                  )}
-                  <AudioSettings
-                    value={audioPreferences}
-                    change={changeAudio}
-                  />
-                  <button
-                    className="setting-row"
-                    onClick={() => setPage("rules")}
-                  >
-                    <span>
-                      <BookOpen size={20} />
-                      玩法说明
-                    </span>
-                    <ChevronRight size={18} />
-                  </button>
-                  <button
-                    className="setting-row"
-                    onClick={() => {
-                      client.clearAuthError();
-                      setCurrentPassword("");
-                      setNewPassword("");
-                      setConfirmPassword("");
-                      setPasswordError("");
-                      setModal("password");
-                    }}
-                  >
-                    <span>
-                      <ShieldCheck size={20} />
-                      修改密码
-                    </span>
-                    <ChevronRight size={18} />
-                  </button>
-                  <button
-                    className="setting-row"
-                    disabled={state.authBusy}
-                    onClick={() => client.logout()}
-                  >
-                    <span>
-                      <LogOut size={20} />
-                      退出登录
-                    </span>
-                    <ChevronRight size={18} />
-                  </button>
-                  {state.authError && (
-                    <p role="alert" className="account-error">
-                      {state.authError}
-                    </p>
-                  )}
-                  <div className="privacy-note">
-                    <ShieldCheck size={20} />
-                    <p>
-                      账号与联机战绩保存在对局服务；所有会员可通过牌局 ID
-                      查看已结束牌局的回放。声音设置和单人练习保存在此设备。
-                    </p>
-                  </div>
-                  <span className="version">金陵麻将 0.6.11 · 试打版</span>
-                </section>
-              </div>
-            </>
-          )}
+          {page === "profile" && <ProfilePage
+            account={state.account} name={name} audio={audioPreferences} changeAudio={changeAudio}
+            notice={setToast} legal={() => setModal("legal")} rules={() => setPage("rules")}
+            club={() => setModal("club")} permissions={() => setModal("permissions")}
+            password={() => {
+              client.clearAuthError(); setCurrentPassword(""); setNewPassword("");
+              setConfirmPassword(""); setPasswordError(""); setModal("password");
+            }}
+          />}
           <footer
             className="lobby-footer"
             hidden={page === "home" || page === "tables"}
@@ -1008,10 +835,6 @@ export function App() {
                 if (page === id && (id === "home" || id === "tables"))
                   client.browseTables(name);
                 setPage(id);
-                if (id === "profile") {
-                  setProfileName(name);
-                  setProfileStatus("");
-                }
               }}
             >
               <Icon size={21} />
@@ -1211,7 +1034,7 @@ export function App() {
               <input
                 type="password"
                 autoComplete="current-password"
-                minLength={10}
+                minLength={MIN_PASSWORD_LENGTH}
                 maxLength={128}
                 required
                 value={currentPassword}
@@ -1223,7 +1046,7 @@ export function App() {
               <input
                 type="password"
                 autoComplete="new-password"
-                minLength={10}
+                minLength={MIN_PASSWORD_LENGTH}
                 maxLength={128}
                 required
                 value={newPassword}
@@ -1235,7 +1058,7 @@ export function App() {
               <input
                 type="password"
                 autoComplete="new-password"
-                minLength={10}
+                minLength={MIN_PASSWORD_LENGTH}
                 maxLength={128}
                 required
                 value={confirmPassword}

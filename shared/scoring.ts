@@ -1,67 +1,13 @@
 import { counts, kind } from "./tiles";
-import type { Player, Rules, Tile, WinScore } from "./types";
+import type { Player, Rules, Tile, WinScore, Seat } from "./types";
+import { shapes } from "./hand-shapes";
+import { isNanjingV2 } from "./nanjing-rules";
+import { scoreNanjingHand } from "./scoring-nanjing";
+export { shapes } from "./hand-shapes";
 
-interface Shape {
-  pair: number;
-  groups: number[][];
-  seven: boolean;
-  quads: number;
-}
-export function shapes(tiles: Tile[], openGroups = 0): Shape[] {
-  if (
-    tiles.length !== (4 - openGroups) * 3 + 2 ||
-    tiles.some((t) => kind(t) > 30)
-  )
-    return [];
-  const c = counts(tiles),
-    out: Shape[] = [];
-  if (c.some((n) => n > 4)) return [];
-  if (!openGroups && c.every((n) => n % 2 === 0))
-    out.push({
-      pair: -1,
-      groups: [],
-      seven: true,
-      quads: c.filter((n) => n === 4).length,
-    });
-  function visit(pair: number, groups: number[][]) {
-    const k = c.findIndex((n) => n > 0);
-    if (k < 0) {
-      out.push({
-        pair,
-        groups: groups.map((g) => [...g]),
-        seven: false,
-        quads: 0,
-      });
-      return;
-    }
-    if (c[k] >= 3) {
-      c[k] -= 3;
-      groups.push([k, k, k]);
-      visit(pair, groups);
-      groups.pop();
-      c[k] += 3;
-    }
-    if (k < 27 && k % 9 <= 6 && c[k + 1] && c[k + 2]) {
-      c[k]--;
-      c[k + 1]--;
-      c[k + 2]--;
-      groups.push([k, k + 1, k + 2]);
-      visit(pair, groups);
-      groups.pop();
-      c[k]++;
-      c[k + 1]++;
-      c[k + 2]++;
-    }
-  }
-  for (let k = 0; k < c.length; k++)
-    if (c[k] >= 2) {
-      c[k] -= 2;
-      visit(k, []);
-      c[k] += 2;
-    }
-  return out;
-}
 export interface WinContext {
+  seat?: Seat;
+  robbed?: boolean;
   tile?: Tile;
   winTile?: Tile;
   selfDraw?: boolean;
@@ -72,12 +18,16 @@ export interface WinContext {
   earthly?: boolean;
   doubled?: boolean;
   seaBottom?: boolean;
+  multiplier?: number;
+  snapshot?: boolean;
+  snapshotGroup?: number[];
 }
 export function scoreHand(
   p: Player,
   rules: Rules,
   ctx: WinContext = {},
 ): WinScore | null {
+  if (isNanjingV2(rules)) return scoreNanjingHand(p, rules, ctx);
   const flowerFactor = rules.flowerDouble === false ? 1 : 2;
   const hand = ctx.tile === undefined ? p.hand : [...p.hand, ctx.tile];
   const candidates = shapes(hand, p.melds.length);
@@ -193,9 +143,13 @@ export function scoreHand(
   }
   return best;
 }
-export function winningKinds(p: Player, rules: Rules): number[] {
+export function winningKinds(
+  p: Player,
+  rules: Rules,
+  context: Pick<WinContext, "visiblePungs" | "earthly" | "seat"> = {},
+): number[] {
   const owned = counts([...p.hand, ...p.melds.flatMap((m) => m.tiles)]);
   return Array.from({ length: 31 }, (_, k) => k).filter(
-    (k) => owned[k] < 4 && scoreHand(p, rules, { tile: k * 4 }),
+    (k) => owned[k] < 4 && scoreHand(p, rules, { ...context, tile: k * 4 }),
   );
 }

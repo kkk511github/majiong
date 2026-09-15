@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { useId, useState } from "react";
 import {
   ArrowRight,
@@ -68,7 +69,6 @@ export function AuthScreen({
               登录账号，赴一场熟悉的牌局。
             </p>
           </div>
-
         </section>
         <section
           className="account-card"
@@ -162,14 +162,14 @@ export function AuthScreen({
                       type={visible ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      minLength={10}
+                      minLength={MIN_PASSWORD_LENGTH}
                       maxLength={128}
                       required
                       placeholder={
                         forced
                           ? "输入管理员初始密码"
                           : registering
-                            ? "至少 10 位字符"
+                            ? "至少 4 位字符"
                             : "请输入密码"
                       }
                     />
@@ -191,9 +191,9 @@ export function AuthScreen({
                       value={nextPassword}
                       onChange={(e) => setNextPassword(e.target.value)}
                       required
-                      minLength={10}
+                      minLength={MIN_PASSWORD_LENGTH}
                       maxLength={128}
-                      placeholder="至少 10 位字符"
+                      placeholder="至少 4 位字符"
                     />
                   </label>
                 )}
@@ -205,7 +205,7 @@ export function AuthScreen({
                       autoComplete="new-password"
                       value={confirm}
                       onChange={(e) => setConfirm(e.target.value)}
-                      minLength={10}
+                      minLength={MIN_PASSWORD_LENGTH}
                       maxLength={128}
                       required
                       placeholder="再次输入新密码"

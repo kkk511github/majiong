@@ -9,6 +9,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import type { Account } from "../shared/types";
 import { membership, teamSchema } from "./teams";
+import sharp from "sharp";
+import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 
 export const ADMIN_USERNAME = "guanli@1";
 export const tokenHash = (token: string) =>
@@ -48,6 +50,8 @@ export function accountSchema(db: DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS table_permissions (
     account_id TEXT PRIMARY KEY, can_create INTEGER NOT NULL CHECK(can_create IN (0,1)),
     granted_by TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
+  db.exec(`CREATE TABLE IF NOT EXISTS account_avatars (
+    account_id TEXT PRIMARY KEY, digest TEXT NOT NULL, image BLOB NOT NULL);`);
   // Separate public numbers preserve all existing UUID references and old DB
   // insert statements. Allocate once, including historical accounts on upgrade.
   db.exec(`CREATE TABLE IF NOT EXISTS account_numbers (
@@ -70,6 +74,7 @@ function account(row: AccountRow, db: DatabaseSync): Account {
     ),
     username: row.username,
     name: row.name,
+    avatar: avatarPath(db, row.id),
     role: row.role,
     mustChangePassword: !!row.must_change,
     ...membership(db, row.id),
@@ -102,14 +107,20 @@ function displayName(value: unknown) {
     throw new AuthError("昵称需要 1–12 个字");
   return value.trim();
 }
+function avatarPath(db: DatabaseSync, id: string): string | undefined {
+  const row = db
+    .prepare("SELECT digest FROM account_avatars WHERE account_id=?")
+    .get(id);
+  return row ? `/api/avatars/${id}/${row.digest}.jpg` : undefined;
+}
 function password(value: unknown): string {
   if (
     typeof value !== "string" ||
-    value.length < 10 ||
+    value.length < MIN_PASSWORD_LENGTH ||
     value.length > 128 ||
     Buffer.byteLength(value) > 512
   )
-    throw new AuthError("密码需要 10–128 位字符");
+    throw new AuthError(`密码需要 ${MIN_PASSWORD_LENGTH}–128 位字符`);
   return value;
 }
 const derive = (value: string, salt: string) =>
@@ -173,13 +184,13 @@ export async function provisionAdministrator(
   );
   return id;
 }
-export async function readJSON(req: IncomingMessage) {
+export async function readJSON(req: IncomingMessage, maxBytes = 8192) {
   const chunks: Buffer[] = [];
   let length = 0;
   for await (const raw of req) {
     const chunk = Buffer.from(raw);
     length += chunk.length;
-    if (length > 8192) throw new AuthError("请求内容过长", 413);
+    if (length > maxBytes) throw new AuthError("请求内容过长", 413);
     chunks.push(chunk);
   }
   try {
@@ -198,6 +209,7 @@ export function createAccounts(
   accountSchema(db);
   const rates = new Map<string, { count: number; until: number }>();
   let hashing = 0;
+  let avatarUploads = 0;
   function limit(key: string, maximum: number) {
     const now = Date.now();
     if (rates.size > 2000)
@@ -280,6 +292,27 @@ export function createAccounts(
     res: ServerResponse,
     path: string,
   ): Promise<boolean> {
+    if (path.startsWith("/api/avatars/")) {
+      const match =
+        /^\/api\/avatars\/([a-f0-9-]{36})\/([a-f0-9]{64})\.jpg$/.exec(path);
+      const row =
+        req.method === "GET" && match
+          ? db
+              .prepare(
+                "SELECT image FROM account_avatars WHERE account_id=? AND digest=?",
+              )
+              .get(match[1], match[2])
+          : undefined;
+      if (!row) {
+        res.statusCode = 404;
+        res.end('{"error":"头像不存在"}');
+        return true;
+      }
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.end(Buffer.from(row.image as Uint8Array));
+      return true;
+    }
     if (
       !path.startsWith("/api/auth/") &&
       path !== "/api/admin/table-permissions"
@@ -288,6 +321,65 @@ export function createAccounts(
     res.setHeader("Cache-Control", "no-store");
     let entered = false;
     try {
+      if (path === "/api/auth/avatar") {
+        const session = requireSession(req);
+        if (req.method !== "POST") throw new AuthError("请求方式不支持", 405);
+        limit(`avatar:${session.id}`, 30);
+        if (avatarUploads >= 4)
+          throw new AuthError("头像服务繁忙，请稍后重试", 429);
+        avatarUploads++;
+        try {
+          const body = await readJSON(req, 180000);
+          let image: Buffer | undefined;
+          if (body.image !== null) {
+            const match =
+              typeof body.image === "string" &&
+              /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(
+                body.image,
+              );
+            if (!match) throw new AuthError("请选择 JPG、PNG 或 WebP 图片");
+            try {
+              const input = sharp(Buffer.from(match[2], "base64"), {
+                limitInputPixels: 1048576,
+                failOn: "warning",
+              });
+              const meta = await input.metadata();
+              if (
+                !["jpeg", "png", "webp"].includes(meta.format ?? "") ||
+                (meta.pages ?? 1) !== 1
+              )
+                throw Error();
+              image = await input
+                .rotate()
+                .resize(192, 192, { fit: "cover" })
+                .flatten({ background: "#e9e4d4" })
+                .jpeg({ quality: 85 })
+                .toBuffer();
+            } catch {
+              throw new AuthError("图片无法读取，请重新选择一张照片");
+            }
+          }
+          // Upload/decode are asynchronous: a revoked session must not save.
+          if (requireSession(req).id !== session.id)
+            throw new AuthError("请重新登录", 401);
+          if (image)
+            db.prepare(
+              "INSERT INTO account_avatars VALUES (?,?,?) ON CONFLICT(account_id) DO UPDATE SET digest=excluded.digest,image=excluded.image",
+            ).run(
+              session.id,
+              createHash("sha256").update(image).digest("hex"),
+              image,
+            );
+          else
+            db.prepare("DELETE FROM account_avatars WHERE account_id=?").run(
+              session.id,
+            );
+          res.end(JSON.stringify({ account: notifyAccount(session.id) }));
+        } finally {
+          avatarUploads--;
+        }
+        return true;
+      }
       if (path === "/api/admin/table-permissions") {
         const actor = requireSession(req, true);
         if (req.method === "GET") {
@@ -561,6 +653,7 @@ export function createAccounts(
     handle,
     canOpenTables,
     getAccount,
+    getAvatar: (id: string) => avatarPath(db, id),
     notifyAccount,
     requirePlay,
   };

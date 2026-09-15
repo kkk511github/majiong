@@ -123,16 +123,15 @@ html:root[data-table-platform] #table-board .discard-field {
   left: 0; top: calc(23 * var(--u)); bottom: auto;
 }
 #table-board .meld-source-arrow {
-  position: absolute; left: 50%; top: 33%; transform: translate(-50%,-50%);
-  width: max(9px,calc(13 * var(--u))); height: max(10px,calc(14 * var(--u)));
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: max(14px,calc(24 * var(--u))); height: max(14px,calc(24 * var(--u)));
   display: grid; place-items: center; z-index: 4; pointer-events: none;
   filter: drop-shadow(0 1px 1px #173725);
 }
-.meld-source-arrow i { display: block; width: 100%; height: 100%; background: linear-gradient(#fff4a2,#ffb819); clip-path: polygon(50% 0,100% 52%,70% 52%,70% 100%,30% 100%,30% 52%,0 52%); }
-.meld-source-arrow[data-direction='down'] i { transform: rotate(180deg); }
-.meld-source-arrow[data-direction='left'] i { transform: rotate(-90deg); }
-.meld-source-arrow[data-direction='right'] i { transform: rotate(90deg); }
-.seat-tiles-top .meld-source-arrow { top: 38%; }
+.meld-source-arrow svg { display: block; width: 100%; height: 100%; }
+.meld-source-arrow[data-direction='down'] svg { transform: rotate(180deg); }
+.meld-source-arrow[data-direction='left'] svg { transform: rotate(-90deg); }
+.meld-source-arrow[data-direction='right'] svg { transform: rotate(90deg); }
 
 /* Rivers retain one fixed tile scale; no count-dependent zoom. */
 html:root[data-table-platform] #table-board .river-tile > .surface-tile {

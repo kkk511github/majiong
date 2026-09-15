@@ -1,5 +1,6 @@
 /** The table renderer is a view, never a rules engine or a source of hidden cards. */
 export interface ScenePlayer {
+  avatar?: string;
   name: string; score: number; seat: number; bot: boolean; trustee: boolean;
   hand: number[]; handCount: number; flowers: number[]; discards: number[];
   melds: {type:'pung'|'kong'; tiles:number[]; from:number; concealed:boolean}[];
@@ -40,6 +41,18 @@ export const sceneTileName = (tile:number) => {
 };
 export const sceneOffset=(seat:number,me:number)=>(seat-me+4)%4;
 const poses=['bottom','right','top','left'];
+
+export interface MeldSourceMarker { id:string; tileId:string; source:number; x:number; y:number; size:number; rotation:number }
+/** The source arrow belongs on the middle tile face, including the upper kong
+ * tile. Keep it attached when the river, flowers or other hands change. */
+export function layoutMeldSources(tiles:SceneTile[],me:number):MeldSourceMarker[]{
+ return tiles.filter(t=>t.area==='meld'&&t.source!==undefined&&t.source!==t.seat).map(t=>{
+  const upper=tiles.find(v=>v.id===t.id.replace(/-1$/,'-3')&&v.stack);
+  const face=upper||t;
+  return {id:'source-'+t.id,tileId:face.id,source:t.source!,x:face.x,y:face.y-face.h*.09,
+   size:Math.max(22,Math.min(28,Math.min(face.w,face.h)*.6)),rotation:[180,-90,0,90][sceneOffset(t.source!,me)]};
+ });
+}
 
 export interface FlowerRack { seat:number; lane:number; points:[number,number][] }
 // Standing hands and melds retain their existing table projection independently
@@ -131,7 +144,9 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
    const selectedLift=s.actions.length?2:15;
    p.melds.forEach((m,mi)=>{
     const ts=m.tiles.length?m.tiles:Array(m.type==='kong'?4:3).fill(undefined);
-    ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:m.concealed?'cover-bottom':'own',area:'meld',x:x+(ti===3?1:ti)*46,y:548-(ti===3?29:0),w:46,h:66,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
+    // Exposed sets lie on the felt: use the baked ivory wall/green-base camera,
+    // not the front-facing standing hand sprite. Their feet share the hand line.
+    ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:m.concealed?'cover-bottom':'bottom',area:'meld',x:x+(ti===3?1:ti)*46,y:556-(ti===3?22:0),w:46,h:46*163/116,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
     x+=146;
    });
    p.hand.filter(t=>t!==s.drawn).forEach((tile,i)=>add({id:`hand-${tile}`,tile,seat:p.seat,pose:'own',area:'hand',x:x+i*65,y:540-(s.selected===tile?selectedLift:0),w:65,h:98,z:1000+i,selected:s.selected===tile,clickable:s.canDiscard&&!p.trustee&&!s.disabled}));
@@ -172,9 +187,9 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     const count=Math.min(lane?4:12,p.flowers.length-(lane?12+(lane-1)*4:0));
     const [tl,tr,br]=flowerRackPoints(o,lane);
     const w=tr[0]-tl[0]-4,h=w*213/246;
-    // Only the contact edge overlaps. The previous fixed 16-card pitch hid
-    // the ivory wall and green base even when just two flowers were present.
-    const pitch=Math.min(h-.75,(br[1]-tl[1]-4-h)/Math.max(1,count-1));
+    // Overlap only the antialiased contact edges: no felt sliver between flowers,
+    // while the wide ivory wall and green base remain visible on every tile.
+    const pitch=Math.min(h-1.75,(br[1]-tl[1]-4-h)/Math.max(1,count-1));
     const x=(tl[0]+tr[0])/2;
     const y=o===3||lane?tl[1]+2+h/2+index*pitch:br[1]-2-h/2-index*pitch;
     add({id:`flower-${tile}`,tile,seat:p.seat,pose:'flower-'+pose,area:'flower',x,y,w,h,shear:0,rack:lane,z:200+y});

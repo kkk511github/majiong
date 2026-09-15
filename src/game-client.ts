@@ -1,7 +1,9 @@
 import { voiceDuration, type RoomVoiceMessage } from "../shared/room-voice";
+import { newGameRules } from "../shared/nanjing-rules";
 import { ServerClock } from "./server-clock";
 import { decisionDeadline, setTrustee } from "../shared/timing";
 import { Capacitor } from "@capacitor/core";
+import { isAvatarPath } from "../shared/account-profile";
 import {
   act,
   botAction,
@@ -67,6 +69,7 @@ export interface ClientState {
   voiceMessages: RoomVoiceMessage[];
 }
 const base = import.meta.env.VITE_GAME_SERVER_URL as string | undefined;
+export const avatarURL = (path?: string) => isAvatarPath(path) ? (base?.replace(/\/$/, "") ?? "") + path : undefined;
 export const onlineAvailable = !Capacitor.isNativePlatform() || !!base;
 export class GameClient {
   state: ClientState = {
@@ -268,6 +271,10 @@ export class GameClient {
   };
   snapshot = () => this.state;
   private emit(patch: Partial<ClientState>) {
+    if (patch.view && (patch.mode ?? this.state.mode) === "local") {
+      const me = patch.view.players[patch.view.me];
+      if (me) me.avatar = this.state.account?.avatar;
+    }
     if (
       ("view" in patch && patch.view?.id !== this.state.view?.id) ||
       ("mode" in patch && patch.mode !== "online")
@@ -454,6 +461,10 @@ export class GameClient {
     storage.set("name", name);
     this.emit({ account: data.account });
   }
+  async updateAvatar(image: string | null) {
+    const data = await this.api<{ account: Account }>("/api/auth/avatar", { image });
+    this.emit({ account: data.account });
+  }
   async logout() {
     if (this.state.authBusy) return;
     this.emit({ authBusy: true, authError: "" });
@@ -605,7 +616,7 @@ export class GameClient {
           Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
             b.toString(16).padStart(2, "0"),
           ).join(""),
-        rules,
+        newGameRules(rules),
       );
     if (!saved) {
       this.local.players = [

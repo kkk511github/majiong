@@ -122,6 +122,8 @@ async function win(
   g.phase = "playing";
   g.turn = seat;
   g.canSelfWin = true;
+  // This helper represents a later ordinary win, not a newly dealt heavenly win.
+  if(g.ruleState) {g.ruleState.heavenlyEligible=false;g.ruleState.heavenlyWaits={};}
   g.pending = undefined;
   g.deadline = Date.now() + 30000;
   g.players[seat]!.hand = [

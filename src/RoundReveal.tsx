@@ -5,6 +5,7 @@ import {
   settlementRows,
   settlementTime,
   signedScore,
+  roundNet,
 } from "../shared/settlement";
 import { Tile } from "./Tile";
 import "./round-reveal.css";
@@ -169,12 +170,12 @@ export function RoundReveal({
                     本把
                     <b
                       className={
-                        record.result.deltas[seat] > 0
+                        roundNet(record.result, seat) > 0
                           ? "score-plus"
                           : "score-minus"
                       }
                     >
-                      {signedScore(record.result.deltas[seat])}
+                      {signedScore(roundNet(record.result, seat))}
                     </b>
                   </span>
                 )}
@@ -182,12 +183,14 @@ export function RoundReveal({
                   {final ? "累计" : "本把"}
                   <b
                     className={
-                      (final ? row.net : record.result.deltas[seat]) > 0
+                      (final ? row.net : roundNet(record.result, seat)) > 0
                         ? "score-plus"
                         : "score-minus"
                     }
                   >
-                    {signedScore(final ? row.net : record.result.deltas[seat])}
+                    {signedScore(
+                      final ? row.net : roundNet(record.result, seat),
+                    )}
                   </b>
                 </span>
                 <span>
@@ -196,6 +199,18 @@ export function RoundReveal({
                     {final ? signedScore(row.recorded) : row.score}
                   </b>
                 </span>
+                {!!(final
+                  ? row.external
+                  : record.result.externalDeltas?.[seat]) && (
+                  <small>
+                    含桌外{" "}
+                    {signedScore(
+                      final
+                        ? row.external
+                        : record.result.externalDeltas![seat],
+                    )}
+                  </small>
+                )}
               </div>
             </article>
           );

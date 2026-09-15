@@ -2,7 +2,14 @@ import { readVoice } from "./room-voice";
 import { createClub } from "./club";
 import { createServer } from "node:http";
 import { randomInt, randomUUID } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
+import { newGameRules } from "../shared/nanjing-rules";
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  statSync,
+  readFileSync,
+} from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { WebSocketServer, WebSocket } from "ws";
@@ -34,6 +41,9 @@ import type {
 import { createAccounts, AuthError, type AuthSession } from "./accounts";
 import { createRecords } from "./records";
 import { mayCreateTables } from "../shared/permissions";
+const APP_VERSION = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+).version as string;
 import {
   overtimeExpired,
   refreshReadyDeadline,
@@ -144,6 +154,9 @@ export function makeServer(
   };
   function viewFor(g: Game, seat: Seat) {
     const view = baseViewFor(g, seat);
+    view.players = view.players.map((p) =>
+      p ? { ...p, avatar: p.bot ? undefined : accounts.getAvatar(p.id) } : null,
+    );
     if (
       ["waiting", "ended"].includes(g.phase) &&
       g.players.some((p) => p && !p.bot && !accounts.getAccount(p.id)?.canPlay)
@@ -152,7 +165,7 @@ export function makeServer(
         "有会员暂未获得参赛权限，请管理员检查战队或参赛状态后继续";
     if (g.table?.settings.privacy === "all") {
       view.players = view.players.map((p, i) =>
-        p && i !== seat ? { ...p, name: `牌友${i + 1}` } : p,
+        p && i !== seat ? { ...p, name: `牌友${i + 1}`, avatar: undefined } : p,
       );
       view.history = view.history.map((r) => ({
         ...r,
@@ -515,7 +528,7 @@ export function makeServer(
         JSON.stringify({
           ok: true,
           service: "jinling-mahjong",
-          version: "0.6.11",
+          version: APP_VERSION,
         }),
       );
       return;
@@ -839,12 +852,7 @@ export function makeServer(
               code = String(randomInt(100000, 1000000));
             } while (games.has(code) || created.some((r) => r.code === code));
             const room = createGame(code, randomUUID(), {
-              ...msg.rules,
-              turnSeconds: msg.rules?.turnSeconds ?? 10,
-              flowerDouble: msg.rules?.flowerDouble ?? true,
-              seaBottom: msg.rules?.seaBottom ?? true,
-              twoBankrupt: msg.rules?.twoBankrupt ?? true,
-              protectWinner: msg.rules?.protectWinner ?? true,
+              ...newGameRules(msg.rules),
               ...(settings.trusteeMode === "disabled"
                 ? { turnSeconds: 0 }
                 : {}),
@@ -920,7 +928,7 @@ export function makeServer(
             g = createGame(
               code,
               randomUUID(),
-              msg.rules && typeof msg.rules === "object" ? msg.rules : {},
+              newGameRules(msg.rules && typeof msg.rules === "object" ? msg.rules : {}),
             );
             g.settlementBase = 100;
             g.players[0] = newPlayer(

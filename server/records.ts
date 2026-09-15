@@ -9,6 +9,7 @@ import type {
 import { membership } from "./teams";
 import type { PointSummary, PointSummaryPage } from "../shared/types";
 import { AuthError } from "./accounts";
+import { roundNet } from "../shared/settlement";
 import { gzipSync, gunzipSync } from "node:zlib";
 import type { RoundReplay } from "../shared/types";
 
@@ -73,8 +74,12 @@ export function createRecords(db: DatabaseSync) {
         record.playerIds!.forEach((id, seat) => {
           if (!id || !db.prepare("SELECT 1 FROM accounts WHERE id=?").get(id))
             return;
-          const delta = record.result.deltas[seat];
-          if (!Number.isFinite(delta)) return;
+          const delta = roundNet(record.result, seat);
+          if (
+            !Number.isFinite(record.result.deltas[seat]) ||
+            !Number.isFinite(delta)
+          )
+            return;
           const roster = db
             .prepare(
               "SELECT team_id,team_name FROM round_rosters WHERE game_id=? AND round=? AND account_id=?",
@@ -117,6 +122,7 @@ export function createRecords(db: DatabaseSync) {
         at: g.table?.finishedAt ?? last.at,
         names: g.players.map((p) => p!.name),
         scores: g.players.map((p) => p!.score),
+        externalScores: g.players.map((p) => p!.externalScore ?? 0),
         playerIds: g.players.map((p) => p!.id),
         initialScore: g.initialScore ?? 0,
         settlementBase: g.settlementBase ?? last.settlementBase,
@@ -181,9 +187,10 @@ export function createRecords(db: DatabaseSync) {
       }
       if (record.result.reason === "dissolved") continue;
       ids.forEach((id, seat) => {
-        const delta = record.result.deltas[seat];
+        const delta = roundNet(record.result, seat);
         if (
           !id ||
+          !Number.isFinite(record.result.deltas[seat]) ||
           !Number.isFinite(delta) ||
           !db.prepare("SELECT 1 FROM accounts WHERE id=?").get(id)
         )
@@ -495,6 +502,8 @@ export function createRecords(db: DatabaseSync) {
           }).toString(),
         )
       : {
+          rules: record.rules,
+          multiplier: record.multiplier,
           version: 1,
           id,
           code: String(row.code),
@@ -515,6 +524,7 @@ export function createRecords(db: DatabaseSync) {
                 flowers: record.hands?.[seat]?.flowers ?? [],
                 discards: [],
                 score: record.scores[seat],
+                externalScore: record.externalScores?.[seat] ?? 0,
               })),
               result: record.result,
             },

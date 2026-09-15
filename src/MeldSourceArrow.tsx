@@ -27,7 +27,7 @@ export function MeldSourceArrow({
       aria-label={label}
       title={label}
     >
-      <i />
+      <svg viewBox="190 161 867 902" aria-hidden="true"><image href="/meld-source-dart.png" width="1254" height="1254" /></svg>
     </span>
   );
 }

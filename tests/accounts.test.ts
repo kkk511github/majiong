@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -68,7 +69,7 @@ async function boot(forcePassword = false, tickMs = 60000) {
     }
     return result;
   }
-  return { server, port, file, request, auth };
+  return { server, port, file, base, request, auth };
 }
 async function socket(port: number, token?: string) {
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
@@ -749,5 +750,173 @@ describe("公开会员编号", () => {
       password,
     });
     expect(login.body.account.memberId).toBe(a.account.memberId);
+  });
+});
+
+describe("四位密码与个人头像", () => {
+  it("三位被拒绝，四位可注册、登录、修改密码，旧密码随即失效", async () => {
+    const { request } = await boot();
+    expect(
+      (
+        await request("/api/auth/register", {
+          username: "short3",
+          name: "短密码",
+          password: "123",
+        })
+      ).status,
+    ).toBe(400);
+    const user = await request("/api/auth/register", {
+      username: "short4",
+      name: "四位密码",
+      password: "1234",
+    });
+    expect(user.status).toBe(200);
+    const login = await request("/api/auth/login", {
+      username: "short4",
+      password: "1234",
+    });
+    expect(login.status).toBe(200);
+    expect(
+      (
+        await request(
+          "/api/auth/password",
+          { currentPassword: "1234", password: "234" },
+          login.body.token,
+        )
+      ).status,
+    ).toBe(400);
+    const changed = await request(
+      "/api/auth/password",
+      { currentPassword: "1234", password: "2345" },
+      login.body.token,
+    );
+    expect(changed.status).toBe(200);
+    expect(
+      (
+        await request("/api/auth/login", {
+          username: "short4",
+          password: "1234",
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request("/api/auth/login", {
+          username: "short4",
+          password: "2345",
+        })
+      ).status,
+    ).toBe(200);
+  });
+  it("头像重新编码持久保存、同步牌桌，更新不能修改别人的头像，隐私桌隐藏头像", async () => {
+    const { request, auth, base, file, port, server } = await boot();
+    const owner = await auth("guanli@1", true),
+      user = await auth("photo-user");
+    const image =
+      "data:image/png;base64," +
+      (
+        await sharp({
+          create: {
+            width: 256,
+            height: 200,
+            channels: 3,
+            background: "#cc3a41",
+          },
+        })
+          .png()
+          .toBuffer()
+      ).toString("base64");
+    expect((await request("/api/auth/avatar", { image })).status).toBe(401);
+    const peer = await socket(port, owner.token);
+    await peer.read("session");
+    peer.send({
+      type: "createTables",
+      count: 1,
+      settings: { readyMode: "manual" },
+      creationId: "avatar-table",
+    });
+    const code = (await peer.read("tablesCreated")).codes[0];
+    peer.send({ type: "join", code });
+    await peer.read("state");
+    const saved = await request(
+      "/api/auth/avatar",
+      { image, accountId: user.account.id },
+      owner.token,
+    );
+    expect(saved.status).toBe(200);
+    const path = saved.body.account.avatar;
+    expect(path).toMatch(/^\/api\/avatars\/[a-f0-9-]{36}\/[a-f0-9]{64}\.jpg$/);
+    const live = await peer.read("state");
+    expect(live.state.players[live.state.me].avatar).toBe(path);
+    const photo = await fetch(base + path);
+    expect(photo.headers.get("content-type")).toBe("image/jpeg");
+    const bytes = Buffer.from(await photo.arrayBuffer()),
+      meta = await sharp(bytes).metadata();
+    expect([meta.width, meta.height]).toEqual([192, 192]);
+    expect(meta.exif).toBeUndefined();
+    const db = new DatabaseSync(file);
+    expect(db.prepare("SELECT account_id FROM account_avatars").all()).toEqual([
+      { account_id: owner.account.id },
+    ]);
+    db.close();
+    const other = await socket(port, user.token);
+    await other.read("session");
+    other.send({ type: "join", code });
+    const otherView = (await other.read("state")).state;
+    expect(
+      otherView.players.find((p: any) => p?.id === owner.account.id).avatar,
+    ).toBe(path);
+    server.games.get(code)!.table!.settings.privacy = "all";
+    other.send({ type: "ready" });
+    let privateView = (await other.read("state")).state;
+    while (privateView.table.settings.privacy !== "all")
+      privateView = (await other.read("state")).state;
+    expect(
+      privateView.players.find((p: any) => p?.id === owner.account.id).avatar,
+    ).toBeUndefined();
+    // Verify persistence via another authenticated account read as well.
+    expect(
+      (await request("/api/auth/session", undefined, owner.token)).body.account
+        .avatar,
+    ).toBe(path);
+    expect(
+      (await request("/api/auth/session", undefined, user.token)).body.account
+        .avatar,
+    ).toBeUndefined();
+    expect(
+      (await request("/api/auth/avatar", { image: null }, owner.token)).status,
+    ).toBe(200);
+    expect((await fetch(base + path)).status).toBe(404);
+    expect(
+      (await request("/api/auth/session", undefined, owner.token)).body.account
+        .avatar,
+    ).toBeUndefined();
+  });
+  it("拒绝伪造图片、SVG、超限内容及过期登录，不影响已有头像", async () => {
+    const { request, auth, file } = await boot();
+    const user = await auth("bad-photo");
+    for (const image of [
+      "https://example.com/p.jpg",
+      "data:image/svg+xml;base64,PHN2Zy8+",
+      "data:image/png;base64,bm90YW5pbWFnZQ==",
+    ])
+      expect(
+        (await request("/api/auth/avatar", { image }, user.token)).status,
+      ).toBe(400);
+    expect(
+      (
+        await request(
+          "/api/auth/avatar",
+          { image: "x".repeat(180001) },
+          user.token,
+        )
+      ).status,
+    ).toBe(413);
+    const db = new DatabaseSync(file);
+    db.prepare("DELETE FROM sessions WHERE id=?").run(user.account.id);
+    db.close();
+    expect(
+      (await request("/api/auth/avatar", { image: null }, user.token)).status,
+    ).toBe(401);
   });
 });

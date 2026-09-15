@@ -8,7 +8,7 @@ import {
   Layers3,
 } from "lucide-react";
 import type { MatchDetails, RoundRecord, StoredRound } from "../shared/types";
-import { signedScore, settlementRows } from "../shared/settlement";
+import { signedScore, settlementRows, roundNet } from "../shared/settlement";
 import { client } from "./game-client";
 import { RoundReveal } from "./RoundReveal";
 import { ScoreDetails, Settlement } from "./Settlement";
@@ -230,14 +230,14 @@ export function MatchRecordDetails({
                   </small>
                   <b
                     className={
-                      (item.record.result.deltas[i] ?? 0) > 0
+                      roundNet(item.record.result, i) > 0
                         ? "positive"
-                        : (item.record.result.deltas[i] ?? 0) < 0
+                        : roundNet(item.record.result, i) < 0
                           ? "negative"
                           : "neutral"
                     }
                   >
-                    {signedScore(item.record.result.deltas[i] ?? 0)}
+                    {signedScore(roundNet(item.record.result, i))}
                   </b>
                 </div>
               ))}

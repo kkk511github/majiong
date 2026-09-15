@@ -1,6 +1,7 @@
 import type { View } from '../shared/types';
 import type { TableSceneState } from '../shared/table-scene';
 import type { GameFeedback } from './game-feedback';
+import { avatarURL } from './game-client';
 
 export function cocosState(view: View, ui: {
   connected: boolean; disabled: boolean; practice: boolean; countdown: string;
@@ -16,6 +17,7 @@ export function cocosState(view: View, ui: {
     // Explicitly project fields. Do not spread a Game or Player into the bridge.
     players: view.players.flatMap((p, seat) => p ? [{
       name: p.name, score: p.score, seat, bot: p.bot, trustee: p.trustee,
+      avatar: avatarURL(p.avatar),
       hand: seat === view.me || reveal ? [...p.hand] : [], handCount: p.handCount,
       flowers: [...p.flowers], discards: [...p.discards],
       melds: p.melds.map(m => ({ type: m.type, from: m.from, concealed: m.concealed,

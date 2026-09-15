@@ -6,6 +6,7 @@ import {
   signedScore as scoreText,
   settlementRows,
   settlementTime,
+  roundNet,
 } from "../shared/settlement";
 const seatNames = ["东", "南", "西", "北"];
 
@@ -24,6 +25,7 @@ export function Settlement({
   const baseline = record.settlementBase ?? record.initialScore ?? 0;
   const initial = record.initialScore ?? 0;
   const tableFee = baseline - initial;
+  const hasExternal = rows.some((row) => row.external !== 0);
   const [copied, setCopied] = useState("");
   async function copy() {
     const text = [
@@ -32,9 +34,9 @@ export function Settlement({
       settlementTime(record.at),
       ...rows.map(
         (row) =>
-          `${row.rank}. ${row.name}  分数 ${scoreText(row.net)}  记分 ${scoreText(row.recorded)}`,
+          `${row.rank}. ${row.name}  桌上分 ${row.score}${hasExternal ? `  桌外 ${scoreText(row.external)}` : ""}  分数 ${scoreText(row.net)}  记分 ${scoreText(row.recorded)}`,
       ),
-      `本金 ${baseline} 分 · 桌费 ${tableFee} 分/人 · 入桌 ${initial} 分 · 记分 = (桌上分 - ${baseline}) × ${1 / (record.scoreDivisor ?? 1)}`,
+      `本金 ${baseline} 分 · 桌费 ${tableFee} 分/人 · 入桌 ${initial} 分 · 记分 = (桌上分 - ${baseline}${hasExternal ? " + 桌外记分" : ""}) × ${1 / (record.scoreDivisor ?? 1)}`,
     ].join("\n");
     try {
       await navigator.clipboard.writeText(text);
@@ -75,6 +77,7 @@ export function Settlement({
             <th>名次</th>
             <th>牌友</th>
             <th>桌上分</th>
+            {hasExternal && <th>桌外</th>}
             <th>分数</th>
             <th>记分</th>
           </tr>
@@ -130,6 +133,7 @@ export function Settlement({
                 </div>
               </td>
               <td className="settlement-balance">{row.score}</td>
+              {hasExternal && <td>{scoreText(row.external)}</td>}
               <td
                 className={
                   row.net > 0
@@ -154,7 +158,9 @@ export function Settlement({
         <p>
           本金 <b>{baseline}</b> · 入桌 {initial}
           {tableFee > 0 ? ` · 桌费 ${tableFee}/人` : ""} · 记分 =（桌上分 −{" "}
-          {baseline}）× <b>{1 / (record.scoreDivisor ?? 1)}</b>
+          {baseline}
+          {hasExternal ? " + 桌外记分" : ""}）×{" "}
+          <b>{1 / (record.scoreDivisor ?? 1)}</b>
         </p>
         <button type="button" onClick={copy}>
           <Copy size={14} />
@@ -188,6 +194,9 @@ export function ScoreDetails({
   record: RoundRecord;
   me?: Seat;
 }) {
+  const hasExternal =
+    record.result.transfers?.some((t) => t.scope === "external") ||
+    record.result.externalDeltas?.some((n) => n !== 0);
   return (
     <div className="score-details">
       <div className="score-players">
@@ -195,7 +204,13 @@ export function ScoreDetails({
           <thead>
             <tr>
               <th>牌友</th>
-              <th>本局</th>
+              <th>{hasExternal ? "桌内" : "本局"}</th>
+              {hasExternal && (
+                <>
+                  <th>桌外</th>
+                  <th>本局合计</th>
+                </>
+              )}
               <th>桌上分</th>
             </tr>
           </thead>
@@ -215,18 +230,36 @@ export function ScoreDetails({
                 <td className={record.result.deltas[i] > 0 ? "positive" : ""}>
                   {scoreText(record.result.deltas[i])}
                 </td>
+                {hasExternal && (
+                  <>
+                    <td>{scoreText(record.result.externalDeltas?.[i] ?? 0)}</td>
+                    <td>{scoreText(roundNet(record.result, i))}</td>
+                  </>
+                )}
                 <td>{scoreText(record.scores[i])}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="score-note">本局积分 = 胡牌收支 + 杠分收支 + 保米调整</p>
+        <p className="score-note">
+          本局积分 = 胡牌收支 + 杠罚分 + 保米调整
+          {hasExternal || record.rules?.id === "nj-garden-v2"
+            ? " + 桌外记分。进园子外包普通 50 分，比下胡 100 分，不扣桌上分。"
+            : "。"}
+        </p>
       </div>
       <div className="score-explanation">
         {Object.entries(record.result.details).map(([seat, score]) => (
           <details className="score-breakdown" key={seat} open>
             <summary>
-              <span>{record.names[Number(seat)]} · 胡牌明细</span>
+              <span>
+                {record.names[Number(seat)]} · 胡牌明细
+                {record.result.transfers?.some(
+                  (t) => t.to === Number(seat) && t.scope === "external",
+                )
+                  ? "（外包按固定额结算）"
+                  : ""}
+              </span>
               <strong>
                 {score.total} <small>分 / 份</small>
               </strong>
@@ -259,7 +292,10 @@ export function ScoreDetails({
                       <ArrowRight size={13} />
                       <span>{record.names[entry.to]}</span>
                     </div>
-                    <small>{entry.reason}</small>
+                    <small>
+                      {entry.reason}
+                      {entry.scope === "external" ? " · 桌外" : ""}
+                    </small>
                     <strong>
                       {entry.amount} <small>分</small>
                     </strong>

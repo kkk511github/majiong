@@ -16,6 +16,7 @@ import { Dialog } from "./Dialog";
 import { gameAudio } from "./audio";
 import { ReplayTable } from "./ReplayTable";
 import "./replay.css";
+import { signedScore } from "../shared/settlement";
 
 const labels: Record<ReplayFrame["type"], string> = {
   start: "开局发牌",
@@ -234,6 +235,17 @@ export function ReplayPanel({
               reveal={reveal}
               animate={playing}
             />
+            {frame.players.some((p) => p.externalScore) && (
+              <div className="replay-external" aria-label="回放桌外累计记分">
+                <b>桌外累计</b>
+                {frame.players.map((p, seat) => (
+                  <span key={seat}>
+                    {data.names[seat]}{" "}
+                    <strong>{signedScore(p.externalScore ?? 0)}</strong>
+                  </span>
+                ))}
+              </div>
+            )}
             {!data.summaryOnly && (
               <div className="replay-controls">
                 <input

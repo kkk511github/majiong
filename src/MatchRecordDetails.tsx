@@ -1,16 +1,26 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Copy, Play } from "lucide-react";
-import type { MatchDetails, RoundRecord, StoredRound } from "../shared/types";
 import {
-  signedScore,
-  settlementRows,
-  settlementTime,
-} from "../shared/settlement";
+  ArrowLeft,
+  ChevronRight,
+  Clock3,
+  Copy,
+  Play,
+  Layers3,
+} from "lucide-react";
+import type { MatchDetails, RoundRecord, StoredRound } from "../shared/types";
+import { signedScore, settlementRows } from "../shared/settlement";
 import { client } from "./game-client";
 import { RoundReveal } from "./RoundReveal";
 import { ScoreDetails, Settlement } from "./Settlement";
+import { recordClock, recordDate } from "./record-dates";
 
-export function RecordPlayers({ record }: { record: RoundRecord }) {
+export function RecordPlayers({
+  record,
+  showTeams = false,
+}: {
+  record: RoundRecord;
+  showTeams?: boolean;
+}) {
   const rows = settlementRows(record);
   return (
     <div className="match-players">
@@ -20,7 +30,7 @@ export function RecordPlayers({ record }: { record: RoundRecord }) {
           <div className="match-player" key={seat}>
             <div className="match-player-name">
               <strong title={name}>{name}</strong>
-              {record.teamNames?.[seat] && (
+              {showTeams && record.teamNames?.[seat] && (
                 <span className="record-team" title={record.teamNames[seat]}>
                   {record.teamNames[seat]}
                 </span>
@@ -32,7 +42,8 @@ export function RecordPlayers({ record }: { record: RoundRecord }) {
             <span
               className={`match-points ${score.recorded > 0 ? "positive" : score.recorded < 0 ? "negative" : ""}`}
             >
-              记分 <b>{signedScore(score.recorded)}</b>
+              <span className="sr-only">总战绩 </span>
+              <b>{signedScore(score.recorded)}</b>
             </span>
           </div>
         );
@@ -44,9 +55,11 @@ export function RecordPlayers({ record }: { record: RoundRecord }) {
 export function MatchRecordDetails({
   selected,
   replay,
+  showTeams = false,
 }: {
   selected: StoredRound;
   replay: (id: string) => void;
+  showTeams?: boolean;
 }) {
   const [data, setData] = useState<MatchDetails | null>(null);
   const [error, setError] = useState("");
@@ -101,9 +114,15 @@ export function MatchRecordDetails({
         正在读取每把明细…
       </p>
     );
-  if (round)
+  if (round) {
+    const visibleRecord = showTeams
+      ? round.record
+      : { ...round.record, teamNames: undefined };
     return (
-      <div className="match-round-detail">
+      <div
+        className="match-round-detail"
+        aria-label={`第 ${round.record.round} 把战绩详情`}
+      >
         <div className="match-detail-actions">
           <button className="secondary" onClick={() => setRound(null)}>
             <ArrowLeft size={16} /> 返回整桌明细
@@ -115,51 +134,64 @@ export function MatchRecordDetails({
             <Play size={16} /> 回放第 {round.record.round} 把
           </button>
         </div>
-        {round.record.hands ? (
-          <RoundReveal
-            record={round.record}
-            view={{
-              phase: "ended",
-              code: round.code,
-              round: round.record.round,
-              rules: { rounds: round.record.totalRounds ?? round.record.round },
-              me: round.me,
-              players: round.record.names.map((name, i) => ({
-                name,
-                ready: false,
-                ...round.record.hands![i],
-              })),
-            }}
-          />
-        ) : (
-          <Settlement
-            record={{ ...round.record, matchFinished: false }}
-            code={round.code}
-            me={round.me}
-          />
-        )}
-        <ScoreDetails record={round.record} />
+        <div className="match-round-detail-content">
+          {round.record.hands ? (
+            <RoundReveal
+              record={visibleRecord}
+              view={{
+                phase: "ended",
+                code: round.code,
+                round: round.record.round,
+                rules: {
+                  rounds: round.record.totalRounds ?? round.record.round,
+                },
+                me: round.me,
+                players: round.record.names.map((name, i) => ({
+                  name,
+                  ready: false,
+                  ...round.record.hands![i],
+                })),
+              }}
+            />
+          ) : (
+            <Settlement
+              record={{ ...visibleRecord, matchFinished: false }}
+              code={round.code}
+              me={round.me}
+            />
+          )}
+          <ScoreDetails record={visibleRecord} />
+        </div>
       </div>
     );
+  }
   return (
     <div className="match-details">
       <div className="match-details-summary">
-        <div>
-          <b>房间 {data.match.code}</b>
+        <div className="match-summary-meta">
+          <b>
+            {data.match.record.tableName ?? "好友桌"} · 房间 {data.match.code}
+          </b>
           <span>
+            <Layers3 size={16} />
             {data.match.record.round} /{" "}
             {data.match.record.totalRounds ?? data.match.record.round} 把 ·{" "}
             {data.match.record.endReason ?? "本桌完成"}
           </span>
-          <time>{settlementTime(data.match.record.at)}</time>
+          <time>
+            <Clock3 size={16} />
+            {recordDate(data.match.record.at)}{" "}
+            {recordClock(data.match.record.at)}
+          </time>
+          <span className="match-summary-label">整桌总战绩</span>
         </div>
-        <RecordPlayers record={data.match.record} />
+        <RecordPlayers record={data.match.record} showTeams={showTeams} />
       </div>
       <div className="match-rounds-title">
         <h3>每把明细</h3>
-        <span>本把积分变化 · 每把均可查看牌面和回放</span>
+        <span>共 {data.rounds.length} 把 · 以下为每把积分变化</span>
       </div>
-      <div className="match-rounds">
+      <div className="match-rounds" aria-label="每把战绩列表" tabIndex={0}>
         {data.rounds.map((item) => (
           <article
             className="match-round"
@@ -168,8 +200,11 @@ export function MatchRecordDetails({
           >
             <div className="match-round-heading">
               <b>第 {item.record.round} 把</b>
-              <time>{settlementTime(item.record.at)}</time>
-              <span>
+              <time>
+                <Clock3 size={15} />
+                {recordClock(item.record.at)}
+              </time>
+              <span className="match-result-label">
                 {item.record.result.reason === "dissolved"
                   ? "提前解散"
                   : item.record.result.winners.length
@@ -180,12 +215,14 @@ export function MatchRecordDetails({
             <div className="round-player-points">
               {item.record.names.map((name, i) => (
                 <div key={i}>
-                  <strong>{name}</strong>
-                  {item.record.teamNames?.[i] && (
-                    <small className="record-team">
-                      {item.record.teamNames[i]}
-                    </small>
-                  )}
+                  <div className="round-player-name">
+                    <strong>{name}</strong>
+                    {showTeams && item.record.teamNames?.[i] && (
+                      <small className="record-team">
+                        {item.record.teamNames[i]}
+                      </small>
+                    )}
+                  </div>
                   <small>
                     {item.record.memberIds?.[i]
                       ? `ID：${item.record.memberIds[i]}`
@@ -195,7 +232,9 @@ export function MatchRecordDetails({
                     className={
                       (item.record.result.deltas[i] ?? 0) > 0
                         ? "positive"
-                        : "negative"
+                        : (item.record.result.deltas[i] ?? 0) < 0
+                          ? "negative"
+                          : "neutral"
                     }
                   >
                     {signedScore(item.record.result.deltas[i] ?? 0)}
@@ -216,7 +255,8 @@ export function MatchRecordDetails({
                 </button>
               </div>
               <button className="secondary" onClick={() => setRound(item)}>
-                查看牌面
+                {item.record.hands ? "查看牌面" : "积分明细"}
+                <ChevronRight size={15} />
               </button>
               <button
                 className="replay-open"

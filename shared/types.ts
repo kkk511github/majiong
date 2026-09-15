@@ -232,6 +232,9 @@ export interface RecordsPage {
   total: number;
   page: number;
   pageSize: number;
+  /** Dates obey the same viewer and room filter, independent of selected day. */
+  dates?: { date: string; count: number }[];
+  dateTotal?: number;
 }
 export interface MatchDetails {
   match: StoredRound;

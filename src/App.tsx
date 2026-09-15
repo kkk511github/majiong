@@ -674,6 +674,7 @@ export function App() {
             <RecordsPanel
               key={state.account?.id ?? "practice"}
               account={state.account}
+              onBack={() => setPage("home")}
             />
           )}
           {page === "profile" && (

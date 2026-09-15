@@ -1,6 +1,18 @@
 # 金陵麻将
 
-南京麻将联机 App，使用 React、TypeScript、Capacitor 与 Node.js。当前 iOS 和 Android 版本为 **0.6.8 / build 28**，包含 iOS、Android、Web 客户端和完整服务端源码。
+南京麻将联机 App，使用 React、TypeScript、Capacitor 与 Node.js。当前原生版本为 **0.6.11 / build 31**，包含 iOS、Android、Web 客户端和完整服务端源码。
+
+## 战绩页面重构（源码更新）
+
+- 左侧按全部、今天、昨天及历史日期筛选；日期栏和整桌列表独立滚动，支持与房间号组合查询。
+- 每张卡展示一桌四人的最终战绩、会员 ID 和大号分数，战队名称仅管理员可见。
+- 点详情进入全屏页面，逐把查看积分变化、牌面、回放 ID，并可复制 ID 或直接播放回放。
+- 横屏小尺寸优先保留四位玩家的完整分数；单把牌面同样使用全屏布局。
+- 保持现有计分逻辑：整桌总战绩按本桌记分规则计算，每把明细展示当把积分变化。
+
+启动本地开发服务后，可在 `/tests/previews/records.html` 查看使用内存演示数据的交互预览。该入口不修改账号或数据库，也不进入正式构建。
+
+验证战绩与回放：`npx playwright test -c playwright.records.config.ts`。配置覆盖 Chromium / WebKit，需要本机 Google Chrome 及 `npx playwright install webkit`。
 
 ## 0.6.8 更新
 

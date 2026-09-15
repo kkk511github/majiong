@@ -230,6 +230,8 @@ export function createRecords(db: DatabaseSync) {
       where.push("code LIKE ?");
       args.push(code + "%");
     }
+    const dateClause = where.length ? " WHERE " + where.join(" AND ") : "";
+    const dateArgs = [...args];
     for (const [key, operator] of [
       ["from", ">="],
       ["to", "<"],
@@ -245,6 +247,20 @@ export function createRecords(db: DatabaseSync) {
     const clause = where.length ? " WHERE " + where.join(" AND ") : "";
     const source =
       query.get("scope") === "rounds" ? "round_records" : "match_records";
+    const dates = db
+      .prepare(
+        "SELECT strftime('%Y-%m-%d', at / 1000, 'unixepoch', '+8 hours') AS date, COUNT(*) AS count FROM " +
+          source +
+          dateClause +
+          " GROUP BY date ORDER BY date DESC LIMIT 180",
+      )
+      .all(...dateArgs)
+      .map((row) => ({ date: String(row.date), count: Number(row.count) }));
+    const dateTotal = Number(
+      db
+        .prepare("SELECT COUNT(*) AS total FROM " + source + dateClause)
+        .get(...dateArgs)!.total,
+    );
     const total = Number(
       db
         .prepare("SELECT COUNT(*) AS total FROM " + source + clause)
@@ -262,6 +278,8 @@ export function createRecords(db: DatabaseSync) {
       total,
       page,
       pageSize,
+      dates,
+      dateTotal,
       records: rows.map((row) => present(row, viewer, showTeams)),
     };
   }

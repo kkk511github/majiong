@@ -306,6 +306,17 @@ describe("管理员每桌最终战绩", () => {
     const finals = (await request("/api/admin/records", undefined, admin.token))
       .body;
     expect(finals.total).toBe(5);
+    expect(finals.dateTotal).toBe(5);
+    expect(finals.dates.reduce((n: number, d: any) => n + d.count, 0)).toBe(5);
+    const hiddenDates = (await request("/api/records", undefined, b.token))
+      .body;
+    expect(hiddenDates.dates).toEqual([]);
+    expect(hiddenDates.dateTotal).toBe(0);
+    const emptyDay = (
+      await request("/api/admin/records?from=0&to=1", undefined, admin.token)
+    ).body;
+    expect(emptyDay.total).toBe(0);
+    expect(emptyDay.dates).toEqual(finals.dates);
     expect(finals.records).toHaveLength(5);
     expect(
       finals.records.every(
@@ -372,6 +383,10 @@ describe("管理员每桌最终战绩", () => {
       await request("/api/admin/records?code=700001", undefined, admin.token)
     ).body;
     expect(sameCode.total).toBe(2);
+    expect(sameCode.dateTotal).toBe(2);
+    expect(sameCode.dates.reduce((n: number, d: any) => n + d.count, 0)).toBe(
+      2,
+    );
     expect(new Set(sameCode.records.map((r: any) => r.game)).size).toBe(2);
     db.close();
     expect(

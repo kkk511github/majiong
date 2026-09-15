@@ -163,9 +163,9 @@ function Preview() {
         >
           本地预览 · 演示数据
         </span>
-        <button onClick={() => (location.href = "/")}>
+        <button onClick={() => (location.href = "/cocos-table/index.html")}>
           <LayoutGrid />
-          返回应用
+          牌桌预览
         </button>
       </nav>
     </div>

@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { View } from "../shared/types";
 import { gameFeedback, type GameFeedback } from "./game-feedback";
 import "./game-motion.css";
@@ -61,7 +55,7 @@ export function useHandMotion(view: View | null, live: boolean) {
       return;
     }
     const elements = Array.from(
-      hand.querySelectorAll<HTMLElement>(":scope > [data-tile]"),
+      hand.querySelectorAll<HTMLElement>(":scope > [data-tile], :scope > .draw-slot > [data-tile]"),
     );
     const tiles = new Map(
       elements.map((tile) => [
@@ -131,8 +125,17 @@ export function GameMotion({
 }) {
   // The table result dialog carries the win animation; it must open without an artificial delay.
   useEffect(() => {
-    const image = new Image();
-    image.src = `${import.meta.env.BASE_URL}art/effects/pung-gold-v1.png`;
+    for (const asset of [
+      "pung",
+      "kong",
+      "concealed-kong",
+      "upgrade-kong",
+      "hu",
+      "self-draw",
+    ]) {
+      const image = new Image();
+      image.src = `${import.meta.env.BASE_URL}art/effects/${asset}-gold-v1.png`;
+    }
   }, []);
   if (view.result) return null;
   // Flower replacement is announced by voice; only claimed sets get a visual callout.
@@ -141,44 +144,33 @@ export function GameMotion({
   );
   return (
     <div className="table-motion-layer" aria-hidden="true">
-      {strongest.map((event) =>
-        event.type === "pung" ? (
-          <PungEffect key={event.key} event={event} view={view} />
-        ) : (
-          <div
-            key={event.key}
-            className={`table-action-feedback feedback-${(event.seat - view.me + 4) % 4} feedback-${event.type}`}
-          >
-            <span className="call-burst">
-              {Array.from({ length: 8 }, (_, i) => (
-                <i key={i} style={{ "--ray": i } as CSSProperties} />
-              ))}
-            </span>
-            <strong>
-              {event.type === "kong"
-                ? event.concealed
-                  ? "暗杠"
-                  : event.upgraded
-                    ? "补杠"
-                    : "杠"
-                : "补花"}
-            </strong>
-            <small>
-              {event.type === "flower"
-                ? `+${event.count} 花`
-                : view.players[event.seat]?.name}
-            </small>
-          </div>
-        ),
-      )}
+      {strongest.map((event) => (
+        <ActionEffect key={event.key} event={event} view={view} />
+      ))}
     </div>
   );
 }
 
 /** Place the generated impact in nearby free felt, not over the claimed tiles. */
-function PungEffect({ event, view }: { event: GameFeedback; view: View }) {
+function ActionEffect({ event, view }: { event: GameFeedback; view: View }) {
   const ref = useRef<HTMLDivElement>(null);
   const seat = (event.seat - view.me + 4) % 4;
+  const label =
+    event.type === "pung"
+      ? "碰"
+      : event.concealed
+        ? "暗杠"
+        : event.upgraded
+          ? "补杠"
+          : "杠";
+  const asset =
+    event.type === "pung"
+      ? "pung"
+      : event.concealed
+        ? "concealed-kong"
+        : event.upgraded
+          ? "upgrade-kong"
+          : "kong";
   useLayoutEffect(() => {
     const el = ref.current,
       board = el?.closest<HTMLElement>("#table-board");
@@ -197,7 +189,7 @@ function PungEffect({ event, view }: { event: GameFeedback; view: View }) {
         py = b.height * desired[1] - h / 2;
       const obstacles = [
         ...board.querySelectorAll<HTMLElement>(
-          ".tile,.tile-back,.table-hud,.flower-rack,.opponent-info,.my-info > div:first-child,.game-actions,.hand-listening",
+          ".tile,.tile-back,.surface-tile,.seat-wall,.seat-flower-slot,.table-hud,.flower-rack,.opponent-info,.my-info > div:first-child,.game-actions,.hand-listening",
         ),
       ]
         .filter(
@@ -225,22 +217,22 @@ function PungEffect({ event, view }: { event: GameFeedback; view: View }) {
       if (best)
         Object.assign(el.style, { left: `${best.x}px`, top: `${best.y}px` });
     };
-    place();
+    const frame = requestAnimationFrame(place);
     const observer = new ResizeObserver(place);
     observer.observe(board);
-    return () => observer.disconnect();
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
   }, [seat, view.revision]);
   return (
     <div
       ref={ref}
-      className={`table-action-feedback feedback-${seat} feedback-pung generated-pung`}
+      className={`table-action-feedback feedback-${seat} feedback-${event.type} generated-action generated-pung`}
     >
       <img
-        src={`${import.meta.env.BASE_URL}art/effects/pung-gold-v1.png`}
+        src={`${import.meta.env.BASE_URL}art/effects/${asset}-gold-v1.png`}
         alt=""
         draggable={false}
       />
-      <strong>碰</strong>
+      <strong>{label}</strong>
       <small>{view.players[event.seat]?.name}</small>
     </div>
   );

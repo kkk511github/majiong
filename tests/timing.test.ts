@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   act,
+  trusteeAction,
   createGame,
   newPlayer,
   startRound,
@@ -246,5 +247,35 @@ describe("已核实玩法开关", () => {
         (i) => i.label === "海底捞月",
       ),
     ).toBe(false);
+  });
+});
+
+
+describe("真人托管只摸切", () => {
+  it.each([true, false])("有无额外超时配置 %s 都打新摸到的牌，不自动自摸或暗杠", (configured) => {
+    const g = table();
+    if (!configured) g.table = undefined;
+    const p = g.players[g.turn]!;
+    p.hand = [0, 4, 8, 36, 40, 44, 72, 76, 80, 108, 109, 110, 112, 113];
+    g.lastDraw = 113; p.trustee = true;
+    expect(viewFor(g,g.turn).actions).toContain("hu");
+    expect(trusteeAction(g,g.turn)).toEqual({type:"discard",tile:113});
+    p.hand=[0,1,2,3,4,8,36,40,44,72,76,80,112,113];g.lastDraw=3;
+    expect(viewFor(g,g.turn).selfKongs).toHaveLength(1);
+    expect(trusteeAction(g,g.turn)).toEqual({type:"discard",tile:3});
+  });
+  it("碰、杠、胡、抢杠的机会都过，不替会员选择", () => {
+    const g=table();g.phase="claiming";
+    for (const kind of ["discard","robKong"] as const){
+      g.pending={openedAtRevision:g.revision,from:0,tile:0,kind,offers:{1:["pass","pung","kong","hu"]},replies:{}};
+      expect(trusteeAction(g,1)).toEqual({type:"pass"});
+      g.pending.replies[1]="pass";
+      expect(trusteeAction(g,1)).toBeNull();
+    }
+  });
+  it("刚碰完还没有摸牌的超时只打手中最右一张，非当前玩家不操作", () => {
+    const g=table();g.lastDraw=undefined;
+    expect(trusteeAction(g,g.turn)).toEqual({type:"discard",tile:g.players[g.turn]!.hand.at(-1)});
+    expect(trusteeAction(g,((g.turn+1)%4) as Seat)).toBeNull();
   });
 });

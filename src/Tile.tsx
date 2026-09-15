@@ -5,7 +5,7 @@ import { BACK_FRAME, TILE_FRAMES, frameStyle } from "./tile-art";
 export function TileFace({ tile }: { tile: TileId }) {
   return (
     <span
-      className="tile-art sculpted-tile"
+      className="tile-art sculpted-tile reference-tile"
       style={frameStyle(TILE_FRAMES[kind(tile)])}
     />
   );

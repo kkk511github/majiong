@@ -23,7 +23,16 @@ bamboo[5] = { file: "bamboo-six-corrected", rect: [62, 38, 898, 1481] };
 bamboo[6] = { file: "bamboo-seven", rect: [62, 38, 898, 1481] };
 bamboo[7] = { file: "bamboo-eight", rect: [62, 38, 898, 1481] };
 
-export const TILE_FRAMES: TileFrame[] = [...wan, ...dots, ...bamboo, ...honors.slice(0, 7), ...flowers.slice(0, 8)];
+export const SCULPTED_TILE_FRAMES: TileFrame[] = [...wan, ...dots, ...bamboo, ...honors.slice(0, 7), ...flowers.slice(0, 8)];
+// The unmodified generated reference atlases are cropped by CSS into identical
+// front faces. Physical thickness and perspective belong to the scene renderer.
+export const TILE_FRAMES: TileFrame[] = [
+  ...grid("../reference/wan", [51,375,696], [[70,400],[553,415],[1046,417]], [278,278,278]),
+  ...grid("../reference/dots", [52,373,695], [[72,395],[555,396],[1041,395]], [279,279,279]),
+  ...grid("../reference/bamboo", [49,373,694], [[63,408],[548,407],[1023,433]], [283,283,281]),
+  ...grid("../reference/honors", [51,372,693], [[73,405],[553,405],[1034,405]], [281,281,281]).slice(0,7),
+  ...grid("../reference/flowers", [52,375,696], [[72,402],[551,403],[1032,404]], [277,277,277]).slice(0,8),
+];
 export const BACK_FRAME = honors[7];
 
 export function frameStyle(frame: TileFrame) {

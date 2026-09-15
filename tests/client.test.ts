@@ -70,7 +70,7 @@ describe("练习桌倒计时", () => {
   });
 });
 
-import { createGame, newPlayer, viewFor } from "../shared/engine";
+import { createGame, newPlayer, startRound, viewFor } from "../shared/engine";
 import type { ClientMessage, ServerMessage } from "../shared/types";
 class TestSocket {
   static OPEN = 1;
@@ -632,5 +632,24 @@ describe("后台保留连接、前台快速同步", () => {
     old.receive({ type: "session", id: "old", token: "old", name: "旧连接" });
     expect(client.state.connected).toBe(false);
     expect(next.sent).toEqual([]);
+  });
+});
+
+
+describe("练习真人托管", () => {
+  it("超时之后只打刚摸的牌，一次取消就保留新一轮手动时间", () => {
+    vi.useFakeTimers();vi.setSystemTime(10000);
+    let g=createGame("123456","trustee",{turnSeconds:10});
+    g.players=[0,1,2,3].map(i=>({...newPlayer(String(i),String(i),i!==0),ready:true}));
+    g=startRound(g,10000,()=>.51);g.turn=0;
+    g.players[0]!.hand=[0,4,8,36,40,44,72,76,80,108,109,110,112,113];g.lastDraw=113;
+    vi.stubGlobal("localStorage",{getItem:(key:string)=>key==="jinling:practice"?JSON.stringify(g):null,setItem:vi.fn()});
+    client=new GameClient();client.practice("测试",{},true);
+    vi.advanceTimersByTime(10450);
+    expect(client.state.view!.players[0]!.discards).toEqual([113]);
+    expect(client.state.view!.players[0]!.trustee).toBe(true);
+    client.trustee(false);
+    expect(client.state.view!.players[0]!.trustee).toBe(false);
+    expect(client.state.view!.players[0]!.hand).toHaveLength(13);
   });
 });

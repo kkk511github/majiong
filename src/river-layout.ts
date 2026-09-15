@@ -132,3 +132,34 @@ export function riverSlot(
     top: l.topOffset + (l.sideColumns - 1 - col) * w,
   };
 }
+
+/** Redesigned table uses the full felt and the same rigid tile at every seat. */
+export function tableRiverLayout(width: number, height: number, viewportHeight = height + 210) {
+  const h = Math.min(48, (viewportHeight / 590) * 48, (width / 1280) * 48);
+  const w = h * 0.72;
+  return {
+    ...riverLayoutFor(width, height),
+    width,
+    height,
+    ownHeight: height,
+    topOffset: 0,
+    topShift: 0,
+    tileHeight: h,
+    tileWidth: w,
+    farTileHeight: h,
+    farTileWidth: w,
+    compass: 82,
+    compassWidth: 82,
+    sideColumns: 8,
+    sideRows: 4,
+    playerGap: 12,
+    riverWidth: w * 8,
+    farRiverWidth: w * 8,
+    riverHeight: h * 4 + 6,
+    farRiverHeight: h * 4 + 6,
+    sideHeight: w * 8,
+    farSideHeight: w * 8,
+    sideWidth: h * 4 + 6,
+    farSideWidth: h * 4 + 6,
+  };
+}

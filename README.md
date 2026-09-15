@@ -1,26 +1,15 @@
 # 金陵麻将
 
-南京麻将联机 App，使用 React、TypeScript、Capacitor 与 Node.js。当前原生版本为 **0.6.11 / build 31**，包含 iOS、Android、Web 客户端和完整服务端源码。
+南京麻将联机 App，使用 React、TypeScript、Cocos Creator、Capacitor 与 Node.js。当前源码为 **0.7.0 / build 33**，包含 iOS、Android、Web 客户端和完整服务端。源码更新不代表安装包已发布。
 
-## 战绩页面重构（源码更新）
+## 本次更新
 
-- 左侧按全部、今天、昨天及历史日期筛选；日期栏和整桌列表独立滚动，支持与房间号组合查询。
-- 每张卡展示一桌四人的最终战绩、会员 ID 和大号分数，战队名称仅管理员可见。
-- 点详情进入全屏页面，逐把查看积分变化、牌面、回放 ID，并可复制 ID 或直接播放回放。
-- 横屏小尺寸优先保留四位玩家的完整分数；单把牌面同样使用全屏布局。
-- 保持现有计分逻辑：整桌总战绩按本桌记分规则计算，每把明细展示当把积分变化。
-
-启动本地开发服务后，可在 `/tests/previews/records.html` 查看使用内存演示数据的交互预览。该入口不修改账号或数据库，也不进入正式构建。
-
-验证战绩与回放：`npx playwright test -c playwright.records.config.ts`。配置覆盖 Chromium / WebKit，需要本机 Google Chrome 及 `npx playwright install webkit`。
-
-## 0.6.8 更新
-
-- iOS/Android 共用牌桌锚点，保留安卓较大牌面密度；侧家碰杠逐组排列，多列弃牌与结束亮牌分区，弃牌大小不随数量变化。
-- 中央显示余牌、余花和把数；操作区位于右下方手牌上方。
-- 战绩按已结束的整桌汇总，详情显示每把积分、牌面和完整回放 ID，可复制或直接播放。
-- 已有账号自动补发唯一数字会员 ID，新注册自动分配，昵称变更不会改变 ID。战绩的战队名称仅服务器确认的管理员可以取得。
-- 微信登录的所需配置和实现流程见 [接入方案](docs/WECHAT-LOGIN.md)，尚未启用微信登录。
+- 牌桌与回放统一使用 Cocos Creator 3.8.8 和多角度预渲染牌图，iOS、Android 共用布局与素材。保留独立的手牌、花槽、碰杠和弃牌区域，杠牌第四张叠在中间。
+- 四家弃牌围绕方形区域排列；花牌按各自卡槽投影摆放。碰杠、胡牌和弃牌指向器使用独立特效层。
+- 战绩左侧按日期筛选，右侧展示整桌四人总战绩；详情全屏展示每把积分、牌面与回放 ID，支持复制 ID 和直接播放。
+- 会员 ID 正常显示，战队名称仅管理员可见。日期和房间号可以组合查询，日期栏和对局列表独立滚动。
+- 人类玩家托管时优先摸什么打什么，遇到碰杠胡请求自动过；托管按钮单击即可取消。电脑练习对手保留原有决策。
+- 保留南京男女声、背景音乐、语音聊天、后台恢复、服务端行动校验和手牌隐私。
 
 ## 功能
 
@@ -40,10 +29,13 @@
 
 ```sh
 npm ci
+npm run build:cocos
 npm run dev
 ```
 
 打开 `http://localhost:5173`，服务端端口为 8787。数据库默认位于 `data/mahjong.sqlite`。初次启动会创建表结构；管理员由 `scripts/admin-account.ts` 初始化，该脚本从标准输入读取 `{"password":"自行设置的密码"}`，首次登录需要修改密码。普通账号通过注册创建。
+
+Cocos 工程在 `cocos-table/`，预渲染素材和源图包含在仓库中。`npm run build:cocos` 优先校验并解包与源码匹配的运行包，可在没有 Creator 的机器上运行；修改 Cocos 资源或场景后，需要通过 `COCOS_CREATOR` 指定 Creator 3.8.8 重新生成。详细约定见 [牌桌重构](docs/COCOS-TABLE-REBUILD.md)。
 
 配置项示例见 `.env.example`。Vite 原生构建使用 `VITE_GAME_SERVER_URL`，服务端使用 `DATABASE_PATH`、`PORT`。Web 默认使用同源服务。
 
@@ -51,11 +43,13 @@ npm run dev
 
 ```sh
 npm test
-npm run test:e2e
+npx playwright test -c playwright.records.config.ts
 npm run build
 ```
 
-浏览器测试使用本机 Google Chrome。测试覆盖规则、积分守恒、鉴权、实时手牌保密、持久化、回放访问权限、四家牌桌布局、箭头方向、音频恢复和会员操作。
+单元测试覆盖规则、积分守恒、鉴权、实时手牌保密、持久化和回放访问权限。战绩与回放的专项测试覆盖 Chromium / WebKit、手机横屏和宽屏；需要本机 Google Chrome 与 Playwright WebKit（`npx playwright install webkit`）。完整旧版浏览器测试中仍有依赖旧牌桌 DOM 的用例，迁移到 Cocos 的用例见 `playwright.cocos-release.config.ts`。
+
+本地战绩交互预览：`http://localhost:5173/tests/previews/records.html`。预览使用内存演示数据，不修改账号或数据库，不作为正式构建入口。
 
 ## 原生安装包
 
@@ -117,8 +111,9 @@ npm run server
 | `shared/` | 规则引擎、计分、回放帧和协议类型 |
 | `server/` | 账号、房间、战队、积分与持久化服务 |
 | `public/` | 牌面、场景、声音和图标 |
+| `cocos-table/` | Creator 工程、预渲染素材、制作工具与可校验运行包 |
 | `ios/`、`android/` | 原生工程 |
 | `tests/` | 单元、服务端与浏览器测试 |
 | `scripts/`、`deploy/` | 素材生成、账号初始化和部署辅助 |
 
-源码仓库不包含运行数据库、会话、签名密钥、构建产物或本机环境配置。
+源码仓库不包含运行数据库、会话、签名密钥、APK/IPA 或本机环境配置。`cocos-table/runtime/` 包含用于跨平台构建的 Cocos Web 运行包，并由源码指纹和 SHA-256 校验。

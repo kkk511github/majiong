@@ -38,3 +38,8 @@ android/app/src/main/assets/capacitor.plugins.json
 **/xcuserdata/
 **/DerivedData/
 __pycache__/
+
+# Shared Cocos web build, recreated from the committed Creator project
+public/cocos-table/
+
+android/.kotlin/

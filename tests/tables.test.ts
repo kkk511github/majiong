@@ -547,7 +547,7 @@ describe("建桌大厅真实联机", () => {
 describe("新版计时服务端执行", () => {
   for (const claim of [false, true])
     for (const expired of [false, true])
-      it(`${expired ? "超时进入" : "手动开启"}托管后不放弃合法${claim ? "点炮" : "自摸"}胡牌`, async () => {
+      it(`${expired ? "超时进入" : "手动开启"}托管后放过${claim ? "点炮" : "自摸"}胡牌，只摸切`, async () => {
         const { s, port } = await boot(),
           host = await peer(port, "托管胡牌管理员");
         const [code] = await createTables(host, {
@@ -583,17 +583,20 @@ describe("新版计时服务端执行", () => {
             replies: {},
           };
         }
-        const ended = (
-          await ps[0].read("state", (m) => m.state.phase === "ended")
+        const updated = (
+          await ps[0].read("state", (m) => m.state.revision > g.revision)
         ).state;
-        expect(ended.result!.reason).toBe("hu");
-        expect(ended.result!.winners).toEqual([0]);
-        expect(ended.result!.deltas[0]).toBeGreaterThan(0);
-        expect(ended.players[0]!.discards).toEqual([]);
+        expect(updated.result).toBeUndefined();
+        expect(updated.players[0]!.discards).toEqual(claim ? [] : [113]);
+        expect(updated.players[0]!.trustee).toBe(true);
+        if (claim) expect(updated.players[0]!.hand).toHaveLength(13);
         if (expired) {
-          expect(ended.players[0]!.trusteeLocked).toBe(false);
-          expect(ended.players[0]!.overtimeUsedMs).toBe(90_000);
+          expect(updated.players[0]!.trusteeLocked).toBe(false);
+          expect(updated.players[0]!.overtimeUsedMs).toBe(90_000);
         }
+        ps[0].send({type:"trustee",enabled:false,requestId:"single-cancel"});
+        await ps[0].read("ack",m=>m.requestId==="single-cancel");
+        expect(s.games.get(code)!.players[0]!.trustee).toBe(false);
       });
   it.each([true, false])(
     "10+90秒后托管可取消，按次/全局策略 %s",

@@ -80,7 +80,16 @@ for (const [width, height] of [
     const dialog = page.getByRole("dialog", { name: "牌局回放", exact: true });
     await dialog.getByLabel("牌局 ID", { exact: true }).fill(replay.id);
     await dialog.getByRole("button", { name: "查看回放", exact: true }).click();
-    await expect(dialog.locator(".replay-player")).toHaveCount(4);
+    const canvas = dialog.locator('.cocos-embedded iframe');
+    await expect(canvas).toBeVisible();
+    const sceneFrame = () => page.frames().find(f => f.url().includes('/cocos-table/index.html'))!;
+    await expect.poll(async () => sceneFrame()?.evaluate(() => !!(window as any).__JINLING_TABLE_READY__), { timeout: 20000 }).toBe(true);
+    const scene = () => sceneFrame().evaluate(async () => {
+      const cc = await (window as any).System.import('cc');
+      const component = cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+      return { state: component.state, tiles: (window as any).__JINLING_TABLE_LAYOUT__ };
+    });
+    await expect.poll(async () => (await scene()).state?.players.length).toBe(4);
     const fullscreen = await dialog.boundingBox();
     expect(fullscreen).toEqual({ x: 0, y: 0, width, height });
     await expect(dialog.locator(".replay-search")).toHaveCount(0);
@@ -103,64 +112,28 @@ for (const [width, height] of [
     await expect(dialog.locator(".replay-table-event")).toContainText(
       "本局结算",
     );
+    await expect.poll(async () => (await scene()).state.revision).toBe(replay.frames.length - 1);
+    const ended = await scene();
     for (const [i, p] of replay.frames.at(-1)!.players.entries()) {
-      await expect(dialog.locator(".replay-player").nth(i)).toContainText(
-        `${p.score} 分`,
-      );
-      await expect(
-        dialog
-          .locator(".replay-player")
-          .nth(i)
-          .locator(".replay-concealed .tile"),
-      ).toHaveCount(p.hand.length);
+      expect(ended.state.players[i].score).toBe(p.score);
+      expect(ended.tiles.filter((t:any) => t.seat===i && t.area==='hand')).toHaveLength(p.hand.length);
     }
-    // Every perspective uses the whole table; exposed racks never overlap
-    // rivers, flowers or player panels, including the final winning tile.
-    for (let seat = 0; seat < 4; seat++) {
-      await dialog
-        .getByRole("button", {
-          name: `切换到${replay.names[seat]}视角`,
-          exact: true,
-        })
-        .click();
-      const collisions = await dialog
-        .locator(".replay-table")
-        .evaluate((el) => {
-          const cards = [...el.querySelectorAll(".tile,.tile-back")];
-          const panels = [
-            ...el.querySelectorAll(".replay-seat,.replay-compass"),
-          ];
-          const hit = (a: Element, b: Element) => {
-            const x = a.getBoundingClientRect(),
-              y = b.getBoundingClientRect();
-            return (
-              Math.min(x.right, y.right) - Math.max(x.left, y.left) > 0.7 &&
-              Math.min(x.bottom, y.bottom) - Math.max(x.top, y.top) > 0.7
-            );
-          };
-          return cards.flatMap((c, i) =>
-            [...cards.slice(i + 1), ...panels]
-              .filter((o) => hit(c, o))
-              .map((o) => ({
-                a: c.parentElement!.className,
-                b: o.parentElement!.className,
-                boxes: [
-                  c.getBoundingClientRect().toJSON(),
-                  o.getBoundingClientRect().toJSON(),
-                ],
-              })),
-          );
-        });
-      expect(collisions, `perspective ${seat}`).toEqual([]);
+    for (let seat=0;seat<4;seat++) {
+      const prior=await scene(), offset=(seat-prior.state.me+4)%4;
+      const [x,y]=[[1198,508],[1200,207],[892,32],[68,207]][offset];
+      const box=(await canvas.boundingBox())!,scale=Math.min(box.width/1280,box.height/590);
+      await page.mouse.click(box.x+(box.width-1280*scale)/2+x*scale,box.y+(box.height-590*scale)/2+y*scale);
+      await expect.poll(async () => (await scene()).state.me).toBe(seat);
+      const {tiles}=await scene(),collisions=[];
+      for(let i=0;i<tiles.length;i++)for(let j=i+1;j<tiles.length;j++){
+        const a=tiles[i],b=tiles[j];if(a.stack||b.stack||(a.seat===b.seat&&a.area===b.area))continue;
+        if((a.w+b.w)/2-Math.abs(a.x-b.x)>3 && (a.h+b.h)/2-Math.abs(a.y-b.y)>3)collisions.push({a,b});
+      }
+      expect(collisions,`perspective ${seat}`).toEqual([]);
+      expect((await scene()).state.actions).toEqual([]);
     }
-    await dialog
-      .getByRole("button", {
-        name: `切换到${replay.names[0]}视角`,
-        exact: true,
-      })
-      .click();
     const layout = await dialog.evaluate((el) => {
-      const table = el.querySelector(".replay-table")!;
+      const table = el.querySelector(".replay-cocos")!;
       const controls = el
         .querySelector(".replay-controls")!
         .getBoundingClientRect();
@@ -186,7 +159,7 @@ for (const [width, height] of [
     await dialog.getByLabel("牌局 ID", { exact: true }).fill("missing-1");
     await dialog.getByRole("button", { name: "查看回放", exact: true }).click();
     await expect(dialog.getByRole("alert")).toContainText("未找到");
-    await expect(dialog.locator(".replay-player")).toHaveCount(0);
+    await expect(dialog.locator(".replay-cocos")).toHaveCount(0);
     await dialog.getByLabel("牌局 ID", { exact: true }).fill("legacy-1");
     await dialog.getByRole("button", { name: "查看回放", exact: true }).click();
     await expect(dialog.locator(".replay-legacy")).toContainText(

@@ -1,5 +1,10 @@
+import { CocosTable } from "./CocosTable";
+import { cocosState } from "./cocos-state";
+import { referenceRiverSlot } from "./table-camera";
+import { TableSeatTiles, SurfaceTile } from "./TableSeat";
+import { MeldSourceArrow } from "./MeldSourceArrow";
+import { useRiverPlacement } from "./river-placement";
 import { RoomVoice } from "./RoomVoice";
-import { useActionPlacement } from "./action-placement";
 import { decisionCountdown } from "../shared/timing";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
@@ -15,6 +20,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Bot,
   Check,
   ChevronRight,
   CircleHelp,
@@ -49,7 +55,7 @@ import { Settlement } from "./Settlement";
 import { roundReadiness } from "./round-readiness";
 import { RoundReveal } from "./RoundReveal";
 import { listeningHints } from "./listening-hints";
-import { riverLayoutFor, riverSlot } from "./river-layout";
+import { riverLayoutFor, tableRiverLayout } from "./river-layout";
 import { DiscardArrow } from "./DiscardArrow";
 import { TableLobby, TableSettingsSummary } from "./TableLobby";
 import { OnlineHome } from "./OnlineHome";
@@ -497,55 +503,15 @@ export function App() {
     const viewport = riverRef.current;
     if (!gameActive || !viewport) return;
     const observer = new ResizeObserver(([entry]) => {
-      const scale = 1;
-      const sideColumns = 6;
-      // Resolve CSS lengths through an inert, permanent box. These dimensions
-      // depend only on the viewport and safe areas, never on drawn/flower tiles.
-      const metrics = document.querySelector<HTMLElement>(
-        ".table-layout-metrics",
-      )!;
-      const metricBox = metrics.getBoundingClientRect();
-      const legacyHeight = metricBox.height;
-      const legacyBottom = legacyHeight;
-      const edge = Math.max(
-        metricBox.left,
-        parseFloat(getComputedStyle(metrics).marginRight),
-      );
-      const publicWidth = metricBox.width;
-      const commonReserve = edge + 3 * publicWidth + 16 + 12;
-      const backSpace =
-        window.innerWidth / 2 - commonReserve - 2 * publicWidth * 1.45 - 11;
-      const backCap = Math.min(
-        backSpace / Math.max(12 * 0.72, 4 * 0.72 + Math.ceil(32 / sideColumns)),
-        (backSpace - 67) / Math.ceil(32 / sideColumns),
-      );
-      const meldSpace =
-        window.innerWidth / 2 - commonReserve - 4 * publicWidth * 1.2 - 8;
-      const meldCap = Math.min(
-        meldSpace / (4 * 0.72 + Math.ceil(24 / sideColumns)),
-        (meldSpace - 67) / Math.ceil(24 / sideColumns),
-      );
-      const sideCap = Math.min(backCap, meldCap);
       setRiverLayout(
-        riverLayoutFor(
-          entry.contentRect.width,
-          entry.contentRect.height,
-          Math.min(48, window.innerWidth * 0.06),
-          // The hand container stays put when a selected tile rises 9px.
-          // Leave another 9px of visible felt above that raised tile.
-          legacyBottom,
-          scale,
-          sideColumns,
-          legacyHeight,
-          sideCap,
-        ),
+        tableRiverLayout(entry.contentRect.width, entry.contentRect.height, window.innerHeight),
       );
     });
     observer.observe(viewport);
     return () => observer.disconnect();
   }, [gameActive, handRef]);
-  useActionPlacement(
-    `${gameActive}:${v?.revision}:${selected}:${riverLayout.tileHeight}:${riverLayout.height}:${riverLayout.width}`,
+  useRiverPlacement(
+    `${gameActive}:${v?.revision}:${selected}:${riverLayout.tileHeight}:${riverLayout.width}:${riverLayout.height}`,
   );
   const hintDiscard =
     mine?.hand.length && mine.hand.length % 3 === 2
@@ -989,545 +955,39 @@ export function App() {
           </div>
         </main>
       )}
-      {gameActive && (
-        <main
-          id="table-board"
-          className="game-wrap"
-          data-inspecting={inspectedTile !== null}
-          data-claiming={v.actions.length > 0 || v.selfKongs.length > 0}
-          style={
-            {
-              "--top-flower-rows": 0,
-              "--own-flower-rows": Math.ceil((mine?.flowers.length ?? 0) / 10),
-              "--action-count": v.actions.length + v.selfKongs.length,
-              "--opponent-slots": Math.max(
-                13,
-                ...v.players
-                  .filter((p, i) => p && i !== v.me)
-                  .map(
-                    (p) =>
-                      p!.handCount +
-                      p!.melds.reduce(
-                        (sum, m) => sum + m.tiles.length * 1.2,
-                        0,
-                      ),
-                  ),
-              ),
-              "--other-river-edge": `${4 * riverLayout.farTileWidth + riverLayout.playerGap + riverLayout.farSideWidth}px`,
-              "--top-flowers-offset": `${riverLayout.farRiverWidth / 2 + riverLayout.playerGap + riverLayout.sideWidth + 8}px`,
-              "--river-center-half": `${riverLayout.farRiverWidth / 2}px`,
-              "--river-player-gap": `${riverLayout.playerGap}px`,
-              "--river-far-tile-height": `${riverLayout.farTileHeight}px`,
-            } as CSSProperties
-          }
-        >
-          <div className="table-layout-metrics" aria-hidden="true" />
-          <div className="game-topbar">
-            <button className="back-link" onClick={() => setModal("leave")}>
-              <ArrowLeft size={17} />
-              <span>大厅</span>
-            </button>
-            <div
-              className={`table-brand ${inspectedTile !== null ? "inspecting-discard" : ""}`}
-              aria-hidden={inspectedTile === null ? true : undefined}
-            >
-              {inspectedTile === null ? (
-                <>
-                  南京麻将<small>金陵风雅 · 好友同桌</small>
-                </>
-              ) : (
-                <span
-                  role="status"
-                  aria-label={`${tileName(inspectedTile)}，河里已出${inspectedDiscardCount}张`}
-                >
-                  {tileName(inspectedTile)}
-                  <small>
-                    河里已出 <b>{inspectedDiscardCount}</b> 张
-                  </small>
-                </span>
-              )}
-            </div>
-            <span>
-              {state.mode === "local" ? "单人练习" : `好友桌 ${v.code}`}
-              <small>
-                第 {v.round} / {v.rules.rounds} 局
-              </small>
-              <small className="wall-counter">余 {v.remaining} 张</small>
-            </span>
-            <div>
-              {state.mode === "online" && (
-                <RoomVoice
-                  key={v.id}
-                  client={client}
-                  game={v.id}
-                  connected={state.connected}
-                  enabled={audioPreferences.chat !== false}
-                  volume={audioPreferences.voiceVolume}
-                  me={v.players[v.me]!.id}
-                  messages={state.voiceMessages}
-                />
-              )}
-              <button
-                className="icon-button"
-                aria-label="查看公开牌"
-                onClick={() => {
-                  setTableSeat(v.me);
-                  setModal("table");
-                }}
-              >
-                <LayoutGrid size={19} />
-              </button>
-              <button
-                className="icon-button"
-                aria-label="牌局记录"
-                onClick={() => setModal("events")}
-              >
-                <History size={20} />
-              </button>
-              <button
-                className="icon-button"
-                aria-label="牌桌设置"
-                onClick={() => setModal("settings")}
-              >
-                <Settings size={20} />
-              </button>
-              <span className="network-indicator">
-                {state.connected ? <Wifi size={17} /> : <WifiOff size={17} />}
-              </span>
-            </div>
-          </div>
-          <div className="mahjong-table">
-            {[1, 2, 3].map((offset) => {
-              const seat = ((v.me + offset) % 4) as Seat,
-                p = v.players[seat];
-              return (
-                p && (
-                  <Opponent
-                    key={seat}
-                    player={p}
-                    seat={seat}
-                    position={
-                      offset === 1 ? "right" : offset === 2 ? "top" : "left"
-                    }
-                    active={
-                      state.connected &&
-                      v.turn === seat &&
-                      v.phase === "playing"
-                    }
-                    dealer={v.dealer === seat}
-                    countdown={countdown}
-                    overtime={decisionTime.overtime}
-                    perTurnOvertime={perTurnOvertime}
-                    totalSeconds={
-                      decisionTime.overtime
-                        ? (v.table?.settings.overtimeSeconds ?? 90)
-                        : v.rules.turnSeconds
-                    }
-                    paused={paused}
-                  />
-                )
-              );
-            })}
-            <div className="table-pattern" aria-hidden="true">
-              南京麻将
-              <small>金陵风雅 · 好友同桌</small>
-            </div>
-            <div
-              className="discard-field"
-              ref={riverRef}
-              style={
-                {
-                  "--river-rows": riverLayout.rows,
-                  "--river-track-height": `${riverLayout.height}px`,
-                  "--river-center-height": `${riverLayout.ownHeight}px`,
-                  "--river-columns": riverLayout.columns,
-                  "--river-tile-height": `${riverLayout.tileHeight}px`,
-                  "--river-tile-width": `${riverLayout.tileWidth}px`,
-                  "--river-width": `${riverLayout.riverWidth}px`,
-                  "--river-block-height": `${riverLayout.riverHeight}px`,
-                  "--river-side-width": `${riverLayout.sideWidth}px`,
-                  "--river-side-height": `${riverLayout.sideHeight}px`,
-                  "--river-compass-width": `${riverLayout.compassWidth}px`,
-                  "--river-clock-height": `${riverLayout.compass}px`,
-                  "--river-center-shift": `${riverLayout.centerShift}px`,
-                  "--river-side-inset": `${riverLayout.sideInset}px`,
-                  "--river-player-gap": `${riverLayout.playerGap}px`,
-                  "--river-far-block-height": `${riverLayout.farRiverHeight}px`,
-                } as CSSProperties
+      {gameActive && v && mine && (
+        <CocosTable
+          state={cocosState(v, {
+            connected: state.connected, disabled: commandsDisabled || paused,
+            practice: state.mode === "local", countdown: !state.connected || paused || !timed ? "—" : waitingOthersOvertime ? "…" : String(countdown).padStart(2, "0"),
+            selected, drawn: drawnTile, inspectedKind, hintKinds,
+            hintLabel: hintDiscard !== undefined ? `打${tileName(hintDiscard)}后可胡` : "已听牌 · 可胡",
+            effects: motion,
+          })}
+          onCommand={(command) => {
+            gameAudio.unlock();
+            if (command.type === "menu") {
+              if (command.menu === "result") setDismissedResult("");
+              else if (["leave", "settings", "events", "table"].includes(command.menu)) {
+                if (command.menu === "table") setTableSeat(v.me);
+                setModal(command.menu);
               }
-            >
-              {[0, 1, 2, 3].map((offset) => {
-                const seat = ((v.me + offset) % 4) as Seat;
-                const discards = v.players[seat]?.discards ?? [];
-                return (
-                  <button
-                    className={`discards discards-${offset}`}
-                    style={
-                      offset !== 0
-                        ? ({
-                            "--river-tile-height": `${riverLayout.farTileHeight}px`,
-                            "--river-tile-width": `${riverLayout.farTileWidth}px`,
-                            "--river-width": `${riverLayout.farRiverWidth}px`,
-                            "--river-block-height": `${riverLayout.farRiverHeight}px`,
-                            "--river-side-width": `${riverLayout.farSideWidth}px`,
-                            "--river-side-height": `${riverLayout.farSideHeight}px`,
-                          } as CSSProperties)
-                        : undefined
-                    }
-                    data-discard-count={discards.length}
-                    data-columns={
-                      offset % 2 ? riverLayout.sideColumns : riverLayout.columns
-                    }
-                    key={seat}
-                    aria-label={`${v.players[seat]?.name}的弃牌，共${discards.length}张，点击查看全部`}
-                    title="放大查看公开牌"
-                    onClick={() => {
-                      setTableSeat(seat);
-                      setModal("table");
-                    }}
-                  >
-                    {discards.map((t, index) => (
-                      <span
-                        className={`river-tile ${v.lastDiscard?.tile === t ? "recent-discard" : ""} ${inspectedKind !== null && inspectedKind === kind(t) ? "matching-discard" : ""} ${motion.some((event) => event.type === "discard" && event.tile === t) ? "just-discarded" : ""}`}
-                        style={riverSlot(riverLayout, offset, index)}
-                        key={t}
-                      >
-                        <Tile small tile={t} />
-                        {v.lastDiscard?.tile === t &&
-                          v.lastDiscard.seat === seat &&
-                          ["playing", "claiming"].includes(v.phase) &&
-                          v.pending?.kind !== "robKong" && (
-                            <DiscardArrow
-                              offset={offset}
-                              row={Math.floor(
-                                index /
-                                  (offset % 2
-                                    ? riverLayout.sideColumns
-                                    : riverLayout.columns),
-                              )}
-                              layoutKey={`${v.revision}:${riverLayout.width}:${riverLayout.height}`}
-                              label={`${v.players[seat]?.name}刚打出${tileName(t)}`}
-                            />
-                          )}
-                      </span>
-                    ))}
-                  </button>
-                );
-              })}
-              <div className="table-hud" aria-label="牌桌信息">
-                <div className="table-stock">
-                  <div>
-                    <span>余牌</span>
-                    <b>{v.remaining}</b>
-                  </div>
-                  <div>
-                    <span>余花</span>
-                    <b>
-                      {Math.max(
-                        0,
-                        20 -
-                          v.players.reduce(
-                            (n, p) => n + (p?.flowers.length ?? 0),
-                            0,
-                          ),
-                      )}
-                    </b>
-                  </div>
-                </div>
-                <div
-                  className={`table-center ${state.connected && timed && !waitingOthersOvertime && countdown <= 5 ? "urgent" : ""}`}
-                  aria-label={
-                    !state.connected
-                      ? "连接中断，等待同步倒计时"
-                      : waitingOthersOvertime
-                        ? "等待其他牌友响应"
-                        : timed
-                          ? `${decisionTime.overtime ? (perTurnOvertime ? "超时剩余" : "累计超时剩余") : v.phase === "claiming" ? "响应倒计时" : "出牌倒计时"} ${countdown} 秒`
-                          : ticking
-                            ? "不限时"
-                            : "本局结束"
-                  }
-                >
-                  {[0, 1, 2, 3].map((offset) => {
-                    const seat = ((v.me + offset) % 4) as Seat;
-                    return (
-                      <span
-                        key={seat}
-                        className={`compass-wind wind-${offset} ${ticking && v.phase === "playing" && v.turn === seat ? "current" : ""}`}
-                      >
-                        {seatNames[seat]}
-                      </span>
-                    );
-                  })}
-                  <strong
-                    className={countdown >= 100 ? "long-countdown" : undefined}
-                  >
-                    {!state.connected
-                      ? "···"
-                      : paused
-                        ? "Ⅱ"
-                        : waitingOthersOvertime
-                          ? "···"
-                          : timed
-                            ? String(countdown).padStart(2, "0")
-                            : ticking
-                              ? "∞"
-                              : "—"}
-                  </strong>
-                </div>
-                <div className="table-rounds">
-                  <span>把数</span>
-                  <b>
-                    {v.round}
-                    <small> / {v.rules.rounds}</small>
-                  </b>
-                </div>
-              </div>
-            </div>
-            <GameMotion events={motion} view={v} />
-          </div>
-          {mine && (
-            <section className="hand-area">
-              <div className="my-info">
-                <div>
-                  <span className="player-portrait">
-                    <Avatar player={mine} seat={v.me} />
-                    {state.connected &&
-                      (v.canDiscard || v.actions.length > 0) && (
-                        <TurnCountdown
-                          name={mine.name}
-                          action={
-                            decisionTime.overtime
-                              ? perTurnOvertime
-                                ? "超时"
-                                : "累计超时"
-                              : v.phase === "claiming"
-                                ? "响应"
-                                : "出牌"
-                          }
-                          seconds={countdown}
-                          total={
-                            decisionTime.overtime
-                              ? (v.table?.settings.overtimeSeconds ?? 90)
-                              : v.rules.turnSeconds
-                          }
-                          paused={paused}
-                        />
-                      )}
-                  </span>
-                  <strong>{mine.name}</strong>
-                  <span className="seat-tag">
-                    {seatNames[v.me]}
-                    {v.dealer === v.me ? " · 庄" : ""}
-                  </span>
-                  <span className="my-score">
-                    {mine.score}
-                    <small>分</small>
-                  </span>
-                </div>
-                <div
-                  className={`table-status ${v.canDiscard ? "is-my-turn" : v.actions.length ? "is-responding" : ""}`}
-                  role="status"
-                >
-                  {!state.connected ? (
-                    "连接中断，正在重新连接牌桌…"
-                  ) : state.submitting === "action" ? (
-                    "已提交，等待牌桌确认…"
-                  ) : mine?.trustee ? (
-                    "已开启托管 · 点击取消即可接手"
-                  ) : myOvertime ? null : v.pending ? (
-                    <>
-                      {v.players[v.pending.from]?.name}
-                      {v.pending.kind === "robKong" ? "补杠" : "打出"}{" "}
-                      <strong>{tileName(v.pending.tile)}</strong>
-                      {v.pending.answered ? " · 已响应，等待其他牌友" : ""}
-                    </>
-                  ) : v.canDiscard ? (
-                    selected === null ? (
-                      "轮到你出牌"
-                    ) : (
-                      `再点 ${tileName(selected)} 即可打出`
-                    )
-                  ) : ["ended", "finished"].includes(v.phase) ? (
-                    "本局已结束"
-                  ) : null}
-                </div>
-                <div>
-                  <span className="flower-count">
-                    <Flower2 size={16} />
-                    {mine.flowers.length} 花
-                  </span>
-                  <button
-                    className={`text-button ${mine.trustee ? "positive" : ""}`}
-                    onClick={() => client.trustee(!mine.trustee)}
-                    disabled={
-                      commandsDisabled ||
-                      (!mine.trustee &&
-                        v.table?.settings.trusteeMode === "disabled")
-                    }
-                    aria-pressed={mine.trustee}
-                  >
-                    {mine.trustee
-                      ? "取消托管"
-                      : v.table?.settings.trusteeMode === "disabled"
-                        ? "本桌无托管"
-                        : "托管"}
-                  </button>
-                </div>
-              </div>
-              <div className="hand-support">
-                <FlowerRack flowers={mine.flowers} name="我的" />
-              </div>
-              <div className="hand" aria-label="我的手牌" ref={handRef}>
-                {mine.melds.length > 0 && (
-                  <div className="self-melds" aria-label="我的碰杠">
-                    <span className="self-meld-label">碰杠</span>{" "}
-                    {mine.melds.map((m, i) => (
-                      <div className="meld" key={i}>
-                        {m.tiles.map((t) => (
-                          <Tile tile={t} small key={t} />
-                        ))}
-                        <small>
-                          {m.concealed
-                            ? "暗杠"
-                            : `${seatNames[m.from]}家${m.type === "kong" ? "杠" : "碰"}`}
-                        </small>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {displayedHand!.map((t) => (
-                  <Tile
-                    tile={t}
-                    key={t}
-                    selected={selected === t}
-                    interactive
-                    disabled={!v.canDiscard || mine.trustee || commandsDisabled}
-                    last={drawnTile === t}
-                    onClick={
-                      v.canDiscard && !mine.trustee && !commandsDisabled
-                        ? () => selectTile(t)
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
-              <div
-                className="hand-feedback"
-                style={
-                  {
-                    "--own-river-width": `${riverLayout.riverWidth}px`,
-                  } as CSSProperties
-                }
-              >
-                {hintKinds.length > 0 && !v.actions.length && (
-                  <div
-                    className="hand-listening"
-                    role="status"
-                    aria-label={`仅自己可见：${hintDiscard !== undefined ? `打出${tileName(hintDiscard)}后` : "已听牌，"}可胡${hintKinds.map((k) => tileName(k * 4)).join("、")}`}
-                  >
-                    <span>
-                      {hintDiscard !== undefined
-                        ? `打${tileName(hintDiscard)}后`
-                        : "已听牌"}
-                      <b>可胡</b>
-                    </span>
-                    <div className="hand-waits">
-                      {hintKinds.map((k) => (
-                        <Tile tile={k * 4} small key={k} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="action-bar">
-                  {v.pending && v.actions.length > 0 && !v.pending.answered && (
-                    <div
-                      className="claim-source"
-                      role="status"
-                      aria-label={`${v.players[v.pending.from]?.name}${v.pending.kind === "robKong" ? "补杠" : "打出"}${tileName(v.pending.tile)}`}
-                    >
-                      <Tile small tile={v.pending.tile} />
-                      <span>
-                        <strong>{v.players[v.pending.from]?.name}</strong>
-                        <small>
-                          {v.pending.kind === "robKong" ? "补杠" : "打出"} ·{" "}
-                          {tileName(v.pending.tile)}
-                        </small>
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className="game-actions"
-                    role="group"
-                    aria-label="本次可选操作"
-                  >
-                    {v.actions.includes("pass") && (
-                      <button
-                        disabled={commandsDisabled}
-                        className="secondary"
-                        onClick={() => client.action({ type: "pass" })}
-                      >
-                        过
-                      </button>
-                    )}
-                    {v.actions.includes("pung") && (
-                      <button
-                        disabled={commandsDisabled}
-                        className="action-button"
-                        onClick={() => {
-                          client.action({ type: "pung" });
-                        }}
-                      >
-                        碰
-                      </button>
-                    )}
-                    {v.actions.includes("kong") && (
-                      <button
-                        disabled={commandsDisabled}
-                        className="action-button"
-                        onClick={() => client.action({ type: "kong" })}
-                      >
-                        杠
-                      </button>
-                    )}
-                    {v.selfKongs.map((t) => (
-                      <button
-                        className="action-button self-kong-button"
-                        disabled={commandsDisabled}
-                        key={t}
-                        onClick={() =>
-                          client.action({ type: "selfKong", tile: t })
-                        }
-                      >
-                        <span>杠</span>
-                        <small>{tileName(t)}</small>
-                      </button>
-                    ))}
-                    {v.actions.includes("hu") && (
-                      <button
-                        disabled={commandsDisabled}
-                        className={`hu-button${v.pending ? "" : " self-draw"}`}
-                        onClick={() => {
-                          client.action({ type: "hu" });
-                        }}
-                      >
-                        {v.pending ? "胡" : "自摸"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-          {v.result && dismissedResult === resultKey && (
-            <button
-              className="secondary reopen-result"
-              onClick={() => setDismissedResult("")}
-            >
-              查看本局结算
-            </button>
-          )}
-        </main>
+              return;
+            }
+            if (commandsDisabled || paused) return;
+            if (command.type === "select" && v.canDiscard && !mine.trustee && mine.hand.includes(command.tile)) selectTile(command.tile);
+            if (command.type === "trustee" && (mine.trustee || v.table?.settings.trusteeMode !== "disabled")) client.trustee(command.enabled);
+            if (command.type === "action") {
+              if (command.action === "selfKong" && command.tile !== undefined && v.selfKongs.includes(command.tile)) client.action({ type: "selfKong", tile: command.tile });
+              else if (command.action === "pass" && v.actions.includes("pass")) client.action({ type: "pass" });
+              else if (command.action === "pung" && v.actions.includes("pung")) client.action({ type: "pung" });
+              else if (command.action === "kong" && v.actions.includes("kong")) client.action({ type: "kong" });
+              else if (command.action === "hu" && v.actions.includes("hu")) client.action({ type: "hu" });
+            }
+          }}
+        >
+          {state.mode === "online" && <RoomVoice key={v.id} client={client} game={v.id} connected={state.connected} enabled={audioPreferences.chat !== false} volume={audioPreferences.voiceVolume} me={mine.id} messages={state.voiceMessages} />}
+        </CocosTable>
       )}
       {!v && (
         <nav className="bottom-nav" aria-label="主导航">
@@ -1910,6 +1370,7 @@ export function App() {
                 : "本局牌面"
           }
           variant="round-reveal-dialog"
+          headerAside={v.result.reason === "hu" ? <img className="result-call-art" src={`${import.meta.env.BASE_URL}art/effects/${v.result.from === undefined ? "self-draw" : "hu"}-gold-v1.png`} alt={v.result.from === undefined ? "自摸" : "胡"} /> : undefined}
           close={() => {
             setDismissedResult(resultKey);
             setFinishedSnapshot(null);
@@ -2224,6 +1685,8 @@ function FlowerRack({
 function Opponent({
   player: p,
   seat,
+  me,
+  names,
   position,
   active,
   dealer,
@@ -2235,6 +1698,8 @@ function Opponent({
 }: {
   player: PublicPlayer;
   seat: Seat;
+  me: Seat;
+  names: string[];
   position: string;
   active: boolean;
   dealer: boolean;
@@ -2252,6 +1717,7 @@ function Opponent({
           "--opponent-hand-count": p.hand.length || p.handCount,
           "--concealed-rows": Math.max(1, Math.ceil(p.handCount / 2)),
           "--meld-count": p.melds.length,
+          "--side-flower-rows": Math.ceil(p.flowers.length / 4),
         } as CSSProperties
       }
     >
@@ -2301,34 +1767,7 @@ function Opponent({
           </span>
         )}
       </div>
-      {position !== "top" && (
-        <FlowerRack flowers={p.flowers} name={`${seatNames[seat]}家`} />
-      )}
-      <div className={`opponent-rack ${position !== "top" ? "side-rack" : ""}`}>
-        <div className="opponent-hand">
-          {p.hand.length
-            ? p.hand.map((t) => <Tile tile={t} small key={t} />)
-            : Array.from({ length: p.handCount }, (_, i) => (
-                <TileBack key={i} />
-              ))}
-        </div>
-        <div className="opponent-melds">
-          {p.melds.map((m, i) => (
-            <span key={i} data-meld-type={m.type} data-concealed={m.concealed}>
-              {m.concealed && !m.tiles.length
-                ? Array.from({ length: 4 }, (_, n) => <TileBack key={n} />)
-                : m.tiles.map((t) => <Tile tile={t} small key={t} />)}
-            </span>
-          ))}
-        </div>
-        {position === "top" && (
-          <FlowerRack
-            compact
-            flowers={p.flowers}
-            name={`${seatNames[seat]}家`}
-          />
-        )}
-      </div>
+      <TableSeatTiles player={p} seat={seat} me={me} names={names} position={position} />
     </div>
   );
 }

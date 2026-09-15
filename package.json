@@ -1,6 +1,6 @@
 {
   "name": "jinling-mahjong",
-  "version": "0.6.11",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,8 +10,8 @@
     "dev": "concurrently -k -n api,app \"tsx watch server/index.ts\" \"vite --host 0.0.0.0\"",
     "dev:web": "vite --host 0.0.0.0",
     "server": "tsx server/index.ts",
-    "build": "tsc --noEmit && vite build",
-    "build:native": "tsc --noEmit && vite build --mode native",
+    "build": "npm run build:cocos && tsc --noEmit && vite build",
+    "build:native": "npm run build:cocos && tsc --noEmit && vite build --mode native",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:load": "tsx scripts/load-test.ts",
@@ -24,7 +24,8 @@
     "icons": "node scripts/generate-icons.mjs",
     "tiles": "tsx scripts/build-sculpted-catalog.ts",
     "tiles:study": "tsx scripts/build-tile-study.ts",
-    "test:soak": "playwright test -c playwright.soak.config.ts"
+    "test:soak": "playwright test -c playwright.soak.config.ts",
+    "build:cocos": "node scripts/build-cocos.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",

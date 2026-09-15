@@ -19,7 +19,7 @@ export function useActionPlacement(layoutKey: string) {
       if (!w || !h) return;
       const occupied = [
         ...board.querySelectorAll<HTMLElement>(
-          ".discard-field .tile,.opponent-rack .tile,.opponent-rack .tile-back,.flower-rack,.hand .tile,.hand-listening,.table-hud,.my-info > div:first-child",
+          ".discard-field .surface-tile,.seat-wall,.seat-meld,.seat-flower-slot,.flower-rack,.hand .tile,.hand-listening,.table-hud,.my-info > div:first-child",
         ),
       ]
         .filter(

@@ -9,6 +9,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import {
   act,
   botAction,
+  trusteeAction,
   createGame,
   dissolveGame,
   newPlayer,
@@ -1097,22 +1098,7 @@ export function makeServer(
   });
   function automaticAction(g: Game, seat: Seat): Action | null {
     const p = g.players[seat]!;
-    if (p.bot || !g.table?.settings.overtimeSeconds) return botAction(g, seat);
-    if (baseViewFor(g, seat).actions.includes("hu")) return { type: "hu" };
-    if (
-      g.phase === "claiming" &&
-      g.pending?.offers[seat] &&
-      g.pending.replies[seat] === undefined
-    )
-      return { type: "pass" };
-    if (g.phase !== "playing" || g.turn !== seat || !p.hand.length) return null;
-    return {
-      type: "discard",
-      tile:
-        g.lastDraw !== undefined && p.hand.includes(g.lastDraw)
-          ? g.lastDraw
-          : p.hand.at(-1)!,
-    };
+    return p.bot ? botAction(g, seat) : trusteeAction(g, seat);
   }
   const tick = setInterval(() => {
     for (const source of games.values()) {

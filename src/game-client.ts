@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import {
   act,
   botAction,
+  trusteeAction,
   createGame,
   dissolveGame,
   newPlayer,
@@ -655,13 +656,9 @@ export class GameClient {
           continue;
         if (human && this.local.phase === "playing" && this.local.turn === seat)
           this.local.players[0]!.trustee = true;
-        const action =
-          human &&
-          this.local.phase === "claiming" &&
-          this.local.pending?.offers[seat] &&
-          this.local.pending.replies[seat] === undefined
-            ? { type: "pass" as const }
-            : botAction(this.local, seat);
+        const action = this.local.players[seat]!.bot
+          ? botAction(this.local, seat)
+          : trusteeAction(this.local, seat);
         if (action) {
           this.local = act(this.local, seat, action);
           this.updateLocal();

@@ -149,7 +149,7 @@ it('aligns opposite fixed river grids without reversing the horizontal reading o
  }
 });
 
-it('appends discards to fixed slots from left to right without moving old tiles or changing row capacity',()=>{
+it('appends from fixed origins with the previous player downward and next player upward in every viewing seat',()=>{
  for(const me of seats){
   const s=cocosState(viewFor(fixture(),me),ui);
   for(const p of s.players)p.discards=[];
@@ -167,14 +167,17 @@ it('appends discards to fixed slots from left to right without moving old tiles 
     const first=next.find(t=>t.tile===p.discards[0])!;
     if((count-1)%capacity===0){
      expect(current[o%2?'y':'x']).toBe(first[o%2?'y':'x']);
-     if(count>1&&! (o%2)){
+     if(count>1){
       const before=next.find(t=>t.tile===p.discards.at(-2))!;
-      expect(current.y).toBeGreaterThan(before.y);
+      if(o===1)expect(current.x).toBeGreaterThan(before.x);
+      else if(o===3)expect(current.x).toBeLessThan(before.x);
+      else expect(current.y).toBeGreaterThan(before.y);
      }
     }
     else{
      const before=next.find(t=>t.tile===p.discards.at(-2))!;
-     expect(current[o%2?'y':'x']).toBeGreaterThan(before[o%2?'y':'x']);
+     if(o===1)expect(current.y).toBeLessThan(before.y);
+     else expect(current[o%2?'y':'x']).toBeGreaterThan(before[o%2?'y':'x']);
      expect(current[o%2?'x':'y']).toBe(before[o%2?'x':'y']);
     }
    }

@@ -37,3 +37,7 @@ for(const [file,kind] of [['eight-bamboo-v3.png',25],['six-dots-v2.png',14],['tw
  const image=resolve(root,'cocos-table/art-source/imagegen',file);
  await sharp(image).trim({threshold:24}).resize(244,336,{fit:'contain',background:{r:0,g:0,b:0,alpha:0}}).extend({top:8,bottom:8,left:6,right:6,background:{r:0,g:0,b:0,alpha:0}}).png().toFile(resolve(out,`${kind}.png`));
 }
+
+// Reviewed v3 dots supersede the old one-off pips as one consistent family.
+const { prepareDots } = await import('./prepare-dots-v3.mjs');
+await prepareDots();

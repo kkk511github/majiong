@@ -27,6 +27,7 @@ const labels: Record<ReplayFrame["type"], string> = {
   kong: "明杠",
   concealedKong: "暗杠",
   addedKong: "补杠",
+  zhaozhi: "报照直",
   claim: "响应出牌",
   pass: "过",
   finish: "本局结算",
@@ -121,6 +122,7 @@ export function ReplayPanel({
               kong: "杠",
               concealedKong: "暗杠",
               addedKong: "补杠",
+  zhaozhi: "报照直",
               flower: "补花",
               finish: frame.result?.winners.length
                 ? frame.result.from === undefined

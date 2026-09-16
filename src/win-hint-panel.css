@@ -1,0 +1,30 @@
+.mahjong-hint-layer{position:absolute;inset:0;pointer-events:none;z-index:3;font-family:system-ui,sans-serif}
+.win-hint-panel{position:absolute;pointer-events:auto;color:#173b30;border:1px solid #d7b66c;border-radius:12px;background:linear-gradient(130deg,#fff7e6,#e9ddc1);box-shadow:0 5px 20px #001e2780,inset 0 0 0 2px #fff4d480;overflow:hidden;max-height:165px}
+.win-hint-heading{display:flex;align-items:center;gap:9px;padding:8px 12px;color:#ffefbd;background:linear-gradient(120deg,#103e32,#20614f);min-height:42px;box-sizing:border-box}
+.listening-seal{display:grid;place-items:center;flex:none;width:29px;height:29px;border:1px solid #e4c577;border-radius:8px;background:linear-gradient(145deg,#efd78c,#b89441);box-shadow:0 2px 3px #061c2190;color:#183e31;font-size:22px;font-weight:800}
+.win-hint-heading strong{display:block;font-size:15px;line-height:1.2}.win-hint-heading small{display:block;margin-top:3px;font-size:10px;color:#cbe0cc}
+.hint-discard{margin-left:auto;display:block;width:24px;height:34px;position:relative}.hint-discard .tile-art,.winning-tile-art .tile-art{display:block;width:100%;height:100%}
+.winning-tile-list{display:flex;gap:8px;overflow-x:auto;padding:7px 12px 4px;overscroll-behavior:contain;scrollbar-width:thin;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+.winning-tile-item{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:36px}.winning-tile-art{display:block;width:30px;height:44px;filter:drop-shadow(0 2px 1px #4e401a30)}
+.winning-tile-item small{font-size:10px;white-space:nowrap}.winning-tile-item small b{font-size:12px}.winning-tile-item.exhausted{opacity:.48}
+.win-hint-panel footer{padding:2px 12px 6px;font-size:9px;color:#665c48;display:flex;justify-content:space-between;gap:6px}.win-hint-panel footer span{white-space:nowrap}
+.hint-empty,.hint-win-detail{margin:0;padding:10px 12px;font-size:12px}.hint-win-detail span{display:block;font-size:10px;margin-top:4px;color:#726744}
+.can-win{border-color:#ffdc75;box-shadow:0 0 16px #eccc6155,0 6px 18px #001e2780}
+.zhaozhi-control{position:absolute;top:8%;left:10%;pointer-events:auto;font-size:12px;color:#f2deaa}.zhaozhi-control>button,.zhaozhi-control>span{border:1px solid #a99a67;border-radius:7px;background:#123e34ed;color:#f4dfaa;padding:7px 10px;display:block;font-size:12px}.zhaozhi-confirm{width:240px;padding:14px;border:1px solid #c7a963;border-radius:10px;background:#123e34;box-shadow:0 8px 30px #0008;margin-top:6px}.zhaozhi-confirm p{line-height:1.6}.zhaozhi-confirm button{padding:7px 15px;margin-right:10px;border-radius:6px;border:1px solid #bdab70;background:#f1e3ba;color:#173b30}
+@media(max-height:420px){.win-hint-panel{border-radius:9px;max-height:122px}.win-hint-heading{min-height:33px;padding:5px 9px;gap:7px}.listening-seal{width:24px;height:24px;font-size:19px}.win-hint-heading strong{font-size:12px}.win-hint-heading small{display:none}.hint-discard{width:18px;height:27px}.winning-tile-list{padding:5px 9px 2px;gap:7px}.winning-tile-art{width:25px;height:36px}.winning-tile-item{min-width:30px}.winning-tile-item small{font-size:9px}.win-hint-panel footer{font-size:8px;padding:1px 9px 4px}.hint-empty,.hint-win-detail{padding:8px 9px;font-size:11px}.zhaozhi-control{top:10%;left:11%}}
+
+/* A compact two-column card grows with the number of waits, never the viewport. */
+.win-hint-panel{display:grid;grid-template-columns:116px minmax(0,1fr);max-height:148px}
+.win-hint-heading{padding:9px;gap:6px;align-content:center;justify-content:center;flex-wrap:wrap;min-height:72px}
+.win-hint-heading strong{font-size:13px}.win-hint-heading small{display:none}
+.hint-discard{margin:0 36px;width:24px;height:35px}
+.winning-tile-list{align-items:center;padding:8px;gap:8px}.winning-tile-art{width:31px;height:45px}
+.win-hint-panel footer{grid-column:1/-1;background:#e3d5b7;padding:4px 8px;font-size:9px;white-space:nowrap}
+.can-win .win-hint-heading,.can-win .hint-win-detail{grid-column:1/-1}.can-win .win-hint-heading{min-height:36px;justify-content:flex-start}
+@media(max-height:420px){.win-hint-panel{grid-template-columns:108px minmax(0,1fr)}.win-hint-heading{min-height:68px;padding:6px;gap:5px}.win-hint-heading strong{font-size:12px}.hint-discard{width:21px;height:30px;margin:0 30px}.winning-tile-art{width:28px;height:41px}.win-hint-panel footer{font-size:8px}.winning-tile-item small{font-size:10px}}
+
+.can-win .listening-seal{width:38px;height:38px;background:none;border:0;box-shadow:none}.listening-seal img{width:100%;height:100%;object-fit:contain}
+
+.zhaozhi-control{z-index:2}
+
+.hint-win-detail{display:flex;align-items:center;gap:10px}.hint-win-detail .winning-tile-art{flex:none;width:28px;height:41px;margin:0}.hint-win-detail strong{font-size:12px}.hint-win-detail small{display:block;margin-top:4px;font-size:10px;color:#726744}

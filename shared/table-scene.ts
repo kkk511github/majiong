@@ -1,3 +1,5 @@
+import { TILE_POSE_METRICS } from "./tile-pose-metrics";
+const tileAspect = (pose: string) => TILE_POSE_METRICS[pose].w / TILE_POSE_METRICS[pose].h;
 /** The table renderer is a view, never a rules engine or a source of hidden cards. */
 export interface ScenePlayer {
   avatar?: string;
@@ -13,6 +15,7 @@ export interface TableSceneState {
   players: ScenePlayer[];
   selected:number|null; drawn?:number; inspectedKind:number|null;
   hintKinds:number[]; hintLabel:string;
+  hintDiscard?:number; hintUnseen?:Record<number,number>; zhaozhiAvailable?:boolean; zhaozhi?:boolean;
   actions:{id:string; label:string; tile?:number}[];
   lastDiscard?:{tile:number;seat:number};
   pending?:{tile:number;from:number;answered:boolean;kind:string};
@@ -165,7 +168,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     // Its baked camera supplies depth; never shear the vertical tile body.
     const sideX=revealed?slotMetrics(o,y).x+(o===3?-120:120):slotEdgeMetrics(o,y,'outer').x+(o===3?-100:100);
     const x=o===2?437+i*33:extra?(o===3?190:1138):sideX;
-    add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?(o===2?pose:'meld-'+pose):back,area:'hand',x,y,w:o===2?33:revealed?272/189*36:119/292*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
+    add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?(o===2?pose:'meld-'+pose):back,area:'hand',x,y,w:o===2?33:revealed?tileAspect('meld-'+pose)*36:tileAspect(back)*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
    }
    p.melds.forEach((m,mi)=>{
     const ts=m.tiles.length?m.tiles:Array(m.type==='kong'?4:3).fill(undefined);
@@ -176,7 +179,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
      const x=o===2?437+p.handCount*33+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-64:64);
      const y=o===2?38-(stack?14:0):baseY-(stack?12:0);
      const sidePose=m.concealed?'cover-'+pose:'meld-'+pose;
-     add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:o===2?(m.concealed?'cover-'+pose:pose):sidePose,area:'meld',x,y,w:o===2?33:272/189*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});
+     add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:o===2?(m.concealed?'cover-'+pose:pose):sidePose,area:'meld',x,y,w:o===2?33:tileAspect(sidePose)*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});
     });
    });
   }
@@ -187,7 +190,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     const lane=i<12?0:1+Math.floor((i-12)/4),index=lane?(i-12)%4:i;
     const count=Math.min(lane?4:12,p.flowers.length-(lane?12+(lane-1)*4:0));
     const [tl,tr,br]=flowerRackPoints(o,lane);
-    const w=tr[0]-tl[0]-4,h=w*213/246;
+    const w=tr[0]-tl[0]-5,h=w/tileAspect('flower-'+pose);
     // Overlap only the antialiased contact edges: no felt sliver between flowers,
     // while the wide ivory wall and green base remain visible on every tile.
     const pitch=Math.min(h-1.75,(br[1]-tl[1]-4-h)/Math.max(1,count-1));
@@ -211,7 +214,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
   const o=sceneOffset(p.seat,s.me);
   p.discards.forEach((tile,i)=>{
    const capacity=o%2?Math.max(6,Math.ceil(p.discards.length/3)):Math.max(9,Math.ceil(p.discards.length/2));
-   const row=Math.floor(i/capacity),col=i%capacity,h=o%2?34:44,w=o%2?164/126*h:34;
+   const row=Math.floor(i/capacity),col=i%capacity,h=o%2?34:44,w=o%2?tileAspect(poses[o])*h:34;
    const rowCount=Math.min(capacity,p.discards.length-row*capacity),along=col-(rowCount-1)/2;
    const sidePitch=Math.min(28,140/(capacity-1));
    const y=o===0?428-row*38:o===2?132+row*38:280+(o===3?-along:along)*sidePitch;

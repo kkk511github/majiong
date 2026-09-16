@@ -1,4 +1,9 @@
 import {
+  canDeclareZhaozhi,
+  recordGlobalAnchor,
+  globalLiability,
+} from "./reference-rules";
+import {
   createWall,
   kind,
   sortTiles,
@@ -147,7 +152,16 @@ function remove(p: Player, tiles: Tile[]) {
     throw Error("手牌中没有这张牌");
   p.hand = p.hand.filter((t) => !tiles.includes(t));
 }
+function flushConcealed(g: Game, exempt: Seat[] = []) {
+  const pending = g.ruleState?.deferredConcealed ?? [];
+  if (g.ruleState) g.ruleState.deferredConcealed = [];
+  payBills(
+    g,
+    pending.filter((b) => !exempt.includes(b.to)),
+  );
+}
 function finish(g: Game, result: Result, now: number) {
+  flushConcealed(g);
   finishNanjingRound(g, result);
   g.phase =
     g.round >= g.rules.rounds ||
@@ -307,6 +321,12 @@ function finishNanjingRound(g: Game, result: Result) {
   if (Object.values(result.details).some((s) => s?.major)) flagNext(g, "大胡");
   if (result.winners.length > 1) flagNext(g, "一炮多响");
   if (
+    Object.values(result.details).some((s) =>
+      s?.items.some((i) => i.label === "海底捞月"),
+    )
+  )
+    flagNext(g, "海底捞月");
+  if (
     g.roundTransfers?.some((t) =>
       [
         "三口承包",
@@ -426,12 +446,8 @@ function kongReplacement(
   from: Seat | undefined,
   direct: boolean,
 ): Game["replacement"] {
-  if (
-    isNanjingV2(g.rules) &&
-    g.replacement?.type === "kong" &&
-    g.replacement.from !== undefined
-  )
-    return { ...g.replacement };
+  if (isNanjingV2(g.rules) && g.replacement?.from !== undefined)
+    return { ...g.replacement, type: "kong" };
   return { type: "kong", ...(from === undefined ? {} : { from }), direct };
 }
 function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
@@ -541,7 +557,10 @@ function draw(
       if (!initial) captureReplay(g, "flower", now, seat, t);
       if (finishBankrupt(g, now)) return false;
       replacement = true;
-      if (g.replacement?.type !== "kong") g.replacement = { type: "flower" };
+      if (isNanjingV2(g.rules))
+        g.replacement = { ...g.replacement, type: "flower" };
+      else if (g.replacement?.type !== "kong")
+        g.replacement = { type: "flower" };
       continue;
     }
     p.hand.push(t);
@@ -616,6 +635,7 @@ export function startRound(
       flowers: [],
       melds: [],
       discards: [],
+      zhaozhi: false,
       passedHu: false,
       passedPung: [],
       ready: false,
@@ -652,6 +672,7 @@ export function selfKongs(g: Game, seat: Seat): Tile[] {
     return [];
   const p = g.players[seat]!,
     c = counts(p.hand);
+  if (p.zhaozhi && p.melds.length >= 3) return [];
   return p.hand.filter(
     (t) =>
       ((c[kind(t)] === 4 && t === p.hand.find((a) => kind(a) === kind(t))) ||
@@ -718,34 +739,42 @@ function settle(
     );
     if (!score) throw Error("当前牌型还不能胡牌");
     result.details[seat] = score;
-    // User-confirmed: three mouths already establish liability, including a later sequence win or robbed kong.
+    // The supplied reference excludes a normal sequence plus a single pair wait.
     const responsibility = isNanjingV2(g.rules)
-      ? threeMouths(p, seat)
+      ? score.items.some((i) => ["对对胡", "全球独钓"].includes(i.label))
+        ? threeMouths(p, seat)
+        : undefined
       : seats.find(
           (s) =>
             s !== seat &&
             p.melds.length === 4 &&
             p.melds.filter((m) => !m.concealed && m.from === s).length >= 3,
         );
+    const firstThree = p.melds.slice(0, 3);
     const pure =
-      p.melds.length >= 3 &&
-      p.melds
-        .flatMap((m) => m.tiles)
-        .every(
-          (t) =>
-            kind(t) < 27 &&
-            Math.floor(kind(t) / 9) ===
-              Math.floor(kind(p.melds[0].tiles[0]) / 9),
-        );
+      firstThree.length === 3 &&
+      firstThree.every(
+        (m) =>
+          !m.concealed &&
+          m.tiles.every(
+            (t) =>
+              kind(t) < 27 &&
+              Math.floor(kind(t) / 9) ===
+                Math.floor(kind(firstThree[0].tiles[0]) / 9),
+          ),
+      );
+    // Three-pure liability requires a same-suit winning discard; self draws
+    // and concealed kongs do not create a fourth supplier.
     const purePayer =
-      score.items.some((i) => i.label === "清一色") && pure
-        ? p.melds.length === 4
-          ? p.melds[3].concealed
-            ? undefined
-            : p.melds[3].from
-          : score.snapshot
-            ? from
-            : undefined
+      !p.zhaozhi &&
+      pure &&
+      from !== undefined &&
+      !robbed &&
+      score.items.some((i) => i.label === "清一色") &&
+      kind(g.pending!.tile) < 27 &&
+      Math.floor(kind(g.pending!.tile) / 9) ===
+        Math.floor(kind(firstThree[0].tiles[0]) / 9)
+        ? from
         : undefined;
     if (score.allIn) {
       score.total = seats
@@ -756,6 +785,8 @@ function settle(
         if (other !== seat)
           bill(other, seat, Math.max(0, g.players[other]!.score), "天胡");
       result.bankrupt = true;
+    } else if (isNanjingV2(g.rules) && responsibility !== undefined) {
+      liability(responsibility, seat, score.total, "三口承包");
     } else if (isNanjingV2(g.rules) && robbed && from !== undefined) {
       if (responsibility !== undefined)
         liability(responsibility, seat, score.total, "三口承包");
@@ -763,8 +794,7 @@ function settle(
     } else if (
       isNanjingV2(g.rules) &&
       from === undefined &&
-      g.replacement?.type === "kong" &&
-      g.replacement.from !== undefined
+      g.replacement?.from !== undefined
     )
       bill(g.replacement.from, seat, score.total * 3, "杠开包三家");
     else if (responsibility !== undefined)
@@ -776,9 +806,10 @@ function settle(
     )
       liability(purePayer, seat, score.total, "清一色承包");
     else if (
-      g.rules.id === "nj-garden-v2" &&
+      isNanjingV2(g.rules) &&
       from !== undefined &&
-      (p.melds.length === 4 || score.snapshot)
+      p.melds.length === 4 &&
+      globalLiability(g, seat, g.pending!.tile)
     )
       liability(from, seat, score.total, "全球独钓承包");
     else if (from !== undefined)
@@ -802,6 +833,12 @@ function settle(
       `${p.name} ${from === undefined ? "自摸" : robbed ? "抢杠胡" : "胡牌"} · ${externalBills.some((b) => b.to === seat) ? `桌外记分 ${externalBills.find((b) => b.to === seat)!.amount} 分` : `${score.total} 分`}`,
     );
   }
+  flushConcealed(
+    g,
+    [...bills, ...externalBills]
+      .filter((b) => b.reason === "三口承包")
+      .map((b) => b.to),
+  );
   payBills(g, bills);
   for (const entry of externalBills) transferExternal(g, entry);
   result.bankrupt = result.bankrupt || bankrupt(g);
@@ -861,6 +898,7 @@ function offerClaims(
       const c = p.hand.filter((t) => kind(t) === kind(tile)).length;
       if (!robbed && !p.passedPung.includes(kind(tile))) {
         if (
+          !(p.zhaozhi && p.melds.length >= 3) &&
           c >= 3 &&
           g.wall.length > (g.rules.seaBottom ? 0 : 16) &&
           preservesHeavenlyWait(g, seat, tile, true)
@@ -1017,6 +1055,7 @@ export function act(
         throw Error("请选择手中的牌");
       remove(p, [action.tile]);
       p.discards.push(action.tile);
+      recordGlobalAnchor(g, seat, action.tile);
       p.passedHu = false;
       p.passedPung = [];
       if (g.ruleState) {
@@ -1035,6 +1074,11 @@ export function act(
       }
       if (!offerClaims(g, seat, action.tile, false, now))
         draw(g, next(seat), now);
+    } else if (action.type === "zhaozhi") {
+      if (!canDeclareZhaozhi(g, seat)) throw Error("当前不能报照直");
+      p.zhaozhi = true;
+      note(g, `${p.name} 报照直：不外包、不胡对对胡，三嘴后不可杠`);
+      captureReplay(g, "zhaozhi", now, seat);
     } else if (action.type === "hu") {
       if (!g.canSelfWin) throw Error("当前不能自摸");
       settle(g, [seat], undefined, now);
@@ -1045,17 +1089,24 @@ export function act(
       if (tiles.length === 4) {
         remove(p, tiles);
         p.melds.push({ type: "kong", tiles, from: seat, concealed: true });
-        for (const other of seats)
-          if (other !== seat)
-            transfer(
-              g,
-              other,
-              seat,
-              isNanjingV2(g.rules)
-                ? sideAmount(g, nanjingValues(g.rules).concealedKongFlowers)
-                : 6,
-              "暗杠",
-            );
+        for (const other of seats) {
+          if (other === seat) continue;
+          const amount = isNanjingV2(g.rules)
+            ? sideAmount(g, nanjingValues(g.rules).concealedKongFlowers)
+            : 6;
+          if (
+            g.ruleState &&
+            threeMouths(p, seat) !== undefined &&
+            p.melds.length === 4
+          ) {
+            (g.ruleState.deferredConcealed ??= []).push({
+              from: other,
+              to: seat,
+              amount,
+              reason: "暗杠",
+            });
+          } else transfer(g, other, seat, amount, "暗杠");
+        }
         g.replacement = kongReplacement(g, undefined, false);
         recordKong(g, seat);
         note(g, `${p.name} 暗杠`);
@@ -1123,6 +1174,7 @@ export function viewFor(g: Game, me: Seat): View {
             scoreForWin(g, me)
           ? ["hu"]
           : [],
+    canZhaozhi: canDeclareZhaozhi(g, me),
     selfKongs: selfKongs(g, me),
     canDiscard: g.phase === "playing" && g.turn === me,
     lastDraw: g.turn === me ? lastDraw : undefined,

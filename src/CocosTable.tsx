@@ -1,3 +1,4 @@
+import { WinHintPanel } from "./WinHintPanel";
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TableSceneCommand, TableSceneState } from '../shared/table-scene';
 import './cocos-table.css';
@@ -47,6 +48,7 @@ export function CocosTable({ state, onCommand, children, embedded=false }: {
       {status === 'error' && <button onClick={() => { setStatus('loading'); if (frame.current) frame.current.src = `${import.meta.env.BASE_URL}cocos-table/index.html?channel=${encodeURIComponent(channel)}&retry=${Date.now()}`; }}>重新加载</button>}
       {!embedded&&<button onClick={() => onCommand({ type: 'menu', menu: 'leave' })}>返回大厅</button>}
     </div>}
+    {status === "ready" && !embedded && <WinHintPanel state={state} onCommand={onCommand}/>}
     {children && <div className="cocos-voice">{children}</div>}
   </main>;
 }

@@ -37,6 +37,32 @@ export function createRecords(db: DatabaseSync) {
     account_id TEXT NOT NULL, name TEXT NOT NULL, team_id TEXT NOT NULL,
     team_name TEXT NOT NULL, points REAL NOT NULL, PRIMARY KEY(record_id,account_id));
     CREATE INDEX IF NOT EXISTS point_records_filter ON point_records(at,team_id,account_id);`);
+  db.exec(`CREATE TABLE IF NOT EXISTS admin_match_reads (
+    game_id TEXT NOT NULL, admin_id TEXT NOT NULL, read_at INTEGER NOT NULL,
+    PRIMARY KEY(game_id, admin_id));`);
+  function markRead(game: string, viewer: string) {
+    // Check the persisted role here too; callers cannot grant themselves access.
+    if (
+      db.prepare("SELECT role FROM accounts WHERE id=?").get(viewer)?.role !==
+      "admin"
+    )
+      throw new AuthError("仅管理员可标记战绩已读", 403);
+    details(game, viewer, true);
+    db.prepare("INSERT OR IGNORE INTO admin_match_reads VALUES (?,?,?)").run(
+      game,
+      viewer,
+      Date.now(),
+    );
+    return {
+      readAt: Number(
+        db
+          .prepare(
+            "SELECT read_at FROM admin_match_reads WHERE game_id=? AND admin_id=?",
+          )
+          .get(game, viewer)!.read_at,
+      ),
+    };
+  }
   const save = db.prepare(
     "INSERT OR IGNORE INTO round_records VALUES (?,?,?,?,?,?,?)",
   );
@@ -330,6 +356,18 @@ export function createRecords(db: DatabaseSync) {
       code: String(row.code),
       me,
       practice: false,
+      ...(admin
+        ? {
+            adminReadAt:
+              Number(
+                db
+                  .prepare(
+                    "SELECT read_at FROM admin_match_reads WHERE game_id=? AND admin_id=?",
+                  )
+                  .get(String(row.game_id), viewer)?.read_at,
+              ) || null,
+          }
+        : {}),
       record,
     };
   }
@@ -536,5 +574,5 @@ export function createRecords(db: DatabaseSync) {
       data.names = data.names.map((_, seat) => `牌友${seat + 1}`);
     return data;
   }
-  return { capture, list, details, points, exportPoints, replay };
+  return { capture, list, details, markRead, points, exportPoints, replay };
 }

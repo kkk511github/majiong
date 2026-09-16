@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -51,6 +51,14 @@ export function RecordsPanel({
   const [selected, setSelected] = useState<StoredRound | null>(null);
   const [replayId, setReplayId] = useState<string | null>(null);
   const list = useRef<HTMLDivElement>(null);
+  const onRead = useCallback((game: string, readAt: number) => {
+    setData((previous) => ({
+      ...previous,
+      records: previous.records.map((item) =>
+        item.game === game ? { ...item, adminReadAt: readAt } : item,
+      ),
+    }));
+  }, []);
   const today = recordDate(Date.now());
   const yesterday = recordDate(recordDayRange(today).from - 86400000);
   useEffect(() => {
@@ -357,8 +365,19 @@ export function RecordsPanel({
                   </span>
                   <RecordPlayers record={item.record} showTeams={showTeams} />
                   <span className="match-detail-link">
-                    详情
-                    <ChevronRight size={18} />
+                    {showTeams && !item.practice && (
+                      <span
+                        className={
+                          item.adminReadAt ? "record-read" : "record-unread"
+                        }
+                      >
+                        {item.adminReadAt ? "✅ 已读" : "未读"}
+                      </span>
+                    )}
+                    <span className="record-detail-caption">
+                      详情
+                      <ChevronRight size={18} />
+                    </span>
                   </span>
                 </button>
               ))
@@ -374,6 +393,7 @@ export function RecordsPanel({
         >
           <MatchRecordDetails
             selected={selected}
+            onRead={onRead}
             replay={setReplayId}
             showTeams={showTeams}
           />

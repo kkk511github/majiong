@@ -1,0 +1,36 @@
+{
+  "version": "0.7.1",
+  "build": 37,
+  "baseCommit": "305b3046a478090970f5106786b4243a2e29269a",
+  "sourceSnapshotSha256": "b6de0a6a7c55ae541b2418407a99efb6cec394609314dc8612ddf22abb5ec044",
+  "cocosSource": "13227dd5d8d7f70c99385736d9fd14d5438970c5e522fb68c878a109416dbc36",
+  "sameWebAssetsBothPlatforms": true,
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 289,
+  "serverDeploymentPerformed": false,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.1-build37.apk",
+      "version": "0.7.1",
+      "build": 37,
+      "bytes": 110366855,
+      "sha256": "4eb60d90102da23097423183d87195522a1021edb17342412a975d9fd710bb24",
+      "matchedWebFiles": 202,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.1-build37-AdHoc.ipa",
+      "version": "0.7.1",
+      "build": 37,
+      "bytes": 112034692,
+      "sha256": "242ce4f48dd963003b6265210ea3e9105d32921bbd8de2565758b8cc4fdd3e86",
+      "matchedWebFiles": 202,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  }
+}

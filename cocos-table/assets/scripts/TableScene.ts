@@ -180,7 +180,6 @@ export class TableScene extends Component {
   const actionRow=layoutActions(s,layoutTable(s));
   actionRow.forEach(({action:a,x,y,w,h:height})=>this.button(h,a.label,x,y,w,height,{type:'action',action:a.id,tile:a.tile},true));
 
-  if(s.hintKinds.length&&!s.actions.length){this.plate(h,639,447,Math.min(630,150+s.hintKinds.length*31),48,'#063f38ed','#bfb570');this.text(h,s.hintLabel,548,447,105,35,16,GOLD);s.hintKinds.forEach((k,i)=>this.image('own-'+k,609+i*31,446,29,42,h));}
   if(!s.connected)this.text(h,'正在重新连接…',640,397,330,35,23);
   h.setSiblingIndex(this.root.children.length-1);
  }

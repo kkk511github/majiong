@@ -7,6 +7,22 @@ export function installKeyboardViewport() {
   let width = window.innerWidth;
   let open = false;
   let frame = 0;
+  let revealFrame = 0;
+  const revealInput = () => {
+    revealFrame = 0;
+    const input = document.activeElement;
+    if (!open || !(input instanceof HTMLElement)) return;
+    const form = input.closest<HTMLElement>(".account-form");
+    if (!form) return;
+    const rect = input.getBoundingClientRect();
+    const bounds = form.getBoundingClientRect();
+    const top = Math.max(bounds.top, viewport.offsetTop) + 2;
+    const bottom =
+      Math.min(bounds.bottom, viewport.offsetTop + viewport.height) - 2;
+    // Scroll only the input area, never pan the whole WKWebView under the keyboard.
+    if (rect.bottom > bottom) form.scrollTop += rect.bottom - bottom;
+    else if (rect.top < top) form.scrollTop -= top - rect.top;
+  };
   const update = () => {
     frame = 0;
     const editing = document.activeElement?.matches(
@@ -17,7 +33,9 @@ export function installKeyboardViewport() {
       fullHeight = window.innerHeight;
       open = false;
     }
-    if (!editing && !open) fullHeight = window.innerHeight;
+    // Android adjustResize can shrink innerHeight before focusin is delivered.
+    // Keep the unoccluded height until an orientation-width change resets it.
+    fullHeight = Math.max(fullHeight, window.innerHeight, viewport.height);
     open =
       !!(editing || open) &&
       Math.abs(viewport.scale - 1) < 0.02 &&
@@ -26,10 +44,11 @@ export function installKeyboardViewport() {
     if (open) {
       root.style.setProperty("--input-viewport-height", `${viewport.height}px`);
       root.style.setProperty("--input-viewport-top", `${viewport.offsetTop}px`);
+      cancelAnimationFrame(revealFrame);
+      revealFrame = requestAnimationFrame(revealInput);
     } else {
       root.style.removeProperty("--input-viewport-height");
       root.style.removeProperty("--input-viewport-top");
-      fullHeight = window.innerHeight;
     }
   };
   const schedule = () => {
@@ -43,6 +62,7 @@ export function installKeyboardViewport() {
   update();
   return () => {
     cancelAnimationFrame(frame);
+    cancelAnimationFrame(revealFrame);
     viewport.removeEventListener("resize", schedule);
     viewport.removeEventListener("scroll", schedule);
     window.removeEventListener("resize", schedule);

@@ -127,6 +127,7 @@ export function AuthScreen({
                   <label>
                     账号
                     <input
+                      enterKeyHint="next"
                       autoComplete="username"
                       autoCapitalize="none"
                       spellCheck={false}
@@ -159,6 +160,7 @@ export function AuthScreen({
                       autoComplete={
                         registering ? "new-password" : "current-password"
                       }
+                      enterKeyHint={registering || forced ? "next" : "go"}
                       type={visible ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -176,6 +178,7 @@ export function AuthScreen({
                     <button
                       type="button"
                       aria-label={visible ? "隐藏密码" : "显示密码"}
+                      onPointerDown={(event) => event.preventDefault()}
                       onClick={() => setVisible(!visible)}
                     >
                       {visible ? <EyeOff size={18} /> : <Eye size={18} />}

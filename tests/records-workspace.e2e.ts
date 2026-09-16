@@ -46,6 +46,12 @@ function item(
 async function fixture(page: Page, member = false) {
   const today = recordDate(Date.now());
   const queries: string[] = [];
+  const reads = new Map<string, number>();
+  await page.route("**/api/admin/match-reads/*", (route) => {
+    const game = new URL(route.request().url()).pathname.split("/").at(-1)!;
+    reads.set(game, reads.get(game) ?? Date.now());
+    return route.fulfill({ json: { readAt: reads.get(game) } });
+  });
   if (member) {
     await page.route("**/api/auth/session", async (route) => {
       const response = await route.fetch(),
@@ -86,7 +92,7 @@ async function fixture(page: Page, member = false) {
         : records;
       return route.fulfill({
         json: {
-          records: filtered,
+          records: filtered.map(r => ({...r, ...(!member ? {adminReadAt: reads.get(r.game) ?? null} : {})})),
           total: isOld ? 1 : q.has("code") ? filtered.length : 30,
           page: Number(q.get("page") ?? 1),
           pageSize: 20,
@@ -139,6 +145,7 @@ for (const [width, height] of [
     await page.goto("/");
     await page.getByRole("button", { name: "战绩", exact: true }).click();
     await expect(page.locator(".match-card")).toHaveCount(20);
+    await expect(page.locator(".record-read")).toHaveCount(0);
     mkdirSync("test-results/screenshots", { recursive: true });
     await page.screenshot({
       path: `test-results/screenshots/records-all-${width}.png`,
@@ -231,10 +238,14 @@ for (const [width, height] of [
       .getByRole("button", { name: "返回整桌明细", exact: true })
       .click();
     await expect(page.getByLabel("第 1 把明细")).toBeVisible();
+    await expect(button.locator(".record-read")).toHaveText("✅ 已读");
     await dialog.getByRole("button", { name: "关闭", exact: true }).click();
     await expect(page.locator(".record-date[aria-pressed=true]")).toContainText(
       "8月25日",
     );
+    await page.getByRole("button", { name: "刷新战绩", exact: true }).click();
+    await expect(button.locator(".record-read")).toHaveText("✅ 已读");
+    await page.screenshot({path: `test-results/screenshots/records-read-${width}.png`});
     await page.getByRole("button", { name: "返回大厅", exact: true }).click();
     await expect(page.locator(".records-workspace")).toHaveCount(0);
   });
@@ -249,6 +260,7 @@ test("普通会员可看 ID 和每把回放 ID，战队名不显示；房间查�
   await page.getByRole("button", { name: "战绩", exact: true }).click();
   await expect(page.locator(".match-card")).toHaveCount(20);
   await expect(page.locator(".record-team")).toHaveCount(0);
+  await expect(page.locator(".record-read, .record-unread")).toHaveCount(0);
   await expect(page.locator(".records-heading h1")).toHaveText("我的战绩");
   await page.screenshot({
     path: "test-results/screenshots/records-member-1280.png",

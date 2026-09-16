@@ -442,6 +442,31 @@ export function makeServer(
     }
     if (await accounts.handle(req, res, url.pathname)) return;
     if (await club.handle(req, res, url)) return;
+    if (
+      req.method === "POST" &&
+      url.pathname.startsWith("/api/admin/match-reads/")
+    ) {
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const session = accounts.requireSession(req, true);
+        const game = decodeURIComponent(
+          url.pathname.slice("/api/admin/match-reads/".length),
+        );
+        res.end(JSON.stringify(records.markRead(game, session.id)));
+      } catch (error) {
+        res.statusCode = error instanceof AuthError ? error.status : 500;
+        res.end(
+          JSON.stringify({
+            error:
+              error instanceof AuthError
+                ? error.message
+                : "已读状态保存失败，请重试",
+          }),
+        );
+      }
+      req.resume();
+      return;
+    }
     if (req.method === "GET" && url.pathname.startsWith("/api/matches/")) {
       res.setHeader("Cache-Control", "no-store");
       try {
@@ -928,7 +953,9 @@ export function makeServer(
             g = createGame(
               code,
               randomUUID(),
-              newGameRules(msg.rules && typeof msg.rules === "object" ? msg.rules : {}),
+              newGameRules(
+                msg.rules && typeof msg.rules === "object" ? msg.rules : {},
+              ),
             );
             g.settlementBase = 100;
             g.players[0] = newPlayer(

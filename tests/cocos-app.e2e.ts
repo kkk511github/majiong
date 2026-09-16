@@ -57,6 +57,14 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     await clickTable(page,tile.x,tile.y);
     await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
     expect((await scene(page)).state.hintKinds).toEqual([0,1]);
+    const hint=page.getByRole('region',{name:'胡牌提示'});
+    await expect(hint).toContainText('打出后可听');
+    await expect(hint.getByRole('listitem')).toHaveCount(2);
+    await expect(hint).toContainText('未见数含他人暗手');
+    const hintBox=(await hint.boundingBox())!;
+    expect(hintBox.x).toBeGreaterThanOrEqual(0);
+    expect(hintBox.x+hintBox.width).toBeLessThanOrEqual(width);
+    await page.screenshot({path:`test-results/screenshots/win-hint-${width}.png`});
     expect(commands).toHaveLength(0);
     const selected=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
     await clickTable(page,selected.x,selected.y);
@@ -66,6 +74,8 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     v.actions=['pass','pung','kong','hu'];v.pending={tile:2,from:1,kind:'discard',answered:false};v.revision++;push();
     await expect.poll(async()=>(await scene(page)).state.actions.length).toBe(4);
     await expect.poll(async()=>(await scene(page)).state.disabled).toBe(false);
+    await expect(hint).toContainText('现在可以胡牌');
+    await page.screenshot({path:`test-results/screenshots/win-ready-${width}.png`});
     const current=(await scene(page)).state,actions=layoutActions(current,layoutTable(current));
     expect(new Set(actions.map(a=>a.y)).size).toBe(1);
     const pung=actions.find(a=>a.action.id==='pung')!;await clickTable(page,pung.x,pung.y);

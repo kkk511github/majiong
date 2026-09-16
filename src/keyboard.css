@@ -83,7 +83,8 @@
   max-width: 760px;
   padding: 4px 12px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 164px;
+  grid-template-columns: minmax(0, 1fr) clamp(112px, 20vw, 164px);
+  grid-template-rows: minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   overflow: hidden;
@@ -97,12 +98,14 @@
   overflow: auto;
   overscroll-behavior: contain;
   align-content: start;
-  padding: 1px 2px;
+  padding: 3px 2px;
+  scroll-padding-block: 3px;
   gap: 4px;
 }
 :root[data-keyboard-open] .account-form label {
   font-size: 0;
   gap: 0;
+  min-width: 0;
 }
 :root[data-keyboard-open] .account-form input {
   height: 44px;

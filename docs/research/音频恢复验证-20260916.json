@@ -1,0 +1,13 @@
+{
+  "sourceBase": "10d19ce",
+  "browserScenariosPassed": 12,
+  "browsers": ["Chrome", "Playwright WebKit"],
+  "unitTestsPassed": 22,
+  "unitFilesPassed": 4,
+  "typescriptAndProductionBuild": "passed",
+  "mobileHardwareReproduction": "pending",
+  "committed": false,
+  "deployed": false,
+  "nativePackagesRebuilt": false,
+  "coverage": ["repeated resume rejection", "running context with frozen clock", "iframe pointer unlock", "mute preferences preserved", "one context rebuild maximum per recovery", "bounded persistent-failure retries", "background cancellation", "music scene switching", "half-open socket recovery without replaying actions"]
+}

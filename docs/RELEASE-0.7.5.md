@@ -18,6 +18,15 @@ HTTPS/WSS、Android R8、禁止明文流量、关闭 WebView 调试、禁止 And
 
 ## 验证与交付
 
-发布构建、签名与部署结果完成后在此记录。浏览器回归不等于 iOS/Android 真机音频路由验证。
+- 本地和 Linux 服务镜像均通过 33 个测试文件、314 项测试；TypeScript 检查通过。
+- 原生资源自动审计通过，APK / IPA 内 204 个网页资源逐字节一致。
+- 发行签名、Android R8、关闭调试和备份、HTTPS 及双公钥绑定检查通过；线上证书与包内公钥匹配。
+- 混淆后的主程序可启动、控制台无错误；实际 Cocos 运行包完成第 10 / 19 张换行及三排满牌验收。对家三排的 y 坐标为 208、170、132。
+- 服务器已部署 `0.7.5-build41`，健康状态正常；公网接口拒绝匿名访问、WSS 拒绝未登录连接、原生跨域检查通过。
+- 部署先在数据库副本演练，确认没有在线真人和进行中牌局后备份并切换，已有记录数量保留。回滚版本为 `0.7.4-build40`。
+- 线上 96 个 Cocos 资源与源码导出一致。原生包仅应用代码额外混淆，布局源指纹一致。
+- iOS 为 Ad Hoc 包，仅支持描述文件内已登记的 4 台设备。浏览器回归不等于 iOS/Android 真机音频路由验证。
+
+代码提交：`206b467`。完整机器验收记录见 [release-0.7.5-verification.json](release-0.7.5-verification.json)。
 
 参考：[OWASP 混淆边界](https://mas.owasp.org/MASTG/knowledge/generic/MASVS-RESILIENCE/MASTG-KNOW-0111/)、[Android 网络安全配置](https://developer.android.com/privacy-and-security/security-config)。

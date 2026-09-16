@@ -1,0 +1,91 @@
+{
+  "version": "0.7.5",
+  "build": 41,
+  "baseCommit": "206b467792e7eb0e830be4e2182464be4f9f5ff1",
+  "sourceSnapshotSha256": "840665dedf47d56221186e821f2c44d1e8947d28f0a8264651312c7c2a31a25d",
+  "cocosSource": "7146ec2e6698df2651c58ada52a3730e5153db753ff428ac5b73cdc7be2b6f77",
+  "sameWebAssetsBothPlatforms": true,
+  "endpointHidden": false,
+  "nativePinningHostRemainsDiscoverable": true,
+  "clientCodeProtection": "RC4 string obfuscation; not a secret store",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 314,
+  "serverDeploymentPerformed": true,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.5-build41.apk",
+      "version": "0.7.5",
+      "build": 41,
+      "bytes": 112093820,
+      "sha256": "1f2b0b0decdf3f11539f816e7c6f760fe1f59ef5c852855b5793d47c45528ad4",
+      "matchedWebFiles": 204,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.5-build41-AdHoc.ipa",
+      "version": "0.7.5",
+      "build": 41,
+      "bytes": 113749415,
+      "sha256": "dc3c02a07e55074757373566a2ec37bb8df8c20f4054adae77537b63f22e088e",
+      "matchedWebFiles": 204,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  },
+  "nativeWebAudit": {
+    "passed": true,
+    "files": 204,
+    "blocks": [
+      "source maps",
+      "private keys",
+      "server and test source",
+      "environment configuration",
+      "databases",
+      "plain endpoint in web assets"
+    ]
+  },
+  "networkVerification": {
+    "systemTrustAndHostname": true,
+    "liveCertificateMatchesBundledPin": true,
+    "tls": "TLSv1.2",
+    "gamePortDirectlyReachable": false,
+    "originAddressHidden": false
+  },
+  "browserVerification": {
+    "protectedMainAppBooted": true,
+    "consoleErrors": 0,
+    "actualProtectedCocosBundle": true,
+    "oppositeRowY": [
+      208,
+      170,
+      132
+    ],
+    "oldDiscardPositionsStable": true,
+    "fullThreeRowLayoutChecked": true
+  },
+  "serverRelease": "0.7.5-build41",
+  "serverHealthy": true,
+  "linuxUnitTestsPassed": 314,
+  "databaseCopyStartupPassed": true,
+  "databaseCountsPreserved": true,
+  "publicServiceVerification": {
+    "ok": true,
+    "version": "0.7.5",
+    "backend": "https://212.189.31.194/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-16T04:48:58.221Z"
+  },
+  "serverCocosVerification": {
+    "liveServerFilesMatchCocosExport": 96,
+    "nativeCodeProtectionChangesOnly": [
+      "assets/main/index.js"
+    ],
+    "sourceManifestMatches": true
+  }
+}

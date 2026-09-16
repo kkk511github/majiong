@@ -1,0 +1,67 @@
+{
+  "version": "0.5.7",
+  "build": 17,
+  "at": "2026-09-14T01:29:33.787207+00:00",
+  "scope": "Homepage refresh and WebSocket connection recovery",
+  "logicAndService": {
+    "passed": 139
+  },
+  "targetedUi": {
+    "passed": 12
+  },
+  "beforeFix": {
+    "targetedClientFailures": 4
+  },
+  "protocolChanged": false,
+  "databaseSchemaChanged": false,
+  "remainingValidation": [],
+  "uiFinal": {
+    "passed": 111,
+    "failed": 0
+  },
+  "native": {
+    "simulator": "iPhone 17 Pro / iOS 26.5",
+    "installedAndLaunchedBuild": 17,
+    "physicalIPhoneInstalled": false,
+    "android": "Build, existing signature and bundled resources checked; no native touch verification this release",
+    "installedAssetsMatch": true,
+    "ordinaryAccountPreserved": true,
+    "ordinaryCreateEntryAbsent": true,
+    "homeNavigation": "Actual native return from rules page showed refresh and then server tables",
+    "qaInstrumentation": false
+  },
+  "deployment": {
+    "ok": true,
+    "version": "0.5.7",
+    "backend": "https://safelink.chat/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-14T01:34:33.270Z",
+    "release": "0.5.7-a5ae6db0",
+    "container": "healthy",
+    "databaseBackup": {
+      "path": "/opt/jinling-mahjong/database-backups/0.5.7-a5ae6db0.sqlite",
+      "bytes": 126976,
+      "mode": "600"
+    },
+    "sourceServiceSha256": "66358aefe18a6f842d49513ed8366e509bcae4dde6d6256a4e84387192ed5dcf",
+    "clientHashes": {
+      "src/game-client.ts": "fb2d6eb616f758ec4ce8716560de5421803b2ea6673c170c20c47d52fac1cf06",
+      "src/App.tsx": "333a205cff49571f99d8fc58cd0026fa34fdb3e4a48e9c43ad77911410a5f228"
+    },
+    "remoteAndContainerSourceHashesMatch": true,
+    "predeployRooms": {
+      "waiting": 5,
+      "onlineHumans": 0
+    }
+  },
+  "limitations": [
+    "No physical iPhone install this release",
+    "No Android native touch/keyboard verification this release",
+    "Real carrier switching and incoming-call interruption not exercised"
+  ],
+  "cleanSourceBuild": true,
+  "cleanSourceCodeMatches": true,
+  "requestedChangeComplete": true
+}

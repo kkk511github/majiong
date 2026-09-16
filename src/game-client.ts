@@ -69,7 +69,8 @@ export interface ClientState {
   voiceMessages: RoomVoiceMessage[];
 }
 const base = import.meta.env.VITE_GAME_SERVER_URL as string | undefined;
-export const avatarURL = (path?: string) => isAvatarPath(path) ? (base?.replace(/\/$/, "") ?? "") + path : undefined;
+export const avatarURL = (path?: string) =>
+  isAvatarPath(path) ? (base?.replace(/\/$/, "") ?? "") + path : undefined;
 export const onlineAvailable = !Capacitor.isNativePlatform() || !!base;
 export class GameClient {
   state: ClientState = {
@@ -462,7 +463,9 @@ export class GameClient {
     this.emit({ account: data.account });
   }
   async updateAvatar(image: string | null) {
-    const data = await this.api<{ account: Account }>("/api/auth/avatar", { image });
+    const data = await this.api<{ account: Account }>("/api/auth/avatar", {
+      image,
+    });
     this.emit({ account: data.account });
   }
   async logout() {
@@ -546,6 +549,12 @@ export class GameClient {
     if (saved) return saved;
     return this.api<RoundReplay>("/api/replays/" + encodeURIComponent(id));
   }
+  async markMatchRead(id: string) {
+    return this.api<{ readAt: number }>(
+      "/api/admin/match-reads/" + encodeURIComponent(id),
+      {},
+    );
+  }
   async loadMatch(id: string): Promise<MatchDetails> {
     return this.api<MatchDetails>("/api/matches/" + encodeURIComponent(id));
   }
@@ -585,7 +594,7 @@ export class GameClient {
         });
     if (view.phase === "finished" && this.state.mode === "local") {
       const latest = records.find(
-        (r) => r.record.id === view.history.at(-1)?.id,
+        (r) => r.record.id === view.history.slice(-1)[0]?.id,
       );
       if (latest)
         latest.record = {

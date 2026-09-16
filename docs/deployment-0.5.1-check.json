@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "version": "0.5.1",
+  "backend": "https://safelink.chat/mahjong",
+  "anonymousEndpointsProtected": true,
+  "nativeCors": true,
+  "anonymousWebSocketRejected": true,
+  "at": "2026-09-13T16:47:03.452Z",
+  "release": "0.5.1-2698b234",
+  "tablePermissionAnonymousGET": 401,
+  "tablePermissionAnonymousPOST": 401
+}

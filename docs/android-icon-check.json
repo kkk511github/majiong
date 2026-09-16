@@ -1,0 +1,57 @@
+{
+  "safeCircleDp": 66,
+  "canvasDp": 108,
+  "compiledAndroid13Monochrome": true,
+  "checks": [
+    {
+      "density": "mdpi",
+      "foregroundPixels": 108,
+      "boundsDp": [
+        34,
+        29,
+        74,
+        79
+      ]
+    },
+    {
+      "density": "hdpi",
+      "foregroundPixels": 162,
+      "boundsDp": [
+        34,
+        29.333333333333332,
+        74,
+        79.33333333333333
+      ]
+    },
+    {
+      "density": "xhdpi",
+      "foregroundPixels": 216,
+      "boundsDp": [
+        34,
+        29,
+        74,
+        79
+      ]
+    },
+    {
+      "density": "xxhdpi",
+      "foregroundPixels": 324,
+      "boundsDp": [
+        34,
+        29,
+        74,
+        79
+      ]
+    },
+    {
+      "density": "xxxhdpi",
+      "foregroundPixels": 432,
+      "boundsDp": [
+        34,
+        29,
+        74,
+        79
+      ]
+    }
+  ]
+}

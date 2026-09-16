@@ -1,6 +1,8 @@
+import { WinHintPanel } from "./WinHintPanel";
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TableSceneCommand, TableSceneState } from '../shared/table-scene';
 import './cocos-table.css';
+import { createTableChannel } from './cocos-channel';
 
 /** One canvas and one renderer for Android, iOS and the browser. The iframe
  * receives only the public view and explicit local UI state, never the wall. */
@@ -10,7 +12,7 @@ export function CocosTable({ state, onCommand, children, embedded=false }: {
   children?: ReactNode; embedded?:boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  const [channel] = useState(() => crypto.randomUUID());
+  const [channel] = useState(createTableChannel);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const latest = useRef({ state, onCommand });
   latest.current = { state, onCommand };
@@ -46,6 +48,7 @@ export function CocosTable({ state, onCommand, children, embedded=false }: {
       {status === 'error' && <button onClick={() => { setStatus('loading'); if (frame.current) frame.current.src = `${import.meta.env.BASE_URL}cocos-table/index.html?channel=${encodeURIComponent(channel)}&retry=${Date.now()}`; }}>重新加载</button>}
       {!embedded&&<button onClick={() => onCommand({ type: 'menu', menu: 'leave' })}>返回大厅</button>}
     </div>}
+    {status === "ready" && !embedded && <WinHintPanel state={state} onCommand={onCommand}/>}
     {children && <div className="cocos-voice">{children}</div>}
   </main>;
 }

@@ -1,0 +1,74 @@
+{
+  "version": "0.5.5",
+  "build": 15,
+  "at": "2026-09-13T19:06:08.089186+00:00",
+  "goalTurn": "progress",
+  "goalComplete": false,
+  "ordinaryAccount": "Home and table lobby contain no create entry; separate table permission may be granted by admin; revocation hides entry and closes setup live; backend rechecks permissions",
+  "logicAndService": {
+    "passed": 131
+  },
+  "uiFinal": {
+    "passed": 105,
+    "failed": 0
+  },
+  "targeted": {
+    "accountsPermissionsKeyboard": 13,
+    "fourRealClientsRepeated": 3
+  },
+  "earlierFailures": {
+    "fullUi": {
+      "passed": 104,
+      "failed": 1,
+      "error": "Unexpected end of JSON input without stack; not claimed as an assertion pass"
+    },
+    "repeatUi": {
+      "passed": 1,
+      "failed": 2,
+      "cause": "Fixed test table name matched tables left by previous repetition",
+      "fix": "Unique per-run table name; test-only change",
+      "notProvenCauseOfOriginalJsonError": true
+    }
+  },
+  "native": {
+    "simulator": "iPhone 17 Pro / iOS 26.5",
+    "officialBundle": "com.jinling.mahjong",
+    "installedAndLaunchedBuild": 15,
+    "roomKeyboard": "Actual numeric input, 6-digit error, visible confirmation and close/restore passed before final account CSS edit",
+    "profileKeyboard": "Nickname input and save remained reachable; entered test character removed without submitting",
+    "accountKeyboard": "Native obstruction reproduced; final fix passed browser geometry at 120px; final native touch verification pending because Mac relocked",
+    "qaInstrumentationRemoved": true,
+    "qaBundleRemoved": true,
+    "physicalIPhoneInstalled": false,
+    "audioAndInterruptions": "Unverified on native; browser audio regression passed; no audio changes in this version",
+    "androidNativeRuntime": "Not verified in this version; build/signature/assets passed"
+  },
+  "cleanSourceBuild": true,
+  "remaining": [
+    "Final native login/register keyboard",
+    "Native music/effects and interruption/background recovery",
+    "Native Android keyboard and final touch validation"
+  ],
+  "deployment": {
+    "ok": true,
+    "version": "0.5.5",
+    "backend": "https://safelink.chat/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-13T19:06:38.055Z",
+    "release": "0.5.5-5a4cb469",
+    "container": "healthy",
+    "databaseBackup": {
+      "path": "/opt/jinling-mahjong/database-backups/0.5.5-5a4cb469.sqlite",
+      "bytes": 126976,
+      "mode": "600"
+    },
+    "sourceServiceSha256": "74dc6b1b7fb0b8df83d2153fc3c6ebd7283e439f3f3b006a53a2d746ba9e75ec",
+    "remoteAndContainerServiceHashMatches": true,
+    "predeployRooms": {
+      "waiting": 5,
+      "onlineHumans": 0
+    }
+  }
+}

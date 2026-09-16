@@ -1,0 +1,18 @@
+{
+  "at": "2026-09-13T07:08:33.633Z",
+  "environment": "Single local server process; separate Node WebSocket client process; temporary on-disk SQLite WAL",
+  "concurrentClients": 100,
+  "rooms": 25,
+  "completedRounds": 100,
+  "acceptedOperations": 6722,
+  "receivedStates": 27138,
+  "serverErrors": 0,
+  "elapsedSeconds": 28.13,
+  "acknowledgementMs": {
+    "p50": 2.49,
+    "p95": 6.02,
+    "p99": 14.07,
+    "max": 34.677125000000046
+  },
+  "limitations": "Local loopback, 100ms think time, four rounds per room; does not establish WAN or long-duration production capacity"
+}

@@ -155,8 +155,8 @@ export function resultWait(
   if (!g.table) return 0;
   const at =
     g.phase === "finished"
-      ? (g.table.finishedAt ?? g.history.at(-1)?.at)
-      : g.history.at(-1)?.at;
+      ? (g.table.finishedAt ?? g.history.slice(-1)[0]?.at)
+      : g.history.slice(-1)[0]?.at;
   return at === undefined
     ? 0
     : Math.max(

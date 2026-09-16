@@ -787,7 +787,7 @@ export function App() {
           state={cocosState(v, {
             connected: state.connected, disabled: commandsDisabled || paused,
             practice: state.mode === "local", countdown: !state.connected || paused || !timed ? "—" : waitingOthersOvertime ? "…" : String(countdown).padStart(2, "0"),
-            selected, drawn: drawnTile, inspectedKind, hintKinds,
+            selected, drawn: drawnTile, inspectedKind, hintKinds, hintDiscard,
             hintLabel: hintDiscard !== undefined ? `打${tileName(hintDiscard)}后可胡` : "已听牌 · 可胡",
             effects: motion,
           })}
@@ -805,7 +805,8 @@ export function App() {
             if (command.type === "select" && v.canDiscard && !mine.trustee && mine.hand.includes(command.tile)) selectTile(command.tile);
             if (command.type === "trustee" && (mine.trustee || v.table?.settings.trusteeMode !== "disabled")) client.trustee(command.enabled);
             if (command.type === "action") {
-              if (command.action === "selfKong" && command.tile !== undefined && v.selfKongs.includes(command.tile)) client.action({ type: "selfKong", tile: command.tile });
+              if (command.action === "zhaozhi" && v.canZhaozhi) client.action({ type: "zhaozhi" });
+              else if (command.action === "selfKong" && command.tile !== undefined && v.selfKongs.includes(command.tile)) client.action({ type: "selfKong", tile: command.tile });
               else if (command.action === "pass" && v.actions.includes("pass")) client.action({ type: "pass" });
               else if (command.action === "pung" && v.actions.includes("pung")) client.action({ type: "pung" });
               else if (command.action === "kong" && v.actions.includes("kong")) client.action({ type: "kong" });
@@ -1310,12 +1311,12 @@ export function App() {
             view={v}
             readiness={!continuousRounds ? nextRound?.seats : undefined}
             record={{
-              ...v.history.at(-1)!,
+              ...v.history.slice(-1)[0]!,
               matchFinished: v.phase === "finished",
               at:
                 v.phase === "finished"
-                  ? (v.table?.finishedAt ?? v.history.at(-1)!.at)
-                  : v.history.at(-1)!.at,
+                  ? (v.table?.finishedAt ?? v.history.slice(-1)[0]!.at)
+                  : v.history.slice(-1)[0]!.at,
             }}
           />
         </Dialog>
@@ -1343,11 +1344,11 @@ export function App() {
           <RoundReveal
             view={finishedSnapshot}
             record={{
-              ...finishedSnapshot.history.at(-1)!,
+              ...finishedSnapshot.history.slice(-1)[0]!,
               matchFinished: true,
               at:
                 finishedSnapshot.table?.finishedAt ??
-                finishedSnapshot.history.at(-1)!.at,
+                finishedSnapshot.history.slice(-1)[0]!.at,
             }}
           />
         </Dialog>

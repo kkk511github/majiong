@@ -1,11 +1,12 @@
 import { kind, tileName } from "../shared/tiles";
 import type { Tile as TileId } from "../shared/types";
+import "./vivid-tiles.css";
 import { BACK_FRAME, TILE_FRAMES, frameStyle } from "./tile-art";
 
 export function TileFace({ tile }: { tile: TileId }) {
   return (
     <span
-      className="tile-art sculpted-tile reference-tile"
+      className="tile-art vivid-tile"
       style={frameStyle(TILE_FRAMES[kind(tile)])}
     />
   );
@@ -48,7 +49,7 @@ export function Tile({
 export function TileBack() {
   return (
     <span className="tile-back">
-      <span className="tile-art sculpted-tile" style={frameStyle(BACK_FRAME)} />
+      <span className="tile-art vivid-tile" style={frameStyle(BACK_FRAME)} />
     </span>
   );
 }

@@ -25,7 +25,9 @@ export function captureReplay(
       externalScore: p?.externalScore ?? 0,
     })),
     ...(type === "finish" && g.result
-      ? { result: structuredClone(g.result) }
+      ? { result: typeof globalThis.structuredClone === "function"
+          ? globalThis.structuredClone(g.result)
+          : JSON.parse(JSON.stringify(g.result)) }
       : {}),
   });
   if (type === "finish") g.replay.endedAt = now;

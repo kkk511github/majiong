@@ -1,0 +1,23 @@
+{
+  "version": "0.5.0",
+  "build": 10,
+  "release": "0.5.0-bbb5438d",
+  "backend": "https://safelink.chat/mahjong",
+  "unitAndServiceTests": 98,
+  "browserSuiteTests": 78,
+  "finalAuthLayoutTests": 7,
+  "iosSimulator": "Installed and launched; landscape login and service connection visually checked",
+  "physicalIPhone": "Unavailable; not installed; device included in Ad Hoc profile",
+  "android": "APK build/signature/assets verified; no new physical device test",
+  "confirmedScoring": {
+    "principal": 100,
+    "tableFeePoints": 10,
+    "initialBalance": 90,
+    "protectTo": 100,
+    "exampleFinalBalances": [0, 0, 100, 260],
+    "exampleMultiplier": 0.5,
+    "exampleRecordedScores": [-50, -50, 0, 80]
+  },
+  "notEnabled": ["风罚分", "接庄比下胡"],
+  "rulesProfile": "nj-casual-v1 with documented additions"
+}

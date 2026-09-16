@@ -1,0 +1,16 @@
+{
+  "at": "2026-09-13T10:21:17.564Z",
+  "endpoint": "https://safelink.chat/mahjong",
+  "https": true,
+  "clients": 4,
+  "tests": [
+    "native-origin WSS",
+    "create/join/ready",
+    "private hands",
+    "discard broadcast",
+    "same-session reconnect",
+    "dissolve and leave"
+  ],
+  "elapsedSeconds": 5,
+  "passed": true
+}

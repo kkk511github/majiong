@@ -1,0 +1,68 @@
+{
+  "version": "0.5.6",
+  "build": 16,
+  "at": "2026-09-13T23:59:02.431995+00:00",
+  "goalTurn": "progress",
+  "goalComplete": false,
+  "changes": [
+    "Native landscape account form keeps all four registration fields in two visible rows, with a separate 44px submit button",
+    "Compact landscape settlement rows expose all four results, details, copy and continuation controls"
+  ],
+  "logicAndService": {
+    "passed": 131
+  },
+  "uiFinal": {
+    "passed": 109,
+    "failed": 0
+  },
+  "native": {
+    "simulator": "iPhone 17 Pro / iOS 26.5 / 874x402",
+    "officialBundle": "com.jinling.mahjong",
+    "installedAndLaunchedBuild": 16,
+    "officialAccountPreserved": true,
+    "ordinaryHomeCreateEntryAbsent": true,
+    "registrationKeyboard": "Actual keyboard: all four fields visible; Previous moves confirmation to password and nickname; empty submit focuses username and native validation; Done restores full form",
+    "settlement": "Actual four rows 36px each, fourth-row bottom 253px inside body bottom 313px; timestamp, room/practice context, multiplier and footer visible",
+    "audio": "Separate QA bundle: music enabled has nonzero AudioContext destination signal; effects-only button click recent RMS 0.0130; both disabled RMS 0 on the same control",
+    "backgroundRecovery": "Home for about 44 seconds: hidden/suspended, visible/running; music signal resumed without a second touch on the web page; one audio context",
+    "audibleSpeakerConfirmation": "Pending user reply; no claim of audible speaker quality",
+    "phoneCallInterruption": "Not exercised",
+    "androidNative": "Emulator launch stalled before adb registration; native touch/keyboard not verified in this release",
+    "qaInstrumentationRemoved": true,
+    "qaBundleRemoved": true,
+    "physicalIPhoneInstalled": false,
+    "installedResourcesMatch": true
+  },
+  "predeployRooms": {
+    "waiting": 5,
+    "onlineHumans": 0
+  },
+  "remaining": [
+    "Android native keyboard and touch validation",
+    "Physical-device call interruption and speaker listening confirmation"
+  ],
+  "deployment": {
+    "ok": true,
+    "version": "0.5.6",
+    "backend": "https://safelink.chat/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-13T23:59:59.869Z",
+    "release": "0.5.6-cc3a9371",
+    "container": "healthy",
+    "databaseBackup": {
+      "path": "/opt/jinling-mahjong/database-backups/0.5.6-cc3a9371.sqlite",
+      "bytes": 126976,
+      "mode": "600"
+    },
+    "sourceServiceSha256": "d22037e1f6a4456647aee4787a462d20125be828cbf1e6e578be5168b7aefb4c",
+    "remoteAndContainerServiceHashMatches": true,
+    "predeployRooms": {
+      "waiting": 5,
+      "onlineHumans": 0
+    }
+  },
+  "cleanSourceBuild": true,
+  "cleanSourceCodeMatches": true
+}

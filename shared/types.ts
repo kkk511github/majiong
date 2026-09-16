@@ -94,6 +94,7 @@ export interface Player {
   score: number;
   /** Cumulative garden external payments; never spendable as table balance. */
   externalScore?: number;
+  zhaozhi?: boolean;
   passedHu: boolean;
   passedPung: number[];
   disconnectedAt?: number;
@@ -109,7 +110,8 @@ export type Claim = "hu" | "kong" | "pung" | "pass";
 export type Action =
   | { type: "discard"; tile: Tile }
   | { type: Claim }
-  | { type: "selfKong"; tile: Tile };
+  | { type: "selfKong"; tile: Tile }
+  | { type: "zhaozhi" };
 export interface Pending {
   openedAtRevision: number;
   tile: Tile;
@@ -247,6 +249,8 @@ export interface TablePermissionsPage {
   pageSize: number;
 }
 export interface StoredRound {
+  /** Per-admin receipt; omitted entirely for member responses. */
+  adminReadAt?: number | null;
   game: string;
   code: string;
   me: number;
@@ -331,6 +335,7 @@ export interface View extends Omit<
   remaining: number;
   me: Seat;
   actions: Claim[];
+  canZhaozhi?: boolean;
   selfKongs: Tile[];
   canDiscard: boolean;
   lastDraw?: Tile;
@@ -354,6 +359,7 @@ export interface ReplayFrame {
     | "concealedKong"
     | "addedKong"
     | "claim"
+    | "zhaozhi"
     | "pass"
     | "finish";
   seat?: Seat;
@@ -395,6 +401,11 @@ export interface NanjingRuleState {
   discards: { seat: Seat; tile: Tile }[];
   ownDiscards: number[][];
   kongOccurred: boolean;
+  /** Never send this private wait information in a public view. */
+  deferredConcealed?: ScoreTransfer[];
+  globalAnchors?: Partial<
+    Record<Seat, { discardKind: number; waitKind: number; changed: boolean }>
+  >;
 }
 export type ClientMessage = (
   | { type: "hello"; token?: string; name: string }

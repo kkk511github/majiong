@@ -1,0 +1,20 @@
+{
+  "at": "2026-09-13T09:38:59.331Z",
+  "endpoint": "https://safelink.chat/mahjong",
+  "server": "SafeLink-212 (212.189.31.87)",
+  "release": "0.2.0-c57a9e90",
+  "sourceArchiveSha256": "c57a9e90014127ae45300cce413d46b7dee6ea261555bcea37c2ce0e30df6780",
+  "https": true,
+  "clients": 4,
+  "tests": [
+    "native-origin WSS",
+    "create/join/ready",
+    "private hands",
+    "discard broadcast",
+    "same-session reconnect",
+    "container restart with SQLite recovery",
+    "dissolve and leave"
+  ],
+  "elapsedSeconds": 30,
+  "passed": true
+}

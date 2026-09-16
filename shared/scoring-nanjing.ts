@@ -69,6 +69,8 @@ function scoreNanjingBase(
   }
   let best: WinScore | null = null;
   for (const shape of candidates) {
+    if (p.zhaozhi && !shape.seven && shape.groups.every((g) => g[0] === g[1]))
+      continue;
     const items: WinScore["items"] = [];
     const add = (label: string, value: number) => {
       if (value) items.push({ label, value });
@@ -160,11 +162,15 @@ function scoreNanjingBase(
 }
 
 export function threeMouths(p: Player, seat: Seat): Seat | undefined {
+  // Reference rules: the first three mouths, never a later run of three.
+  if (p.zhaozhi) return undefined;
+  const first = p.melds.slice(0, 3);
+  if (first.length < 3) return undefined;
   return ([0, 1, 2, 3] as Seat[]).find(
     (s) =>
       s !== seat &&
-      p.melds.some((m) => !m.concealed && m.from === s) &&
-      p.melds.filter((m) => m.concealed || m.from === s).length >= 3,
+      first.some((m) => !m.concealed && m.from === s) &&
+      first.every((m) => m.concealed || m.from === s),
   );
 }
 /** Quick-shot is evaluated on a copy: a shared winning discard must never be duplicated. */
@@ -175,12 +181,20 @@ export function scoreNanjingHand(
 ): WinScore | null {
   const { seat, tile, robbed } = ctx;
   let best = scoreNanjingBase(p, rules, ctx);
-  if (seat === undefined || p.melds.length !== 3 || robbed) return best;
+  if (
+    p.zhaozhi ||
+    seat === undefined ||
+    tile === undefined ||
+    p.melds.length !== 3 ||
+    robbed
+  )
+    return best;
   const hand = tile === undefined ? [...p.hand] : [...p.hand, tile];
   if (hand.length !== 5) return best;
   const mouth = threeMouths(p, seat);
   const exposed = p.melds.flatMap((m) => m.tiles).map(kind);
   const suit =
+    p.melds.every((m) => !m.concealed) &&
     exposed.length &&
     exposed.every(
       (k) => k < 27 && Math.floor(k / 9) === Math.floor(exposed[0] / 9),
@@ -195,16 +209,10 @@ export function scoreNanjingHand(
         const tiles = [hand[a], hand[b], hand[c]],
           group = tiles.map(kind).sort((x, y) => x - y);
         if (!tiles.includes(winning)) continue;
-        const triplet = group[0] === group[2],
-          sequence =
-            group[0] < 27 &&
-            Math.floor(group[0] / 9) === Math.floor(group[2] / 9) &&
-            group[1] === group[0] + 1 &&
-            group[2] === group[0] + 2;
+        const triplet = group[0] === group[2];
         const pure =
           suit >= 0 && group.every((k) => k < 27 && Math.floor(k / 9) === suit);
-        if (!(triplet && (mouth !== undefined || pure)) && !(sequence && pure))
-          continue;
+        if (!(triplet && (mouth !== undefined || pure))) continue;
         const candidate = {
           ...p,
           hand: [...p.hand],

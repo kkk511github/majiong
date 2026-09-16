@@ -192,7 +192,7 @@ export function RoomVoice({
       seen.current = new Set(messages.map((m) => m.id));
     const last = fresh
       .filter((m) => m.sender !== me && client.now() - m.at < 10000)
-      .at(-1);
+      .slice(-1)[0];
     if (last && enabled) void play(last, true);
   }, [messages]);
   return (

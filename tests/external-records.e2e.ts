@@ -96,5 +96,23 @@ for (const [width, height] of [
     await page.screenshot({
       path: `test-results/screenshots/external-replay-${width}.png`,
     });
+    // The second saved hand doubled. Replay must read its snapshot, not today's settings.
+    await replay.getByRole("button", { name: "查找牌局", exact: true }).click();
+    await replay.getByLabel("牌局 ID", { exact: true }).fill(`${gameId}-2`);
+    await replay.getByRole("button", { name: "查看回放", exact: true }).click();
+    await expect(replay.locator(".cocos-loading")).toHaveCount(0, { timeout: 30000 });
+    const tableFrame = () => page.frames().find(f => f.url().includes('/cocos-table/index.html'))!;
+    await expect(async () => {
+      const rendered = await tableFrame().evaluate(async () => {
+        const cc = await (window as any).System.import('cc');
+        const scene = cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+        return { id: scene.state.key, labels: scene.hud.getComponentsInChildren(cc.Label).map((l:any) => l.string) };
+      });
+      expect(rendered.id).toBe(`${gameId}-2`);
+      expect(rendered.labels).toContain("比下胡 × 2");
+      expect(rendered.labels).toContain("进园子 · 2 / 4 把");
+      expect(rendered.labels).toContain("2 / 4");
+    }).toPass({timeout:30000});
+    await page.screenshot({ path: `test-results/screenshots/replay-multiplier-${width}.png` });
   });
 }

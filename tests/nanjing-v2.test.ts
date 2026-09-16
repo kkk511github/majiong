@@ -1,3 +1,4 @@
+import { globalLiability, recordGlobalAnchor } from "../shared/reference-rules";
 import { describe, expect, it } from "vitest";
 import {
   act,
@@ -16,7 +17,7 @@ import {
   ruleDefaults,
 } from "../shared/nanjing-rules";
 import { scoreHand } from "../shared/scoring";
-import { structuralWaits } from "../shared/scoring-nanjing";
+import { structuralWaits, threeMouths } from "../shared/scoring-nanjing";
 import { createWall, kind, seededRandom } from "../shared/tiles";
 import { listeningHints } from "../src/listening-hints";
 import { ruleSections } from "../src/rule-copy";
@@ -310,7 +311,7 @@ describe("南京特殊牌局状态", () => {
     expect(g.result!.deltas).toEqual([-16, 0, 92, -76]);
     ledger(g);
   });
-  it("用户确认：同家三碰已建立包赔责任，普通顺子成牌仍由该家承包", () => {
+  it("图示规则：同家前三碰后普通顺子单钓不触发外包", () => {
     let g = fixture([[0, 1, 2, 30, 30], [], [], []]);
     g.players[0]!.melds = [9, 18, 27].map((k) => ({
       type: "pung",
@@ -320,15 +321,14 @@ describe("南京特殊牌局状态", () => {
     }));
     g.players[0]!.flowers = [124, 128, 132, 136];
     g = act(g, 0, { type: "hu" });
-    expect(g.roundTransfers).toEqual([
-      {
-        from: 1,
+    expect(g.roundTransfers).toEqual(
+      [1, 2, 3].map((from) => ({
+        from,
         to: 0,
-        amount: 50,
-        reason: "三口承包",
-        scope: "external",
-      },
-    ]);
+        amount: g.result!.details[0]!.total,
+        reason: "自摸",
+      })),
+    );
     ledger(g);
   });
   it.each(
@@ -336,7 +336,7 @@ describe("南京特殊牌局状态", () => {
       seats.map((rotation) => ({ rules, rotation })),
     ),
   )(
-    "用户牌例：丙二三七七万抢丁四万补杠，甲的三口责任优先 $rules.id / 座位 $rotation",
+    "图示优先：丙顺子单钓抢丁补杠，不向甲收三嘴外包 $rules.id / 座位 $rotation",
     ({ rules, rotation }) => {
       const [jia, yi, bing, ding] = seats.map(
         (s) => ((s + rotation) % 4) as Seat,
@@ -399,18 +399,16 @@ describe("南京特殊牌局状态", () => {
       expect(g.result!.details[bing]!.snapshot).toBeUndefined();
       expect(g.roundTransfers).toEqual([
         {
-          from: jia,
+          from: ding,
           to: bing,
-          amount:
-            rules.id === "nj-garden-v2"
-              ? 50
-              : g.result!.details[bing]!.total * 3,
-          reason: "三口承包",
-          ...(rules.id === "nj-garden-v2" ? { scope: "external" } : {}),
+          amount: g.result!.details[bing]!.total * 3,
+          reason: "抢杠包三家",
         },
       ]);
       expect(g.players[yi]!.score).toBe(10000);
-      expect(g.players[ding]!.score).toBe(10000);
+      expect(g.players[ding]!.score).toBe(
+        10000 - g.result!.details[bing]!.total * 3,
+      );
       expect(g.players[ding]!.melds[0].type).toBe("pung");
       expect(g.players[ding]!.melds[0].tiles).toEqual([13, 14, 15]);
       expect(g.history.at(-1)!.result.transfers).toEqual(g.roundTransfers);
@@ -563,7 +561,7 @@ describe("南京特殊牌局状态", () => {
     expect(g.players[1]!.hand).not.toContain(t);
     ledger(g);
   });
-  it("清一色快照支持第四组顺子，供牌者包三家", () => {
+  it("图示三清快照只允许被碰的第四嘴，顺子不能忽略余牌", () => {
     let g = fixture([[5], [3, 4, 9, 18], [], []]);
     g.players[1]!.melds = [0, 1, 2].map((k, i) => ({
       type: "pung",
@@ -575,14 +573,8 @@ describe("南京特殊牌局状态", () => {
     const v = viewFor(g, 1);
     expect(
       listeningHints(v.players[1]!, v.rules, undefined, v.players, { seat: 1 }),
-    ).toContain(5);
-    g = pendingDone(g, { 1: "hu" });
-    expect(g.result!.details[1]!.snapshot).toBe(true);
-    expect(g.result!.details[1]!.items.some((i) => i.label === "对对胡")).toBe(
-      false,
-    );
-    expect(g.roundTransfers!.at(-1)!.reason).toBe("清一色承包");
-    ledger(g);
+    ).not.toContain(5);
+    expect(v.actions).not.toContain("hu");
   });
   it("一炮双响余额不足按比例分配，零头分配确定且不为负", () => {
     let g = fixture(
@@ -757,4 +749,235 @@ describe("两套南京规则完整对局验证", () => {
     },
     60000,
   );
+});
+
+describe("2026-09-16 用户规则图回归", () => {
+  it("三嘴只看前三嘴；A、B、B、B不能由B外包", () => {
+    const p = hand([27, 27]);
+    p.melds = [0, 9, 18, 20].map((k, i) => ({
+      type: "pung",
+      tiles: [k * 4, k * 4 + 1, k * 4 + 2],
+      from: (i === 0 ? 1 : 2) as Seat,
+      concealed: false,
+    }));
+    expect(threeMouths(p, 0)).toBeUndefined();
+    p.melds.forEach((m) => (m.from = 2));
+    expect(threeMouths(p, 0)).toBe(2);
+    p.melds[1].concealed = true;
+    p.melds[1].from = 0;
+    expect(threeMouths(p, 0)).toBe(2);
+    p.melds.slice(0, 3).forEach((m) => (m.concealed = true));
+    expect(threeMouths(p, 0)).toBeUndefined();
+  });
+  it("规则图计分示例：底10+五花5+卡张1+暗杠2+杠开20+门清10=48", () => {
+    const p = hand([0, 1, 2, 9, 10, 11, 18, 19, 20, 24, 24]);
+    p.flowers = [124, 125, 126, 128, 129];
+    p.melds = [
+      { type: "kong", tiles: [104, 105, 106, 107], from: 0, concealed: true },
+    ];
+    expect(
+      scoreHand(
+        p,
+        { ...garden, flowerDouble: false },
+        { replacement: "kong", winTile: 40 },
+      )?.total,
+    ).toBe(48);
+  });
+  it("补杠后补花胡按花开计分，仍由原点杠者支付三份", () => {
+    let g = fixture([[0, 3, 4, 5, 9, 10, 11, 18, 19, 20, 27], [], [], []]);
+    g.players[0]!.hand[0] = 3;
+    g.players[0]!.melds = [
+      { type: "pung", tiles: [0, 1, 2], from: 2, concealed: false },
+    ];
+    g.wall = [112, 116, 109, 124];
+    g = act(g, 0, { type: "selfKong", tile: 3 });
+    expect(g.replacement).toEqual({ type: "flower", from: 2, direct: true });
+    g = act(g, 0, { type: "hu" });
+    expect(g.result!.details[0]!.items).toContainEqual({
+      label: "小杠开花",
+      value: 10,
+    });
+    expect(
+      g.result!.details[0]!.items.some((i) => i.label.startsWith("大杠开花")),
+    ).toBe(false);
+    expect(g.roundTransfers!.at(-1)).toEqual({
+      from: 2,
+      to: 0,
+      amount: g.result!.details[0]!.total * 3,
+      reason: "杠开包三家",
+    });
+    ledger(g);
+  });
+  it("无其他大胡的海底捞月也触发比下胡", () => {
+    let g = fixture(
+      [[], [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30, 30], [], []],
+      { successorDouble: false },
+    );
+    g.turn = 1;
+    g.lastDraw = g.players[1]!.hand.at(-1);
+    g.players[1]!.flowers = [124];
+    g.wall = [112, 116];
+    g = act(g, 1, { type: "hu" });
+    expect(g.result!.details[1]!.major).toBe(false);
+    expect(g.ruleState!.nextReasons).toEqual(["海底捞月"]);
+    expect(g.ruleState!.nextMultiplier).toBe(2);
+    ledger(g);
+  });
+  it("三清普通清一色点炮也外包，混一色不算三清", () => {
+    let g = fixture([[5], [3, 4, 7, 7], [], []]);
+    g.players[1]!.melds = [0, 1, 2].map((k, i) => ({
+      type: "pung",
+      tiles: [k * 4, k * 4 + 1, k * 4 + 2],
+      from: ([0, 2, 3] as Seat[])[i],
+      concealed: false,
+    }));
+    g = act(g, 0, { type: "discard", tile: g.players[0]!.hand[0] });
+    g = pendingDone(g, { 1: "hu" });
+    expect(g.result!.details[1]!.snapshot).toBeUndefined();
+    expect(g.roundTransfers!.at(-1)).toEqual({
+      from: 0,
+      to: 1,
+      amount: 50,
+      reason: "清一色承包",
+      scope: "external",
+    });
+    ledger(g);
+  });
+});
+
+describe("规则图架牌、改支与照直", () => {
+  function globalGame() {
+    const g = fixture([[24], [], [], []]);
+    g.players[0]!.melds = [0, 9, 18, 27].map((k, i) => ({
+      type: "pung" as const,
+      tiles: [k * 4, k * 4 + 1, k * 4 + 2],
+      from: ([1, 2, 3, 1] as Seat[])[i],
+      concealed: false,
+    }));
+    return g;
+  }
+  it("同花色前后两张才外包，不越过花色边界", () => {
+    const g = globalGame();
+    recordGlobalAnchor(g, 0, 16);
+    expect(
+      [4, 8, 12, 16, 20, 24, 28, 36].map((t) => globalLiability(g, 0, t)),
+    ).toEqual([false, true, true, true, true, true, false, false]);
+    recordGlobalAnchor(g, 0, 4);
+    expect(g.ruleState!.globalAnchors![0]!.discardKind).toBe(4);
+    expect(viewFor(g, 1)).not.toHaveProperty("globalAnchors");
+    expect(viewFor(g, 1)).not.toHaveProperty("ruleState");
+  });
+  it("摸切不改支，换听口后即使换回也不恢复外包", () => {
+    const g = globalGame();
+    recordGlobalAnchor(g, 0, 16);
+    recordGlobalAnchor(g, 0, 36);
+    expect(globalLiability(g, 0, 24)).toBe(true);
+    g.players[0]!.hand = [20];
+    recordGlobalAnchor(g, 0, 24);
+    expect(globalLiability(g, 0, 20)).toBe(false);
+    g.players[0]!.hand = [24];
+    recordGlobalAnchor(g, 0, 20);
+    expect(globalLiability(g, 0, 24)).toBe(false);
+  });
+  it("架风牌四风均有责任，数牌没有", () => {
+    const g = globalGame();
+    g.players[0]!.hand = [116];
+    recordGlobalAnchor(g, 0, 112);
+    expect([108, 112, 116, 120].every((t) => globalLiability(g, 0, t))).toBe(
+      true,
+    );
+    expect(globalLiability(g, 0, 104)).toBe(false);
+  });
+  it("照直声明由服务器校验，不重复、不越权，不泄露暗手", () => {
+    let g = fixture([
+      [0, 1, 2, 9, 10, 11, 18, 19, 20, 27, 27, 27, 28, 28],
+      [],
+      [],
+      [],
+    ]);
+    expect(viewFor(g, 0).canZhaozhi).toBe(true);
+    expect(() => act(g, 1, { type: "zhaozhi" })).toThrow();
+    g = act(g, 0, { type: "zhaozhi" });
+    expect(g.players[0]!.zhaozhi).toBe(true);
+    expect(viewFor(g, 0).canZhaozhi).toBe(false);
+    expect(() => act(g, 0, { type: "zhaozhi" })).toThrow();
+    expect(viewFor(g, 1).players[0]!.hand).toEqual([]);
+  });
+  it("照直不能胡对对胡，普通顺子成牌仍能胡", () => {
+    const p = hand([0, 0, 0, 9, 9, 9, 18, 18, 18, 27, 27, 27, 28, 28]);
+    p.zhaozhi = true;
+    expect(scoreHand(p, garden)).toBeNull();
+    p.hand = makeTiles([0, 1, 2, 9, 10, 11, 18, 19, 20, 27, 27, 27, 28, 28]);
+    expect(scoreHand(p, garden)).not.toBeNull();
+  });
+  it("照直三嘴后暗杠和补杠都禁止，四嘴后不能补声明", () => {
+    const g = fixture([[0, 0, 0, 0, 28], [], [], []]);
+    g.players[0]!.melds = [9, 18, 27].map((k) => ({
+      type: "pung",
+      tiles: [k * 4, k * 4 + 1, k * 4 + 2],
+      from: 1,
+      concealed: false,
+    }));
+    const declared = act(g, 0, { type: "zhaozhi" });
+    expect(selfKongs(declared, 0)).toEqual([]);
+    expect(() => act(declared, 0, { type: "selfKong", tile: 0 })).toThrow();
+    const four = globalGame();
+    expect(viewFor(four, 0).canZhaozhi).toBe(false);
+  });
+});
+
+it("图示三嘴后第四嘴暗杠，外包胡时不再收现场暗杠费", () => {
+  let g = fixture([[27, 27, 27, 27, 28], [], [], []]);
+  g.players[0]!.melds = [0, 9, 18].map((k) => ({
+    type: "pung",
+    tiles: [k * 4, k * 4 + 1, k * 4 + 2],
+    from: 1,
+    concealed: false,
+  }));
+  g.wall = [116, 120, 113];
+  g = act(g, 0, { type: "selfKong", tile: 108 });
+  expect(g.roundTransfers).toEqual([]);
+  expect(g.ruleState!.deferredConcealed).toHaveLength(3);
+  g = act(g, 0, { type: "hu" });
+  expect(g.roundTransfers).toEqual([
+    { from: 1, to: 0, amount: 50, reason: "三口承包", scope: "external" },
+  ]);
+  expect(g.ruleState!.deferredConcealed).toEqual([]);
+  ledger(g);
+});
+
+it.each([
+  [4, 6, true],
+  [0, 8, false],
+  [28, 30, true],
+] as const)("架牌实际出牌和结算 %i → %i", (anchor, wait, external) => {
+  let g = fixture([[anchor, wait], [], [], []]);
+  g.players[0]!.melds = [1, 9, 18, 27].map((k, i) => ({
+    type: "pung",
+    tiles: [k * 4, k * 4 + 1, k * 4 + 2],
+    from: ([1, 2, 3, 1] as Seat[])[i],
+    concealed: false,
+  }));
+  g = act(g, 0, { type: "discard", tile: anchor * 4 });
+  expect(g.ruleState!.globalAnchors![0]).toEqual({
+    discardKind: anchor,
+    waitKind: wait,
+    changed: false,
+  });
+  g.turn = 3;
+  g.players[3]!.hand = [wait * 4 + 1];
+  g = act(g, 3, { type: "discard", tile: wait * 4 + 1 });
+  g = pendingDone(g, { 0: "hu" });
+  expect(g.roundTransfers!.at(-1)).toEqual(
+    external
+      ? {
+          from: 3,
+          to: 0,
+          amount: 50,
+          reason: "全球独钓承包",
+          scope: "external",
+        }
+      : { from: 3, to: 0, amount: g.result!.details[0]!.total, reason: "点炮" },
+  );
+  ledger(g);
 });

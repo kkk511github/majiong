@@ -1,0 +1,22 @@
+{
+  "release": "0.5.9-11de1b19",
+  "sourceFilesMatch": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/river-layout.ts",
+    "src/river.css",
+    "src/table-room.css",
+    "src/game-client.ts",
+    "src/RoundReveal.tsx",
+    "public/qinhuai-table-v2.png",
+    "server/index.ts",
+    "shared/engine.ts"
+  ],
+  "health": "healthy",
+  "preDeployOnlineHumans": 0,
+  "preDeployPlaying": 0,
+  "backupCreated": true,
+  "anonymousEndpointsProtected": true,
+  "nativeCors": true,
+  "anonymousWebSocketRejected": true
+}

@@ -39,3 +39,25 @@ export function listeningHints(
     },
   );
 }
+
+/** Unseen is not wall stock: it includes opponents' concealed tiles. */
+export function unseenHintCounts(
+  view: { me: number; players: (PublicPlayer | null)[] },
+  kinds: number[],
+): Record<number, number> {
+  const visible = new Set<number>();
+  view.players.forEach((p, seat) => {
+    if (!p) return;
+    if (seat === view.me) p.hand.forEach((t) => visible.add(t));
+    p.discards.forEach((t) => visible.add(t));
+    p.melds
+      .filter((m) => !m.concealed || seat === view.me)
+      .forEach((m) => m.tiles.forEach((t) => visible.add(t)));
+  });
+  return Object.fromEntries(
+    kinds.map((k) => [
+      k,
+      Math.max(0, 4 - [...visible].filter((t) => kind(t) === k).length),
+    ]),
+  );
+}

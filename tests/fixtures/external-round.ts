@@ -52,7 +52,12 @@ export function externalRound(
     ownDiscards: [[], [], [], []],
     kongOccurred: false,
   };
-  g.players[2]!.hand = mode === "global" ? [24] : [4, 8, 24, 25];
+  g.players[2]!.hand =
+    mode === "global"
+      ? [24]
+      : mode === "three" && !options.robbed
+        ? [13, 14, 24, 25]
+        : [4, 8, 24, 25];
   g.players[2]!.flowers = [124, 128, 132, 136];
   g.players[2]!.melds = (mode === "global" ? [0, 4, 8, 18] : [0, 4, 8]).map(
     (k, i) => ({
@@ -62,6 +67,12 @@ export function externalRound(
       concealed: false,
     }),
   );
+  if (mode === "global") {
+    g.players[2]!.discards = [20];
+    g.ruleState.globalAnchors = {
+      2: { discardKind: 5, waitKind: 6, changed: false },
+    };
+  }
   const winning = mode === "global" ? 25 : 12;
   g.players[3]!.hand = [winning];
   if (options.alsoWin)
@@ -74,6 +85,7 @@ export function externalRound(
     g.players.flatMap((p) => [
       ...p!.hand,
       ...p!.flowers,
+      ...p!.discards,
       ...p!.melds.flatMap((m) => m.tiles),
     ]),
   );

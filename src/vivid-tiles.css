@@ -1,0 +1,7 @@
+/* Each sprite already includes its complete resin body and bevel. */
+.polished .tile-art.vivid-tile {
+  background-repeat: no-repeat;
+  background-color: transparent;
+  border-radius: 2%;
+  box-shadow: none;
+}

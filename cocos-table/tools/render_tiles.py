@@ -13,7 +13,11 @@ p.add_argument('--source', required=True)
 p.add_argument('--out', required=True)
 p.add_argument('--only', default='')
 p.add_argument('--individual', action='store_true')
+p.add_argument('--kinds', default='', help='Comma-separated face IDs to bake into existing atlas cells')
 args = p.parse_args(sys.argv[sys.argv.index('--')+1:])
+selected_kinds = {int(k) for k in args.kinds.split(',')} if args.kinds else None
+if selected_kinds and (min(selected_kinds) < 0 or max(selected_kinds) > 41):
+    raise ValueError('Face IDs must be between 0 and 41')
 out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
 textures = Path(args.source)/'cocos-table/art-source/ink'
 bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete(use_global=False)
@@ -41,13 +45,13 @@ def mat(name,color,rough=.25):
     b.inputs['IOR'].default_value=1.48
     return m
 
-ivory=mat('Ivory polished melamine',(.86,.83,.74),.24)
+ivory=mat('Ivory polished melamine',(.94,.955,.92),.24)
 # A shared substrate normal and roughness carry across the face and moulding.
 nt=ivory.node_tree; bsdf=nt.nodes.get('Principled BSDF')
 noise=nt.nodes.new('ShaderNodeTexNoise'); noise.inputs['Scale'].default_value=165; noise.inputs['Detail'].default_value=2
 micro=nt.nodes.new('ShaderNodeBump'); micro.inputs['Strength'].default_value=.14; micro.inputs['Distance'].default_value=.002
 nt.links.new(noise.outputs['Fac'],micro.inputs['Height']); nt.links.new(micro.outputs['Normal'],bsdf.inputs['Normal'])
-bsdf.inputs['Coat Weight'].default_value=.36; bsdf.inputs['Coat Roughness'].default_value=.16
+bsdf.inputs['Coat Weight'].default_value=.42; bsdf.inputs['Coat Roughness'].default_value=.16
 bsdf.inputs['Subsurface Weight'].default_value=.025
 jade=mat('Dense green back',(.035,.23,.005),.23)
 jnt=jade.node_tree; jb=jnt.nodes.get('Principled BSDF')
@@ -55,8 +59,16 @@ jn=jnt.nodes.new('ShaderNodeTexNoise');jn.inputs['Scale'].default_value=110
 jbum=jnt.nodes.new('ShaderNodeBump');jbum.inputs['Strength'].default_value=.11;jbum.inputs['Distance'].default_value=.003
 jnt.links.new(jn.outputs['Fac'],jbum.inputs['Height']);jnt.links.new(jbum.outputs['Normal'],jb.inputs['Normal'])
 jb.inputs['Coat Weight'].default_value=.12;jb.inputs['Coat Roughness'].default_value=.28
-jb.inputs['Specular IOR Level'].default_value=.22
-seam=mat('Green bevel highlight',(.12,.37,.012),.26)
+jb.inputs['Specular IOR Level'].default_value=.34
+# Built-in imagegen albedo, shared by every back and exposed green edge.
+jade_image=jnt.nodes.new('ShaderNodeTexImage')
+jade_image.image=bpy.data.images.load(str(Path(args.source)/'cocos-table/art-source/imagegen/jade-resin-v1.png'))
+jade_image.projection='BOX'; jade_image.projection_blend=.25
+coords=jnt.nodes.new('ShaderNodeTexCoord');jnt.links.new(coords.outputs['Generated'],jade_image.inputs['Vector'])
+jade_mix=jnt.nodes.new('ShaderNodeMixRGB');jade_mix.inputs[0].default_value=.24
+jade_mix.inputs[1].default_value=(.018,.32,.07,1)
+jnt.links.new(jade_image.outputs['Color'],jade_mix.inputs[2]);jnt.links.new(jade_mix.outputs[0],jb.inputs['Base Color'])
+seam=mat('Green bevel highlight',(.055,.43,.10),.26)
 def cube(name,dim,loc,material,bevel):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     o=bpy.context.object; o.name=name; o.dimensions=dim
@@ -69,7 +81,7 @@ def cube(name,dim,loc,material,bevel):
 
 base=cube('Green body',(.76,1.08,.19),(0,0,-.105),jade,.043)
 rim=cube('Green seam',(.755,1.075,.065),(0,0,-.023),seam,.024)
-front=cube('Ivory body',(.76,1.08,.28),(0,0,.105),ivory,.105)
+front=cube('Ivory body',(.76,1.08,.28),(0,0,.105),ivory,.078)
 # The ink is part of the actual solid's top surface, not a separate decal quad.
 # Planar UVs survive the bevel modifier, with transparent margins at the edges.
 uv=front.data.uv_layers.active or front.data.uv_layers.new(name='Face UV')
@@ -86,12 +98,13 @@ def ink_mat(k,rotate=False):
         coord=nt.nodes.new('ShaderNodeTexCoord');mapping=nt.nodes.new('ShaderNodeMapping')
         mapping.inputs['Location'].default_value=(1,1,0);mapping.inputs['Rotation'].default_value=(0,0,math.pi)
         nt.links.new(coord.outputs['UV'],mapping.inputs['Vector']);nt.links.new(mapping.outputs['Vector'],tex.inputs['Vector'])
-    mix=nt.nodes.new('ShaderNodeMixRGB'); mix.blend_type='MIX'; mix.inputs[1].default_value=(.86,.83,.74,1)
-    nt.links.new(tex.outputs['Alpha'],mix.inputs[0]); nt.links.new(tex.outputs['Color'],mix.inputs[2]); nt.links.new(mix.outputs[0],b.inputs['Base Color'])
+    mix=nt.nodes.new('ShaderNodeMixRGB'); mix.blend_type='MIX'; mix.inputs[1].default_value=(.94,.955,.92,1)
+    nt.links.new(tex.outputs['Alpha'],mix.inputs[0]); pigment=nt.nodes.new('ShaderNodeHueSaturation');pigment.inputs['Saturation'].default_value=1.05 if 9 <= k <= 17 else 1.55;pigment.inputs['Value'].default_value=1.10 if 9 <= k <= 17 else 1.55
+    nt.links.new(tex.outputs['Color'],pigment.inputs['Color']);nt.links.new(pigment.outputs['Color'],mix.inputs[2]); nt.links.new(mix.outputs[0],b.inputs['Base Color'])
     # Shallow recessed enamel: the rim catches light while the centre sits inside
     # the same tile surface. The noise stays beneath the engraving normal.
     carve=nt.nodes.new('ShaderNodeBump'); carve.invert=True
-    carve.inputs['Strength'].default_value=.6; carve.inputs['Distance'].default_value=.023
+    carve.inputs['Strength'].default_value=.4 if 9 <= k <= 17 else .6; carve.inputs['Distance'].default_value=.008 if 9 <= k <= 17 else .023
     nt.links.new(tex.outputs['Alpha'],carve.inputs['Height'])
     nt.links.new(nt.nodes.get('Bump').outputs['Normal'],carve.inputs['Normal'])
     nt.links.new(carve.outputs['Normal'],b.inputs['Normal'])
@@ -145,19 +158,19 @@ poses={
  'top-right':{'eye':(0,-10,13),'rot':(0,0,0),'kinds':42},
  'cover-bottom':{'eye':(0,-10,13),'rot':(180,0,0),'kinds':1,'back':True},
  'cover-top':{'eye':(0,-10,13),'rot':(180,0,0),'kinds':1,'back':True},
- 'cover-left':{'eye':(0,-10,20),'rot':(180,0,-90),'kinds':1,'back':True,'shear':.1658476658},
- 'cover-right':{'eye':(0,-10,20),'rot':(180,0,90),'kinds':1,'back':True,'shear':-.1658476658},
+ 'cover-left':{'eye':(0,-10,17),'rot':(180,0,-90),'kinds':1,'back':True},
+ 'cover-right':{'eye':(0,-10,17),'rot':(180,0,90),'kinds':1,'back':True},
  'back-top':{'eye':(0,-10,9),'rot':(90,0,180),'kinds':1,'back':True},
  # Standing tiles stay physically upright: no screen-space shear on their
- # vertical edges. Camera yaw projects their tabletop row parallel to the
- # adjacent outer groove edge (74 / 407), without leaning like a domino.
- 'back-left':{'eye':(1.7250396901398164,-14,13),'rot':(90,0,-90),'kinds':1,'back':True},
- 'back-right':{'eye':(-1.7250396901398164,-14,13),'rot':(90,0,90),'kinds':1,'back':True},
+ # vertical edges. Zero camera yaw keeps the complete side rack vertical.
+ 'back-left':{'eye':(0,-14,13),'rot':(90,0,-90),'kinds':1,'back':True},
+ 'back-right':{'eye':(0,-14,13),'rot':(90,0,90),'kinds':1,'back':True},
 }
 catalog={}
 cell=256; spacing=1.70
 for name,pose in poses.items():
     if args.only and name not in args.only.split(','): continue
+    if selected_kinds and pose.get('back'): continue
     cam.location=Vector(pose['eye']).normalized()*20
     cam.rotation_euler=(-cam.location).to_track_quat('-Z','Y').to_euler()
     rot=Euler(tuple(math.radians(a) for a in pose['rot'])).to_matrix().to_4x4()
@@ -179,6 +192,7 @@ for name,pose in poses.items():
     for frame in (range(pose['kinds']) if args.individual else [None]):
         objects=[]
         for k in ([frame] if args.individual else range(pose['kinds'])):
+            if selected_kinds and k not in selected_kinds: continue
             offset=Vector((0,0,0)) if args.individual else right*((k%cols-(cols-1)/2)*spacing)+up*(((rows-1)/2-k//cols)*spacing)
             for t in templates:
                 o=t.copy(); o.data=t.data.copy(); bpy.context.collection.objects.link(o)
@@ -196,7 +210,7 @@ for name,pose in poses.items():
                 if t==front: o.data.materials[1]=ivory if pose.get('back') else (reverse_inks if pose.get('reverseInk') else inks)[k]
                 objects.append(o)
         # Very broad lighting keeps all atlas cells at the same exposure.
-        key.location=Vector((-30,-40,70)); key.data.energy=60000; key.data.size=25
+        key.location=Vector((-30,-40,70)); key.data.energy=60000; key.data.size=19
         fill.location=Vector((35,20,55)); fill.data.energy=14000; fill.data.size=35
         key.rotation_euler=(-key.location).to_track_quat('-Z','Y').to_euler()
         fill.rotation_euler=(-fill.location).to_track_quat('-Z','Y').to_euler()

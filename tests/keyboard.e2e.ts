@@ -146,3 +146,58 @@ for (const [width, height] of [
         await context.close();
       }
     });
+
+for (const android of [false, true])
+  test(`${android ? "Android adjustResize" : "iOS 平移"}：90像素键盘区内确认密码跟随焦点且显示密码不丢焦点`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      viewport: { width: 568, height: 320 },
+    });
+    try {
+      const page = await context.newPage();
+      await viewportFixture(page);
+      await page.goto("http://127.0.0.1:5178");
+      await page.getByRole("tab", { name: "注册账号", exact: true }).click();
+      const password = page.getByLabel("密码", { exact: true }),
+        confirm = page.getByLabel("确认密码", { exact: true });
+      await password.focus();
+      await page.evaluate((android) => {
+        if (android)
+          Object.defineProperty(window, "innerHeight", {
+            configurable: true,
+            get: () => 90,
+          });
+        (window as any).keyboardViewport(90, android ? 0 : 18);
+        window.dispatchEvent(new Event("resize"));
+      }, android);
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-keyboard-open",
+        "",
+      );
+      await password.fill("input-test");
+      await page.getByRole("button", { name: "显示密码", exact: true }).click();
+      await expect(password).toBeFocused();
+      await expect(password).toHaveAttribute("type", "text");
+      await confirm.focus();
+      await confirm.fill("input-test");
+      await expect
+        .poll(() =>
+          confirm.evaluate((el) => {
+            const r = el.getBoundingClientRect(),
+              f = el.closest("form")!.getBoundingClientRect();
+            return (
+              r.top >= f.top &&
+              r.bottom <= f.bottom &&
+              r.bottom <= visualViewport!.offsetTop + visualViewport!.height
+            );
+          }),
+        )
+        .toBe(true);
+      await page.screenshot({
+        path: `test-results/screenshots/password-keyboard-${android ? "android" : "ios"}.png`,
+      });
+    } finally {
+      await context.close();
+    }
+  });

@@ -1,3 +1,5 @@
+import { TILE_POSE_METRICS } from "./tile-pose-metrics";
+const tileAspect = (pose: string) => TILE_POSE_METRICS[pose].w / TILE_POSE_METRICS[pose].h;
 /** The table renderer is a view, never a rules engine or a source of hidden cards. */
 export interface ScenePlayer {
   avatar?: string;
@@ -7,11 +9,13 @@ export interface ScenePlayer {
 }
 export interface TableSceneState {
   key:string; revision:number; presentation?:'replay'; me:number; turn:number; dealer:number;
-  phase:string; code:string; round:number; rounds:number; remaining:number;
+  phase:string; code:string; round:number; rounds?:number; remaining:number;
+  rulesName?:string; roundMultiplier?:number; nextRoundMultiplier?:number;
   countdown:string; connected:boolean; disabled:boolean; practice:boolean; canDiscard:boolean;
   players: ScenePlayer[];
   selected:number|null; drawn?:number; inspectedKind:number|null;
   hintKinds:number[]; hintLabel:string;
+  hintDiscard?:number; hintUnseen?:Record<number,number>; zhaozhiAvailable?:boolean; zhaozhi?:boolean;
   actions:{id:string; label:string; tile?:number}[];
   lastDiscard?:{tile:number;seat:number};
   pending?:{tile:number;from:number;answered:boolean;kind:string};
@@ -28,7 +32,7 @@ export interface SceneTile {
   id:string; tile?:number; seat:number; pose:string;
   x:number; y:number; w:number; h:number; z:number;
   area:'hand'|'meld'|'flower'|'river'; selected?:boolean; highlight?:boolean;
-  clickable?:boolean; source?:number; stack?:boolean; last?:boolean;
+  clickable?:boolean; source?:number; stack?:boolean; last?:boolean; claimTarget?:boolean;
   /** Baked screen-space projection; the rack uses the exact same edge vectors. */
   shear?:number; rack?:number;
   /** Whole-row rigid rotation, in Cocos counter-clockwise degrees. */
@@ -41,6 +45,19 @@ export const sceneTileName = (tile:number) => {
 };
 export const sceneOffset=(seat:number,me:number)=>(seat-me+4)%4;
 const poses=['bottom','right','top','left'];
+
+/** Only an unanswered, actionable claim may spotlight a public opponent tile.
+ * Rob-kong targets are public but are not part of the discard river. */
+export function claimPrompt(s:TableSceneState){
+ const pending=s.pending;
+ if(s.presentation==='replay'||s.phase!=='claiming'||!pending||pending.answered||pending.from===s.me)return undefined;
+ const actions=s.actions.filter(a=>['pung','kong','hu'].includes(a.id));
+ if(!actions.length)return undefined;
+ const source=s.players.find(p=>p.seat===pending.from);
+ return {tile:pending.tile,from:pending.from,name:sceneTileName(pending.tile),
+  source:source?.name||['自己','下家','对家','上家'][sceneOffset(pending.from,s.me)],
+  kind:pending.kind,labels:actions.map(a=>a.label)};
+}
 
 export interface MeldSourceMarker { id:string; tileId:string; source:number; x:number; y:number; size:number; rotation:number }
 /** The source arrow belongs on the middle tile face, including the upper kong
@@ -55,13 +72,12 @@ export function layoutMeldSources(tiles:SceneTile[],me:number):MeldSourceMarker[
 }
 
 export interface FlowerRack { seat:number; lane:number; points:[number,number][] }
-// Standing hands and melds retain their existing table projection independently
-// of the flower troughs, whose side edges are now vertical like the rivers.
+// All side-seat lanes share vertical axes with the flowers and rivers.
 const PLAYER_LANES = [
  [[338,448],[948,448],[948,492],[338,492]],
- [[895,71],[936,71],[1010,478],[956,478]],
+ [[914,71],[958,71],[958,478],[914,478]],
  [[395,66],[889,66],[889,108],[395,108]],
- [[344,71],[385,71],[324,478],[270,478]],
+ [[322,71],[366,71],[366,478],[322,478]],
 ] as [number,number][][];
 // Fixed table fixtures, not boxes inferred from the current flower count.
 export const FLOWER_SLOTS = [
@@ -160,11 +176,11 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     const extra=!revealed&&o%2&&i>=capacity;
     const slot=i;
     const y=o===2?38:extra?(o===1?393:442):105+slot*(revealed?29:24);
-    // The row follows the flower groove, but each concealed tile stands upright.
+    // The row and flower groove have the same vertical axis; every tile stands upright.
     // Its baked camera supplies depth; never shear the vertical tile body.
-    const sideX=revealed?slotMetrics(o,y).x+(o===3?-120:120):slotEdgeMetrics(o,y,'outer').x+(o===3?-100:100);
-    const x=o===2?437+i*33:extra?(o===3?190:1138):sideX;
-    add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?(o===2?pose:'meld-'+pose):back,area:'hand',x,y,w:o===2?33:revealed?272/189*36:119/292*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
+    const sideX=revealed?slotMetrics(o,y).x+(o===3?-104:104):slotEdgeMetrics(o,y,'outer').x+(o===3?-82:82);
+    const x=o===2?437+i*33:sideX;
+    add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?pose:back,area:'hand',x,y,w:o===2?33:revealed?tileAspect(pose)*36:tileAspect(back)*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
    }
    p.melds.forEach((m,mi)=>{
     const ts=m.tiles.length?m.tiles:Array(m.type==='kong'?4:3).fill(undefined);
@@ -172,10 +188,10 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
      const stack=ti===3;
      // Opposite melds replace the removed concealed tiles in the same rack.
      const baseY=o===3?110+mi*96+(ti===3?1:ti)*29:408-mi*87-(ti===3?1:ti)*29;
-     const x=o===2?437+p.handCount*33+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-64:64);
+     const x=o===2?437+p.handCount*33+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-52:52);
      const y=o===2?38-(stack?14:0):baseY-(stack?12:0);
-     const sidePose=m.concealed?'cover-'+pose:'meld-'+pose;
-     add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:o===2?(m.concealed?'cover-'+pose:pose):sidePose,area:'meld',x,y,w:o===2?33:272/189*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});
+     const sidePose=m.concealed?'cover-'+pose:pose;
+     add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:o===2?(m.concealed?'cover-'+pose:pose):sidePose,area:'meld',x,y,w:o===2?33:tileAspect(sidePose)*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});
     });
    });
   }
@@ -186,7 +202,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     const lane=i<12?0:1+Math.floor((i-12)/4),index=lane?(i-12)%4:i;
     const count=Math.min(lane?4:12,p.flowers.length-(lane?12+(lane-1)*4:0));
     const [tl,tr,br]=flowerRackPoints(o,lane);
-    const w=tr[0]-tl[0]-4,h=w*213/246;
+    const w=tr[0]-tl[0]-5,h=w/tileAspect('flower-'+pose);
     // Overlap only the antialiased contact edges: no felt sliver between flowers,
     // while the wide ivory wall and green base remain visible on every tile.
     const pitch=Math.min(h-1.75,(br[1]-tl[1]-4-h)/Math.max(1,count-1));
@@ -202,23 +218,26 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
    add({id:`flower-${tile}`,tile,seat:p.seat,pose:'flower-'+pose,area:'flower',x,y,w,h,shear:0,rack:0,z:200+y});
   });
  }
- // Side rivers are strictly vertical: every tile in a column has the same
- // x coordinate, with no rotation or shear. Horizontal rivers stay level.
- // Horizontal overflow stays in two rows; side overflow stays in three
- // columns. Their occupied spans leave the four corners clear.
+ // Reserve the whole row from the first discard. Never derive its origin,
+ // pitch or capacity from the number already discarded: old tiles must stay
+ // put when the next tile arrives, including at a row/column boundary.
+ // Both horizontal rivers read left-to-right on screen. Side rivers read
+ // top-to-bottom; they keep the same upright, joined strips as the troughs.
+ const prompt=claimPrompt(s);
  for(const p of s.players){
   const o=sceneOffset(p.seat,s.me);
   p.discards.forEach((tile,i)=>{
-   const capacity=o%2?Math.max(6,Math.ceil(p.discards.length/3)):Math.max(9,Math.ceil(p.discards.length/2));
-   const row=Math.floor(i/capacity),col=i%capacity,h=o%2?34:44,w=o%2?164/126*h:34;
-   const rowCount=Math.min(capacity,p.discards.length-row*capacity),along=col-(rowCount-1)/2;
-   const sidePitch=Math.min(28,140/(capacity-1));
-   const y=o===0?428-row*38:o===2?132+row*38:280+(o===3?-along:along)*sidePitch;
+   const capacity=9;
+   const row=Math.floor(i/capacity),col=i%capacity,h=o%2?33:44,w=o%2?tileAspect(poses[o])*h:34;
+   // Three downward rows fit above the local flower trough. Side columns
+   // sit just outside their ends so even a third row leaves corners clear.
+   const y=o===0?352+row*38:o===2?132+row*38:182+col*28;
    const shear=0;
-   const x=o%2?(o===3?492-row*45:788+row*45):640+(o===2?along:-along)*33;
+   const x=o%2?(o===3?473-row*43:807+row*43):512+col*32;
    const rotation=0;
    const last=s.lastDiscard?.seat===p.seat&&s.lastDiscard.tile===tile&&['playing','claiming'].includes(s.phase)&&s.pending?.kind!=='robKong';
-   add({id:`river-${tile}`,tile,seat:p.seat,pose:poses[o],area:'river',x,y,w,h,shear,rotation,z:500+y,highlight:s.inspectedKind===tileKind(tile),last});
+   const claimTarget=prompt?.kind!=='robKong'&&prompt?.from===p.seat&&prompt.tile===tile;
+   add({id:`river-${tile}`,tile,seat:p.seat,pose:poses[o],area:'river',x,y,w,h,shear,rotation,z:500+y,highlight:s.inspectedKind===tileKind(tile),last,claimTarget});
   });
  }
  return result.sort((a,b)=>a.z-b.z);

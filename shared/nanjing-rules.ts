@@ -18,6 +18,16 @@ export const DEFAULT_NEW_RULES: Rules = {
 export function isNanjingV2(rules: Rules) {
   return rules.id === "nj-garden-v2" || rules.id === "nj-open-v2";
 }
+/** Missing replay snapshots must not be labelled with today's default rules. */
+export function ruleDisplayName(rules?: Pick<Rules, "id">): string | undefined {
+  return rules?.id === "nj-garden-v2"
+    ? "进园子"
+    : rules?.id === "nj-open-v2"
+      ? "敞开头"
+      : rules?.id === "nj-casual-v1"
+        ? "原休闲规则"
+        : undefined;
+}
 export function newGameRules(input: Partial<Rules> = {}): Rules {
   const id = input.id ?? DEFAULT_NEW_RULES.id;
   return { ...ruleDefaults(id), ...input, id };

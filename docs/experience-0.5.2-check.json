@@ -1,0 +1,28 @@
+{
+  "version": "0.5.2",
+  "unitTestsPassed": 113,
+  "uniqueBrowserCases": 97,
+  "fullRunPassedBeforeFinalCssFix": 96,
+  "finalHomeHandAndMotionRun": {
+    "passed": 24,
+    "failed": 1,
+    "remainingFailure": "568 px confirmation badge intersected compass during fade"
+  },
+  "finalMotionRun": {
+    "passed": 4,
+    "failed": 0
+  },
+  "allKnownFailuresResolved": true,
+  "homeFlow": "Four independent accounts: create a table from home, three join/ready, home shows one remaining seat and three ready players, fourth joins from home and all start",
+  "permissionChecks": "Registered ordinary account has no creation entry at home or table lobby; grants and revocations update entries and close setup live",
+  "homeLayoutViewports": [
+    "568x320",
+    "844x390 with 59 px left/21 px bottom inset",
+    "932x430 with 62 px right/21 px bottom inset"
+  ],
+  "offlineHome": "Stale seats hidden during disconnection; live subscription resumes after reconnect",
+  "deployedRelease": "0.5.2-f245e5a7",
+  "containerHealth": "healthy",
+  "iOSSimulator": "0.5.2 installed and launched; ordinary account home shows live seats without creation entry; click attempt interrupted by user activity",
+  "physicalIPhoneInstalled": false
+}

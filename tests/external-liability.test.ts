@@ -46,15 +46,15 @@ describe("用户确认的进园子外包固定记分", () => {
         }
     },
   );
-  it("甲只有8分仍付桌外50，丁被抢补杠不收杠分", () => {
+  it("图示顺子单钓不收三嘴外包，丁被抢补杠不收杠分", () => {
     const g = externalRound({ robbed: true, payerBalance: 8 });
     expect(g.result!.from).toBe(3);
     expect(g.roundTransfers).toEqual([
-      { from: 0, to: 2, amount: 50, reason: "三口承包", scope: "external" },
+      { from: 3, to: 2, amount: 90, reason: "抢杠包三家" },
     ]);
     expect(g.players[0]!.score).toBe(8);
-    expect(g.players[0]!.externalScore).toBe(-50);
-    expect(g.players[3]!.score).toBe(90);
+    expect(g.players[0]!.externalScore).toBe(0);
+    expect(g.players[3]!.score).toBe(0);
     expect(g.players[3]!.melds[0].type).toBe("pung");
     expect(g.result!.transfers?.some((t) => t.reason === "保米")).toBe(false);
   });

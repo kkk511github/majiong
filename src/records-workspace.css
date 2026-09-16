@@ -457,10 +457,9 @@
 @media (max-width: 1050px) {
   .app.polished .records-workspace .records-heading {
     gap: 8px;
-    grid-template-columns: auto minmax(100px, 1fr) auto minmax(
-        100px,
-        140px
-      ) auto;
+    grid-template-columns:
+      auto minmax(100px, 1fr) auto minmax(100px, 140px)
+      auto;
   }
   .app.polished .records-heading nav button {
     font-size: 12px;
@@ -684,4 +683,37 @@
   .records-workspace .match-points b {
     font-size: 24px;
   }
+}
+
+.record-read {
+  color: #087c42;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.record-unread {
+  color: #817567;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.record-read-error {
+  color: #a64522;
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.app.polished .records-workspace .match-detail-link {
+  flex-direction: column;
+  gap: 2px;
+  padding-inline: 6px;
+}
+.record-detail-caption {
+  display: inline-flex;
+  align-items: center;
+}
+.record-read,
+.record-unread {
+  font-size: 11px;
+  line-height: 14px;
 }

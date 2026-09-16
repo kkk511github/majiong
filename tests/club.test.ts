@@ -1,3 +1,4 @@
+import { tileName } from "../shared/tiles";
 import { afterEach, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -63,7 +64,7 @@ it("预置四队可改名且重启不重置；分队后可入座，禁赛仍允�
   expect(server.games.get(code)!.phase).toBe("playing");
   await api("/api/admin/members",{accountId:player.account.id,playBlocked:true},root.token);
   const live=server.games.get(code)!;expect(live.phase).toBe("playing");
-  if(live.turn===0){ws.send({type:"action",revision:live.revision,action:{type:"discard",tile:live.players[0]!.hand[0]}});await new Promise(r=>setTimeout(r,50));expect(server.games.get(code)!.players[0]!.discards.length).toBe(1);}
+  if(live.turn===0){const tile=live.players[0]!.hand[0],event=`${live.players[0]!.name} 打出 ${tileName(tile)}`;ws.send({type:"action",revision:live.revision,action:{type:"discard",tile}});await expect.poll(()=>server.games.get(code)!.events.includes(event),{timeout:2000}).toBe(true);}
   const ended=server.games.get(code)!;ended.phase="ended";ended.round=1;ended.result={reason:"draw",winners:[],details:{},deltas:[0,0,0,0]};ended.history=[{id:ended.id+"-1",at:Date.now()-20000,round:1,result:ended.result,names:ended.players.map(p=>p!.name),scores:[90,90,90,90]}];ended.players.forEach(p=>{p!.ready=true;p!.online=true;});
   await new Promise(r=>setTimeout(r,120));expect(server.games.get(code)!.phase).toBe("ended");
   ws.send({type:"ready"});expect((await ws.read("error")).message).toContain("暂停");

@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>弃牌顺序与碰牌提示验收</title>
+<style>body{margin:0;background:#102b26;color:#f4edcf;font:15px system-ui}header{padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,select{background:#285547;color:#fff3ca;border:1px solid #bcb17b;padding:8px 12px;border-radius:7px;font:inherit}iframe{display:block;border:0;width:100%;aspect-ratio:1280/590;background:#000}output{display:block;white-space:pre-wrap;padding:12px;font:13px monospace}</style>
+<header><b>弃牌顺序验收</b><button data-mode="1">各家第1张</button><button data-mode="5">追加到第5张</button><button data-mode="10">第10张换行</button><button data-mode="18">每家18张</button><button data-mode="19">第19张换行</button><button data-mode="27">每家27张</button><button data-mode="claim">碰六筒</button><button data-mode="rob">抢杠九筒</button><button data-mode="done">操作后</button><label>我的座位 <select id="seat"><option>0</option><option>1</option><option>2</option><option>3</option></select></label></header>
+<iframe title="真实 Cocos 牌桌" src="/cocos-table/index.html?channel=river-review"></iframe><output id="audit">正在加载实际运行资源…</output>
+<script type="module">
+import { layoutTable, claimPrompt } from '/shared/table-scene.ts';
+const iframe=document.querySelector('iframe'),audit=document.querySelector('#audit');
+let mode='1',me=0,state,revision=0,ready=false,previous=[];
+function snapshot(){
+ const players=Array.from({length:4},(_,seat)=>({seat,name:['金陵牌友','秦淮','钟山','莫愁'][seat],score:90,bot:!!seat,trustee:false,hand:seat===me?[20,21,22,24,25,28,32,33,84,85,56,57,60,64]:[],handCount:seat===me?14:13,flowers:seat%2?[136+seat,128+seat]:[132+seat,140+seat],melds:[],discards:[]}));
+ const count=Number(mode)||5;
+ players.forEach(p=>p.discards=Array.from({length:count},(_,i)=>p.seat*30+i));
+ const from=(me+1)%4,claim=mode==='claim'||mode==='rob',tile=mode==='rob'?68:58;
+ if(claim&&mode!=='rob')players[from].discards[4]=tile;
+ const pending=claim?{tile,from,kind:mode==='rob'?'robKong':'discard',answered:false}:undefined;
+ return {key:'river-review',revision:++revision,me,turn:from,dealer:0,phase:claim?'claiming':'playing',code:'验收',round:2,rounds:4,remaining:46,countdown:'18',connected:true,disabled:false,practice:true,canDiscard:!claim,selected:null,drawn:64,inspectedKind:null,hintKinds:[],hintLabel:'可胡',trusteeDisabled:false,actions:claim?[{id:'pass',label:'过'},...(mode==='rob'?[{id:'hu',label:'胡'}]:[{id:'pung',label:'碰'},{id:'kong',label:'杠'},{id:'hu',label:'胡'}])]:[],pending,effects:[],lastDiscard:{tile:players[from].discards.at(-1),seat:from},players};
+}
+function send(){previous=state?layoutTable(state).filter(t=>t.area==='river'):[];state=snapshot();if(ready)iframe.contentWindow.postMessage({scope:'jinling-table-v1',channel:'river-review',type:'state',state},location.origin);}
+window.addEventListener('message',e=>{if(e.source!==iframe.contentWindow||e.origin!==location.origin||e.data.channel!=='river-review')return;if(e.data.type==='ready'){ready=true;send();}if(e.data.type==='command'&&e.data.command.type==='action'){mode='done';send();}});
+for(const button of document.querySelectorAll('button'))button.addEventListener('click',()=>{mode=button.dataset.mode;send();});
+document.querySelector('#seat').addEventListener('change',e=>{me=Number(e.target.value);send();});
+setInterval(()=>{
+ if(!ready||!state)return;
+ const actual=iframe.contentWindow.__JINLING_TABLE_LAYOUT__?.filter(t=>t.area==='river');if(!actual)return;
+ const expected=layoutTable(state).filter(t=>t.area==='river');
+ const match=expected.length===actual.length&&expected.every(a=>actual.some(b=>a.id===b.id&&a.seat===b.seat&&a.x===b.x&&a.y===b.y&&a.claimTarget===b.claimTarget));
+ const unchanged=previous.filter(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat)).every(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat&&a.x===b.x&&a.y===b.y));
+ audit.textContent=`真实 Cocos 与共享布局一致：${match?'通过':'等待'}\n旧牌位置保持：${unchanged?'通过':'视角已切换'}\n当前提示：${JSON.stringify(claimPrompt(state)||'无')}\n`+state.players.map(p=>`座位 ${p.seat}：`+p.discards.map(id=>{const t=actual.find(t=>t.tile===id&&t.seat===p.seat);return t?`${id}@(${t.x},${t.y})`:'加载中';}).join(' → ')).join('\n');
+},150);
+</script>

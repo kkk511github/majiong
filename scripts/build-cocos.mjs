@@ -13,6 +13,7 @@ async function saveRuntime(source){
  await writeFile(resolve(runtime,'manifest.json'),JSON.stringify({source,sha256:createHash('sha256').update(await readFile(archive)).digest('hex'),creator:'3.8.8'}));
 }
 await cp(resolve(app,'shared/table-scene.ts'),resolve(project,'assets/scripts/table-scene.ts'));
+await cp(resolve(app,'shared/tile-pose-metrics.ts'),resolve(project,'assets/scripts/tile-pose-metrics.ts'));
 async function fingerprint(){
  const hash=createHash('sha256');
  for(const folder of ['assets','settings']) {

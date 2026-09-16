@@ -1,5 +1,5 @@
 import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp } from 'cc';
-import { layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
+import { layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 const { ccclass } = _decorator;
 const GOLD='#e4c573', INK='#fcf1d0', GREEN='#093f37';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
@@ -98,6 +98,11 @@ export class TableScene extends Component {
   this.hud.destroy();this.hud=this.make('HUD',640,295,1280,590);
   this.drawRacks(s,tiles);
   for(const t of tiles)this.drawTile(t);
+  for(const t of tiles.filter(t=>t.claimTarget)){
+   const n=this.make('claim-target-'+t.id,t.x,t.y,t.w+8,t.h+8,this.hud),g=n.addComponent(Graphics);
+   g.strokeColor=new Color('#ffdc65');g.lineWidth=3;
+   g.roundRect(-t.w/2-3,-t.h/2-3,t.w+6,t.h+6,5);g.stroke();
+  }
   for(const marker of layoutMeldSources(tiles,s.me)){
    const n=this.image('meld-source-dart',marker.x,marker.y,marker.size*867/902,marker.size,this.hud);
    n.name=marker.id;n.setRotationFromEuler(0,0,marker.rotation);
@@ -146,18 +151,34 @@ export class TableScene extends Component {
   this.button(h,'牌',1135,35,39,39,{type:'menu',menu:'table'});
   this.button(h,'录',1181,35,39,39,{type:'menu',menu:'events'});
   this.button(h,'⚙',1227,35,39,39,{type:'menu',menu:'settings'});
-  }this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,90,135,30,18);this.text(h,`第 ${s.round} / ${s.rounds} 局`,80,119,135,28,16,'#cfc291');
+  }this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,90,135,30,18);
+  this.text(h,`${s.rulesName ? s.rulesName+' · ' : ''}${s.rounds ? s.round+' / '+s.rounds+' 把' : '第 '+s.round+' 把'}`,80,119,142,28,16,'#cfc291');
+  if(s.roundMultiplier!==undefined)this.text(h,`${s.roundMultiplier>1?'比下胡':'本把'} × ${s.roundMultiplier}`,80,146,138,23,18,GOLD);
+  if(s.presentation!=='replay'&&s.phase==='ended'&&s.nextRoundMultiplier!==undefined)
+   this.text(h,`下把${s.nextRoundMultiplier>1?'比下胡':'恢复'} × ${s.nextRoundMultiplier}`,80,321,146,28,16,GOLD);
   for(const p of s.players){
    const o=sceneOffset(p.seat,s.me);
    if(o===2){this.plate(h,950,32,166,56,'#0b332ed9','#a7965b');const avatar=this.avatar(p.avatar,p.seat,892,32,44,44,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,963,20,91,24,18);this.text(h,`${p.score} 分`,963,43,92,22,18,GOLD);if(p.seat===s.dealer)this.text(h,'庄',1020,16,24,23,17,'#ffd374');continue;}
    const x=o===0?1198:o===3?68:1200,y=o===0?508:207;
    this.plate(h,x,y+25,100,126,'#0b332ed9','#a7965b');const avatar=this.avatar(p.avatar,p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
   }
-  const center=this.make('center',640,282,1280,590,h);
-  const g=this.make('compass',640,278,116,108,center).addComponent(Graphics);g.fillColor=new Color('#092724');g.roundRect(-61,-57,122,114,16);g.fill();g.fillColor=new Color('#283633');g.moveTo(-52,-45);g.lineTo(52,-45);g.lineTo(61,-28);g.lineTo(61,28);g.lineTo(43,50);g.lineTo(-43,50);g.lineTo(-61,28);g.lineTo(-61,-28);g.close();g.fill();g.strokeColor=new Color('#697264');g.lineWidth=2;g.stroke();g.fillColor=new Color('#09201e');g.roundRect(-30,-19,60,38,13);g.fill();
-  const positions=[[640,317],[684,278],[640,240],[596,278]];for(let o=0;o<4;o++){const seat=(s.me+o)%4;this.text(center,['东','南','西','北'][seat],positions[o][0],positions[o][1],28,27,21,s.turn===seat?GOLD:'#c3ccc0');}
+  const prompt=claimPrompt(s);
+  if(prompt){
+   // During a claim, the enlarged public target occupies the compass's clear
+   // space. No river tile is moved or hidden; controls remain above the hand.
+   const card=this.plate(h,640,280,162,96,'#123c33f5','#f0cf70',12);card.name='claim-prompt';
+   this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,619,244,109,20,15);
+   this.text(h,s.disabled?'提交中':`${s.countdown}秒`,695,244,40,20,14,GOLD);
+   this.image('own-'+tileKind(prompt.tile),606,287,43,64,h).name='claim-prompt-tile';
+   this.text(h,prompt.name,677,268,70,26,23,GOLD);
+   this.text(h,'可'+prompt.labels.join(' / '),677,301,70,38,17);
+  }else{
+  const center=this.make('center',640,295,1280,590,h);
+  const g=this.make('compass',640,278,116,92,center).addComponent(Graphics);g.fillColor=new Color('#092724');g.roundRect(-61,-46,122,92,14);g.fill();g.fillColor=new Color('#283633');g.moveTo(-45,-41);g.lineTo(45,-41);g.lineTo(58,-25);g.lineTo(58,25);g.lineTo(42,41);g.lineTo(-42,41);g.lineTo(-58,25);g.lineTo(-58,-25);g.close();g.fill();g.strokeColor=new Color('#697264');g.lineWidth=2;g.stroke();g.fillColor=new Color('#09201e');g.roundRect(-30,-19,60,38,13);g.fill();
+  const positions=[[640,311],[684,278],[640,245],[596,278]];for(let o=0;o<4;o++){const seat=(s.me+o)%4;this.text(center,['东','南','西','北'][seat],positions[o][0],positions[o][1],28,23,19,s.turn===seat?GOLD:'#c3ccc0');}
   this.text(center,s.countdown,640,278,57,36,s.countdown.length>=3?25:33,'#26ddf5');
-  const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));this.text(center,`余牌 ${s.remaining}`,548,265,60,27,15,'#deebd9');this.text(center,`余花 ${flowers}`,548,294,60,27,15,'#deebd9');this.text(center,'把数',732,262,60,23,16,'#a4c4b2');this.text(center,`${s.round} / ${s.rounds}`,732,290,60,29,21,GOLD);
+  const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));this.text(center,`余牌 ${s.remaining}`,548,265,60,27,15,'#deebd9');this.text(center,`余花 ${flowers}`,548,294,60,27,15,'#deebd9');this.text(center,'把数',732,262,60,23,16,'#a4c4b2');this.text(center,s.rounds?`${s.round} / ${s.rounds}`:String(s.round),732,290,60,29,21,GOLD);
+  }
   if(this.trusteeButton)this.trusteeButton.active=s.presentation!=='replay';
   if(s.presentation==='replay'){this.text(h,'点击头像切换视角',640,455,250,30,17,'#bdd2bd');h.setSiblingIndex(this.root.children.length-1);return;}
   const me=s.players.find(p=>p.seat===s.me)!,ended=['ended','finished'].includes(s.phase);
@@ -165,7 +186,7 @@ export class TableScene extends Component {
   // Keep the touch target alive across countdown/state pushes. Rebuilding it
   // between TOUCH_START and TOUCH_END used to swallow the first cancellation.
   if(!this.trusteeButton){
-   const n=this.button(this.root,'托管',1107,88,103,37,{type:'trustee',enabled:true});
+   const n=this.button(this.root,'托管',1134,88,103,37,{type:'trustee',enabled:true});
    this.trusteeButton=n;this.trusteeLabel=n.children[0].getComponent(Label)!;
    n.off(Node.EventType.TOUCH_END);
    n.on(Node.EventType.TOUCH_END,()=>{if(this.trusteeCommand&&(!this.state?.trusteeDisabled||this.trusteeCommand.type==='menu'))this.emit(this.trusteeCommand);});
@@ -176,7 +197,6 @@ export class TableScene extends Component {
   const actionRow=layoutActions(s,layoutTable(s));
   actionRow.forEach(({action:a,x,y,w,h:height})=>this.button(h,a.label,x,y,w,height,{type:'action',action:a.id,tile:a.tile},true));
 
-  if(s.hintKinds.length&&!s.actions.length){this.plate(h,639,447,Math.min(630,150+s.hintKinds.length*31),48,'#063f38ed','#bfb570');this.text(h,s.hintLabel,548,447,105,35,16,GOLD);s.hintKinds.forEach((k,i)=>this.image('own-'+k,609+i*31,446,29,42,h));}
   if(!s.connected)this.text(h,'正在重新连接…',640,397,330,35,23);
   h.setSiblingIndex(this.root.children.length-1);
  }

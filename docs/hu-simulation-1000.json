@@ -1,0 +1,16 @@
+{
+  "games": 1000,
+  "totals": {
+    "hu": 925,
+    "draw": 75,
+    "bankrupt": 0,
+    "stuck": 0
+  },
+  "wins": [
+    235,
+    231,
+    236,
+    236
+  ],
+  "scope": "Current simple bot policy, fixed reproducible seeds 1–1000; not human win-rate prediction"
+}

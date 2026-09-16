@@ -1,0 +1,312 @@
+{
+  "profile": "nj-casual-v1",
+  "scope": "当前规则核验与缺口复现；通过不代表微乐或荔枝全规则一致",
+  "observations": [
+    {
+      "id": "S01-ordinary-closed-and-flower-toggle",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "S02-seven-pairs-all-quad-levels",
+      "status": "verified-current-profile",
+      "detail": [
+        102,
+        182,
+        262,
+        342
+      ]
+    },
+    {
+      "id": "S03-suit-triplet-and-global-stacking",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "S04-minimum-and-concealed-kong",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "S05-replacement-and-sea-bottom-context",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "S06-independent-hand-decomposition",
+      "status": "verified-current-profile",
+      "detail": {
+        "count": 1000,
+        "valid": 493,
+        "invalid": 507
+      }
+    },
+    {
+      "id": "E01-kong-replacement-after-flower",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "E02-added-kong-success-and-original-payer",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "E03-direct-kong-and-hu-priority",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "E04-flower-kong-five-sets",
+      "status": "verified-current-profile",
+      "detail": [
+        [
+          31,
+          31,
+          31,
+          31
+        ],
+        [
+          32,
+          32,
+          32,
+          32
+        ],
+        [
+          33,
+          33,
+          33,
+          33
+        ],
+        [
+          34,
+          35,
+          36,
+          37
+        ],
+        [
+          38,
+          39,
+          40,
+          41
+        ]
+      ]
+    },
+    {
+      "id": "E05-wall-boundaries",
+      "status": "verified-current-profile",
+      "detail": [
+        {
+          "seaBottom": false,
+          "remaining": 16
+        },
+        {
+          "seaBottom": true,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "id": "E06-initial-flower-kong-and-repeat-replacement",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "E07-passed-claim-until-own-discard",
+      "status": "verified-current-profile",
+      "detail": [
+        "hu",
+        "pung"
+      ]
+    },
+    {
+      "id": "E08-three-mouth-responsibility",
+      "status": "verified-current-profile",
+      "detail": "通过"
+    },
+    {
+      "id": "E09-final-draw-sea-bottom-and-dealer-continuation",
+      "status": "verified-current-profile",
+      "detail": {
+        "lastTileCanWin": true,
+        "seaBottomBonus": 20
+      }
+    },
+    {
+      "id": "E10-last-flower-cannot-replace-draw",
+      "status": "verified-current-profile",
+      "detail": {
+        "flowerRevealed": true,
+        "remaining": 16,
+        "result": "draw"
+      }
+    },
+    {
+      "id": "G06-fourth-pung-no-snapshot-win",
+      "status": "missing-rule-reproduced",
+      "detail": {
+        "melds": 4,
+        "handKinds": [
+          28,
+          29
+        ],
+        "phase": "playing",
+        "canSelfWin": false
+      }
+    },
+    {
+      "id": "G01-yajue-listening-mismatch",
+      "status": "gap-reproduced",
+      "detail": {
+        "handKinds": [
+          0,
+          2,
+          9,
+          10,
+          11,
+          18,
+          19,
+          20,
+          28,
+          28
+        ],
+        "publicPungKinds": [
+          1,
+          27
+        ],
+        "winningKind": 1,
+        "serverScore": 64,
+        "hints": [],
+        "actualHuActionOffered": true
+      }
+    },
+    {
+      "id": "G02-open-big-no-flower",
+      "status": "variant-difference-reproduced",
+      "detail": {
+        "total": 64,
+        "items": [
+          {
+            "label": "成牌",
+            "value": 20
+          },
+          {
+            "label": "混一色",
+            "value": 40
+          },
+          {
+            "label": "软花 2 × 2",
+            "value": 4
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "id": "G03-first-deal-no-heavenly",
+      "status": "missing-rule-reproduced",
+      "detail": {
+        "total": 86,
+        "items": [
+          {
+            "label": "成牌",
+            "value": 20
+          },
+          {
+            "label": "门清",
+            "value": 20
+          },
+          {
+            "label": "无花果",
+            "value": 40
+          },
+          {
+            "label": "独占",
+            "value": 2
+          },
+          {
+            "label": "软花 2 × 2",
+            "value": 4
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2,
+          9,
+          10,
+          11,
+          18,
+          19,
+          20,
+          27,
+          27,
+          27,
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "id": "G04-multiwinner-dealer",
+      "status": "variant-difference-reproduced",
+      "detail": {
+        "previousDealer": 0,
+        "winners": [
+          1,
+          2
+        ],
+        "nextDealer": 1
+      }
+    },
+    {
+      "id": "G05-global-adds-single-wait",
+      "status": "variant-difference-reproduced",
+      "detail": {
+        "total": 128,
+        "items": [
+          {
+            "label": "成牌",
+            "value": 20
+          },
+          {
+            "label": "对对胡",
+            "value": 40
+          },
+          {
+            "label": "全球独钓",
+            "value": 60
+          },
+          {
+            "label": "硬花 1 × 2",
+            "value": 2
+          },
+          {
+            "label": "独占",
+            "value": 2
+          },
+          {
+            "label": "软花 2 × 2",
+            "value": 4
+          }
+        ],
+        "kinds": [
+          28,
+          28
+        ]
+      }
+    }
+  ]
+}

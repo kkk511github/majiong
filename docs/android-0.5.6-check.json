@@ -1,0 +1,9 @@
+{
+  "version": "0.5.6",
+  "build": 16,
+  "signature": "debug certificate matches previous release",
+  "nativeAssetsMatch": true,
+  "backend": "https://safelink.chat/mahjong",
+  "bytes": 31194085,
+  "sha256": "b0ee7e3b98e7770142536c347a01f8e4c0f3cb82c63f0cb1dc3bdecdd95c6aeb"
+}

@@ -1,0 +1,72 @@
+{
+  "version": "0.5.4",
+  "build": 14,
+  "unitTestsPassed": 131,
+  "browserTestsPassed": 102,
+  "testLogs": [
+    "work/continuation-all-unit.log",
+    "work/continuation-all-browser.log"
+  ],
+  "ordinaryAccounts": "Creation entry absent on home and lobby; server rejects unauthorized creation; live grants and revocations verified",
+  "readiness": "Shared preparation eligibility; four status labels; offline blockers; 10-second result display preserved",
+  "staleReplies": "Stale request-scoped error cannot overwrite completed leave or renewed lobby state; authentication expiry still handled",
+  "nativeSimulator": "Build 14 installed and launched through simctl; no new native touch or keyboard observation while Mac locked",
+  "physicalIPhoneInstalled": false,
+  "releaseStatus": "Deployed, health and access checks passed; native artifacts checked",
+  "trusteeLegalHu": {
+    "beforeFix": {
+      "failed": 4
+    },
+    "afterFix": {
+      "passed": 4
+    },
+    "covered": [
+      "manual trustee self-draw win",
+      "timed-out trustee self-draw win",
+      "manual trustee discard win",
+      "timed-out trustee discard win"
+    ],
+    "policy": "Accept only engine-validated hu; retain pass and draw-discard for other actions"
+  },
+  "fullBrowserRun": {
+    "passed": 102,
+    "failed": 0,
+    "timing": "After all frontend changes; before final server-only automatic-hu branch"
+  },
+  "practiceContinuousRun": {
+    "rounds": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "durationSeconds": 181,
+    "errors": []
+  },
+  "cleanSource": "Independent source extraction and npm ci passed; final source including the server-only hu fix was re-extracted and production build passed. Only this evidence field changed afterwards.",
+  "deployedRelease": "0.5.4-c58d1b9f",
+  "databaseBackup": "/opt/jinling-mahjong/database-backups/0.5.4-c58d1b9f.sqlite",
+  "onlineContinuousRun": {
+    "rounds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "durationSeconds": 717,
+    "reconnected": true,
+    "adminFinalRecords": 1,
+    "renewedSeats": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "errors": [],
+    "scope": "This run started before the server-only automatic-hu correction; all eight rounds drew under the previous pass/draw-discard policy. Final automatic self-draw/discard hu was separately reproduced failing in four real WebSocket tests, then fixed and passed in the full 131-test run."
+  }
+}

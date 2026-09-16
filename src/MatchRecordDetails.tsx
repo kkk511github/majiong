@@ -56,8 +56,10 @@ export function MatchRecordDetails({
   selected,
   replay,
   showTeams = false,
+  onRead,
 }: {
   selected: StoredRound;
+  onRead?: (game: string, readAt: number) => void;
   replay: (id: string) => void;
   showTeams?: boolean;
 }) {
@@ -65,6 +67,8 @@ export function MatchRecordDetails({
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [round, setRound] = useState<StoredRound | null>(null);
+  const [readError, setReadError] = useState("");
+  const [readRetry, setReadRetry] = useState(0);
   const [copied, setCopied] = useState("");
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +95,22 @@ export function MatchRecordDetails({
       cancelled = true;
     };
   }, [selected.game, selected.practice, retry]);
+  useEffect(() => {
+    if (!data || !showTeams || selected.practice || !onRead) return;
+    let cancelled = false;
+    setReadError("");
+    client
+      .markMatchRead(selected.game)
+      .then(({ readAt }) => {
+        if (!cancelled) onRead(selected.game, readAt);
+      })
+      .catch(() => {
+        if (!cancelled) setReadError("已读状态未保存");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data, showTeams, selected.game, selected.practice, onRead, readRetry]);
   async function copy(id: string) {
     try {
       await navigator.clipboard.writeText(id);
@@ -167,6 +187,14 @@ export function MatchRecordDetails({
   }
   return (
     <div className="match-details">
+      {readError && (
+        <div className="record-read-error" role="status">
+          {readError}
+          <button type="button" onClick={() => setReadRetry((n) => n + 1)}>
+            重试保存
+          </button>
+        </div>
+      )}
       <div className="match-details-summary">
         <div className="match-summary-meta">
           <b>

@@ -10,6 +10,7 @@ import { accountSchema, provisionAdministrator } from "../server/accounts";
 import { createRecords } from "../server/records";
 import { createGame, newPlayer, seats } from "../shared/engine";
 import { settlementRows } from "../shared/settlement";
+import { externalRound } from "./fixtures/external-round";
 import type { Game, RoundRecord, ServerMessage } from "../shared/types";
 const password = "Tests-Only-Passphrase-42",
   directories: string[] = [],
@@ -288,6 +289,80 @@ describe("正式账号和管理员权限", () => {
   });
 });
 describe("管理员每桌最终战绩", () => {
+  it("桌外外包在战绩、回放和积分查询中一致，重复保存与重启不重算", async () => {
+    const { file, auth, request, server } = await boot();
+    const a = await auth("extmember");
+    expect(a).toHaveProperty("account.id");
+    const ids = [a.account.id, "outside-1", "outside-2", "outside-3"];
+    const db = new DatabaseSync(file);
+    try {
+      const records = createRecords(db);
+      let game = externalRound({ ids });
+      records.capture(game);
+      for (const multiplier of [2, 1, 2]) {
+        game = externalRound({ previous: game, ids, multiplier });
+        records.capture(game);
+      }
+      const original = structuredClone(game);
+      // Re-capture cannot rewrite either the snapshot or already-booked points.
+      game.rules.id = "nj-open-v2";
+      game.history[3].result.externalDeltas = [999, 0, -999, 0];
+      game.players[0]!.externalScore = 999;
+      game.replay!.frames.at(-1)!.players[0].externalScore = 999;
+      records.capture(game);
+      expect(
+        db
+          .prepare(
+            "SELECT SUM(points) points, COUNT(*) count FROM point_records WHERE account_id=?",
+          )
+          .get(a.account.id),
+      ).toMatchObject({ points: -300, count: 4 });
+      const detail = await request(
+        "/api/matches/external-ledger",
+        undefined,
+        a.token,
+      );
+      expect(detail.status).toBe(200);
+      expect(detail.body.match.record.externalScores).toEqual([
+        -300, 0, 300, 0,
+      ]);
+      expect(
+        detail.body.rounds.map((r: any) => r.record.result.externalDeltas[0]),
+      ).toEqual([-50, -100, -50, -100]);
+      expect(
+        detail.body.rounds.every(
+          (r: any) => r.record.rules.id === "nj-garden-v2",
+        ),
+      ).toBe(true);
+      expect(
+        (await request("/api/replays/external-ledger-4", undefined, a.token))
+          .body,
+      ).toEqual(original.replay);
+      db.close();
+      await server.close();
+      active.splice(active.indexOf(server), 1);
+      const restarted = makeServer({
+        database: file,
+        port: 0,
+        host: "127.0.0.1",
+      });
+      active.push(restarted);
+      const base = `http://127.0.0.1:${await restarted.listen()}`;
+      const headers = { Authorization: `Bearer ${a.token}` };
+      const restored = await (
+        await fetch(base + "/api/matches/external-ledger", { headers })
+      ).json();
+      expect(restored).toEqual(detail.body);
+      const replay = await (
+        await fetch(base + "/api/replays/external-ledger-4", { headers })
+      ).json();
+      expect(replay).toEqual(original.replay);
+    } finally {
+      try {
+        db.close();
+      } catch {}
+    }
+  });
   it("5桌各8局只返回5条；进行中不显示，重复保存不重复，同房续桌另记一条，会员只能查自己", async () => {
     const { file, auth, request } = await boot();
     const admin = await auth("guanli@1", true),

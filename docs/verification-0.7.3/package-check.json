@@ -1,0 +1,61 @@
+{
+  "version": "0.7.3",
+  "build": 39,
+  "baseCommit": "6dd6c39cddbba5a72bdbac711c92e79620896415",
+  "sourceSnapshotSha256": "4efbf9073f1f287b8dd1fc7353916b8620f95cffeb5d2da2b0419ed9443a49c2",
+  "cocosSource": "9f555ec2576850aedbacb33c593d471ed5323cda8933ab2a4c8b905f9831fdab",
+  "sameWebAssetsBothPlatforms": true,
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 306,
+  "serverDeploymentPerformed": true,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.3-build39.apk",
+      "version": "0.7.3",
+      "build": 39,
+      "bytes": 111951284,
+      "sha256": "026d99b470c82e2dbce45d399854e9fe8bec43a384400ab08043a6e538440f88",
+      "matchedWebFiles": 204,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.3-build39-AdHoc.ipa",
+      "version": "0.7.3",
+      "build": 39,
+      "bytes": 113606879,
+      "sha256": "71a75ade31d10b9eb1be5702a9fd8c7e28b92c4be41a27ec96b33c796d9e16bc",
+      "matchedWebFiles": 204,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  },
+  "server": {
+    "version": "0.7.3",
+    "build": 39,
+    "health": "healthy",
+    "endpoint": "https://212.189.31.194/mahjong",
+    "databasePreserved": true,
+    "backup": "/opt/jinling-mahjong/database-backups/0.7.3-build39-final.sqlite",
+    "previousRelease": "0.7.0-build36",
+    "unitTestsPassed": 306,
+    "cocosFilesMatched": 96,
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "adminReadReceiptAnonymousPost": 401
+  },
+  "checks": {
+    "macTestFiles": 32,
+    "linuxTestFiles": 32,
+    "typescript": true,
+    "portableCocosRuntime": true,
+    "npmAuditVulnerabilities": 0,
+    "credentialPatternHits": 0,
+    "realDeviceRunThisRelease": false
+  },
+  "deploymentPackagingNote": "First Linux build lacked a voice fixture in docs; added documentation and reran full build/tests before production switch."
+}

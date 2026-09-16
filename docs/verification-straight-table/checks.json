@@ -1,0 +1,110 @@
+[
+  {
+    "browser": "chrome",
+    "rows": [
+      {
+        "seat": 1,
+        "area": "hand",
+        "x": 1040,
+        "pose": "back-right"
+      },
+      {
+        "seat": 1,
+        "area": "meld",
+        "x": 988,
+        "pose": "right"
+      },
+      {
+        "seat": 1,
+        "area": "flower",
+        "x": 936,
+        "pose": "flower-right"
+      },
+      {
+        "seat": 1,
+        "area": "river",
+        "x": 788,
+        "pose": "right"
+      },
+      {
+        "seat": 3,
+        "area": "hand",
+        "x": 240,
+        "pose": "back-left"
+      },
+      {
+        "seat": 3,
+        "area": "meld",
+        "x": 292,
+        "pose": "left"
+      },
+      {
+        "seat": 3,
+        "area": "flower",
+        "x": 344,
+        "pose": "flower-left"
+      },
+      {
+        "seat": 3,
+        "area": "river",
+        "x": 492,
+        "pose": "left"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "browser": "webkit",
+    "rows": [
+      {
+        "seat": 1,
+        "area": "hand",
+        "x": 1040,
+        "pose": "back-right"
+      },
+      {
+        "seat": 1,
+        "area": "meld",
+        "x": 988,
+        "pose": "right"
+      },
+      {
+        "seat": 1,
+        "area": "flower",
+        "x": 936,
+        "pose": "flower-right"
+      },
+      {
+        "seat": 1,
+        "area": "river",
+        "x": 788,
+        "pose": "right"
+      },
+      {
+        "seat": 3,
+        "area": "hand",
+        "x": 240,
+        "pose": "back-left"
+      },
+      {
+        "seat": 3,
+        "area": "meld",
+        "x": 292,
+        "pose": "left"
+      },
+      {
+        "seat": 3,
+        "area": "flower",
+        "x": 344,
+        "pose": "flower-left"
+      },
+      {
+        "seat": 3,
+        "area": "river",
+        "x": 492,
+        "pose": "left"
+      }
+    ],
+    "errors": []
+  }
+]

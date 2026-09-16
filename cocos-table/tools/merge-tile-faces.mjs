@@ -22,14 +22,32 @@ for (const [name, pose] of Object.entries(poses)) {
       left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
     }
   }
-  const width = right - left + 1, height = bottom - top + 1;
+  const detected = { width: right - left + 1, height: bottom - top + 1 };
   const dest = resolve(res, 'tiles', name + '.png');
   const old = await sharp(dest).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { w: width, h: height } = atlas[name].rects[kinds[0]];
+  if (Math.abs(detected.width - width) > 2 || Math.abs(detected.height - height) > 2) throw Error(`${name}: silhouette size changed`);
+  // A partial bake can differ by one antialias pixel from the original 42-face
+  // union. Align to the existing alpha silhouette, keeping its exact crop size
+  // and anchor; never resize a tile to fit a new glyph's bounds.
+  let best = { error: Infinity, left, top };
+  for (let cy = Math.max(0, top - 2); cy <= top + 2; cy++) for (let cx = Math.max(0, left - 2); cx <= left + 2; cx++) {
+    if (cx + width > pose.cell || cy + height > pose.cell) continue;
+    let error = 0;
+    for (const { k, data: cell } of cells) {
+      const r = atlas[name].rects[k];
+      if (r.w !== width || r.h !== height) throw Error('Inconsistent existing frame sizes');
+      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) error += Math.abs(cell[((cy + y) * pose.cell + cx + x) * 4 + 3] - old.data[((r.y + y) * old.info.width + r.x + x) * 4 + 3]);
+    }
+    if (error < best.error) best = { error, left: cx, top: cy };
+  }
+  const alphaError = best.error / (cells.length * width * height);
+  if (alphaError > 2) throw Error(`${name}: existing silhouette no longer matches (${alphaError})`);
+  left = best.left; top = best.top;
   const data = Buffer.from(old.data);
   const allowed = new Uint8Array(old.info.width * old.info.height);
   for (const { k, data: cell, info } of cells) {
     const r = atlas[name].rects[k];
-    if (width !== r.w || height !== r.h) throw Error(`${name}: crop changed from ${r.w}x${r.h} to ${width}x${height}; refusing geometry change`);
     const patch = await sharp(cell, { raw: info }).extract({ left, top, width, height }).raw().toBuffer();
     for (let y = 0; y < height; y++) {
       const pixel = (r.y + y) * old.info.width + r.x;
@@ -39,7 +57,7 @@ for (const [name, pose] of Object.entries(poses)) {
   }
   for (let i = 0; i < data.length; i++) if (!allowed[Math.floor(i / 4)] && data[i] !== old.data[i]) throw Error('Changed a non-target atlas pixel');
   pending.push({ dest, png: await sharp(data, { raw: old.info }).png().toBuffer() });
-  report.push({ pose: name, kinds, width, height, crop: { left, top }, otherFacesUnchanged: true });
+  report.push({ pose: name, kinds, width, height, crop: { left, top }, alphaError, otherFacesUnchanged: true });
 }
 // Validate every pose before writing any atlas.
 for (const { dest, png } of pending) await writeFile(dest, png);

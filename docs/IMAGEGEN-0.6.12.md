@@ -43,5 +43,3 @@ Use case: ui-mockup. Asset type: a single transparent 3D game pointer sprite for
 ## feltBackgroundPrompt
 
 Edit target: this accepted mahjong table visual. Make a production background-only texture for the same game. Remove EVERY tile, every tile wall, every avatar, every score, every button, every label, every timer, every tray and every logo. Keep ONLY a complete empty emerald-green felt tabletop with subtle woven texture and a quiet embossed circular ornamental pattern, plus elegant dark wood edges with very thin warm gold inlay. No text. No user interface. No objects on the table. Landscape 2.17:1. The green felt must occupy almost the whole image: upper left felt boundary at x=8%, upper right at92%; bottom boundaries at2% and98%, so all hands have room on green felt. Subtle perspective, gentle tabletop lighting, polished and restrained, not a scene or illustration. Keep the entire table visible. Opaque image.
-
-

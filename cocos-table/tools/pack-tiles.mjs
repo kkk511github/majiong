@@ -7,7 +7,7 @@ const input=resolve(process.argv[2]);
 const resources=resolve(app,'cocos-table/assets/resources');
 await mkdir(resolve(resources,'tiles'),{recursive:true});
 const poses=JSON.parse(await readFile(resolve(input,'poses.json'),'utf8'));
-const catalog={};
+const catalog=process.argv.includes('--merge')?JSON.parse(await readFile(resolve(resources,'tile-atlas.json'),'utf8')):{};
 for(const [name,pose]of Object.entries(poses)){
  if(/-(near|far)$/.test(name)||/^top-(left|right)$/.test(name)){await rm(resolve(resources,'tiles',name+'.png'),{force:true});await rm(resolve(resources,'tiles',name+'.png.meta'),{force:true});continue;}
  const source=resolve(input,pose.file),frames=[],cells=[];
@@ -37,7 +37,7 @@ await writeFile(resolve(app,'shared/tile-pose-metrics.ts'),metricsSource);
 await writeFile(resolve(app,'cocos-table/assets/scripts/tile-pose-metrics.ts'),metricsSource);
 await copyFile(resolve(app,'shared/table-scene.ts'),resolve(app,'cocos-table/assets/scripts/table-scene.ts'));
 await mkdir(resolve(resources,'art'),{recursive:true});
-await copyFile(resolve(app,'public/art/table-reference-v3.png'),resolve(resources,'art/table.png'));
+await copyFile(resolve(app,'public/art/table-straight-v4.png'),resolve(resources,'art/table.png'));
 await copyFile(resolve(app,'public/avatars.png'),resolve(resources,'art/avatars.png'));
 for(const name of ['pung','kong','concealed-kong','upgrade-kong','hu','self-draw'])await copyFile(resolve(app,`public/art/effects/${name}-gold-v1.png`),resolve(resources,`art/${name}.png`));
 await copyFile(resolve(app,'public/art/effects/discard-pointer-gold-v1.png'),resolve(resources,'art/pointer.png'));

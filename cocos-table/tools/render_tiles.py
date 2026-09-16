@@ -158,14 +158,13 @@ poses={
  'top-right':{'eye':(0,-10,13),'rot':(0,0,0),'kinds':42},
  'cover-bottom':{'eye':(0,-10,13),'rot':(180,0,0),'kinds':1,'back':True},
  'cover-top':{'eye':(0,-10,13),'rot':(180,0,0),'kinds':1,'back':True},
- 'cover-left':{'eye':(0,-10,20),'rot':(180,0,-90),'kinds':1,'back':True,'shear':.1658476658},
- 'cover-right':{'eye':(0,-10,20),'rot':(180,0,90),'kinds':1,'back':True,'shear':-.1658476658},
+ 'cover-left':{'eye':(0,-10,17),'rot':(180,0,-90),'kinds':1,'back':True},
+ 'cover-right':{'eye':(0,-10,17),'rot':(180,0,90),'kinds':1,'back':True},
  'back-top':{'eye':(0,-10,9),'rot':(90,0,180),'kinds':1,'back':True},
  # Standing tiles stay physically upright: no screen-space shear on their
- # vertical edges. Camera yaw projects their tabletop row parallel to the
- # adjacent outer groove edge (74 / 407), without leaning like a domino.
- 'back-left':{'eye':(1.7250396901398164,-14,13),'rot':(90,0,-90),'kinds':1,'back':True},
- 'back-right':{'eye':(-1.7250396901398164,-14,13),'rot':(90,0,90),'kinds':1,'back':True},
+ # vertical edges. Zero camera yaw keeps the complete side rack vertical.
+ 'back-left':{'eye':(0,-14,13),'rot':(90,0,-90),'kinds':1,'back':True},
+ 'back-right':{'eye':(0,-14,13),'rot':(90,0,90),'kinds':1,'back':True},
 }
 catalog={}
 cell=256; spacing=1.70

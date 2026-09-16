@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { createGame, newPlayer, seats, startRound, viewFor } from '../shared/engine';
 import { seededRandom } from '../shared/tiles';
 import { cocosState } from '../src/cocos-state';
-import { layoutTable, layoutActions, layoutFlowerRacks, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics } from '../shared/table-scene';
+import { layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics } from '../shared/table-scene';
 
 const ui = { connected:true, disabled:false, practice:false, countdown:'30', selected:null, inspectedKind:null, hintKinds:[], hintLabel:'可胡', effects:[] };
 function fixture() {
@@ -93,11 +93,11 @@ it('places flowers inside the four fixed table grooves, including overflow lanes
 });
 it('keeps side rivers as straight joined vertical strips, including overflow columns',()=>{
  const s=cocosState(viewFor(fixture(),0),ui);
- for(const p of s.players)p.discards=Array.from({length:18},(_,i)=>i);
+ for(const p of s.players)p.discards=Array.from({length:27},(_,i)=>i);
  const ts=layoutTable(s);
  for(const seat of [1,3]){
-  const row=ts.filter(t=>t.seat===seat&&t.area==='river'&&t.tile!<6).sort((a,b)=>a.y-b.y);
-  expect(row[0].x).toBe(seat===1?788:492);
+  const row=ts.filter(t=>t.seat===seat&&t.area==='river'&&t.tile!<9).sort((a,b)=>a.y-b.y);
+  expect(row[0].x).toBe(seat===1?807:473);
   expect(new Set(row.map(t=>t.x)).size).toBe(1);
   for(const t of row){expect(t.rotation).toBe(0);expect(t.shear).toBe(0);expect(t.pose).toBe(seat===1?'right':'left');}
   for(let i=1;i<row.length;i++){
@@ -109,7 +109,7 @@ it('keeps side rivers as straight joined vertical strips, including overflow col
   }
  }
  for(const seat of seats){
-  const capacity=seat%2?6:9;
+  const capacity=9;
   for(const first of [0,capacity]){
    const row=ts.filter(t=>t.seat===seat&&t.area==='river'&&t.tile!>=first&&t.tile!<first+capacity);
    if(seat%2){
@@ -134,31 +134,67 @@ it('leaves a visible gap between opposite flowers and the standing hand/meld rac
  for(const t of own){expect(t.w).toBe(34);expect(t.h).toBe(42);}
 });
 
-it('anchors opposite river grids at reflected positions around the table centre',()=>{
+it('aligns opposite fixed river grids without reversing the horizontal reading order',()=>{
  const s=cocosState(viewFor(fixture(),0),ui);
  for(const p of s.players)p.discards=Array.from({length:18},(_,i)=>i);
  const tiles=layoutTable(s).filter(t=>t.area==='river');
  for(const [a,b] of [[0,2]])for(let i=0;i<18;i++){
   const x=tiles.find(t=>t.seat===a&&t.tile===i)!,y=tiles.find(t=>t.seat===b&&t.tile===i)!;
-  expect(x.x+y.x).toBe(1280);expect(x.y+y.y).toBe(560);
+  expect(x.x).toBe(y.x);expect(x.y-y.y).toBe(220);
  }
- for(const range of [[0,6],[6,12],[12,18]]){
+ for(const range of [[0,9],[9,18]]){
   const left=tiles.filter(t=>t.seat===3&&t.tile!>=range[0]&&t.tile!<range[1]).sort((a,b)=>a.y-b.y);
   const right=tiles.filter(t=>t.seat===1&&t.tile!>=range[0]&&t.tile!<range[1]).sort((a,b)=>a.y-b.y);
   left.forEach((t,i)=>{expect(t.x+right[i].x).toBeCloseTo(1280,8);expect(t.y).toBe(right[i].y);});
  }
 });
 
-it('centres a short visible river at every seat without shrinking its tiles',()=>{
- const s=cocosState(viewFor(fixture(),0),ui);
- for(const n of [1,4,5,8]){
-  for(const p of s.players)p.discards=Array.from({length:n},(_,i)=>i);
-  const ts=layoutTable(s).filter(t=>t.area==='river');
-  for(const p of s.players){
-   const row=ts.filter(t=>t.seat===p.seat),axis=p.seat%2?'y':'x';
-   expect((Math.min(...row.map(t=>t[axis]))+Math.max(...row.map(t=>t[axis])))/2).toBe(p.seat%2?280:640);
+it('appends discards to fixed slots from left to right without moving old tiles or changing row capacity',()=>{
+ for(const me of seats){
+  const s=cocosState(viewFor(fixture(),me),ui);
+  for(const p of s.players)p.discards=[];
+  let previous=layoutTable(s).filter(t=>t.area==='river');
+  for(let count=1;count<=24;count++){
+   for(const p of s.players)p.discards.push(p.seat*30+count-1);
+   const next=layoutTable(s).filter(t=>t.area==='river');
+   for(const a of previous){
+    const b=next.find(t=>t.id===a.id)!;
+    expect([b.x,b.y,b.w,b.h]).toEqual([a.x,a.y,a.w,a.h]);
+   }
+   for(const p of s.players){
+    const o=(p.seat-me+4)%4,capacity=9;
+    const current=next.find(t=>t.tile===p.discards.at(-1))!;
+    const first=next.find(t=>t.tile===p.discards[0])!;
+    if((count-1)%capacity===0){
+     expect(current[o%2?'y':'x']).toBe(first[o%2?'y':'x']);
+     if(count>1&&! (o%2)){
+      const before=next.find(t=>t.tile===p.discards.at(-2))!;
+      expect(current.y).toBeGreaterThan(before.y);
+     }
+    }
+    else{
+     const before=next.find(t=>t.tile===p.discards.at(-2))!;
+     expect(current[o%2?'y':'x']).toBeGreaterThan(before[o%2?'y':'x']);
+     expect(current[o%2?'x':'y']).toBe(before[o%2?'x':'y']);
+    }
+   }
+   previous=next;
   }
  }
+});
+
+it('spotlights the exact actionable public claim tile, including tile zero and rob-kong',()=>{
+ const s=cocosState(viewFor(fixture(),0),ui);
+ s.phase='claiming';s.actions=[{id:'pass',label:'过'},{id:'pung',label:'碰'},{id:'hu',label:'胡'}];
+ s.pending={tile:0,from:1,answered:false,kind:'discard'};
+ s.lastDiscard={tile:0,seat:1};s.players[1].discards=[8,0];s.players[2].discards=[1];
+ expect(claimPrompt(s)).toMatchObject({tile:0,name:'一万',from:1,labels:['碰','胡']});
+ expect(layoutTable(s).filter(t=>t.claimTarget).map(t=>t.tile)).toEqual([0]);
+ s.pending.kind='robKong';s.pending.tile=4;
+ expect(claimPrompt(s)).toMatchObject({tile:4,name:'二万',kind:'robKong'});
+ expect(layoutTable(s).some(t=>t.claimTarget)).toBe(false);
+ for(const changed of [{pending:{...s.pending,answered:true}},{actions:[{id:'pass',label:'过'}]},
+  {presentation:'replay' as const},{phase:'playing'},{pending:undefined}])expect(claimPrompt({...s,...changed})).toBeUndefined();
 });
 
 it('uses exactly the same horizontal end wall for the flower tile and groove',()=>{

@@ -25,6 +25,6 @@ setInterval(()=>{
  const expected=layoutTable(state).filter(t=>t.area==='river');
  const match=expected.length===actual.length&&expected.every(a=>actual.some(b=>a.id===b.id&&a.seat===b.seat&&a.x===b.x&&a.y===b.y&&a.claimTarget===b.claimTarget));
  const unchanged=previous.filter(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat)).every(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat&&a.x===b.x&&a.y===b.y));
- audit.textContent=`真实 Cocos 与共享布局一致：${match?'通过':'等待'}\n旧牌位置保持：${unchanged?'通过':'视角已切换'}\n当前提示：${JSON.stringify(claimPrompt(state)||'无')}\n`+state.players.map(p=>`座位 ${p.seat}：`+p.discards.map(id=>{const t=actual.find(t=>t.tile===id&&t.seat===p.seat);return t?`${id}@(${t.x},${t.y})`:'加载中';}).join(' → ')).join('\n');
+ audit.textContent=`排列方向：上家从上往下 ↓，下家从下往上 ↑\n真实 Cocos 与共享布局一致：${match?'通过':'等待'}\n旧牌位置保持：${unchanged?'通过':'视角已切换'}\n当前提示：${JSON.stringify(claimPrompt(state)||'无')}\n`+state.players.map(p=>`座位 ${p.seat}：`+p.discards.map(id=>{const t=actual.find(t=>t.tile===id&&t.seat===p.seat);return t?`${id}@(${t.x},${t.y})`:'加载中';}).join(' → ')).join('\n');
 },150);
 </script>

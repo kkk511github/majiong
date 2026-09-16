@@ -221,8 +221,9 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
  // Reserve the whole row from the first discard. Never derive its origin,
  // pitch or capacity from the number already discarded: old tiles must stay
  // put when the next tile arrives, including at a row/column boundary.
- // Both horizontal rivers read left-to-right on screen. Side rivers read
- // top-to-bottom; they keep the same upright, joined strips as the troughs.
+ // Both horizontal rivers read left-to-right on screen. The previous player's
+ // river runs down, and the next player's runs up, following each side's view.
+ // Keep fixed endpoints so adding a tile never recentres an existing column.
  const prompt=claimPrompt(s);
  for(const p of s.players){
   const o=sceneOffset(p.seat,s.me);
@@ -231,7 +232,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
    const row=Math.floor(i/capacity),col=i%capacity,h=o%2?33:44,w=o%2?tileAspect(poses[o])*h:34;
    // Three downward rows fit above the local flower trough. Side columns
    // sit just outside their ends so even a third row leaves corners clear.
-   const y=o===0?352+row*38:o===2?132+row*38:182+col*28;
+   const y=o===0?352+row*38:o===2?132+row*38:o===1?406-col*28:182+col*28;
    const shear=0;
    const x=o%2?(o===3?473-row*43:807+row*43):512+col*32;
    const rotation=0;

@@ -134,13 +134,18 @@ it('leaves a visible gap between opposite flowers and the standing hand/meld rac
  for(const t of own){expect(t.w).toBe(34);expect(t.h).toBe(42);}
 });
 
-it('aligns opposite fixed river grids without reversing the horizontal reading order',()=>{
+it('aligns horizontal river columns while the opposite rows fill towards its own hand',()=>{
  const s=cocosState(viewFor(fixture(),0),ui);
  for(const p of s.players)p.discards=Array.from({length:18},(_,i)=>i);
  const tiles=layoutTable(s).filter(t=>t.area==='river');
  for(const [a,b] of [[0,2]])for(let i=0;i<18;i++){
   const x=tiles.find(t=>t.seat===a&&t.tile===i)!,y=tiles.find(t=>t.seat===b&&t.tile===i)!;
-  expect(x.x).toBe(y.x);expect(x.y-y.y).toBe(220);
+  expect(x.x).toBe(y.x);
+  if(i>=9){
+   const previous=tiles.find(t=>t.seat===b&&t.tile===i-9)!;
+   expect(y.y).toBeLessThan(previous.y);
+   expect(previous.y-y.y).toBe(x.y-tiles.find(t=>t.seat===a&&t.tile===i-9)!.y);
+  }
  }
  for(const range of [[0,9],[9,18]]){
   const left=tiles.filter(t=>t.seat===3&&t.tile!>=range[0]&&t.tile!<range[1]).sort((a,b)=>a.y-b.y);
@@ -171,6 +176,7 @@ it('appends from fixed origins with the previous player downward and next player
       const before=next.find(t=>t.tile===p.discards.at(-2))!;
       if(o===1)expect(current.x).toBeGreaterThan(before.x);
       else if(o===3)expect(current.x).toBeLessThan(before.x);
+      else if(o===2)expect(current.y).toBeLessThan(before.y);
       else expect(current.y).toBeGreaterThan(before.y);
      }
     }

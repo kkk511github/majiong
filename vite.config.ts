@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import JavaScriptObfuscator from "javascript-obfuscator";
+import { resolve } from "node:path";
+import { auditNativeWeb, protectClientCode, protectNativeTable } from "./scripts/native-security";
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   if (command === "build") {
@@ -27,15 +28,14 @@ export default defineConfig(({ command, mode }) => {
       enforce: "post",
       renderChunk(code, chunk) {
         if (mode !== "native" || chunk.name === "vendor") return null;
-        return { code: JavaScriptObfuscator.obfuscate(code, {
-          target: "browser-no-eval", compact: true, sourceMap: false,
-          controlFlowFlattening: false, deadCodeInjection: false,
-          debugProtection: false, selfDefending: false,
-          renameGlobals: false, renameProperties: false,
-          stringArray: true, stringArrayThreshold: 1,
-          stringArrayEncoding: ["base64"], unicodeEscapeSequence: true,
-          identifierNamesGenerator: "hexadecimal",
-        }).getObfuscatedCode(), map: null };
+        return { code: protectClientCode(code), map: null };
+      },
+      async writeBundle(options) {
+        if (mode !== "native") return;
+        const root = resolve(options.dir ?? "dist");
+        await protectNativeTable(root);
+        const files = await auditNativeWeb(root, env.VITE_GAME_SERVER_URL);
+        console.log(`Native security audit: ${files} web files passed (network destination remains observable).`);
       },
     }],
     server: {

@@ -1,3 +1,4 @@
+import { gameAudio } from "./audio";
 import { WinHintPanel } from "./WinHintPanel";
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TableSceneCommand, TableSceneState } from '../shared/table-scene';
@@ -40,6 +41,19 @@ export function CocosTable({ state, onCommand, children, embedded=false }: {
     };
   }, [channel]);
   useEffect(() => { if (status === 'ready') send(); }, [state, status]);
+  useEffect(() => {
+    // Pointer events in the canvas iframe do not bubble to App's document.
+    // Resume synchronously within this trusted gesture (postMessage is too late).
+    const doc = status === 'ready' ? frame.current?.contentDocument : null;
+    if (!doc) return;
+    doc.addEventListener('pointerdown', gameAudio.unlock, { capture: true });
+    doc.addEventListener('keydown', gameAudio.unlock, { capture: true });
+    return () => {
+      doc.removeEventListener('pointerdown', gameAudio.unlock, { capture: true });
+      doc.removeEventListener('keydown', gameAudio.unlock, { capture: true });
+    };
+  }, [status]);
+
   return <main className={`cocos-game${embedded?" cocos-embedded":""}`} id={embedded?undefined:"cocos-table-board"} aria-label="南京麻将牌桌">
     <iframe ref={frame} title="金陵麻将牌桌" src={`${import.meta.env.BASE_URL}cocos-table/index.html?channel=${encodeURIComponent(channel)}`}
       allow="autoplay" onError={() => setStatus('error')} />

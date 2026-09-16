@@ -45,7 +45,7 @@ test("返回前台自动恢复音乐，首次恢复失败可重试，静音设�
   await expect
     .poll(() => page.evaluate(() => (window as any).__musicLoops))
     .toBe(1);
-  for (const failedFirst of [false, true]) {
+  for (const failedFirst of [0, 3]) {
     await page.evaluate(async (fail) => {
       const { gameAudio } = await import("/src/audio.ts" as string);
       gameAudio.setVisible(false);
@@ -54,10 +54,9 @@ test("返回前台自动恢复音乐，首次恢复失败可重试，静音设�
       (window as any).__beforeTime = context.currentTime;
       if (fail) {
         const resume = context.resume.bind(context);
-        let once = true;
+        let remaining = fail;
         context.resume = () => {
-          if (once) {
-            once = false;
+          if (remaining-- > 0) {
             return Promise.reject(new Error("OS audio session not ready"));
           }
           return resume();

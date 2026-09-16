@@ -252,10 +252,14 @@ export function App() {
     );
   }, [audioPreferences, v?.phase]);
   useEffect(() => {
+    let nativeActive: boolean | undefined;
     const visibility = () => {
       previousAudioView.current = null;
-      gameAudio.setVisible(!document.hidden);
-      client.setNetworkVisible(!document.hidden);
+      // Native lifecycle is authoritative once available: WKWebView visibility
+      // events can arrive out of order during the foreground transition.
+      const visible = nativeActive ?? !document.hidden;
+      gameAudio.setVisible(visible);
+      client.setNetworkVisible(visible);
     };
     document.addEventListener("pointerdown", gameAudio.unlock, {
       capture: true,
@@ -268,9 +272,8 @@ export function App() {
     let appListener: PluginListenerHandle | undefined;
     if (Capacitor.isNativePlatform())
       void NativeApp.addListener("appStateChange", ({ isActive }) => {
-        previousAudioView.current = null;
-        gameAudio.setVisible(isActive);
-        client.setNetworkVisible(isActive);
+        nativeActive = isActive;
+        visibility();
       })
         .then((handle) => {
           if (active) appListener = handle;

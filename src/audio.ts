@@ -64,6 +64,9 @@ export class GameAudio {
   private effects = new Set<OscillatorNode>();
   private lastDealAt = -Infinity;
   private resumeRetry?: ReturnType<typeof setTimeout>;
+  private recovering = false;
+  private recoveryAttempt = 0;
+  private recoveryRebuilt = false;
   private visible = true;
   private table = false;
   private replayActive = false;
@@ -164,8 +167,10 @@ export class GameAudio {
       if (context.state === "running") {
         this.setGains();
         this.ensureMusic();
+        this.retryResume();
         return;
       }
+      this.retryResume();
       void context
         .resume()
         .then(() => {
@@ -195,8 +200,8 @@ export class GameAudio {
         this.ensureMusic();
       }
       // iOS can report an interruption after the app has already become visible.
-      // Retry once after the native audio session has had time to reactivate.
-      else if ((a.state as string) === "interrupted") this.retryResume();
+      // Recover with bounded retries while the native audio session reactivates.
+      else if (a.state !== "closed") this.retryResume();
     };
     this.musicGain = a.createGain();
     this.effectsGain = a.createGain();
@@ -309,7 +314,7 @@ export class GameAudio {
     );
     this.setGains();
     if (!this.context) return;
-    clearTimeout(this.resumeRetry);
+    this.stopRecovery();
     if (!visible) {
       this.stopEffects();
       void this.context.suspend().catch(() => {});
@@ -318,11 +323,46 @@ export class GameAudio {
       this.retryResume();
     }
   }
-  private retryResume() {
+  private stopRecovery() {
     clearTimeout(this.resumeRetry);
+    this.resumeRetry = undefined;
+    this.recovering = false;
+    this.recoveryAttempt = 0;
+    this.recoveryRebuilt = false;
+  }
+  /** Check the audio clock as well as state: WebKit can say "running" while
+   * its output clock is frozen after an interruption. Retries are bounded;
+   * later user gestures can start a fresh recovery without changing volume. */
+  private retryResume() {
+    if (!this.visible || !this.context || this.resumeRetry) return;
+    if (!this.recovering) {
+      this.recovering = true;
+      this.recoveryAttempt = 0;
+      this.recoveryRebuilt = false;
+    }
+    const context = this.context, clock = context.currentTime;
+    const delays = [250, 750, 1500, 3000];
     this.resumeRetry = setTimeout(() => {
-      if (this.visible && this.context?.state !== "running") this.unlock();
-    }, 350);
+      this.resumeRetry = undefined;
+      if (!this.visible || this.context !== context) return;
+      if (context.state === "running" && context.currentTime > clock + 0.001) {
+        this.stopRecovery();
+        return;
+      }
+      if (++this.recoveryAttempt >= delays.length) {
+        if (this.recoveryRebuilt) {
+          this.stopRecovery();
+          return;
+        }
+        // Rebuild every node together; never leave music or voices connected
+        // to an abandoned context. No stale game cues are replayed.
+        this.dispose();
+        this.recovering = true;
+        this.recoveryRebuilt = true;
+        this.recoveryAttempt = 0;
+      }
+      this.unlock();
+    }, delays[this.recoveryAttempt]);
   }
   private tone(
     frequency: number,
@@ -470,7 +510,7 @@ export class GameAudio {
     this.previewEpoch++;
     this.voice?.dispose();
     this.voice = undefined;
-    clearTimeout(this.resumeRetry);
+    this.stopRecovery();
     clearTimeout(this.musicRetry);
     this.musicAbort?.abort();
     this.stopEffects();

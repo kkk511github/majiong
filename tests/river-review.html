@@ -5,6 +5,9 @@
 <script type="module">
 import { layoutTable, claimPrompt } from '/shared/table-scene.ts';
 const iframe=document.querySelector('iframe'),audit=document.querySelector('#audit');
+// The native build has an additional code-protection pass. Exercise its exact
+// table bundle on the same development origin, with the same state fixtures.
+if(new URLSearchParams(location.search).get('runtime')==='native')iframe.src='/dist/cocos-table/index.html?channel=river-review';
 let mode='1',me=0,state,revision=0,ready=false,previous=[];
 function snapshot(){
  const players=Array.from({length:4},(_,seat)=>({seat,name:['金陵牌友','秦淮','钟山','莫愁'][seat],score:90,bot:!!seat,trustee:false,hand:seat===me?[20,21,22,24,25,28,32,33,84,85,56,57,60,64]:[],handCount:seat===me?14:13,flowers:seat%2?[136+seat,128+seat]:[132+seat,140+seat],melds:[],discards:[]}));
@@ -25,6 +28,6 @@ setInterval(()=>{
  const expected=layoutTable(state).filter(t=>t.area==='river');
  const match=expected.length===actual.length&&expected.every(a=>actual.some(b=>a.id===b.id&&a.seat===b.seat&&a.x===b.x&&a.y===b.y&&a.claimTarget===b.claimTarget));
  const unchanged=previous.filter(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat)).every(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat&&a.x===b.x&&a.y===b.y));
- audit.textContent=`排列方向：上家从上往下 ↓，下家从下往上 ↑\n真实 Cocos 与共享布局一致：${match?'通过':'等待'}\n旧牌位置保持：${unchanged?'通过':'视角已切换'}\n当前提示：${JSON.stringify(claimPrompt(state)||'无')}\n`+state.players.map(p=>`座位 ${p.seat}：`+p.discards.map(id=>{const t=actual.find(t=>t.tile===id&&t.seat===p.seat);return t?`${id}@(${t.x},${t.y})`:'加载中';}).join(' → ')).join('\n');
+ audit.textContent=`排列方向：上家从上往下 ↓，下家从下往上 ↑；对家新一排往屏幕上方 ↑\n真实 Cocos 与共享布局一致：${match?'通过':'等待'}\n旧牌位置保持：${unchanged?'通过':'视角已切换'}\n当前提示：${JSON.stringify(claimPrompt(state)||'无')}\n`+state.players.map(p=>`座位 ${p.seat}：`+p.discards.map(id=>{const t=actual.find(t=>t.tile===id&&t.seat===p.seat);return t?`${id}@(${t.x},${t.y})`:'加载中';}).join(' → ')).join('\n');
 },150);
 </script>

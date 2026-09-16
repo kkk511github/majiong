@@ -230,9 +230,9 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
   p.discards.forEach((tile,i)=>{
    const capacity=9;
    const row=Math.floor(i/capacity),col=i%capacity,h=o%2?33:44,w=o%2?tileAspect(poses[o])*h:34;
-   // Three downward rows fit above the local flower trough. Side columns
-   // sit just outside their ends so even a third row leaves corners clear.
-   const y=o===0?352+row*38:o===2?132+row*38:o===1?406-col*28:182+col*28;
+   // Start the opposite river nearest the centre, then fill towards its hand.
+   // Its three reserved rows keep the same clear footprint as before.
+   const y=o===0?352+row*38:o===2?208-row*38:o===1?406-col*28:182+col*28;
    const shear=0;
    const x=o%2?(o===3?473-row*43:807+row*43):512+col*32;
    const rotation=0;

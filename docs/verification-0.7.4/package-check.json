@@ -1,0 +1,59 @@
+{
+  "version": "0.7.4",
+  "build": 40,
+  "baseCommit": "dc3d4d9a6ba5d98cc9cab05df906169a1e62515e",
+  "sourceSnapshotSha256": "a695d6a4d8b197f1a4d8222fa7208a7d1caf019062d7e37403d5f12c87523c60",
+  "cocosSource": "2838422d81337ed4f28dbe0a0236b5bbd9575d6ccb053cffad9cae7796d492fd",
+  "sameWebAssetsBothPlatforms": true,
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 306,
+  "serverDeploymentPerformed": true,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.4-build40.apk",
+      "version": "0.7.4",
+      "build": 40,
+      "bytes": 111951132,
+      "sha256": "a8a4161a94483085979f9a96dbaa4ead06d96e6e8aa4a9e098e002cd31054ede",
+      "matchedWebFiles": 204,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.4-build40-AdHoc.ipa",
+      "version": "0.7.4",
+      "build": 40,
+      "bytes": 113606724,
+      "sha256": "7b9d55d0f29c606db5dfa3f3bd11f982836729f2426b5633d83cea770049c784",
+      "matchedWebFiles": 204,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  },
+  "server": {
+    "version": "0.7.4",
+    "build": 40,
+    "health": "healthy",
+    "endpoint": "https://212.189.31.194/mahjong",
+    "databasePreserved": true,
+    "backup": "/opt/jinling-mahjong/database-backups/0.7.4-build40-final.sqlite",
+    "previousRelease": "0.7.3-build39",
+    "unitTestsPassed": 306,
+    "cocosFilesMatched": 96,
+    "deploymentSourceFilesVerified": 630,
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true
+  },
+  "checks": {
+    "macTestFiles": 32,
+    "linuxTestFiles": 32,
+    "typescript": true,
+    "portableCocosRuntime": true,
+    "credentialPatternHits": 0,
+    "realDeviceRunThisRelease": false
+  }
+}

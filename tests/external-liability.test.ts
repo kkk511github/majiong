@@ -6,10 +6,10 @@ import { externalRound } from "./fixtures/external-round";
 
 describe("用户确认的进园子外包固定记分", () => {
   it.each(["three", "pure", "global"] as const)(
-    "%s 外包50/100独立于桌内余额",
+    "%s 合法胡牌后外包50/100不受桌内余额上限影响",
     (kind) => {
       for (const multiplier of [1, 2])
-        for (const payerBalance of [0, 8]) {
+        for (const payerBalance of kind === "three" ? [0, 8] : [1, 8]) {
           const g = externalRound({ kind, multiplier, payerBalance });
           const payer = kind === "three" ? 0 : 3,
             amount = multiplier === 1 ? 50 : 100;
@@ -46,6 +46,17 @@ describe("用户确认的进园子外包固定记分", () => {
         }
     },
   );
+  it.each(["pure", "global"] as const)("%s 零分点炮者不能以桌外承包为由被胡", kind => {
+    for (const multiplier of [1, 2]) {
+      const g = externalRound({ kind, multiplier, payerBalance: 0 });
+      expect(g.phase).toBe("playing");
+      expect(g.result).toBeUndefined();
+      expect(g.history).toEqual([]);
+      expect(g.players.map(p => p!.score)).toEqual(g.roundStartScores);
+      expect(g.players.every(p => p!.externalScore === 0)).toBe(true);
+      expect(g.roundTransfers ?? []).toEqual([]);
+    }
+  });
   it("图示顺子单钓不收三嘴外包，丁被抢补杠不收杠分", () => {
     const g = externalRound({ robbed: true, payerBalance: 8 });
     expect(g.result!.from).toBe(3);

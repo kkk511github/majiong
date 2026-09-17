@@ -17,6 +17,7 @@ import {
   ruleDefaults,
 } from "../shared/nanjing-rules";
 import { scoreHand } from "../shared/scoring";
+import { settlementRows } from "../shared/settlement";
 import { structuralWaits, threeMouths } from "../shared/scoring-nanjing";
 import { createWall, kind, seededRandom } from "../shared/tiles";
 import { listeningHints } from "../src/listening-hints";
@@ -292,25 +293,207 @@ describe("荔枝南京计分档案", () => {
   });
 });
 
-describe("南京特殊牌局状态", () => {
-  it("用户保米牌例：甲16、乙0、丙8、丁336；丙胡甲后丁补76", () => {
-    let g = fixture(
-      [[30], [], [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30], []],
-      { twoBankrupt: true, protectWinner: true },
+describe("不能胡已归零的供牌者", () => {
+  const waiting = [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30];
+  function discardGame(id: Rules["id"] = "nj-garden-v2", balance = 0) {
+    const g = fixture([[30], waiting, [], []], {
+      id,
+      twoBankrupt: id !== "nj-open-v2",
+    });
+    g.players[0]!.score = balance;
+    g.roundStartScores[0] = balance;
+    return g;
+  }
+  it.each(["nj-garden-v2", "nj-garden-b-v3"] as const)(
+    "%s 零分出牌不提供胡牌，正分仍可点胡",
+    (id) => {
+      for (const balance of [0, 1]) {
+        const g = discardGame(id, balance);
+        const after = act(
+          g,
+          0,
+          { type: "discard", tile: g.players[0]!.hand[0] },
+          1000,
+        );
+        expect(viewFor(after, 1).actions.includes("hu")).toBe(balance > 0);
+        if (balance === 0) {
+          expect(after.phase).toBe("playing");
+          expect(after.turn).toBe(1);
+          expect(after.result).toBeUndefined();
+        } else {
+          const ended = pendingDone(after, { 1: "hu" });
+          expect(ended.result!.winners).toEqual([1]);
+          expect(ended.roundTransfers).toContainEqual({
+            from: 0,
+            to: 1,
+            amount: 1,
+            reason: "点炮",
+          });
+        }
+      }
+    },
+  );
+  it("实际记录的点炮牌型：出牌者零分时不能再产生零转分胡牌", () => {
+    const g = fixture([[], [], [], []], { twoBankrupt: true });
+    g.players[0]!.hand = [95];
+    g.players[1]!.hand = [10, 12, 15, 16, 19, 22, 44, 47, 81, 84, 90, 93, 94];
+    g.players[1]!.flowers = [136, 141, 128, 135, 137];
+    g.players.forEach((p, i) => (p!.score = [0, 102, 168, 90][i]));
+    g.roundStartScores = [0, 102, 168, 90];
+    g.ruleState!.multiplier = 2;
+    g.wall = g.wall.filter(
+      (t) =>
+        !g.players.some((p) => p!.hand.includes(t) || p!.flowers.includes(t)),
     );
-    g.players.forEach((p, i) => (p!.score = [16, 0, 8, 336][i]));
-    g.roundStartScores = [16, 0, 8, 336];
-    g = act(g, 0, { type: "discard", tile: g.players[0]!.hand[0] });
-    g = pendingDone(g, { 2: "hu" });
-    expect(g.phase).toBe("finished");
-    expect(g.players.map((p) => p!.score)).toEqual([0, 0, 100, 260]);
-    expect(g.roundTransfers).toEqual([
-      { from: 0, to: 2, amount: 16, reason: "点炮" },
-      { from: 3, to: 2, amount: 76, reason: "保米" },
-    ]);
-    expect(g.result!.deltas).toEqual([-16, 0, 92, -76]);
-    ledger(g);
+    expect(scoreHand(g.players[1]!, g.rules, { tile: 95 })).not.toBeNull();
+    const after = act(g, 0, { type: "discard", tile: 95 }, 1000);
+    expect(after.pending!.offers[1]).toEqual(["pung", "pass"]);
+    expect(viewFor(after, 1).actions).not.toContain("hu");
+    expect(() => act(after, 1, { type: "hu" }, 1001)).toThrow();
+    const continued = pendingDone(after);
+    expect(continued.phase).toBe("playing");
+    expect(continued.result).toBeUndefined();
+    expect(continued.players.map((p) => p!.score)).toEqual([0, 102, 168, 90]);
+    expect(continued.players[1]!.passedHu).toBe(false);
   });
+  it("零分供牌仍可碰、直杠", () => {
+    const g = fixture([[30], [30, 30, 30], [], []], { twoBankrupt: true });
+    g.players[0]!.score = 0;
+    const after = act(
+      g,
+      0,
+      { type: "discard", tile: g.players[0]!.hand[0] },
+      1000,
+    );
+    expect(viewFor(after, 1).actions).toEqual(["kong", "pung", "pass"]);
+    expect(
+      act(after, 1, { type: "pung" }, 1001).players[1]!.melds[0].type,
+    ).toBe("pung");
+    expect(
+      act(after, 1, { type: "kong" }, 1001).players[1]!.melds[0].type,
+    ).toBe("kong");
+  });
+  it("旧待操作状态隐藏胡按钮、拒绝胡请求，过牌不记过水", () => {
+    const g = discardGame("nj-garden-v2", 10);
+    const pending = act(
+      g,
+      0,
+      { type: "discard", tile: g.players[0]!.hand[0] },
+      1000,
+    );
+    pending.players[0]!.score = 0;
+    expect(viewFor(pending, 1).actions).toEqual(["pass"]);
+    expect(botAction(pending, 1)).toEqual({ type: "pass" });
+    expect(() => act(pending, 1, { type: "hu" }, 1001)).toThrow(
+      "不能胡桌内余额已归零的玩家",
+    );
+    expect(pending.pending!.replies).toEqual({});
+    const continued = act(pending, 1, { type: "pass" }, 1001);
+    expect(continued.players[1]!.passedHu).toBe(false);
+    expect(continued.result).toBeUndefined();
+  });
+  it("旧状态已收到的非法胡回复不会在其他人过牌后结算", () => {
+    const g = discardGame("nj-garden-v2", 10);
+    const pending = act(
+      g,
+      0,
+      { type: "discard", tile: g.players[0]!.hand[0] },
+      1000,
+    );
+    pending.players[0]!.score = 0;
+    pending.pending!.replies[1] = "hu";
+    pending.pending!.offers[2] = ["pass"];
+    const continued = act(pending, 2, { type: "pass" }, 1001);
+    expect(continued.phase).toBe("playing");
+    expect(continued.result).toBeUndefined();
+  });
+  it.each([0, 100])("补杠者余额 %i：零分不能抢杠，正分仍可抢杠", (balance) => {
+    const g = fixture([[3], [1, 2, 6, 6], [], []], { twoBankrupt: true });
+    g.players[0]!.score = balance;
+    g.players[0]!.melds = [
+      { type: "pung", tiles: [13, 14, 15], from: 2, concealed: false },
+    ];
+    g.players[1]!.melds = [9, 18, 27].map((k, i) => ({
+      type: "pung",
+      tiles: [k * 4, k * 4 + 1, k * 4 + 2],
+      from: (i % 2 === 0 ? 2 : 3) as Seat,
+      concealed: false,
+    }));
+    g.players[1]!.flowers = [124, 128, 132, 136];
+    const held = new Set(
+      g.players.flatMap((p) => [
+        ...p!.hand,
+        ...p!.flowers,
+        ...p!.melds.flatMap((m) => m.tiles),
+      ]),
+    );
+    g.wall = g.wall.filter((t) => !held.has(t));
+    const after = act(g, 0, { type: "selfKong", tile: 12 }, 1000);
+    expect(viewFor(after, 1).actions.includes("hu")).toBe(balance > 0);
+    if (balance === 0) expect(after.players[0]!.melds[0].type).toBe("kong");
+    else expect(pendingDone(after, { 1: "hu" }).result!.winners).toEqual([1]);
+  });
+  it.each([0, -10])("敞开头出牌者余额 %i 仍可被点胡", (balance) => {
+    const g = discardGame("nj-open-v2", balance);
+    const after = act(
+      g,
+      0,
+      { type: "discard", tile: g.players[0]!.hand[0] },
+      1000,
+    );
+    expect(viewFor(after, 1).actions).toContain("hu");
+    expect(pendingDone(after, { 1: "hu" }).players[0]!.score).toBeLessThan(
+      balance,
+    );
+  });
+  it("零分玩家可点胡有余额的人，也可自摸", () => {
+    const g = discardGame("nj-garden-b-v3", 100);
+    g.players[1]!.score = 0;
+    const after = act(
+      g,
+      0,
+      { type: "discard", tile: g.players[0]!.hand[0] },
+      1000,
+    );
+    expect(pendingDone(after, { 1: "hu" }).players[1]!.score).toBeGreaterThan(
+      0,
+    );
+    const self = fixture([[...waiting, 30], [], [], []], {
+      id: "nj-garden-b-v3",
+      twoBankrupt: true,
+    });
+    self.players[0]!.score = 0;
+    expect(viewFor(self, 0).actions).toContain("hu");
+    expect(
+      act(self, 0, { type: "hu" }, 1000).players[0]!.score,
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe("南京特殊牌局状态", () => {
+  it.each(["nj-garden-v2", "nj-garden-b-v3"] as const)(
+    "用户保米牌例 %s：甲16、乙0、丙8、丁336；丙胡甲后丁补76",
+    (id) => {
+      let g = fixture(
+        [[30], [], [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30], []],
+        { id, twoBankrupt: true, protectWinner: true },
+      );
+      g.players.forEach((p, i) => (p!.score = [16, 0, 8, 336][i]));
+      g.roundStartScores = [16, 0, 8, 336];
+      g.settlementBase = 100;
+      g = act(g, 0, { type: "discard", tile: g.players[0]!.hand[0] });
+      g = pendingDone(g, { 2: "hu" });
+      expect(g.phase).toBe("finished");
+      expect(g.players.map((p) => p!.score)).toEqual([0, 0, 100, 260]);
+      expect(g.roundTransfers).toEqual([
+        { from: 0, to: 2, amount: 16, reason: "点炮" },
+        { from: 3, to: 2, amount: 76, reason: "保米" },
+      ]);
+      expect(g.result!.deltas).toEqual([-16, 0, 92, -76]);
+      expect(settlementRows(g.history[0]).find(row => row.seat === 2)).toMatchObject({ net: 0, recorded: 0 });
+      ledger(g);
+    },
+  );
   it("图示规则：同家前三碰后普通顺子单钓不触发外包", () => {
     let g = fixture([[0, 1, 2, 30, 30], [], [], []]);
     g.players[0]!.melds = [9, 18, 27].map((k) => ({

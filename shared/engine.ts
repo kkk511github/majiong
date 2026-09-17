@@ -700,6 +700,9 @@ function scoreForWin(g: Game, seat: Seat, tile?: Tile, robbed = false) {
     robbed,
   });
 }
+function canClaimHuFrom(g: Game, from: Seat) {
+  return !g.rules.twoBankrupt || g.players[from]!.score > 0;
+}
 function settle(
   g: Game,
   winners: Seat[],
@@ -905,7 +908,12 @@ function offerClaims(
     if (seat !== from) {
       const p = g.players[seat]!,
         options: Claim[] = [];
-      if (!p.passedHu && scoreForWin(g, seat, tile, robbed)) options.push("hu");
+      if (
+        canClaimHuFrom(g, from) &&
+        !p.passedHu &&
+        scoreForWin(g, seat, tile, robbed)
+      )
+        options.push("hu");
       const c = p.hand.filter((t) => kind(t) === kind(tile)).length;
       if (!robbed && !p.passedPung.includes(kind(tile))) {
         if (
@@ -966,7 +974,10 @@ function resolveClaims(g: Game, now: number) {
     )
   )
     return;
-  const winners = seats.filter((s) => pending.replies[s] === "hu");
+  // Persisted claims from an older server must obey the current payer limit too.
+  const winners = canClaimHuFrom(g, pending.from)
+    ? seats.filter((s) => pending.replies[s] === "hu")
+    : [];
   if (winners.length) {
     settle(g, winners, pending.from, now, pending.kind === "robKong");
     return;
@@ -1046,8 +1057,14 @@ export function act(
       pending.replies[seat] !== undefined
     )
       throw Error("该操作已失效");
+    if (action.type === "hu" && !canClaimHuFrom(g, pending.from))
+      throw Error("不能胡桌内余额已归零的玩家");
     pending.replies[seat] = action.type as Claim;
-    if (action.type !== "hu" && pending.offers[seat]!.includes("hu"))
+    if (
+      action.type !== "hu" &&
+      canClaimHuFrom(g, pending.from) &&
+      pending.offers[seat]!.includes("hu")
+    )
       p.passedHu = true;
     if (action.type === "pass" && pending.offers[seat]!.includes("pung"))
       p.passedPung.push(kind(pending.tile));
@@ -1185,7 +1202,9 @@ export function viewFor(g: Game, me: Seat): View {
     actions:
       g.phase === "claiming"
         ? pending!.replies[me] === undefined
-          ? (pending!.offers[me] ?? [])
+          ? (pending!.offers[me] ?? []).filter(
+              (claim) => claim !== "hu" || canClaimHuFrom(g, pending!.from),
+            )
           : []
         : g.phase === "playing" &&
             g.turn === me &&

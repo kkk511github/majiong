@@ -24,6 +24,9 @@ docs/research
 **/*.apk
 **/*.aab
 **/*.ipa
+**/telegram-config.tar.gz
+**/telegram-bot-token
+**/initial-admin-password
 
 cocos-table/library
 cocos-table/temp

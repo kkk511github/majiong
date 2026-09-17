@@ -1,0 +1,50 @@
+services:
+  mahjong:
+    image: jinling-mahjong:${MAHJONG_RELEASE:?Set MAHJONG_RELEASE}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: "8787"
+      DATABASE_PATH: /app/data/mahjong.sqlite
+    volumes:
+      - mahjong-data:/app/data
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 6
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+  gateway:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      MAHJONG_DOMAIN: ${MAHJONG_DOMAIN:?Set MAHJONG_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./mahjong.routes:/etc/caddy/mahjong.routes:ro
+      - ./acme:/var/www/acme:ro
+      - ./letsencrypt:/etc/letsencrypt:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      mahjong:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+volumes:
+  mahjong-data:
+    name: jinling-mahjong_mahjong-data
+  caddy-data:
+  caddy-config:

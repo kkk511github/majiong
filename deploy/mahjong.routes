@@ -1,0 +1,33 @@
+redir /mahjong /mahjong/ 308
+handle /mahjong/ {
+    rewrite * /api/health
+    reverse_proxy mahjong:8787
+}
+handle /mahjong/api/voice/* {
+    request_body {
+        max_size 480KB
+    }
+    uri strip_prefix /mahjong
+    reverse_proxy mahjong:8787
+}
+handle /mahjong/api/auth/avatar {
+    request_body {
+        max_size 180KB
+    }
+    uri strip_prefix /mahjong
+    reverse_proxy mahjong:8787
+}
+handle /mahjong/api/* {
+    request_body {
+        max_size 8KB
+    }
+    uri strip_prefix /mahjong
+    reverse_proxy mahjong:8787
+}
+handle /mahjong/ws {
+    uri strip_prefix /mahjong
+    reverse_proxy mahjong:8787
+}
+handle {
+    respond 404
+}

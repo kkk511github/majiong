@@ -34,6 +34,9 @@ work/
 *.apk
 *.aab
 *.log
+telegram-config.tar.gz
+telegram-bot-token
+initial-admin-password
 .codegraph/
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json

@@ -1,0 +1,19 @@
+{
+    auto_https off
+    default_sni {$MAHJONG_DOMAIN}
+}
+
+:80 {
+    handle /.well-known/acme-challenge/* {
+        root * /var/www/acme
+        file_server
+    }
+    handle {
+        redir https://{$MAHJONG_DOMAIN}{uri} 308
+    }
+}
+
+https://{$MAHJONG_DOMAIN} {
+    tls /etc/letsencrypt/live/mahjong-ip/fullchain.pem /etc/letsencrypt/live/mahjong-ip/privkey.pem
+    import /etc/caddy/mahjong.routes
+}

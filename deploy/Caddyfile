@@ -1,0 +1,7 @@
+{
+    email {$ACME_EMAIL}
+}
+
+{$MAHJONG_DOMAIN} {
+    import /etc/caddy/mahjong.routes
+}

@@ -7,6 +7,7 @@ import {
   Copy,
   Play,
   Layers3,
+  ReceiptText,
 } from "lucide-react";
 import type { MatchDetails, RoundRecord, StoredRound } from "../shared/types";
 import { signedScore, settlementRows, roundNet } from "../shared/settlement";
@@ -68,6 +69,7 @@ export function MatchRecordDetails({
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [round, setRound] = useState<StoredRound | null>(null);
+  const [roundView, setRoundView] = useState<"details" | "tiles">("details");
   const [readError, setReadError] = useState("");
   const [readRetry, setReadRetry] = useState(0);
   const [copied, setCopied] = useState("");
@@ -148,6 +150,10 @@ export function MatchRecordDetails({
           <button className="secondary" onClick={() => setRound(null)}>
             <ArrowLeft size={16} /> 返回整桌明细
           </button>
+          <div className="round-detail-tabs" role="tablist" aria-label="本把记录视图">
+            <button role="tab" aria-selected={roundView === "details"} onClick={() => setRoundView("details")}><ReceiptText size={16} />本把明细</button>
+            {round.record.hands && <button role="tab" aria-selected={roundView === "tiles"} onClick={() => setRoundView("tiles")}><Layers3 size={16} />查看牌面</button>}
+          </div>
           <button
             className="replay-open"
             onClick={() => replay(round.record.id)}
@@ -156,7 +162,12 @@ export function MatchRecordDetails({
           </button>
         </div>
         <div className="match-round-detail-content">
-          {round.record.hands ? (
+          {roundView === "details" ? (
+            <>
+              <h3>第 {round.record.round} 把 · 本把明细</h3>
+              <ScoreDetails record={visibleRecord} />
+            </>
+          ) : round.record.hands ? (
             <RoundReveal
               record={visibleRecord}
               view={{
@@ -181,7 +192,6 @@ export function MatchRecordDetails({
               me={round.me}
             />
           )}
-          <ScoreDetails record={visibleRecord} />
         </div>
       </div>
     );
@@ -284,10 +294,13 @@ export function MatchRecordDetails({
                   {copied === item.record.id ? "已复制" : "复制"}
                 </button>
               </div>
-              <button className="secondary" onClick={() => setRound(item)}>
-                {item.record.hands ? "查看牌面" : "积分明细"}
+              <button className="secondary" onClick={() => {setRoundView("details");setRound(item);}}>
+                <ReceiptText size={15} /> 本把明细
                 <ChevronRight size={15} />
               </button>
+              {item.record.hands && <button className="secondary" onClick={() => {setRoundView("tiles");setRound(item);}}>
+                查看牌面 <ChevronRight size={15} />
+              </button>}
               <button
                 className="replay-open"
                 onClick={() => replay(item.record.id)}

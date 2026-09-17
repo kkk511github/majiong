@@ -11,12 +11,12 @@ final class MahjongTrustPlugin: CAPPlugin, CAPBridgedPlugin {
     let jsName = "MahjongTrust"
     let pluginMethods: [CAPPluginMethod] = []
     private let pins: Set<String> = [
-        "0r4Pzsa3t/R8xk3xj2soZuk3yEmLPsPB+0akbI8jwYE=",
+        "BrGD/t9z27GDhoip8as9bN1S2nvw9iqMg1DcuJ4/XD8=",
         "dfm3bK4EvX/RSw9BIqLe/NtrFl7IuV4EMshqVxWX0kA="
     ]
     override func handleWKWebViewURLAuthenticationChallenge(_ challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) -> Bool {
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust else { return false }
-        guard challenge.protectionSpace.host == "212.189.31.194",
+        guard challenge.protectionSpace.host == "212.189.31.46",
               let trust = challenge.protectionSpace.serverTrust,
               SecTrustEvaluateWithError(trust, nil),
               let key = SecTrustCopyKey(trust),

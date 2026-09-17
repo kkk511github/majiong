@@ -69,9 +69,7 @@ for (const [width, height, left, right] of [
     await expect(page.locator(".home-live-heading")).toContainText(
       "1 桌有空位",
     );
-    await expect(page.locator(".home-table").first()).toContainText(
-      "还差 1 人",
-    );
+    await expect(page.locator(".home-table").first()).toContainText("等待入座");
     await expect(page.locator(".home-table").nth(1)).toContainText(
       "对局中 3/4",
     );
@@ -133,7 +131,7 @@ for (const [width, height, left, right] of [
     await expect(page.locator(".home-live-heading")).toContainText(
       "0 桌有空位",
     );
-    await expect(page.locator(".home-seat.vacant")).toHaveCount(0);
+    await expect(page.locator(".home-table-join")).toHaveCount(0);
     await page.screenshot({
       path: `${captures}/online-home-empty-${width}.png`,
     });
@@ -187,15 +185,28 @@ test("首页完整联机：管理员开桌，三人准备实时展示，点最�
       name: `${tableName} 房号 ${code}`,
       exact: true,
     });
-    await expect(featured).toContainText("还差 1 人");
-    await expect(featured.locator(".ready")).toHaveCount(3);
+    await expect(featured).toContainText("等待入座");
+    await expect(featured.locator(".ready")).toHaveText("3 人已准备");
     await page.screenshot({ path: `${captures}/online-home-live.png` });
     await featured
       .getByRole("button", { name: `${code} 北位入座`, exact: true })
       .click();
     await page.getByRole("button", { name: "我准备好了", exact: true }).click();
-    for (const p of [page, ...peerPages])
-      await expect(p.getByLabel("我的手牌")).toBeVisible();
+    for (const p of [page, ...peerPages]) {
+      await expect(p.getByRole("main", { name: "南京麻将牌桌" })).toBeVisible();
+      await expect(
+        p.getByRole("list", { name: "玩家状态" }).getByRole("listitem"),
+      ).toHaveCount(4);
+      await expect
+        .poll(() =>
+          p.evaluate(async () => {
+            const { client } = await import("/src/game-client.ts" as string);
+            return client.state.view?.phase;
+          }),
+        )
+        .toBe("playing");
+      await expect(p.locator("#cocos-table-board iframe")).toBeVisible();
+    }
   } finally {
     await Promise.all(peers.map((c) => c.close()));
   }
@@ -212,13 +223,13 @@ test("首页断线不显示陈旧空位为在线，恢复后自动更新", async
     });
   });
   await page.goto("/");
-  await expect(page.locator(".home-seat.vacant")).toHaveCount(1);
+  await expect(page.locator(".home-table-join")).toHaveCount(1);
   disconnect!();
   await expect(page.locator(".home-live-heading")).not.toContainText(
     "1 桌有空位",
   );
-  await expect(page.locator(".home-seat.vacant")).toHaveCount(0);
-  await expect(page.locator(".home-seat.vacant")).toHaveCount(1, {
+  await expect(page.locator(".home-table-join")).toHaveCount(0);
+  await expect(page.locator(".home-table-join")).toHaveCount(1, {
     timeout: 12000,
   });
 });
@@ -319,7 +330,7 @@ test("列表回复丢失自动重连，刷新期间不允许点击旧空位", as
     "true",
   );
   await expect(page.locator(".home-live-heading")).toContainText("更新中");
-  await expect(page.locator(".home-seat.vacant")).toBeDisabled();
+  await expect(page.locator(".home-table-join")).toBeDisabled();
   await expect(page.locator(".home-table")).toContainText("恢复后的列表", {
     timeout: 18000,
   });
@@ -371,7 +382,7 @@ for (const [width, height] of [
     await expect(
       page.getByRole("button", { name: "重新连接", exact: true }),
     ).toHaveCount(0);
-    await expect(page.locator(".home-seat.vacant")).toBeDisabled();
+    await expect(page.locator(".home-table-join")).toBeDisabled();
     await expect(page.locator(".home-table .ready")).toHaveCount(0);
     const after = (await card.boundingBox())!;
     for (const key of ["x", "y", "width", "height"] as const)

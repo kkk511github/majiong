@@ -1,4 +1,4 @@
-@font-face{font-family:"Mahjong Win Brush";src:url("/fonts/mahjong-win-brush-v1.ttf") format("truetype");font-display:block}
+@font-face{font-family:"Mahjong Win Brush";src:url("/fonts/mahjong-win-brush-v2.ttf") format("truetype");font-display:block}
 .table-win-effect{position:absolute;inset:0;z-index:8;pointer-events:none;color:#fff1c6}
 .win-callout{position:absolute;isolation:isolate;display:flex;align-items:center;gap:8px;box-sizing:border-box;padding:2px 4px;border:0;background:none;animation:win-arrive .35s ease-out}
 .win-callout::before{content:"";position:absolute;z-index:-1;inset:0 -8px;background:radial-gradient(ellipse at 40% 55%,#082f25b0 0%,#092c2460 42%,transparent 72%);filter:blur(3px)}
@@ -9,6 +9,8 @@
 .win-callout-side{flex-direction:column;gap:2px;text-align:center}
 .win-callout[data-relative-seat="2"]{justify-content:center}
 .win-callout-side .win-call-details{max-width:100%}
+.win-callout-pattern .win-call-art{max-width:70%;white-space:normal;overflow-wrap:anywhere}
+.win-callout-side.win-callout-pattern .win-call-art{max-width:100%}
 .win-callout .winner{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @keyframes win-arrive{from{opacity:0;transform:translateY(4px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes win-light{from{opacity:0;transform:scaleX(.2);transform-origin:left}35%{opacity:1}to{opacity:.7;transform:scaleX(1)}}

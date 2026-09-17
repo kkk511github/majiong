@@ -12,14 +12,23 @@ const cases = [
   {width:568,me:2,from:3,winners:[1]},
   {width:1280,me:3,from:1,winners:[0,2]},
 ] as const;
-for(const {width,me,from,winners} of cases) {
+const specialCases = [
+  {width:568,me:0,from:undefined,winners:[1],pattern:"全球独钓",expected:"全球独钓"},
+  {width:1280,me:0,from:undefined,winners:[2],pattern:"大杠开花",expected:"杠上开花"},
+  {width:568,me:0,from:0,winners:[3],pattern:"超豪华双七对",expected:"超豪华双七对"},
+] as const;
+for(const c of [...cases,...specialCases]) {
+  const {width,me,from,winners}=c;
+  const pattern="pattern" in c?c.pattern:undefined;
+  const expected="expected" in c?c.expected:(from===undefined?"自摸":"胡");
   const selfDraw=from===undefined;
-  const label=`${width}-me${me}-${selfDraw?'self':`from${from}`}-win${winners.join('')}`;
+  const label=`${width}-me${me}-${selfDraw?'self':`from${from}`}-win${winners.join('')}-${pattern??"ordinary"}`;
   test(`胡牌和点炮特效跟随各自座位，重连不重播 ${label}`,async({page})=>{
     const height=width===568?320:590;
     await page.setViewportSize({width,height});
     const game=completedRound();game.code='528613';
     const result=structuredClone(game.result!);result.winners=[...winners];result.from=from;
+    result.details=Object.fromEntries(winners.map(seat=>[seat,{total:20,kinds:[],items:[{label:pattern??"成牌",value:20}]}]));
     const names=game.players.map(p=>p!.name);
     game.result=undefined;game.phase='playing';game.deadline=Date.now()+600000;
     let socket:any;
@@ -56,14 +65,18 @@ for(const {width,me,from,winners} of cases) {
       if(offset===3){expect(badge.x+badge.width).toBeLessThan(width*.25);expect(badge.y).toBeLessThan(h*.65);}
     }
     await expect.poll(()=>page.evaluate(()=>(window as any).__winVoice)).toEqual(['胡了']);
-    await expect(effect).toContainText(selfDraw?`${result.winners.map(s=>names[s]).join('、')}自摸`:`${names[from!]}点炮 → ${result.winners.map(s=>names[s]).join('、')}胡牌`);
+    await expect(effect).toContainText(`${selfDraw?"":`${names[from!]}点炮 → `}${result.winners.map(s=>`${names[s]}${expected}`).join('、')}`);
     await expect(effect.locator('.win-callout')).toHaveCount(winners.length);
     await expect(effect.locator('.win-call-art')).toHaveCount(winners.length);
     const boxes=[];
     for(const seat of winners){
       const callout=effect.locator(`.win-callout[data-seat="${seat}"]`),offset=(seat-me+4)%4;
       await expect(callout).toHaveAttribute('data-relative-seat',String(offset));
-      await expect(callout.getByRole('img',{name:selfDraw?'自摸':'胡',exact:true})).toBeVisible();
+      await expect(callout.getByRole('img',{name:expected,exact:true})).toBeVisible();
+      const textBounds=(await callout.locator('.win-call-art').boundingBox())!;
+      const containerBounds=(await callout.boundingBox())!;
+      expect(textBounds.x).toBeGreaterThanOrEqual(containerBounds.x);
+      expect(textBounds.x+textBounds.width).toBeLessThanOrEqual(containerBounds.x+containerBounds.width+1);
       await expect(callout.locator('.winner')).toHaveText(names[seat]);
       await expect(callout).toBeInViewport({ratio:1});
       const box=(await callout.boundingBox())!;boxes.push(box);
@@ -78,9 +91,11 @@ for(const {width,me,from,winners} of cases) {
     }
     await expect(page.getByRole('dialog')).not.toBeVisible();
     mkdirSync('test-results/screenshots',{recursive:true});
+    await expect.poll(()=>effect.locator('.win-callout').first().evaluate(el=>getComputedStyle(el).opacity)).toBe('1');
     await page.screenshot({path:`test-results/screenshots/win-presentation-${label}.png`});
     await expect(effect).not.toBeVisible({timeout:6000});
     await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.locator('.result-call-label')).toHaveText(expected);
     game.revision++;push();await expect(effect).not.toBeVisible();
     expect(await page.evaluate(()=>(window as any).__winVoice)).toEqual(['胡了']);
     await page.reload();await expect(page.getByRole('dialog')).toBeVisible();await expect(effect).not.toBeVisible();

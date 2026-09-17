@@ -3,11 +3,11 @@ import {
   ArrowRight,
   BookOpen,
   ChevronRight,
+  GraduationCap,
   LayoutGrid,
   Plus,
   RefreshCw,
   Users,
-  UserRound,
   WifiOff,
 } from "lucide-react";
 import { mayCreateTables } from "../shared/permissions";
@@ -29,68 +29,43 @@ function HomeTable({
 }) {
   const occupied = t.seats.filter(Boolean).length;
   const waiting = t.phase === "waiting";
+  const vacantSeat = t.seats.findIndex((p) => !p);
+  const ready = t.seats.filter((p) => p?.ready && p.online).length;
   return (
     <article className="home-table" aria-label={`${t.name} 房号 ${t.code}`}>
+      <img className="home-table-image" src="/art/home-table-v1.webp" alt="" />
       <div className="home-table-heading">
-        <div>
-          <strong>{t.name}</strong>
+        <strong title={t.name}>{t.name}</strong>
+        <span className="home-table-meta">
+          <span>{t.code}</span>
           <span>
-            {t.code} · {t.rules.rounds} 局
+            <Users size={14} aria-hidden="true" />
+            {occupied}/4 人
           </span>
-        </div>
-        <span
-          className={`home-table-status ${waiting ? "waiting" : "playing"}`}
-        >
-          {refreshing
-            ? "更新中"
-            : waiting
-              ? occupied === 4
-                ? "等待准备"
-                : `还差 ${4 - occupied} 人`
-              : `对局中 ${t.round}/${t.rules.rounds}`}
         </span>
+        {waiting && ready > 0 && !refreshing && (
+          <small className="ready">{ready} 人已准备</small>
+        )}
       </div>
-      <div className="home-table-seats">
-        {t.seats.map((p, i) =>
-          p ? (
-            <div className={`home-seat occupied seat-tone-${i}`} key={i}>
-              <span className="home-seat-avatar" aria-hidden="true">
-                {p.name.slice(0, 1) || <UserRound size={18} />}
-              </span>
-              <div>
-                <strong>{p.isMe ? "我" : p.name}</strong>
-                <small
-                  className={!refreshing && p.ready && p.online ? "ready" : ""}
-                >
-                  {refreshing
-                    ? "待更新"
-                    : !p.online
-                      ? "离线"
-                      : waiting
-                        ? p.ready
-                          ? "已准备"
-                          : "待准备"
-                        : "对局中"}
-                </small>
-              </div>
-            </div>
-          ) : (
-            <button
-              className="home-seat vacant"
-              key={i}
-              disabled={busy || !waiting}
-              aria-label={`${t.code} ${winds[i]}位入座`}
-              onClick={() => client.joinTable(name, t.code, i as Seat)}
-            >
-              <span className="home-seat-avatar">
-                <Plus size={19} />
-              </span>
-              <div>
-                <strong>入座</strong>
-                <small>{winds[i]}位空闲</small>
-              </div>
-            </button>
-          ),
+      <span className={`home-table-status ${waiting ? "waiting" : "playing"}`}>
+        {refreshing
+          ? "更新中"
+          : waiting
+            ? occupied === 4
+              ? "等待准备"
+              : "等待入座"
+            : `对局中 ${t.round}/${t.rules.rounds}`}
+      </span>
+      <div className="home-table-action">
+        {waiting && vacantSeat >= 0 && (
+          <button
+            className="home-table-join"
+            disabled={busy}
+            aria-label={`${t.code} ${winds[vacantSeat]}位入座`}
+            onClick={() => client.joinTable(name, t.code, vacantSeat as Seat)}
+          >
+            入桌
+          </button>
         )}
       </div>
     </article>
@@ -169,7 +144,6 @@ export function OnlineHome({
         )}
 
         <div className="home-intro">
-          <span className="home-eyebrow">金陵相聚 · 好友同桌</span>
           <h1>南京麻将</h1>
           <p>
             碰杠不吃<span>·</span>二十张花<span>·</span>四人约局
@@ -184,7 +158,6 @@ export function OnlineHome({
             <LayoutGrid size={25} />
             <span>
               <strong>进入牌桌大厅</strong>
-              <small>选桌入座 · 与牌友一起开局</small>
             </span>
             <ArrowRight size={23} />
           </button>
@@ -197,9 +170,7 @@ export function OnlineHome({
               onClick={joinByCode}
             >
               <Users size={21} />
-              <span>
-                房号入桌<small>输入 6 位房间号</small>
-              </span>
+              <span>房号入桌</span>
             </button>
             {canOpen && (
               <button
@@ -211,9 +182,7 @@ export function OnlineHome({
                 }}
               >
                 <Plus size={20} />
-                <span>
-                  开桌设置<small>设置玩法 · 邀友牌友</small>
-                </span>
+                <span>开桌设置</span>
               </button>
             )}
           </div>
@@ -222,6 +191,7 @@ export function OnlineHome({
           <button onClick={rules}>
             <BookOpen size={15} />
             玩法说明
+            <ChevronRight size={13} />
           </button>
           <i />
           <button
@@ -230,6 +200,7 @@ export function OnlineHome({
             }
             onClick={practice}
           >
+            <GraduationCap size={18} />
             {resumable ? "继续练习" : "单人练习"}
             <ChevronRight size={13} />
           </button>
@@ -237,6 +208,7 @@ export function OnlineHome({
             <button
               className="home-new-practice"
               aria-label="新开练习"
+              title="新开练习"
               onClick={newPractice}
             >
               <RefreshCw size={14} />
@@ -250,19 +222,34 @@ export function OnlineHome({
             <span className={`home-live-dot ${connected ? "live" : ""}`} />
             <h2>牌友正在等你</h2>
           </div>
-          <span
-            role="status"
-            className={refreshing ? "home-refresh-status" : undefined}
-          >
-            {refreshing && <RefreshCw size={12} aria-hidden="true" />}
-            {refreshing
-              ? "更新中…"
-              : live
-                ? `${waiting.length} 桌有空位`
-                : state.connecting || state.tablesLoading
-                  ? "连接中…"
-                  : "连接已断开"}
-          </span>
+          <div className="home-live-tools">
+            <span
+              role="status"
+              className={refreshing ? "home-refresh-status" : undefined}
+            >
+              {refreshing && <RefreshCw size={12} aria-hidden="true" />}
+              {refreshing
+                ? "更新中…"
+                : live
+                  ? `${waiting.length} 桌有空位`
+                  : state.connecting || state.tablesLoading
+                    ? "连接中…"
+                    : "连接已断开"}
+            </span>
+            <button
+              className="home-refresh"
+              aria-label="刷新牌桌"
+              title="刷新牌桌"
+              disabled={state.connecting || state.tablesLoading}
+              onClick={() => client.browseTables(name)}
+            >
+              <RefreshCw size={18} />
+            </button>
+            <button className="home-all-tables" onClick={openTables}>
+              全部牌桌
+              <ChevronRight size={15} />
+            </button>
+          </div>
         </div>
         <div
           className="home-live-body"
@@ -277,21 +264,35 @@ export function OnlineHome({
               <HomeTable
                 key={t.code}
                 table={t}
-                busy={busy}
+                busy={
+                  busy || !state.account?.canPlay || !!state.account.playBlocked
+                }
                 refreshing={refreshing}
                 name={name}
               />
             ))
+          ) : !live &&
+            (refreshing || state.connecting || state.tablesLoading) ? (
+            <div
+              className="home-loading"
+              role="status"
+              aria-label={refreshing ? "正在更新牌桌" : "正在连接牌桌"}
+            >
+              {[0, 1, 2].map((i) => (
+                <div className="home-table-skeleton" key={i} aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="home-empty">
-              <div className="home-empty-table" aria-hidden="true">
-                <span>金陵</span>
-                {winds.map((w) => (
-                  <i key={w}>
-                    <UserRound size={19} />
-                  </i>
-                ))}
-              </div>
+              <img
+                className="home-empty-image"
+                src="/art/home-table-v1.webp"
+                alt=""
+              />
               <strong>
                 {refreshing
                   ? "正在更新牌桌"
@@ -327,13 +328,9 @@ export function OnlineHome({
             {refreshing
               ? "正在更新空位 · 稍后即可入座"
               : live && visibleTables.length
-                ? `共 ${visibleTables.length} 桌 · 上下滑动选桌`
+                ? `共 ${visibleTables.length} 桌`
                 : "好友联机 · 四人同桌"}
           </span>
-          <button onClick={openTables}>
-            全部牌桌
-            <ChevronRight size={15} />
-          </button>
         </div>
       </aside>
       {setup && canOpen && (

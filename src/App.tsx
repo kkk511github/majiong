@@ -9,6 +9,7 @@ import { CocosTable } from "./CocosTable";
 import { cocosState } from "./cocos-state";
 import { referenceRiverSlot } from "./table-camera";
 import { TableSeatTiles, SurfaceTile } from "./TableSeat";
+import { meldDisplayTiles } from "../shared/table-scene";
 import { MeldSourceArrow } from "./MeldSourceArrow";
 import { useRiverPlacement } from "./river-placement";
 import { RoomVoice } from "./RoomVoice";
@@ -62,6 +63,7 @@ const RecordsPanel = lazy(() => import("./RecordsPanel").then(m => ({ default: m
 import { Settlement, ScoreDetails } from "./Settlement";
 import { roundReadiness } from "./round-readiness";
 import { RoundReveal } from "./RoundReveal";
+import { resultDisplayLabel } from "./win-label";
 import { listeningHints, readyDiscardTiles } from "./listening-hints";
 import { riverLayoutFor, tableRiverLayout } from "./river-layout";
 import { DiscardArrow } from "./DiscardArrow";
@@ -1233,7 +1235,7 @@ export function App() {
           }
           variant="round-reveal-dialog"
           headerAside={<>
-            {v.result.reason === "hu" && <img className="result-call-art" src={`${import.meta.env.BASE_URL}art/effects/${v.result.from === undefined ? "self-draw" : "hu"}-gold-v1.png`} alt={v.result.from === undefined ? "自摸" : "胡"} />}
+            {v.result.reason === "hu" && <strong className="result-call-label">{resultDisplayLabel(v.result)}</strong>}
             <button className="result-details-button" aria-pressed={scoreDetailsKey === resultKey} onClick={() => setScoreDetailsKey(scoreDetailsKey === resultKey ? "" : resultKey)}>
               {scoreDetailsKey === resultKey ? "查看牌面" : "计分详情"}
             </button>
@@ -1444,13 +1446,9 @@ export function App() {
                         {p.melds.map((m, i) => (
                           <div key={i}>
                             <span>
-                              {m.concealed && !m.tiles.length
-                                ? Array.from({ length: 4 }, (_, n) => (
-                                    <TileBack key={n} />
-                                  ))
-                                : m.tiles.map((t) => (
-                                    <Tile key={t} tile={t} small />
-                                  ))}
+                              {meldDisplayTiles(m).map((t, n) => t === undefined
+                                ? <TileBack key={n} />
+                                : <Tile key={n} tile={t} small />)}
                             </span>
                             <small>
                               {m.concealed

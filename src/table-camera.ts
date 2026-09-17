@@ -18,7 +18,7 @@ export function referenceRiverSlot(
   const row = Math.floor(index / 8), col = index % 8;
   const originY = 100 * unit;
   if (seat === 0) return { left: w * .42 + col * tw, top: viewportHeight * .54 - originY + row * (th + 4 * unit) };
-  if (seat === 2) return { left: w * .446 + col * tw, top: viewportHeight * .255 - originY - row * (th + 4 * unit) };
+  if (seat === 2) return { left: w * .446 + (7 - col) * tw, top: viewportHeight * .255 - originY - row * (th + 4 * unit) };
   return {
     left: w * (seat === 1 ? .625 : .335) + (seat === 1 ? 1 : -1) * row * (th + 4 * unit),
     top: viewportHeight * .30 - originY + col * tw,

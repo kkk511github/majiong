@@ -214,7 +214,7 @@ html:root[data-table-platform] #table-board .my-info > div:last-child > button.t
 .trustee-button > span { white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .floating-discard-pointer img { animation: none; } }
 
-.result-call-art { width: 62px; height: 46px; object-fit: contain; margin-left: auto; }
+.result-call-label { max-width: 40%; margin-left: auto; color: #f4cc78; font-family: var(--serif); font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; text-align: right; }
 .trustee-button svg { flex: 0 0 auto; }
 
 /* Explicit hand draw bay remains reserved even between turns. */

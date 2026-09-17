@@ -63,14 +63,24 @@ describe("用户提供的 B 档牌例：五花为软花与硬花的合计", () =
     expect(score.items).toContainEqual({ label: "软花 2 × 2", value: 4 });
     expect(score.items.some(i => i.label === "门清")).toBe(false);
   });
-  it("天胡加50，不再直接收取三家全部余额", () => {
+  it.each([1, 2])("天胡每家固定400，不叠加其他分或倍率%i；150/50/100全部清零", (multiplier) => {
     const p = player([0, 0, 0, 3, 4, 5, 9, 10, 11, 18, 19, 20, 22, 22]);
-    const g = game(p); g.ruleState!.heavenlyEligible = true;
+    const g = game(p, [90,150,50,100]); g.ruleState!.heavenlyEligible = true;
+    g.ruleState!.multiplier = multiplier;
     const ended = act(g, 0, { type: "hu" }, 1000);
-    expect(ended.result!.details[0]!.items).toContainEqual({ label: "天胡", value: 50 });
-    expect(ended.result!.details[0]!.total).toBe(80);
-    expect(ended.players.map(p => p!.score)).toEqual([330, 10, 10, 10]);
+    expect(ended.result!.details[0]!.items).toEqual([{ label: "天胡", value: 400 }]);
+    expect(ended.result!.details[0]!.total).toBe(400);
+    expect(ended.players.map(p => p!.score)).toEqual([390, 0, 0, 0]);
+    expect(ended.result!.transfers).toEqual([150,50,100].map((amount,index)=>({from:index+1,to:0,amount,reason:"天胡"})));
+    expect(ended.phase).toBe("finished");
+  });
+  it("天胡最多收每家400，余额充足者保留余额",()=>{
+    const p=player([0,0,0,3,4,5,9,10,11,18,19,20,22,22]);
+    const g=game(p,[90,650,500,400]);g.ruleState!.heavenlyEligible=true;
+    const ended=act(g,0,{type:"hu"},1000);
+    expect(ended.players.map(p=>p!.score)).toEqual([1290,250,100,0]);
     expect(ended.phase).toBe("ended");
+    expect(ended.result!.deltas.reduce((a,b)=>a+b,0)).toBe(0);
   });
   it("普通自摸三家各20；单一付款不足只付余额", () => {
     const ended = act(game(plain(), [90, 90, 90, 8]), 0, { type: "hu" }, 1000);
@@ -113,25 +123,37 @@ it("新桌固定花砸2和两家入园，旧版本分值和开关不变", () => 
   expect(normalizeRules({ id: "nj-garden-v2", flowerDouble: false, twoBankrupt: false })).toMatchObject({ flowerDouble: false, twoBankrupt: false });
 });
 
-it.each([1, 2])("暗杠每家5花，花砸2后10分，当前倍率%i", multiplier => {
+it.each([1, 2])("暗杠即时每家5分，不乘花砸2，当前倍率%i", multiplier => {
   const g = game(player([0, 0, 0, 0, 3, 4, 5, 9, 10, 11, 18, 19, 20, 22]));
   g.ruleState!.multiplier = multiplier;
   const ended = act(g, 0, { type: "selfKong", tile: 0 }, 1000);
-  expect(ended.roundTransfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 10 * multiplier, reason: "暗杠" })));
+  expect(ended.roundTransfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 5 * multiplier, reason: "暗杠" })));
 });
-it("B档三嘴后第四嘴暗杠立即收三家各10分，随后外包胡不撤销杠费", () => {
+it.each([1, 2])("杠费修正不改变胡牌软花和门清，当前倍率%i", multiplier => {
+  for (const [concealed, added, soft, total] of [
+    [true, false, 2, 34], [false, false, 1, 32], [false, true, 1, 22],
+  ] as const) {
+    const p = player([3, 4, 5, 9, 10, 11, 18, 19, 20, 22, 22]);
+    p.melds = [{ type: "kong", tiles: [0, 1, 2, 3], from: concealed ? 0 : 1, concealed, added }];
+    const score = scoreHand(p, rules, { multiplier })!;
+    expect(score.total).toBe(total * multiplier);
+    expect(score.items).toContainEqual({ label: `软花 ${soft} × 2`, value: soft * 2 });
+    expect(score.items.some(i => i.label === "门清")).toBe(!added);
+  }
+});
+it("B档三嘴后第四嘴暗杠立即收三家各5分，随后外包胡不撤销杠费", () => {
   const p = player([27, 27, 27, 27, 28], 0, [0, 9, 18]);
   p.melds.forEach(m => m.from = 1);
   const g = game(p);
   g.wall = [116, 120, 113];
   const kong = act(g, 0, { type: "selfKong", tile: 108 }, 1000);
-  const transfers = [1, 2, 3].map(from => ({ from, to: 0, amount: 10, reason: "暗杠" }));
-  expect(kong.players.map(p => p!.score)).toEqual([120, 80, 80, 80]);
+  const transfers = [1, 2, 3].map(from => ({ from, to: 0, amount: 5, reason: "暗杠" }));
+  expect(kong.players.map(p => p!.score)).toEqual([105, 85, 85, 85]);
   expect(kong.roundTransfers).toEqual(transfers);
   expect(kong.ruleState!.deferredConcealed ?? []).toEqual([]);
   const ended = act(kong, 0, { type: "hu" }, 2000);
-  expect(ended.players.map(p => p!.score)).toEqual([120, 80, 80, 80]);
-  expect(ended.result!.deltas).toEqual([30, -10, -10, -10]);
+  expect(ended.players.map(p => p!.score)).toEqual([105, 85, 85, 85]);
+  expect(ended.result!.deltas).toEqual([15, -5, -5, -5]);
   expect(ended.result!.externalDeltas).toEqual([50, -50, 0, 0]);
   expect(ended.result!.transfers).toEqual([
     ...transfers,
@@ -141,19 +163,19 @@ it("B档三嘴后第四嘴暗杠立即收三家各10分，随后外包胡不撤�
 it("B档第四嘴暗杠使两家桌内归零，立即终桌且不再补牌", () => {
   const p = player([27, 27, 27, 27, 28], 0, [0, 9, 18]);
   p.melds.forEach(m => m.from = 1);
-  const g = game(p, [320, 10, 10, 20]);
+  const g = game(p, [330, 5, 5, 20]);
   g.wall = [116, 120, 113];
   const ended = act(g, 0, { type: "selfKong", tile: 108 }, 1000);
   expect(ended.phase).toBe("finished");
   expect(ended.result!.reason).toBe("bankrupt");
-  expect(ended.players.map(p => p!.score)).toEqual([350, 0, 0, 10]);
-  expect(ended.result!.deltas).toEqual([30, -10, -10, -10]);
+  expect(ended.players.map(p => p!.score)).toEqual([345, 0, 0, 15]);
+  expect(ended.result!.deltas).toEqual([15, -5, -5, -5]);
   expect(ended.result!.externalDeltas).toEqual([0, 0, 0, 0]);
-  expect(ended.result!.transfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 10, reason: "暗杠" })));
+  expect(ended.result!.transfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 5, reason: "暗杠" })));
   expect(ended.wall).toEqual(g.wall);
   expect(ended.players[0]!.hand).toEqual([112]);
 });
-it.each([1, 2])("直杠由供牌者付10花，当前倍率%i", multiplier => {
+it.each([1, 2])("直杠由供牌者付10分，不乘花砸2，当前倍率%i", multiplier => {
   let g = game(player([0, 0, 0, 3, 4, 5, 9, 10, 11, 18, 19, 20, 22], 0));
   g.players[1]!.hand = [3];
   g.wall = g.wall.filter(t => t < 124 && t !== 3);
@@ -161,22 +183,24 @@ it.each([1, 2])("直杠由供牌者付10花，当前倍率%i", multiplier => {
   g = act(g, 1, { type: "discard", tile: 3 }, 1000);
   expect(g.pending!.offers[0]).toContain("kong");
   g = act(g, 0, { type: "kong" }, 1001);
-  expect(g.roundTransfers).toEqual([{ from: 1, to: 0, amount: 20 * multiplier, reason: "直杠" }]);
+  expect(g.roundTransfers).toEqual([{ from: 1, to: 0, amount: 10 * multiplier, reason: "直杠" }]);
   expect(g.players[0]!.melds[0]).toMatchObject({ type: "kong", concealed: false, from: 1 });
 });
-it("补杠收原供碰者20分，花杠另外三家各20分", () => {
+it.each([1, 2])("补杠收原供碰者10分，花杠每家10分，均乘当前倍率%i", multiplier => {
   const p = player([3, 4, 5, 9, 10, 11, 18, 19, 20, 22], 0, [0]);
   p.hand.push(3);
   let g = game(p);
+  g.ruleState!.multiplier = multiplier;
   g.wall = g.wall.filter(t => t < 124 && t !== 3);
   g = act(g, 0, { type: "selfKong", tile: 3 }, 1000);
-  expect(g.roundTransfers).toEqual([{ from: 1, to: 0, amount: 20, reason: "补杠" }]);
+  expect(g.roundTransfers).toEqual([{ from: 1, to: 0, amount: 10 * multiplier, reason: "补杠" }]);
   const f = game(player([8], 0));
+  f.ruleState!.multiplier = multiplier;
   f.players[1]!.flowers = [124, 125, 126];
   f.wall = [127, ...f.wall.filter(t => t < 124)];
   const flowered = act(f, 0, { type: "discard", tile: 32 }, 1000);
   expect(flowered.roundTransfers?.filter(t => t.reason === "花杠"))
-    .toEqual([0, 2, 3].map(from => ({ from, to: 1, amount: 20, reason: "花杠" })));
+    .toEqual([0, 2, 3].map(from => ({ from, to: 1, amount: 10 * multiplier, reason: "花杠" })));
 });
 it("B档直杠与暗杠保留门清，碰后补杠不恢复门清", () => {
   const p = player([3, 4, 5, 9, 10, 11, 18, 19, 20, 22, 22], 4, [0]);

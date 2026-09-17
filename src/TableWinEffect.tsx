@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { Result } from "../shared/types";
 import { layoutTable, sceneOffset, type TableSceneState } from "../shared/table-scene";
 import { tableOverlayLayout } from "./table-overlay-layout";
+import { winDisplayLabel } from "./win-label";
 import "./table-win-effect.css";
 
 /** Show each result beside the player it belongs to, relative to the viewer's seat. */
@@ -21,7 +22,8 @@ export function TableWinEffect({ state, result }: { state: TableSceneState; resu
         const offset=sceneOffset(seat,state.me),avatar=f.players[offset];
         const side=offset===1||offset===3;
         const width=Math.min(safeWidth,Math.max(side?70:180,(side?150:310)*f.scale));
-        const style={width,"--win-letter-size":`${Math.max(24,44*f.scale)}px`,"--win-name-size":`${Math.max(12,20*f.scale)}px`} as CSSProperties;
+        const letters=side?Math.min(4,winDisplayLabel(result,seat).length):winDisplayLabel(result,seat).length;
+        const style={width,"--win-letter-size":`${Math.min(Math.max(24,44*f.scale),(width-8)*(side?1:.68)/letters)}px`,"--win-name-size":`${Math.max(12,20*f.scale)}px`} as CSSProperties;
         if(offset===0){
           const hand=layoutTable(state).filter(t=>t.seat===seat&&t.area==="hand");
           const handTop=hand.length?Math.min(...hand.map(t=>t.y-t.h/2)):491;
@@ -49,17 +51,16 @@ export function TableWinEffect({ state, result }: { state: TableSceneState; resu
     };
     const observer=new ResizeObserver(resize);observer.observe(host);observer.observe(frame);resize();
     return ()=>observer.disconnect();
-  },[state,result.from,result.winners]);
-  const selfDraw=result.from===undefined;
+  },[state,result]);
   const name=(seat:number)=>state.players.find(p=>p.seat===seat)?.name??`牌友${seat+1}`;
   return <div ref={ref} className="table-win-effect" role="status" aria-label="胡牌结果">
     {result.from!==undefined&&<strong className="seat-discarder" data-seat={result.from} data-relative-seat={sceneOffset(result.from,state.me)} style={discarderPosition} aria-label={`${name(result.from)}点炮`}>点炮</strong>}
-    {result.winners.map(seat=><div key={seat} className={`win-callout${sceneOffset(seat,state.me)%2?" win-callout-side":""}`} data-seat={seat} data-relative-seat={sceneOffset(seat,state.me)} style={positions[seat]??{visibility:"hidden"}}>
-      <strong className="win-call-art" role="img" aria-label={selfDraw?"自摸":"胡"}>{selfDraw?"自摸":"胡"}</strong>
+    {result.winners.map(seat=><div key={seat} className={`win-callout${sceneOffset(seat,state.me)%2?" win-callout-side":""}${winDisplayLabel(result,seat).length>2?" win-callout-pattern":""}`} data-seat={seat} data-relative-seat={sceneOffset(seat,state.me)} style={positions[seat]??{visibility:"hidden"}}>
+      <strong className="win-call-art" role="img" aria-label={winDisplayLabel(result,seat)}>{winDisplayLabel(result,seat)}</strong>
       <div className="win-call-details">
         <div className="win-call-winners"><span className="winner" data-seat={seat} title={name(seat)}>{name(seat)}</span></div>
       </div>
     </div>)}
-    <span className="sr-only">{selfDraw?`${result.winners.map(name).join("、")}自摸`:`${name(result.from!)}点炮 → ${result.winners.map(name).join("、")}胡牌`}</span>
+    <span className="sr-only">{result.from===undefined?"":`${name(result.from)}点炮 → `}{result.winners.map(seat=>`${name(seat)}${winDisplayLabel(result,seat)}`).join("、")}</span>
   </div>;
 }

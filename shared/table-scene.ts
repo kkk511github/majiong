@@ -77,6 +77,12 @@ export const sceneTileName = (tile:number) => {
 export const sceneOffset=(seat:number,me:number)=>(seat-me+4)%4;
 const poses=['bottom','right','top','left'];
 
+/** A concealed kong keeps three backs and shows its upper tile face. */
+export function meldDisplayTiles(m: {concealed:boolean; type:string; tiles:number[]}): (number|undefined)[] {
+ return m.concealed ? [undefined,undefined,undefined,m.tiles[0]]
+  : m.tiles.length ? m.tiles : Array(m.type==='kong'?4:3).fill(undefined);
+}
+
 /** Only an unanswered, actionable claim may spotlight a public opponent tile.
  * Rob-kong targets are public but are not part of the discard river. */
 export function claimPrompt(s:TableSceneState){
@@ -191,10 +197,10 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
    // Keep the selection glow while leaving the fixed claim strip unobstructed.
    const selectedLift=s.actions.length?2:15;
    p.melds.forEach((m,mi)=>{
-    const ts=m.tiles.length?m.tiles:Array(m.type==='kong'?4:3).fill(undefined);
+    const ts=meldDisplayTiles(m);
     // Exposed sets lie on the felt: use the baked ivory wall/green-base camera,
     // not the front-facing standing hand sprite. Their feet share the hand line.
-    ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:m.concealed?'cover-bottom':'bottom',area:'meld',x:x+(ti===3?1:ti)*46,y:556-(ti===3?22:0),w:46,h:46*163/116,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
+    ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile,seat:p.seat,pose:tile===undefined?'cover-bottom':'bottom',area:'meld',x:x+(ti===3?1:ti)*46,y:556-(ti===3?22:0),w:46,h:46*163/116,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
     x+=146;
    });
    p.hand.filter(t=>t!==s.drawn).forEach((tile,i)=>add({id:`hand-${tile}`,tile,seat:p.seat,pose:'own',area:'hand',x:x+i*65,y:540-(s.selected===tile?selectedLift:0),w:65,h:98,z:1000+i,selected:s.selected===tile,clickable:selectable}));
@@ -215,15 +221,15 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?pose:back,area:'hand',x,y,w:o===2?33:revealed?tileAspect(pose)*36:tileAspect(back)*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
    }
    p.melds.forEach((m,mi)=>{
-    const ts=m.tiles.length?m.tiles:Array(m.type==='kong'?4:3).fill(undefined);
+    const ts=meldDisplayTiles(m);
     ts.forEach((tile,ti)=>{
      const stack=ti===3;
      // Opposite melds replace the removed concealed tiles in the same rack.
      const baseY=o===3?110+mi*96+(ti===3?1:ti)*29:408-mi*87-(ti===3?1:ti)*29;
      const x=o===2?437+p.handCount*33+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-52:52);
      const y=o===2?38-(stack?14:0):baseY-(stack?12:0);
-     const sidePose=m.concealed?'cover-'+pose:pose;
-     add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:o===2?(m.concealed?'cover-'+pose:pose):sidePose,area:'meld',x,y,w:o===2?33:tileAspect(sidePose)*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});
+     const sidePose=tile===undefined?'cover-'+pose:pose;
+     add({id:`meld-${p.seat}-${mi}-${ti}`,tile,seat:p.seat,pose:sidePose,area:'meld',x,y,w:o===2?33:tileAspect(sidePose)*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});
     });
    });
   }
@@ -253,7 +259,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
  // Reserve the whole row from the first discard. Never derive its origin,
  // pitch or capacity from the number already discarded: old tiles must stay
  // put when the next tile arrives, including at a row/column boundary.
- // Both horizontal rivers read left-to-right on screen. The previous player's
+ // The opposite river reads right-to-left on screen. The previous player's
  // river runs down, and the next player's runs up, following each side's view.
  // Keep fixed endpoints so adding a tile never recentres an existing column.
  const prompt=claimPrompt(s);
@@ -266,7 +272,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
    // Its three reserved rows keep the same clear footprint as before.
    const y=o===0?352+row*38:o===2?208-row*38:o===1?406-col*28:182+col*28;
    const shear=0;
-   const x=o%2?(o===3?473-row*43:807+row*43):512+col*32;
+   const x=o%2?(o===3?473-row*43:807+row*43):512+(o===2?capacity-1-col:col)*32;
    const rotation=0;
    const last=s.lastDiscard?.seat===p.seat&&s.lastDiscard.tile===tile&&['playing','claiming'].includes(s.phase)&&s.pending?.kind!=='robKong';
    const claimTarget=prompt?.kind!=='robKong'&&prompt?.from===p.seat&&prompt.tile===tile;

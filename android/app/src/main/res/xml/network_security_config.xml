@@ -4,10 +4,10 @@
         <trust-anchors><certificates src="system" /></trust-anchors>
     </base-config>
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="false">212.189.31.194</domain>
+        <domain includeSubdomains="false">212.189.31.46</domain>
         <!-- Retain the certificate key on renewal. The backup private key is never bundled. -->
         <pin-set>
-            <pin digest="SHA-256">0r4Pzsa3t/R8xk3xj2soZuk3yEmLPsPB+0akbI8jwYE=</pin>
+            <pin digest="SHA-256">BrGD/t9z27GDhoip8as9bN1S2nvw9iqMg1DcuJ4/XD8=</pin>
             <pin digest="SHA-256">dfm3bK4EvX/RSw9BIqLe/NtrFl7IuV4EMshqVxWX0kA=</pin>
         </pin-set>
     </domain-config>

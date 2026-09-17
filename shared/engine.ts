@@ -306,9 +306,12 @@ function payBills(g: Game, bills: Bill[]) {
   for (const b of paid) transfer(g, b.from, b.to, b.amount, b.reason);
 }
 function sideAmount(g: Game, flowers: number) {
+  return sidePoints(g, flowers * flowerFactor(g.rules));
+}
+/** Immediate kong points are separate from flowers in a winning hand. */
+function sidePoints(g: Game, points: number) {
   const amount =
-    flowers *
-    flowerFactor(g.rules) *
+    points *
     (g.rules.doubleSidePayments ? (g.ruleState?.multiplier ?? 1) : 1);
   if (!Number.isSafeInteger(amount)) throw Error("牌局计分超出安全范围");
   return amount;
@@ -541,7 +544,7 @@ function flowersKong(g: Game, seat: Seat, t: Tile, initial: boolean) {
         );
   if (set.length === 4) {
     const amount = isNanjingV2(g.rules)
-      ? sideAmount(g, nanjingValues(g.rules).flowerKongFlowers)
+      ? sidePoints(g, nanjingValues(g.rules).flowerKongPoints)
       : 12;
     for (const other of seats)
       if (other !== seat) transfer(g, other, seat, amount, "花杠");
@@ -799,6 +802,9 @@ function settle(
         if (other !== seat)
           bill(other, seat, Math.max(0, g.players[other]!.score), "天胡");
       result.bankrupt = true;
+    } else if (isNanjingB(g.rules) && score.items.some((item) => item.label === "天胡")) {
+      for (const other of seats)
+        if (other !== seat) bill(other, seat, score.total, "天胡");
     } else if (isNanjingV2(g.rules) && responsibility !== undefined) {
       liability(responsibility, seat, score.total, "三口承包");
     } else if (isNanjingV2(g.rules) && robbed && from !== undefined) {
@@ -954,7 +960,7 @@ function completeAddedKong(g: Game, from: Seat, tile: Tile, now: number) {
     meld.from,
     from,
     isNanjingV2(g.rules)
-      ? sideAmount(g, nanjingValues(g.rules).openKongFlowers)
+      ? sidePoints(g, nanjingValues(g.rules).openKongPoints)
       : 12,
     "补杠",
   );
@@ -1021,7 +1027,7 @@ function resolveClaims(g: Game, now: number) {
       pending.from,
       chosen,
       isNanjingV2(g.rules)
-        ? sideAmount(g, nanjingValues(g.rules).openKongFlowers)
+        ? sidePoints(g, nanjingValues(g.rules).openKongPoints)
         : 12,
       "直杠",
     );
@@ -1126,7 +1132,7 @@ export function act(
         for (const other of seats) {
           if (other === seat) continue;
           const amount = isNanjingV2(g.rules)
-            ? sideAmount(g, nanjingValues(g.rules).concealedKongFlowers)
+            ? sidePoints(g, nanjingValues(g.rules).concealedKongPoints)
             : 6;
           if (
             g.ruleState &&
@@ -1187,7 +1193,7 @@ export function viewFor(g: Game, me: Seat): View {
         handCount: hand.length,
         hand: seat === me || reveal ? hand : [],
         melds: p.melds.map((m) =>
-          m.concealed && seat !== me && !reveal ? { ...m, tiles: [] } : m,
+          m.concealed && seat !== me && !reveal ? { ...m, tiles: m.tiles.slice(0, 1) } : m,
         ),
       };
     }),

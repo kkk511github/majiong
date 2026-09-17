@@ -247,6 +247,10 @@ for (const [width, height] of [
     await last.getByRole("button", { name: "查看牌面", exact: true }).click();
     await expect(page.getByLabel("第 4 把战绩详情")).toBeVisible();
     await expect(dialog.getByLabel("本局四家牌面")).toBeVisible();
+    await expect(dialog.locator(".reveal-score-items")).toHaveCount(0);
+    await dialog.getByRole("tab", {name:"本把明细",exact:true}).click();
+    await expect(dialog.getByRole("columnheader", {name:"本把开始",exact:true})).toBeVisible();
+    await expect(dialog.getByLabel("本局四家牌面")).toHaveCount(0);
     expect(await dialog.boundingBox()).toEqual({ x: 0, y: 0, width, height });
     await page.screenshot({
       path: `test-results/screenshots/records-round-${width}.png`,
@@ -308,10 +312,35 @@ test("普通会员可看 ID 和每把回放 ID，战队名不显示；房间查�
   await expect(dialog.locator(".record-team")).toHaveCount(0);
   await dialog
     .getByLabel("第 1 把明细")
-    .getByRole("button", { name: "积分明细", exact: true })
+    .getByRole("button", { name: "本把明细", exact: true })
     .click();
-  await expect(dialog.getByLabel("牌桌结算")).toBeVisible();
+  await expect(dialog.getByRole("columnheader", {name:"本把开始",exact:true})).toBeVisible();
   await expect(dialog.locator(".record-team")).toHaveCount(0);
+});
+
+for (const [width,height] of [[568,320],[1280,590]]) test(`本把明细分项与实付可读 ${width}`, async ({page})=>{
+  await page.setViewportSize({width,height});
+  await fixture(page);
+  const saved=item(25);
+  saved.record={...saved.record,round:1,matchFinished:false,scores:[198,54,54,54],result:{
+    reason:"hu",winners:[0],deltas:[108,-36,-36,-36],
+    details:{0:{total:36,kinds:[],items:[{label:"成牌",value:10},{label:"门清",value:10},{label:"硬花 6 × 2",value:12},{label:"软花 2 × 2",value:4}]}},
+    transfers:([1,2,3] as const).map(from=>({from,to:0,amount:36,reason:"自摸"})),
+  }};
+  await page.route("**/api/matches/*",route=>route.fulfill({json:{match:saved,rounds:[saved]}}));
+  await page.goto("/");await page.getByRole("button",{name:"战绩",exact:true}).click();
+  await page.locator(".match-card").first().click();
+  const dialog=page.getByRole("dialog",{name:"牌桌战绩详情",exact:true});
+  await dialog.getByRole("button",{name:"本把明细",exact:true}).click();
+  const score=dialog.getByRole("table",{name:"秦淮月的胡牌计分"});
+  await expect(score.locator("tbody tr")).toHaveText(["成牌底分合法成牌+10分","门清牌型加分+10分","硬花6张 × 2分/张+12分","软花2个 × 2分/个+4分"]);
+  await expect(score.locator("tfoot")).toContainText("36分");
+  await expect(dialog.locator(".score-ledger li")).toHaveCount(3);
+  await expect(dialog.locator(".score-ledger li").first()).toContainText("月白");
+  await expect(dialog.locator(".score-players tbody tr").first().locator("td")).toHaveText([/秦淮月/,"90","+108","+198"]);
+  await score.scrollIntoViewIfNeeded();
+  expect(await score.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  await page.screenshot({path:`test-results/screenshots/round-score-details-${width}.png`});
 });
 
 test("管理员会员查询与返回列表位置保留", async ({ page }) => {

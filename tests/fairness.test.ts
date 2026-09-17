@@ -50,7 +50,7 @@ describe("洗牌与暗牌公平性", () => {
     expect(() => createWall(() => 1)).toThrow();
     expect(() => createWall({ index: () => -1 })).toThrow();
   });
-  it("暗杠牌型和摸牌仅自己可见，事件不泄露暗杠牌；公开查看也拿不到牌墙", () => {
+  it("暗杠只公开一张牌面，其他暗手、摸牌及牌墙仍不可见", () => {
     let g = createGame("123456", "secrecy");
     g.players = seats.map((s) => ({
       ...newPlayer("p" + s, "玩家" + s),
@@ -64,7 +64,7 @@ describe("洗牌与暗牌公平性", () => {
     expect(viewFor(g, 0).players[0]!.melds[0].tiles).toEqual([0, 1, 2, 3]);
     for (const seat of [1, 2, 3] as const) {
       const v = viewFor(g, seat);
-      expect(v.players[0]!.melds[0].tiles).toEqual([]);
+      expect(v.players[0]!.melds[0].tiles).toEqual([0]);
       expect(v.players[0]!.hand).toEqual([]);
       expect(v).not.toHaveProperty("wall");
       expect(v.lastDraw).toBeUndefined();

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "./browser-fixtures";
 import { replayedRound } from "./fixtures/replayed-round";
 import type { Result, Seat } from "../shared/types";
+import { winDisplayLabel } from "../src/win-label";
 
 const cases: { title: string; width: number; height: number; winners: Seat[]; from?: Seat; perspectives: Seat[] }[] = [
   { title: "自己点炮三家胡", width: 568, height: 320, winners: [1, 2, 3], from: 0, perspectives: [0, 1, 2, 3] },
@@ -63,7 +64,7 @@ for (const c of cases) test(`回放胡牌归属：${c.title}，切换视角与�
         const callout = effect.locator(`.win-callout[data-seat="${winner}"]`);
         await expect(callout).toHaveAttribute("data-relative-seat", String(relative));
         await expect(callout.locator(".winner")).toHaveText(replay.names[winner]);
-        await expect(callout.locator(".win-call-art")).toHaveText(c.from === undefined ? "自摸" : "胡");
+        await expect(callout.locator(".win-call-art")).toHaveText(winDisplayLabel(result,winner));
         await expect(callout).toBeInViewport();
         const bounds = (await callout.boundingBox())!;
         const center = bounds.x + bounds.width / 2;

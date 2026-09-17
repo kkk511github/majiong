@@ -35,13 +35,14 @@ it("开门小胡必须满足本桌硬花数量，不能提示当前规则不允�
 });
 
 
-it("未见张数去重公开牌，绝不读取对手暗手或暗杠", () => {
+it("未见张数去重公开牌，暗杠亮一张即确定四张，绝不读取对手暗手", () => {
   const g=createGame('123456','unseen');
   g.players=[newPlayer('a','a'),newPlayer('b','b'),newPlayer('c','c'),newPlayer('d','d')];
   g.players[0]!.hand=[0];g.players[1]!.hand=[1,2,3];g.players[2]!.discards=[1];
   g.players[1]!.melds=[{type:'kong',tiles:[4,5,6,7],from:1,concealed:true}];
-  const v=viewFor(g,0);v.players[1]!.hand=[1,2,3];v.players[1]!.melds[0].tiles=[4,5,6,7];
-  expect(unseenHintCounts(v,[0,1])).toEqual({0:2,1:4});
+  const v=viewFor(g,0);v.players[1]!.hand=[1,2,3];
+  expect(v.players[1]!.melds[0].tiles).toEqual([4]);
+  expect(unseenHintCounts(v,[0,1])).toEqual({0:2,1:0});
   v.players[2]!.discards.push(1);expect(unseenHintCounts(v,[0])).toEqual({0:2});
 });
 

@@ -2,6 +2,9 @@ import { useState } from "react";
 import { ArrowRight, ChevronRight, Copy, Trophy } from "lucide-react";
 import type { RoundRecord, Seat } from "../shared/types";
 import { isGarden } from "../shared/nanjing-rules";
+import { scoreItemCopy } from "./score-item-copy";
+import { winDisplayLabel } from "./win-label";
+import { tileName } from "../shared/tiles";
 import type { roundReadiness } from "./round-readiness";
 import {
   signedScore as scoreText,
@@ -205,6 +208,7 @@ export function ScoreDetails({
           <thead>
             <tr>
               <th>牌友</th>
+              <th>本把开始</th>
               <th>{hasExternal ? "桌内" : "本局"}</th>
               {hasExternal && (
                 <>
@@ -212,7 +216,7 @@ export function ScoreDetails({
                   <th>本局合计</th>
                 </>
               )}
-              <th>桌上分</th>
+              <th>本把结束</th>
             </tr>
           </thead>
           <tbody>
@@ -228,6 +232,7 @@ export function ScoreDetails({
                     )}
                   </span>
                 </td>
+                <td>{record.scores[i] - record.result.deltas[i]}</td>
                 <td className={record.result.deltas[i] > 0 ? "positive" : ""}>
                   {scoreText(record.result.deltas[i])}
                 </td>
@@ -254,7 +259,7 @@ export function ScoreDetails({
           <details className="score-breakdown" key={seat} open>
             <summary>
               <span>
-                {record.names[Number(seat)]} · 胡牌明细
+                {record.names[Number(seat)]} · {winDisplayLabel(record.result, Number(seat) as Seat)}
                 {record.result.transfers?.some(
                   (t) => t.to === Number(seat) && t.scope === "external",
                 )
@@ -265,21 +270,28 @@ export function ScoreDetails({
                 {score.total} <small>分 / 份</small>
               </strong>
             </summary>
-            {score.items.map((item, i) => (
-              <div key={i}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </div>
-            ))}
+            <table className="score-items-table" aria-label={`${record.names[Number(seat)]}的胡牌计分`}>
+              <thead><tr><th>计分项目</th><th>计算说明</th><th>得分</th></tr></thead>
+              <tbody>{score.items.map((item, i) => {
+                const copy = scoreItemCopy(item);
+                return <tr key={i}><td>{copy.label}</td><td>{copy.calculation}</td><td>{scoreText(item.value)}分</td></tr>;
+              })}</tbody>
+              <tfoot><tr><th colSpan={2}>本次胡牌分（每份）</th><td>{score.total}分</td></tr></tfoot>
+            </table>
+            {record.hands?.[Number(seat)] && <p className="score-hand-note">
+              {record.hands[Number(seat)].melds.map((meld) =>
+                `${meld.type === "pung" ? "碰" : meld.concealed ? "暗杠" : meld.added ? "补杠" : "直杠"}${tileName(meld.tiles[0])}${meld.concealed ? "（自己集齐）" : `（${record.names[meld.from]}供牌）`}`
+              ).join("；")}
+            </p>}
           </details>
         ))}
         {record.result.transfers !== undefined ? (
           <details
             className="score-ledger"
-            open={record.result.winners.length === 0}
+            open
           >
             <summary>
-              <span>本局收支明细</span>
+              <span>本把实际收付款</span>
               <small>
                 {record.result.transfers.length} 笔 <ChevronRight size={15} />
               </small>
@@ -311,7 +323,7 @@ export function ScoreDetails({
           <p className="score-note">这局为旧版记录，未保存逐笔收支。</p>
         )}
         <p className="form-note">
-          自摸收三份，点炮收一份；承包情况见收支明细。积分仅记录牌局。
+          上表为每份胡牌分；实际收付款以逐笔明细为准，包含余额不足、承包和保米调整。积分仅记录牌局。
         </p>
       </div>
     </div>

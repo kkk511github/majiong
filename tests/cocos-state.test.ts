@@ -11,13 +11,13 @@ function fixture() {
   g.players=seats.map(s=>({...newPlayer(`p${s}`,`牌友${s}`),ready:true}));
   return startRound(g,1000,seededRandom(8));
 }
-it('the Cocos bridge never carries live opponents hands or concealed kong faces, even if its caller supplies them',()=>{
+it('the Cocos bridge carries one public concealed-kong face and never live opponent hands',()=>{
   const g=fixture(),v=viewFor(g,0);
   v.players[1]!.hand=[80,81,82,83];
   v.players[1]!.melds=[{type:'kong',tiles:[100,101,102,103],from:1,concealed:true}];
   const result=cocosState(v,ui);
   expect(result.players[1].hand).toEqual([]);
-  expect(result.players[1].melds[0].tiles).toEqual([]);
+  expect(result.players[1].melds[0].tiles).toEqual([100]);
   expect(result.players[0].hand).toEqual(v.players[0]!.hand);
   expect(result).not.toHaveProperty('wall');
   expect(result).not.toHaveProperty('replay');
@@ -69,12 +69,20 @@ it('stacks every exposed kong on its middle tile and paints the upper tile last'
   expect(upper.z).toBeGreaterThan(Math.max(...group.filter(t=>!t.stack).map(t=>t.z)));
  }
 });
-it('renders concealed kongs with backs at all four seats, regardless of known tile identities',()=>{
+it('renders concealed kongs with three backs and one upper face at all four seats',()=>{
  const s=cocosState(viewFor(fixture(),0),ui);
  for(const p of s.players)p.melds=[{type:'kong',tiles:[120,121,122,123],from:p.seat,concealed:true}];
  const melds=layoutTable(s).filter(t=>t.area==='meld');
  expect(melds).toHaveLength(16);
- for(const t of melds){expect(t.tile).toBeUndefined();expect(t.pose.startsWith('cover-')).toBe(true);expect(t.source).toBeUndefined();}
+ for(const p of s.players){
+  const group=melds.filter(t=>t.seat===p.seat);
+  expect(group.filter(t=>t.tile!==undefined)).toHaveLength(1);
+  expect(group.find(t=>t.stack)?.tile).toBe(120);
+  for(const t of group){expect(t.pose.startsWith('cover-')).toBe(t.tile===undefined);expect(t.source).toBeUndefined();}
+ }
+ s.players[1].melds[0].tiles=[];
+ expect(layoutTable(s).filter(t=>t.area==='meld'&&t.seat===1)).toHaveLength(4);
+ expect(layoutTable(s).filter(t=>t.area==='meld'&&t.seat===1).every(t=>t.tile===undefined)).toBe(true);
 });
 it('places flowers inside the four fixed table grooves, including overflow lanes',()=>{
  const s=cocosState(viewFor(fixture(),0),ui);
@@ -149,13 +157,13 @@ it('leaves a visible gap between opposite flowers and the standing hand/meld rac
  for(const t of own){expect(t.w).toBe(34);expect(t.h).toBe(42);}
 });
 
-it('aligns horizontal river columns while the opposite rows fill towards its own hand',()=>{
+it('mirrors horizontal discard order while the opposite rows fill towards its own hand',()=>{
  const s=cocosState(viewFor(fixture(),0),ui);
  for(const p of s.players)p.discards=Array.from({length:18},(_,i)=>i);
  const tiles=layoutTable(s).filter(t=>t.area==='river');
  for(const [a,b] of [[0,2]])for(let i=0;i<18;i++){
   const x=tiles.find(t=>t.seat===a&&t.tile===i)!,y=tiles.find(t=>t.seat===b&&t.tile===i)!;
-  expect(x.x).toBe(y.x);
+  expect(x.x+y.x).toBe(1280);
   if(i>=9){
    const previous=tiles.find(t=>t.seat===b&&t.tile===i-9)!;
    expect(y.y).toBeLessThan(previous.y);
@@ -198,6 +206,7 @@ it('appends from fixed origins with the previous player downward and next player
     else{
      const before=next.find(t=>t.tile===p.discards.at(-2))!;
      if(o===1)expect(current.y).toBeLessThan(before.y);
+     else if(o===2)expect(current.x).toBeLessThan(before.x);
      else expect(current[o%2?'y':'x']).toBeGreaterThan(before[o%2?'y':'x']);
      expect(current[o%2?'x':'y']).toBe(before[o%2?'x':'y']);
     }

@@ -51,6 +51,14 @@ function scoreNanjingBase(
     };
   const values = nanjingValues(rules),
     flower = flowerFactor(rules);
+  // B-profile heavenly wins charge a fixed amount per opponent, capped by their balance.
+  if (ctx.heavenly && !p.melds.length && bProfile)
+    return {
+      total: values.heavenly,
+      items: [{ label: "天胡", value: values.heavenly }],
+      kinds: hand.map(kind),
+      major: true,
+    };
   const all = (snapshot ? p.melds.flatMap((m) => m.tiles) : allTiles).map(kind);
   const suits = new Set(
     all.filter((k) => k < 27).map((k) => Math.floor(k / 9)),
@@ -96,7 +104,6 @@ function scoreNanjingBase(
     const global = p.melds.length === 4;
     if (global) big("全球独钓", values.global);
     if (closed && !shape.seven && !windOnlyB) add("门清", values.closed);
-    if (ctx.heavenly && !p.melds.length) big("天胡", values.heavenly);
     if (ctx.earthly) big("地胡", values.earthly);
     const large = ctx.replacement === "kong";
     if (large) big("大杠开花", values.largeReplacement);

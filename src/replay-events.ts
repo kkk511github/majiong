@@ -1,5 +1,6 @@
 import type { ReplayFrame, Seat } from "../shared/types";
 import { tileName } from "../shared/tiles";
+import { winDisplayLabel } from "./win-label";
 const labels: Record<ReplayFrame["type"], string> = {
   start: "开局发牌",
   draw: "摸牌",
@@ -25,7 +26,7 @@ export function replayEventLabel(
     return (
       "本局结算 · " +
       (r.winners.length
-        ? `${r.winners.map((s) => names[s]).join("、")}${r.from === undefined ? "自摸" : `胡牌 · ${names[r.from]}放铳`}`
+        ? `${r.winners.map((s) => `${names[s]}${winDisplayLabel(r, s)}`).join("、")}${r.from === undefined ? "" : ` · ${names[r.from]}放铳`}`
         : "流局")
     );
   }

@@ -51,9 +51,13 @@ export function unseenHintCounts(
     if (seat === view.me) p.hand.forEach((t) => visible.add(t));
     p.discards.forEach((t) => visible.add(t));
     p.flowers.forEach((t) => visible.add(t));
-    p.melds
-      .filter((m) => !m.concealed || seat === view.me)
-      .forEach((m) => m.tiles.forEach((t) => visible.add(t)));
+    p.melds.forEach((m) => {
+      if (m.concealed && m.tiles.length) {
+        // The displayed face identifies all four copies in this public kong.
+        const base = kind(m.tiles[0]) * 4;
+        for (let i = 0; i < 4; i++) visible.add(base + i);
+      } else m.tiles.forEach((t) => visible.add(t));
+    });
   });
   return Object.fromEntries(
     kinds.map((k) => [

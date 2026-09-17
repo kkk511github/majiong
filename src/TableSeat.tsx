@@ -3,6 +3,7 @@ import type { PublicPlayer, Seat, Tile } from "../shared/types";
 import { kind, tileName } from "../shared/tiles";
 import { TILE_FRAMES, frameStyle } from "./tile-art";
 import { MeldSourceArrow } from "./MeldSourceArrow";
+import { meldDisplayTiles } from "../shared/table-scene";
 
 /** All public tiles share one face, physical proportion, depth and light source.
  * Only the face rotates with the owner; the ivory/green thickness stays down
@@ -42,9 +43,9 @@ export function TableSeatTiles({ player, seat, me, names, position }: {
 
   function SeatMelds() {
     return <div className="seat-melds">{player.melds.map((m, i) => {
-      const tiles = m.concealed && !m.tiles.length ? [undefined, undefined, undefined, undefined] : m.tiles;
+      const tiles = meldDisplayTiles(m);
       return <div className="seat-meld" key={i} data-meld-type={m.type} data-concealed={m.concealed}>
-        {tiles.map((t, n) => <SurfaceTile key={t ?? n} tile={t} offset={offset} stacked={!side && m.type === "kong" && n === 3} />)}
+        {tiles.map((t, n) => <SurfaceTile key={n} tile={t} offset={offset} stacked={!side && m.type === "kong" && n === 3} />)}
         <MeldSourceArrow meld={m} me={me} owner={seat} sourceName={names[m.from]} />
       </div>;
     })}</div>;

@@ -1,0 +1,28 @@
+{
+  "version": "0.7.12",
+  "build": 49,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 527,
+  "sameWebAssetsBothPlatforms": true,
+  "specialWinLabelsUseOriginalBrushFont": true,
+  "realDeviceInstallationTested": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.12-build49.apk",
+      "bytes": 116627687,
+      "sha256": "e129df2c7d6c597a88047842b3671b39edb51e68f3f8a1d7ca934cc45a76b6fe",
+      "matchedWebFiles": 220,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.12-build49-AdHoc.ipa",
+      "bytes": 117526928,
+      "sha256": "bbd315222af8a9aa2fa6b722295044fd4f2ff3d918f9304f242c910690a640c6",
+      "matchedWebFiles": 220,
+      "signatureVerified": true
+    }
+  }
+}

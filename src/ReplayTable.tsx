@@ -24,7 +24,7 @@ export function ReplayTable({data,step,perspective,setPerspective,reveal,animate
    countdown:animate?'▶':'Ⅱ',connected:true,disabled:true,practice:false,canDiscard:false,selected:null,drawn,inspectedKind:null,hintKinds:[],hintLabel:'',actions:[],trusteeDisabled:true,lastDiscard,
    effects:animate&&effectType?[{key:`${data.id}:${step}:${perspective}`,type:effectType,seat:frame.seat??frame.result?.winners[0]??frame.turn,concealed:frame.type==='concealedKong',upgraded:frame.type==='addedKong',selfDraw:frame.result?.from===undefined}]:[],
    players:frame.players.map((p,seat)=>({name:data.names[seat],seat,score:p.score,bot:false,trustee:false,handCount:p.hand.length,
-    hand:seat===perspective||reveal||!!frame.result?[...p.hand].sort((a,b)=>kind(a)-kind(b)||a-b):[],flowers:[...p.flowers],discards:[...p.discards],melds:p.melds.map(m=>({...m,tiles:m.concealed?[]:[...m.tiles]}))})),
+    hand:seat===perspective||reveal||!!frame.result?[...p.hand].sort((a,b)=>kind(a)-kind(b)||a-b):[],flowers:[...p.flowers],discards:[...p.discards],melds:p.melds.map(m=>({...m,tiles:m.concealed?m.tiles.slice(0,1):[...m.tiles]}))})),
   };
  },[data,step,perspective,reveal,animate]);
  const result=data.frames[step].result;

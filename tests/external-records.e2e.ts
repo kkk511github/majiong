@@ -58,6 +58,7 @@ for (const [width, height] of [
     await expect(dialog.locator(".reveal-scores").first()).toContainText(
       "含桌外 +50",
     );
+    await dialog.getByRole("tab", {name:"本把明细",exact:true}).click();
     await expect(dialog.locator(".score-details")).toContainText("桌外");
     await expect(dialog.locator(".score-details")).toContainText("固定额结算");
     await dialog
@@ -66,6 +67,7 @@ for (const [width, height] of [
     const accountRow = dialog.locator(".score-players tbody tr").first();
     await expect(accountRow.locator("td")).toHaveText([
       /甲/,
+      "90",
       "0",
       "-50",
       "-50",

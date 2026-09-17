@@ -10,7 +10,7 @@ import {
 import { Tile } from "./Tile";
 import "./round-reveal.css";
 import type { roundReadiness } from "./round-readiness";
-import { winPhrases } from "./voice-events";
+import { winDisplayLabel } from "./win-label";
 
 export function RoundReveal({
   view,
@@ -114,7 +114,7 @@ export function RoundReveal({
                     : final
                       ? `第 ${row.rank} 名`
                       : winner
-                        ? winPhrases(record.result, seat as Seat)[0]
+                        ? winDisplayLabel(record.result, seat as Seat)
                         : record.result.from === seat
                           ? "点炮"
                           : p.ready
@@ -123,21 +123,11 @@ export function RoundReveal({
                 </small>
               </div>
               <div className="reveal-hand">
-                {lead && (
+                {lead && final && (
                   <div className="reveal-score-items">
-                    {final ? (
                       <span>
                         <Trophy size={12} /> 大赢家 · 本桌累计
                       </span>
-                    ) : (
-                      record.result.details[seat as Seat]?.items.map(
-                        (item, i) => (
-                          <span key={i}>
-                            {item.label} +{item.value}
-                          </span>
-                        ),
-                      )
-                    )}
                   </div>
                 )}
                 <div

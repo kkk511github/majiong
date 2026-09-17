@@ -393,6 +393,11 @@
 .match-round-detail .score-details {
   margin-top: 12px;
 }
+.match-detail-actions { flex-wrap: wrap; }
+.round-detail-tabs { display: flex; align-items: center; border-bottom: 1px solid #b8c7bb; }
+.app.polished .round-detail-tabs button { display: flex; gap: 5px; align-items: center; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: #e5e5cf; padding: 8px 10px; font-size: 13px; }
+.app.polished .round-detail-tabs button[aria-selected="true"] { border-bottom-color: #f4d688; color: #ffe3a1; font-weight: 700; }
+.match-round-detail-content > h3 { margin: 8px 0; font-size: 18px; color: #264b37; }
 .match-record-dialog .records-empty {
   margin: auto;
   color: #eadcae;

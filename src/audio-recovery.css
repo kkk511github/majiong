@@ -1,0 +1,43 @@
+.audio-recovery-prompt {
+  position: fixed;
+  top: calc(58px + env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  background: #fff5d9;
+  color: #593f1a;
+  border: 1px solid #d1a648;
+  border-radius: 10px;
+  box-shadow: 0 3px 12px #0004;
+}
+.audio-recovery-prompt button,
+.audio-diagnostics button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #7b986f;
+  border-radius: 8px;
+  background: #244e3c;
+  color: #fff5d7;
+}
+.audio-diagnostics {
+  padding: 12px;
+  border: 1px solid #bdd0bf;
+  border-radius: 10px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.audio-diagnostics summary {
+  min-height: 44px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.audio-diagnostics button {
+  margin: 0 8px 8px 0;
+}
+.audio-diagnostics p {
+  line-height: 1.5;
+}

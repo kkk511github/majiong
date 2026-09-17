@@ -49,7 +49,7 @@ export function actionVoices(before: View | null, after: View | null) {
       add(e.concealed ? "暗杠" : e.upgraded ? "补杠" : "杠");
     if (e.type === "flower") add("补花");
     if (e.type === "hu" && after?.result)
-      winPhrases(after.result, e.seat).forEach(add);
+      add("胡了");
   }
   if (
     before &&

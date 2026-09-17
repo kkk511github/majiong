@@ -1,0 +1,187 @@
+.table-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.table-toolbar {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: #ffedc0;
+}
+.table-toolbar button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 11px;
+  background: url("/ui/table-button-jade-v1.png") center / 100% 100% no-repeat;
+  filter: drop-shadow(0 2px 2px #001e2670);
+  pointer-events: auto;
+  color: #ffedbd;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 1px 1px #001a13;
+  line-height: 1.2;
+  white-space: normal;
+}
+.table-toolbar button svg { flex: none; stroke-width: 1.7; }
+.table-toolbar button:active { transform: translateY(1px); filter: brightness(1.18); }
+.table-toolbar button:disabled {
+  opacity: 0.55;
+}
+.table-toolbar button[aria-pressed="true"] {
+  filter: brightness(1.35) drop-shadow(0 0 3px #f5cc63a0);
+  color: #fff4c7;
+}
+.table-menu-actions {
+  position: absolute;
+  top: max(8px, var(--table-safe-top));
+  right: max(8px, var(--table-safe-right));
+  display: grid;
+  grid-template-columns: repeat(2, 48px);
+  gap: 4px;
+}
+.table-menu-actions button {
+  height: 46px;
+}
+.table-back {
+  position: absolute;
+  top: max(8px, var(--table-safe-top));
+  left: max(8px, var(--table-safe-left));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 46px;
+}
+.table-back.with-network-status svg { display: none; }
+.table-claim-actions {
+  position: absolute;
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  pointer-events: auto;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 3px;
+}
+.table-claim-actions button {
+  flex: none;
+  min-width: 48px;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ffe3a0;
+  border-radius: 50%;
+  padding: 7px;
+  background: linear-gradient(#ffe7a5, #dfad48);
+  color: #582e11;
+  box-shadow:
+    0 3px 0 #825b24,
+    0 4px 10px #001f2280;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.table-claim-actions small {
+  font-size: 11px;
+  line-height: 1.2;
+}
+.table-claim-actions .claim-pass {
+  background: #efe8d0;
+  color: #596656;
+  border-color: #b8c7b1;
+}
+.table-claim-actions .claim-hu {
+  box-shadow:
+    0 0 0 3px #f8d05b55,
+    0 3px 0 #825b24;
+}
+.table-claim-actions button:disabled {
+  opacity: 0.6;
+  filter: saturate(0.3);
+}
+.table-controls button:focus-visible {
+  outline: 3px solid #53ddff;
+  outline-offset: 3px;
+}
+.app.polished .cocos-game.external-table-controls > iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.external-table-controls .mahjong-hint-layer {
+  z-index: 5;
+}
+.external-table-controls .zhaozhi-control {
+  top: max(8px, var(--table-safe-top));
+  left: calc(88px + var(--table-safe-left));
+}
+.external-table-controls .zhaozhi-control > button,
+.external-table-controls .zhaozhi-control > span {
+  min-height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+.external-table-controls .zhaozhi-confirm {
+  position: absolute;
+  top: 46px;
+  left: 0;
+  max-width: calc(100vw - 112px);
+  box-sizing: border-box;
+}
+.external-table-controls .zhaozhi-confirm button {
+  min-height: 44px;
+  min-width: 60px;
+}
+.table-portrait-notice {
+  display: none;
+}
+@media (max-width: 700px) {
+  .table-claim-actions {
+    gap: 6px;
+  }
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  .table-portrait-notice {
+    display: block;
+    position: absolute;
+    top: calc(60px + var(--table-safe-top));
+    left: 12px;
+    right: 12px;
+    padding: 12px;
+    text-align: center;
+    border-radius: 8px;
+    background: #123e35e8;
+    color: #fff1c8;
+    font-size: 14px;
+  }
+  .table-toolbar .table-back {
+    width: 54px;
+  }
+  .table-menu-actions button {
+    font-size: 11px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-controls * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.table-connection-quality{display:block;max-width:100%;color:#ffdba0;font-size:10px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ready-discard-arrows{position:absolute;inset:0;z-index:4;pointer-events:none}
+.ready-discard-arrow{position:absolute;transform:translate(-50%,-100%);font-size:clamp(12px,1.7vw,21px);line-height:1;color:#ffe27e;text-shadow:0 1px 2px #472600,0 0 3px #a76108;filter:drop-shadow(0 1px 1px #0008)}

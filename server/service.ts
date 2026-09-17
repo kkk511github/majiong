@@ -770,6 +770,7 @@ export function makeServer(
             commandAck: true,
             tableLobby: true,
             timeSync: true,
+            serverVersion: APP_VERSION,
             account: session.account,
           });
           const personal = records.list(

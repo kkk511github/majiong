@@ -5,6 +5,8 @@ import JavaScriptObfuscator from "javascript-obfuscator";
 // Raises the cost of static inspection; the decoder lives in the client, so
 // this is not a secret store and cannot hide the network destination.
 export function protectClientCode(code: string): string {
+  if (/!~\{[^}]+\}~/.test(code))
+    throw new Error("Native code protection must run after Rollup resolves hashed filenames.");
   return JavaScriptObfuscator.obfuscate(code, {
     target: "browser-no-eval", compact: true, sourceMap: false,
     controlFlowFlattening: false, deadCodeInjection: false,

@@ -75,6 +75,42 @@ it("管理员已读按账号持久化；列表不触发、重复读取幂等、�
     expect((await list(a))[0].adminReadAt).toBe(readAt);
     expect((await list(b))[0].adminReadAt).toBeNull();
     expect((await list(m, false))[0]).not.toHaveProperty("adminReadAt");
+    const filtered = async (u: typeof a, state: string, admin = true) =>
+      fetch(
+        base +
+          (admin ? "/api/admin/records" : "/api/records") +
+          "?read=" +
+          state,
+        { headers: auth(u) },
+      );
+    expect((await (await filtered(a, "read")).json()).total).toBe(1);
+    const unreadA = await (await filtered(a, "unread")).json();
+    expect(unreadA.total).toBe(0);
+    expect(unreadA.dateTotal).toBe(0);
+    expect(unreadA.dates).toEqual([]);
+    expect((await (await filtered(b, "unread")).json()).total).toBe(1);
+    expect((await (await filtered(b, "read")).json()).total).toBe(0);
+    expect((await filtered(m, "unread", false)).status).toBe(403);
+    expect((await filtered(a, "bad")).status).toBe(400);
+    const memberId = String(
+      db
+        .prepare("SELECT member_id FROM account_numbers WHERE account_id=?")
+        .get(m.account.id)!.member_id,
+    );
+    const byMember = async (u: typeof a, id: string, admin = true) =>
+      fetch(
+        base +
+          (admin ? "/api/admin/records" : "/api/records") +
+          "?member=" +
+          encodeURIComponent(id),
+        { headers: auth(u) },
+      );
+    const matching = await (await byMember(a, memberId)).json();
+    expect(matching.total).toBe(1);
+    expect(matching.dateTotal).toBe(1);
+    expect((await (await byMember(a, "999999999999")).json()).total).toBe(0);
+    expect((await byMember(m, memberId, false)).status).toBe(403);
+    expect((await byMember(a, "1 OR 1=1")).status).toBe(400);
     records.capture(game);
     db.close();
     await server.close();

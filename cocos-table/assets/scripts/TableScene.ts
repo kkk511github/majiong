@@ -1,5 +1,5 @@
 import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp } from 'cc';
-import { layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
+import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 const { ccclass } = _decorator;
 const GOLD='#e4c573', INK='#fcf1d0', GREEN='#093f37';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
@@ -146,7 +146,7 @@ export class TableScene extends Component {
   n.off(Node.EventType.TOUCH_END);if(t.clickable&&t.tile!==undefined)n.on(Node.EventType.TOUCH_END,()=>this.emit({type:'select',tile:t.tile!}));n.setSiblingIndex(this.root.children.length-1);
  }
  private drawHud(s:TableSceneState){
-  const h=this.hud;if(s.presentation!=='replay'){
+  const h=this.hud;if(s.presentation!=='replay'&&!s.externalControls){
   this.button(h,'‹ 大厅',83,43,94,39,{type:'menu',menu:'leave'});
   this.button(h,'牌',1135,35,39,39,{type:'menu',menu:'table'});
   this.button(h,'录',1181,35,39,39,{type:'menu',menu:'events'});
@@ -157,10 +157,18 @@ export class TableScene extends Component {
   if(s.presentation!=='replay'&&s.phase==='ended'&&s.nextRoundMultiplier!==undefined)
    this.text(h,`下把${s.nextRoundMultiplier>1?'比下胡':'恢复'} × ${s.nextRoundMultiplier}`,80,321,146,28,16,GOLD);
   for(const p of s.players){
-   const o=sceneOffset(p.seat,s.me);
-   if(o===2){this.plate(h,950,32,166,56,'#0b332ed9','#a7965b');const avatar=this.avatar(p.avatar,p.seat,892,32,44,44,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,963,20,91,24,18);this.text(h,`${p.score} 分`,963,43,92,22,18,GOLD);if(p.seat===s.dealer)this.text(h,'庄',1020,16,24,23,17,'#ffd374');continue;}
-   const x=o===0?1198:o===3?68:1200,y=o===0?508:207;
-   this.plate(h,x,y+25,100,126,'#0b332ed9','#a7965b');const avatar=this.avatar(p.avatar,p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
+   const o=sceneOffset(p.seat,s.me),status=scenePlayerStatus(s,p),info=layoutPlayerHud(o,s.safeArea);
+   const border=status.active?'#55e8f5':'#a7965b';
+   const statusColor=status.tone==='offline'?'#ffccad':status.tone==='trustee'?'#ffe5a0':'#d4fbff';
+   const marker=(x:number,y:number,w:number)=>{
+    if(!status.label)return;
+    const badge=this.plate(h,x,y,w,23,status.tone==='offline'?'#633c2cf5':'#123c33f5',statusColor,5);badge.name=`player-status-${p.seat}`;
+    this.text(h,status.label,x,y,w-4,23,16,statusColor);
+   };
+
+   if(o===2){const x=info.x,y=info.y;this.plate(h,x,y,166,56,'#0b332ed9',border).name=`player-panel-${p.seat}`;if(status.active)this.plate(h,x-58,y,50,50,'#154b45',border,5);marker(x+10,y+41,104);const avatar=this.avatar(p.avatar,p.seat,x-58,y,44,44,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x+13,y-12,91,24,18);this.text(h,`${p.score} 分`,x+13,y+11,92,22,18,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+70,y-16,24,23,17,'#ffd374');continue;}
+   const x=info.x,y=info.y;
+   this.plate(h,x,y+25,100,126,'#0b332ed9',border).name=`player-panel-${p.seat}`;if(status.active)this.plate(h,x,y,58,58,'#154b45',border,5);marker(x,y-37,100);const avatar=this.avatar(p.avatar,p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
   }
   const prompt=claimPrompt(s);
   if(prompt){
@@ -179,8 +187,9 @@ export class TableScene extends Component {
   this.text(center,s.countdown,640,278,57,36,s.countdown.length>=3?25:33,'#26ddf5');
   const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));this.text(center,`余牌 ${s.remaining}`,548,265,60,27,15,'#deebd9');this.text(center,`余花 ${flowers}`,548,294,60,27,15,'#deebd9');this.text(center,'把数',732,262,60,23,16,'#a4c4b2');this.text(center,s.rounds?`${s.round} / ${s.rounds}`:String(s.round),732,290,60,29,21,GOLD);
   }
-  if(this.trusteeButton)this.trusteeButton.active=s.presentation!=='replay';
+  if(this.trusteeButton)this.trusteeButton.active=s.presentation!=='replay'&&!s.externalControls;
   if(s.presentation==='replay'){this.text(h,'点击头像切换视角',640,455,250,30,17,'#bdd2bd');h.setSiblingIndex(this.root.children.length-1);return;}
+  if(s.externalControls){h.setSiblingIndex(this.root.children.length-1);return;}
   const me=s.players.find(p=>p.seat===s.me)!,ended=['ended','finished'].includes(s.phase);
   this.trusteeCommand=ended?{type:'menu',menu:'result'}:{type:'trustee',enabled:!me.trustee};
   // Keep the touch target alive across countdown/state pushes. Rebuilding it

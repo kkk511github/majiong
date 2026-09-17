@@ -62,7 +62,7 @@ describe("动作与胡牌语音", () => {
     b.result = result(["清一色"], 0);
     b.result.winners = [1, 2];
     b.result.details[2] = b.result.details[1];
-    expect(actionVoices(a, b).map((p) => p.phrase)).toEqual(["胡了", "清一色"]);
+    expect(actionVoices(a, b).map((p) => p.phrase)).toEqual(["胡了"]);
     expect(actionVoices(null, b)).toEqual([]);
     expect(actionVoices(b, b)).toEqual([]);
     const c = structuredClone(b);

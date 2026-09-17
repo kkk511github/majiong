@@ -318,7 +318,7 @@ export function ClubManagement({
           [
             ["members", "会员管理"],
             ["teams", "战队设置"],
-            ["points", "积分与局数"],
+            ["points", "积分统计"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -341,7 +341,7 @@ export function ClubManagement({
             ? "先分战队，再入桌。暂停参赛后，本局可打完。"
             : tab === "teams"
               ? "战队改名不会改变历史成绩归属。"
-              : "北京时间，含结束日。只统计已完成牌局。"}
+              : "北京时间，含结束日。桌费每人每桌计一次，提前结束也算1桌。"}
         </p>
       </nav>
       <section
@@ -489,10 +489,10 @@ export function ClubManagement({
         {tab === "points" && stats && (
           <div className="club-totals">
             <span>
-              已完成牌局 <b>{stats.completedRounds}</b>
+              把数 <b>{stats.completedRounds}</b>
             </span>
             <span>
-              成员累计局数 <b>{stats.playerRounds}</b>
+              桌数（8局/桌） <b>{stats.tables}</b>
             </span>
             <span>
               积分合计{" "}
@@ -618,14 +618,16 @@ export function ClubManagement({
                 <colgroup>
                   <col className="club-col-team" />
                   <col className="club-col-member" />
-                  <col />
+                  <col className="club-col-rounds" />
+                  <col className="club-col-tables" />
                   <col />
                 </colgroup>
                 <thead>
                   <tr>
                     <th>战队</th>
                     <th>会员</th>
-                    <th>局数</th>
+                    <th>把数</th>
+                    <th>桌数（8局/桌）</th>
                     <th>积分</th>
                   </tr>
                 </thead>
@@ -640,6 +642,7 @@ export function ClubManagement({
                         </small>
                       </td>
                       <td>{r.rounds}</td>
+                      <td>{r.tables}</td>
                       <td
                         className={
                           r.points > 0

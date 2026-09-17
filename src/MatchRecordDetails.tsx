@@ -1,3 +1,4 @@
+import { RecordExport } from "./RecordExport";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -217,6 +218,7 @@ export function MatchRecordDetails({
       </div>
       <div className="match-rounds-title">
         <h3>每把明细</h3>
+        <RecordExport data={data}/>
         <span>共 {data.rounds.length} 把 · 以下为每把积分变化</span>
       </div>
       <div className="match-rounds" aria-label="每把战绩列表" tabIndex={0}>

@@ -50,6 +50,7 @@ export function unseenHintCounts(
     if (!p) return;
     if (seat === view.me) p.hand.forEach((t) => visible.add(t));
     p.discards.forEach((t) => visible.add(t));
+    p.flowers.forEach((t) => visible.add(t));
     p.melds
       .filter((m) => !m.concealed || seat === view.me)
       .forEach((m) => m.tiles.forEach((t) => visible.add(t)));
@@ -60,4 +61,17 @@ export function unseenHintCounts(
       Math.max(0, 4 - [...visible].filter((t) => kind(t) === k).length),
     ]),
   );
+}
+
+/** One calculation per tile kind; duplicate physical copies receive the same hint. */
+export function readyDiscardTiles(view: import("../shared/types").View): number[] {
+  const player=view.players[view.me];
+  if(!player||view.phase!=="playing"||!view.canDiscard||player.trustee)return [];
+  const readyKinds=new Set<number>();
+  const tested=new Set<number>();
+  for(const tile of player.hand){
+    const k=kind(tile);if(tested.has(k))continue;tested.add(k);
+    if(listeningHints(player,view.rules,tile,view.players,{seat:view.me,earthlyWaits:view.earthlyWaits}).length)readyKinds.add(k);
+  }
+  return player.hand.filter(tile=>readyKinds.has(kind(tile)));
 }

@@ -1,5 +1,6 @@
 import { Music2, Volume2, VolumeX, Speech } from "lucide-react";
-import { gameAudio, BACKGROUND_MUSIC, type AudioPreferences } from "./audio";
+import { useEffect, useRef, useState } from "react";
+import { gameAudio, BACKGROUND_MUSIC, type AudioPreferences, type VoicePreviewState } from "./audio";
 
 export function AudioSettings({
   value,
@@ -8,6 +9,17 @@ export function AudioSettings({
   value: AudioPreferences;
   change: (patch: Partial<AudioPreferences>) => void;
 }) {
+  const [preview, setPreview] = useState<VoicePreviewState | "idle">("idle");
+  const cancelPreview = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    cancelPreview.current?.();
+    setPreview("idle");
+    return () => cancelPreview.current?.();
+  }, [value.voiceGender, value.voice, value.voiceVolume]);
+  const previewMessage = !value.voice ? "报牌已关闭" : value.voiceVolume <= 0 ? "报牌音量为 0，调高后可试听" : {
+    idle: "试听自摸报牌，不改变当前音量", loading: "正在加载试听…", playing: "正在试听南京话…",
+    ended: "试听结束", failed: "试听未能播放，请检查声音状态或稍后重试", cancelled: "试听已停止", muted: "当前声音不可用，请结束录音或返回前台后重试",
+  }[preview];
   return (
     <div className="audio-settings">
       {(
@@ -83,11 +95,15 @@ export function AudioSettings({
               </div>
               <button
                 className="voice-preview"
-                disabled={!value.voice}
-                onClick={() => gameAudio.previewVoice()}
+                disabled={!value.voice || value.voiceVolume <= 0}
+                onClick={() => {
+                  cancelPreview.current?.();
+                  cancelPreview.current = gameAudio.previewVoice(setPreview);
+                }}
               >
                 试听南京话
               </button>
+              <p className="voice-preview-status" role="status">{previewMessage}</p>
             </>
           )}
         </div>

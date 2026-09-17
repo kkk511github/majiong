@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { gameCues } from "../src/audio";
+import { describe, expect, it, vi } from "vitest";
+import { gameCues, GameAudio } from "../src/audio";
 import { act, createGame, newPlayer, startRound, viewFor } from "../shared/engine";
 import { seededRandom } from "../shared/tiles";
 import type { Game } from "../shared/types";
@@ -25,4 +25,25 @@ describe("对局声音跟随已确认的牌局", () => {
     expect(gameCues(null, viewFor(g, 0))).toEqual([]);
     expect(gameCues(viewFor(g, 0), null)).toEqual([]);
   });
+});
+
+
+it("试听恢复超时后不播迟到语音，也不修改静音设置", async () => {
+  vi.useFakeTimers();
+  try {
+    const a = new GameAudio() as any;
+    let resume!: () => void;
+    a.context = { resume: () => new Promise<void>(resolve => { resume = resolve; }) };
+    a.unlock = vi.fn();
+    a.voice = { stop: vi.fn(), setEnabled: vi.fn(), say: vi.fn() };
+    const before = { ...a.preferences }, notice = vi.fn();
+    a.previewVoice(notice);
+    expect(notice).toHaveBeenLastCalledWith("loading");
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(notice).toHaveBeenLastCalledWith("failed");
+    resume();
+    await Promise.resolve();
+    expect(a.voice.say).not.toHaveBeenCalled();
+    expect(a.preferences).toEqual(before);
+  } finally { vi.useRealTimers(); }
 });

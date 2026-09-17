@@ -9,6 +9,7 @@ import { makeServer } from "../server/service";
 import { provisionAdministrator } from "../server/accounts";
 import { createRecords } from "../server/records";
 import { createGame, newPlayer, seats } from "../shared/engine";
+import { settlementRows } from "../shared/settlement";
 const active: ReturnType<typeof makeServer>[] = [], dirs: string[] = [], sockets: WebSocket[] = [];
 afterEach(async () => { for (const s of sockets.splice(0)) s.close(); for (const s of active.splice(0)) await s.close(); for (const d of dirs.splice(0)) rmSync(d,{recursive:true,force:true}); });
 async function boot() {
@@ -72,9 +73,10 @@ it("预置四队可改名且重启不重置；分队后可入座，禁赛仍允�
   const deadline=Date.now()+2000;while(server.games.get(code)!.phase==="ended"&&Date.now()<deadline)await new Promise(r=>setTimeout(r,10));expect(server.games.get(code)!.round).toBe(2);
   const db=new DatabaseSync(file);expect(db.prepare("SELECT name FROM teams WHERE id='team-1'").get()!.name).toBe("一生好友战队");db.close();
 });
-it("积分只累加单局变化，历史战队锁定、去重、跨日边界、筛选及全量安全CSV",async()=>{
+it("积分含一次桌费并按本桌倍率记分，历史战队锁定、去重、跨日边界、筛选及全量安全CSV",async()=>{
   const {api,root,register,assign,file}=await boot(),a=await register("stats-a","=1+1"),b=await register("stats-b");await assign(a.account.id);await assign(b.account.id,"team-2");
   const db=new DatabaseSync(file),records=createRecords(db),g=createGame("123456","stat-game",{rounds:8});
+  g.settlementBase=100;
   g.players=seats.map(i=>newPlayer([a.account.id,b.account.id,"bot2","bot3"][i],i===0?"=1+1":`玩家${i}`,i>1));g.phase="playing";g.round=1;
   records.capture(g);
   await assign(a.account.id,"team-3");records.capture(g);
@@ -83,15 +85,18 @@ it("积分只累加单局变化，历史战队锁定、去重、跨日边界、�
   g.phase="playing";g.round=2;records.capture(g);
   g.phase="finished";g.history.push({...g.history[0],id:"stat-2",at:at+86400000,round:2,result:{reason:"draw",winners:[],details:{},deltas:[-10,10,0,0]}});records.capture(g);records.capture(g);
   const all=(await api("/api/admin/points",undefined,root.token)).data;
-  expect(all).toMatchObject({total:3,completedRounds:2,playerRounds:4,points:0});
-  expect(all.rows.find((r:any)=>r.teamId==="team-1")).toMatchObject({points:30,rounds:1});
-  expect(all.rows.find((r:any)=>r.teamId==="team-3")).toMatchObject({points:-10,rounds:1});
-  const one=(await api(`/api/admin/points?from=${at}&to=${at+86400000}&member=${a.account.id}`,undefined,root.token)).data;expect(one).toMatchObject({total:1,playerRounds:1,points:30});
+  expect(all).toMatchObject({total:3,completedRounds:2,tables:1,playerRounds:4,points:-10});
+  expect(all.rows.find((r:any)=>r.teamId==="team-1")).toMatchObject({points:10,rounds:1,tables:1});
+  expect(all.rows.find((r:any)=>r.teamId==="team-3")).toMatchObject({points:-5,rounds:1,tables:1});
+  const one=(await api(`/api/admin/points?from=${at}&to=${at+86400000}&member=${a.account.id}`,undefined,root.token)).data;expect(one).toMatchObject({total:1,playerRounds:1,tables:1,points:10});
+  const next=(await api(`/api/admin/points?from=${at+86400000}&member=${a.account.id}&team=team-3`,undefined,root.token)).data;expect(next).toMatchObject({total:1,playerRounds:1,tables:1,points:-5});
+  expect(one.points+next.points).toBe(5);
   expect((await api(`/api/admin/points?from=${at}&to=${at}`,undefined,root.token)).status).toBe(400);
   g.history.push({...g.history[0],id:"partial",round:3,result:{reason:"dissolved",winners:[],details:{},deltas:[100,-100,0,0]}});records.capture(g);expect(records.points(new URLSearchParams()).completedRounds).toBe(2);
   // Export deliberately ignores the current UI page.
   const csv=(await api("/api/admin/points/export?page=99",undefined,root.token)).data.csv;
-  expect(csv.startsWith("\uFEFF")).toBe(true);expect(csv).toContain("'=1+1");expect(csv).toContain('"30"');expect(csv).toContain('"-10"');
+  expect(csv.startsWith("\uFEFF")).toBe(true);expect(csv).toContain("'=1+1");expect(csv).toContain('"10"');expect(csv).toContain('"-5"');
+  expect(csv).toContain('"桌数（8局/桌）","积分"');expect(csv).not.toContain("完成局数");
   const migrated=createRecords(db);expect(migrated.points(new URLSearchParams()).completedRounds).toBe(2);db.close();
 });
 it("已删除的旧牌桌从单局存档补统计，坏记录不阻断启动，重复迁移不重计",async()=>{
@@ -105,4 +110,59 @@ it("已删除的旧牌桌从单局存档补统计，坏记录不阻断启动，�
   expect(migrated.points(new URLSearchParams()).rows[0]).toMatchObject({teamId:'',teamName:'历史未归队',points:18,rounds:1});
   expect(createRecords(db).points(new URLSearchParams()).completedRounds).toBe(1);
   expect(db.prepare("SELECT record FROM round_records WHERE id='bad-old'").get()!.record).toBe('{');db.close();
+});
+
+it.each([1,2,5])("五把提前终桌按1桌统计，桌内与桌外输赢扣一次桌费后按除数%s结算",async(divisor)=>{
+  const {register,assign,file}=await boot();
+  const members:string[]=[];
+  for(let seat=0;seat<4;seat++) {
+    const member=await register(`reconcile-${seat}`,`核算牌友${seat}`);
+    await assign(member.account.id,seat===3?"team-2":"team-1");members.push(member.account.id);
+  }
+  const db=new DatabaseSync(file),records=createRecords(db);
+  const at=Date.parse("2026-09-16T14:00:00+08:00");
+  const g=createGame("333069","five-hand-table",{rounds:8});
+  g.settlementBase=100;g.scoreDivisor=divisor;
+  g.players=seats.map(seat=>newPlayer(members[seat],`核算牌友${seat}`));
+  const deltas=[[0,24,0,-24],[-90,0,24,66],[0,0,0,0],[0,160,-56,-104],[0,-14,42,-28]];
+  let scores=[90,90,90,90],external=[0,0,0,0];
+  for(let i=0;i<deltas.length;i++) {
+    g.round=i+1;g.phase="playing";records.capture(g);
+    const externalDeltas=i===2?[0,-100,0,100]:[0,0,0,0];
+    scores=scores.map((score,seat)=>score+deltas[i][seat]);
+    external=external.map((score,seat)=>score+externalDeltas[seat]);
+    g.players.forEach((p,seat)=>{p!.score=scores[seat];p!.externalScore=external[seat];});
+    g.history.push({id:`five-hand-${i+1}`,at:at+i*60000,round:i+1,names:g.players.map(p=>p!.name),scores:[...scores],externalScores:[...external],initialScore:90,settlementBase:100,scoreDivisor:divisor,playerIds:members,result:{reason:"hu",winners:[1],details:{},deltas:deltas[i],externalDeltas}});
+    g.phase=i===4?"finished":"ended";records.capture(g);records.capture(g);
+  }
+  const query=new URLSearchParams({from:String(at),to:String(at+3600000)});
+  const result=records.points(query);
+  expect(result).toMatchObject({completedRounds:5,tables:1,playerRounds:20,total:4,points:-40/divisor});
+  for(const [seat,net] of [-100,60,0,0].entries())
+    expect(result.rows.find(r=>r.accountId===members[seat])).toMatchObject({rounds:5,tables:1,points:net/divisor});
+  const final=records.details(g.id,members[0],true).match.record;
+  for(const row of settlementRows(final))
+    expect(result.rows.find(r=>r.accountId===row.id)!.points).toBe(row.recorded);
+  const csv=records.exportPoints(query);
+  expect(csv).toContain(`"1","${60/divisor}"`);
+  expect(csv).not.toContain("完成局数");
+  expect(csv).not.toContain("0.625");
+  // Rendering the new report never changes the original raw points or snapshots.
+  expect(db.prepare("SELECT SUM(points) AS points FROM point_records WHERE account_id=?").get(members[1])!.points).toBe(70);
+  expect(createRecords(db).points(query)).toEqual(result);
+  // A new table may reuse the room code. It is a second table with its own fee.
+  const renewed=createGame(g.code,"same-code-new-table",{rounds:8});
+  renewed.settlementBase=100;renewed.scoreDivisor=divisor;
+  renewed.players=seats.map(seat=>newPlayer(members[seat],`核算牌友${seat}`));
+  renewed.round=1;renewed.phase="playing";records.capture(renewed);
+  expect(records.points(query)).toEqual(result); // No played hand, no table/fee yet.
+  for(let i=0;i<8;i++) {
+    renewed.round=i+1;records.capture(renewed);
+    renewed.history.push({...g.history[0],id:`renewed-${i}`,round:i+1,at:at+(10+i)*60000,scores:[90,90,90,90],externalScores:[0,0,0,0],result:{reason:"draw",winners:[],details:{},deltas:[0,0,0,0],externalDeltas:[0,0,0,0]}});
+  }
+  renewed.phase="finished";records.capture(renewed);
+  const two=records.points(query);
+  expect(two).toMatchObject({completedRounds:13,tables:2,playerRounds:52,points:-80/divisor});
+  expect(two.rows.find(r=>r.accountId===members[1])).toMatchObject({rounds:13,tables:2,points:50/divisor});
+  db.close();
 });

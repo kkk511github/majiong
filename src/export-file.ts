@@ -5,7 +5,7 @@ export async function exportCsv(csv: string, name: string) {
   if (Capacitor.isNativePlatform()) {
     const path = "point-exports/" + name;
     const result = await Filesystem.writeFile({path,data:csv,directory:Directory.Cache,encoding:Encoding.UTF8,recursive:true});
-    await Share.share({title:"战队积分与局数",files:[result.uri],dialogTitle:"保存或导出积分表"});
+    await Share.share({title:"战队积分统计",files:[result.uri],dialogTitle:"保存或导出积分表"});
     return;
   }
   const file = new File([csv], name, { type: "text/csv;charset=utf-8" });

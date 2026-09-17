@@ -1,0 +1,73 @@
+import ExcelJS from "exceljs";
+import { fileURLToPath } from "node:url";
+import type { ParticipationRow, ReportDocument, ReportKind, ScoreRow } from "../telegram-reports";
+
+/** Fill the reviewed templates. This isolated dependency is installed only in
+ * the reporting image; the game server does not load a spreadsheet runtime. */
+export async function settlementWorkbook(kind: ReportKind, teamName: string, start: string, end: string,
+  rows: (ParticipationRow | ScoreRow)[]): Promise<ReportDocument> {
+  const daily = kind === "dailyScore";
+  const day = (date: string, year: boolean) => {
+    const [y, m, d] = date.split("-").map(Number);
+    return `${year ? y + "." : ""}${m}.${d}`;
+  };
+  const dates = start === end ? day(start, true) : `${day(start, true)}-${day(end, start.slice(0,4) !== end.slice(0,4))}`;
+  const name = teamName.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_");
+  const title = daily ? `日结算表${dates}` : `${name}工资总表${dates}`;
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(fileURLToPath(new URL(`./templates/${kind}.xlsx`, import.meta.url)));
+  const sheet = wb.worksheets[0];
+  const cols = daily ? 8 : 7;
+  const styles = Array.from({ length: cols }, (_, i) => structuredClone(sheet.getCell(3, i + 1).style));
+  sheet.getCell("A1").value = title;
+  wb.creator = "金陵麻将";
+  wb.calcProperties.fullCalcOnLoad = true;
+  for (const [i, data] of rows.entries()) {
+    const r = i + 3;
+    const line = sheet.getRow(r);
+    line.height = 26;
+    const points = data.points;
+    line.values = daily
+      ? [data.teamName, data.userId, data.username, 0, { formula: `D${r}*0.2`, result: 0 }, (data as ScoreRow).score,
+        { formula: `F${r}*0.5`, result: points }, { formula: `E${r}+G${r}`, result: points }]
+      : [data.teamName, data.userId, data.username, 0, (data as ParticipationRow).rounds,
+        { formula: `E${r}*3`, result: points }, { formula: `D${r}+F${r}`, result: points }];
+    for (let c = 1; c <= cols; c++) {
+      const cell = line.getCell(c);
+      cell.style = structuredClone(styles[c - 1]);
+      const value = cell.value;
+      const number = typeof value === "number" ? value
+        : value && typeof value === "object" && "result" in value ? value.result : undefined;
+      if (typeof number === "number") cell.numFmt = Number.isInteger(number) ? "0" : "0.#######";
+    }
+    line.getCell(3).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    if (Array.from(data.username).length > 18) line.height = 42;
+  }
+  if (!rows.length) sheet.getCell("A3").value = "本期无结算记录";
+  const last = String.fromCharCode(64 + cols);
+  const lastDetail = Math.max(3, rows.length + 2);
+  const totalRow = sheet.getRow(lastDetail + 1);
+  totalRow.height = 28;
+  totalRow.getCell(1).value = "总计：";
+  for (let c = 1; c <= cols; c++) {
+    const cell = totalRow.getCell(c);
+    cell.style = structuredClone(styles[c - 1]);
+    cell.font = { ...cell.font, bold: true };
+    cell.border = { top: { style: "thin", color: { argb: "FF808080" } } };
+    if (c < 4) continue;
+    const column = String.fromCharCode(64 + c);
+    let total = 0;
+    for (let r = 3; r <= rows.length + 2; r++) {
+      const value = sheet.getCell(r, c).value;
+      total += typeof value === "number" ? value
+        : value && typeof value === "object" && "formula" in value ? Number(value.result ?? 0) : 0;
+    }
+    cell.value = { formula: `SUM(${column}3:${column}${lastDetail})`, result: total };
+    cell.numFmt = Number.isInteger(total) ? "0" : "0.#######";
+  }
+  sheet.autoFilter = `A2:${last}${lastDetail}`;
+  sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "1:2" };
+  const bytes = Buffer.from(await wb.xlsx.writeBuffer());
+  return { filename: `${title}.xlsx`, xlsxBase64: bytes.toString("base64"),
+    caption: `${teamName} ${daily ? "日结算" : "周结算"}\n${start} 至 ${end}（北京时间）\n按统计期结束时最终战队归属\n${daily ? "分数÷2" : "局数×3"}=${Number(rows.reduce((n,r)=>n+r.points,0).toFixed(6))}${rows.length ? "" : "\n本期无结算记录"}` };
+}

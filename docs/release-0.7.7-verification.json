@@ -1,0 +1,80 @@
+{
+  "version": "0.7.7",
+  "build": 43,
+  "baseCommit": "dde0f72cfa40ff26021c48df21f6357c2e09b290",
+  "sourceSnapshotSha256": "036dcbd7b705a7b0e86fc6a5230e15cc4e9396485317fe089d5aaa9c99fcdb4d",
+  "cocosSource": "3cc3b19d90a9e652badf7b3e61376d3ab82d851d2a9e0625690662fef8ea94c6",
+  "sameWebAssetsBothPlatforms": true,
+  "endpointHidden": false,
+  "nativePinningHostRemainsDiscoverable": true,
+  "clientCodeProtection": "RC4 string obfuscation; not a secret store",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 337,
+  "serverDeploymentPerformed": true,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.7-build43.apk",
+      "version": "0.7.7",
+      "build": 43,
+      "bytes": 116595543,
+      "sha256": "a3e4b2cad8fc44df65d313f933ede17eec814dc9dbc6e4767f8e92a372331c7b",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.7-build43-AdHoc.ipa",
+      "version": "0.7.7",
+      "build": 43,
+      "bytes": 117494509,
+      "sha256": "da71ff52caa0377221be7bfbd9d3d5286d1620232761fd8c60a23b11bbe45432",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  },
+  "serverDeployment": {
+    "release": "/opt/jinling-mahjong/releases/0.7.7-build43",
+    "previousRelease": "/opt/jinling-mahjong/releases/0.7.6-build42-points-20260916",
+    "publicCheck": {
+      "ok": true,
+      "version": "0.7.7",
+      "backend": "https://212.189.31.194/mahjong",
+      "anonymousEndpointsProtected": true,
+      "nativeCors": true,
+      "anonymousWebSocketRejected": true,
+      "at": "2026-09-16T11:52:41.818Z"
+    },
+    "linuxTestsPassed": 337,
+    "databaseCopyStartupPassed": true,
+    "databaseRowCountsPreserved": true,
+    "databaseRowCounts": {
+      "account_audit": 17,
+      "account_avatars": 1,
+      "account_numbers": 11,
+      "accounts": 11,
+      "admin_match_reads": 9,
+      "club_migrations": 1,
+      "feedback": 0,
+      "match_records": 4,
+      "point_records": 56,
+      "rooms": 5,
+      "round_records": 15,
+      "round_replays": 5,
+      "round_rosters": 20,
+      "table_archives": 4,
+      "table_creations": 5,
+      "table_permissions": 0,
+      "team_memberships": 9,
+      "teams": 4
+    },
+    "onlineHumansBeforeSwitch": 0,
+    "playingRoomsBeforeSwitch": 0
+  },
+  "browserTestsPassed": 88,
+  "actualNativeBundleBrowserTestsPassed": 4,
+  "desktopSourceMatchesFrozenSnapshot": true
+}

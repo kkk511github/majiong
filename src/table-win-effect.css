@@ -1,0 +1,17 @@
+@font-face{font-family:"Mahjong Win Brush";src:url("/fonts/mahjong-win-brush-v1.ttf") format("truetype");font-display:block}
+.table-win-effect{position:absolute;inset:0;z-index:8;pointer-events:none;color:#fff1c6}
+.win-callout{position:absolute;isolation:isolate;display:flex;align-items:center;gap:8px;box-sizing:border-box;padding:2px 4px;border:0;background:none;animation:win-arrive .35s ease-out}
+.win-callout::before{content:"";position:absolute;z-index:-1;inset:0 -8px;background:radial-gradient(ellipse at 40% 55%,#082f25b0 0%,#092c2460 42%,transparent 72%);filter:blur(3px)}
+.win-callout::after{content:"";position:absolute;pointer-events:none;left:65%;right:0;bottom:9px;height:3px;background:linear-gradient(90deg,transparent,#ffc65b80 25%,#fff3b9 38%,#d49b3033 72%,transparent);filter:drop-shadow(0 0 4px #ffcc4e);animation:win-light .9s ease-out both}
+.win-call-art{flex:none;display:block;min-width:1em;font-family:"Mahjong Win Brush",var(--serif);font-weight:400;font-size:var(--win-letter-size,40px);line-height:1.08;white-space:nowrap;background:linear-gradient(#fff1b2 12%,#ffe19a 44%,#dfa441 71%,#fff0a7 86%);background-clip:text;-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 1px 0 #80521b) drop-shadow(0 0 3px #e7b54344)}
+.win-call-details{min-width:0;display:flex;flex-direction:column;gap:2px;font-size:var(--win-name-size,18px);line-height:1.3;overflow-wrap:anywhere}
+.win-call-winners{color:#fff0bc;text-shadow:0 1px 2px #203c21;font-family:var(--serif);font-weight:650}
+.win-callout-side{flex-direction:column;gap:2px;text-align:center}
+.win-callout[data-relative-seat="2"]{justify-content:center}
+.win-callout-side .win-call-details{max-width:100%}
+.win-callout .winner{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes win-arrive{from{opacity:0;transform:translateY(4px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes win-light{from{opacity:0;transform:scaleX(.2);transform-origin:left}35%{opacity:1}to{opacity:.7;transform:scaleX(1)}}
+@media(prefers-reduced-motion:reduce){.win-callout,.win-callout::after{animation:none}}
+.seat-discarder{position:absolute;display:block;box-sizing:border-box;text-align:center;white-space:nowrap;font-family:"Mahjong Win Brush",var(--serif);font-weight:400;line-height:1.2;color:#d3f4ff;text-shadow:0 2px 0 #155b82,0 0 3px #073c65,0 0 10px #12293c;animation:win-arrive .3s ease-out}
+@media(prefers-reduced-motion:reduce){.seat-discarder{animation:none}}

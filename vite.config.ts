@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
 import { auditNativeWeb, protectClientCode, protectNativeTable } from "./scripts/native-security";
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
@@ -26,13 +27,17 @@ export default defineConfig(({ command, mode }) => {
       name: "protect-native-code",
       apply: "build",
       enforce: "post",
-      renderChunk(code, chunk) {
-        if (mode !== "native" || chunk.name === "vendor") return null;
-        return { code: protectClientCode(code), map: null };
-      },
-      async writeBundle(options) {
+      async writeBundle(options, bundle) {
         if (mode !== "native") return;
         const root = resolve(options.dir ?? "dist");
+        // Rollup resolves hashed import/preload filenames after renderChunk.
+        // Encoding those strings earlier freezes its !~{...}~ placeholders and
+        // breaks every lazy feature in the installed app. Protect final files.
+        for (const chunk of Object.values(bundle)) {
+          if (chunk.type !== "chunk" || chunk.name === "vendor") continue;
+          const file = resolve(root, chunk.fileName);
+          await writeFile(file, protectClientCode(await readFile(file, "utf8")));
+        }
         await protectNativeTable(root);
         const files = await auditNativeWeb(root, env.VITE_GAME_SERVER_URL);
         console.log(`Native security audit: ${files} web files passed (network destination remains observable).`);

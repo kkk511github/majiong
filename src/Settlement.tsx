@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, ChevronRight, Copy, Trophy } from "lucide-react";
 import type { RoundRecord, Seat } from "../shared/types";
+import { isGarden } from "../shared/nanjing-rules";
 import type { roundReadiness } from "./round-readiness";
 import {
   signedScore as scoreText,
@@ -243,7 +244,7 @@ export function ScoreDetails({
         </table>
         <p className="score-note">
           本局积分 = 胡牌收支 + 杠罚分 + 保米调整
-          {hasExternal || record.rules?.id === "nj-garden-v2"
+          {hasExternal || (record.rules && isGarden(record.rules))
             ? " + 桌外记分。进园子外包普通 50 分，比下胡 100 分，不扣桌上分。"
             : "。"}
         </p>

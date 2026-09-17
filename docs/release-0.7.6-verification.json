@@ -1,0 +1,137 @@
+{
+  "version": "0.7.6",
+  "build": 42,
+  "baseCommit": "dde0f72cfa40ff26021c48df21f6357c2e09b290",
+  "sourceSnapshotSha256": "a6c2e176347dbc01cd9d42d0fa95fc13a2d874fc70a2306da13a312198b74816",
+  "cocosSource": "3cc3b19d90a9e652badf7b3e61376d3ab82d851d2a9e0625690662fef8ea94c6",
+  "sameWebAssetsBothPlatforms": true,
+  "endpointHidden": false,
+  "nativePinningHostRemainsDiscoverable": true,
+  "clientCodeProtection": "RC4 string obfuscation; not a secret store",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 333,
+  "serverDeploymentPerformed": true,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.6-build42.apk",
+      "version": "0.7.6",
+      "build": 42,
+      "bytes": 114818996,
+      "sha256": "2ec86d9e7f3ebf2f0e447d3b00367f3b8fe6d8e0dcd2cbf39a32006d776dd356",
+      "matchedWebFiles": 217,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true,
+      "huVoices": {
+        "male": {
+          "sprite": "/audio/nanjing-male-hu-c47d4d1a.wav",
+          "cue": [
+            25.333583333333333,
+            0.8152916666666666
+          ],
+          "sha256": "94c77eae8bd747412ca0050f2b5382493193aebec1cb1fe3d46d987f8b52c27a"
+        },
+        "female": {
+          "sprite": "/audio/nanjing-female-hu-0f9d7c10.wav",
+          "cue": [
+            27.434208333333334,
+            0.6166666666666667
+          ],
+          "sha256": "380c6eb876695d45cadffad521aac39da411fcc1078e66be7dee71f87f9ac66e"
+        }
+      }
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.6-build42-AdHoc.ipa",
+      "version": "0.7.6",
+      "build": 42,
+      "bytes": 115731154,
+      "sha256": "9dca7e8aee7ff10ce8306e2c8a4b206a741208fbb4ffacb643f037bce2a1c57d",
+      "matchedWebFiles": 217,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true,
+      "huVoices": {
+        "male": {
+          "sprite": "/audio/nanjing-male-hu-c47d4d1a.wav",
+          "cue": [
+            25.333583333333333,
+            0.8152916666666666
+          ],
+          "sha256": "94c77eae8bd747412ca0050f2b5382493193aebec1cb1fe3d46d987f8b52c27a"
+        },
+        "female": {
+          "sprite": "/audio/nanjing-female-hu-0f9d7c10.wav",
+          "cue": [
+            27.434208333333334,
+            0.6166666666666667
+          ],
+          "sha256": "380c6eb876695d45cadffad521aac39da411fcc1078e66be7dee71f87f9ac66e"
+        }
+      }
+    }
+  },
+  "nativeBuiltClientSmoke": {
+    "passed": 2,
+    "browsers": [
+      "Chrome",
+      "WebKit"
+    ],
+    "checks": "Protected client opens playable Cocos table with randomUUID/Array.at/structuredClone unavailable"
+  },
+  "sourceNotes": "Frozen current working-tree snapshot based on baseCommit; no new source commit. Two generated Capacitor dependency files resolve the shared node_modules directory in the isolated checkout.",
+  "browserVerification": {
+    "passed": 88,
+    "browsers": [
+      "Chrome",
+      "WebKit"
+    ],
+    "log": "release-0.7.6-ui.log"
+  },
+  "webBuildVerified": true,
+  "serverRelease": "0.7.6-build42",
+  "serverHealthy": true,
+  "linuxUnitTestsPassed": 333,
+  "databaseCopyStartupPassed": true,
+  "databaseCountsPreserved": true,
+  "previousRelease": "0.7.5-build41",
+  "publicServiceVerification": {
+    "ok": true,
+    "version": "0.7.6",
+    "backend": "https://212.189.31.194/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-16T09:56:35.634Z"
+  },
+  "serverResourceVerification": {
+    "version": "0.7.6",
+    "cocos": {
+      "sha256": "cc2c8c9248e7353aad03c6b14dcc6c2773d0e16933174088d0354e8d424b3b4b",
+      "files": 96,
+      "bytes": 38993332
+    },
+    "voices": {
+      "male": {
+        "file": "/audio/nanjing-male-hu-c47d4d1a.wav",
+        "cue": [
+          25.333583333333333,
+          0.8152916666666666
+        ],
+        "bytes": 1255190,
+        "sha256": "94c77eae8bd747412ca0050f2b5382493193aebec1cb1fe3d46d987f8b52c27a"
+      },
+      "female": {
+        "file": "/audio/nanjing-female-hu-0f9d7c10.wav",
+        "cue": [
+          27.434208333333334,
+          0.6166666666666667
+        ],
+        "bytes": 1346486,
+        "sha256": "380c6eb876695d45cadffad521aac39da411fcc1078e66be7dee71f87f9ac66e"
+      }
+    },
+    "exposure": "Existing backend-only ingress retained; packaged voices load locally in APK/IPA. Public static paths return 404 by design."
+  }
+}

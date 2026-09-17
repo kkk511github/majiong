@@ -8,6 +8,8 @@ export interface VoiceSprite {
   cues: number[][];
   actions?: Record<string, number[]>;
 }
+export type VoicePlaybackState = "playing" | "ended" | "failed" | "cancelled";
+type VoiceNotice = (state: VoicePlaybackState) => void;
 export const voicePacks = { female, male };
 export const nanjingVoice: VoiceSprite = male;
 export const hasNanjingVoice =
@@ -38,7 +40,8 @@ export class TileVoice {
   private abort?: AbortController;
   private retryAt = 0;
   private disposed = false;
-  private queue: { cue: number[]; at: number; lifetime: number }[] = [];
+  private queue: { cue: number[]; at: number; lifetime: number; notice?: VoiceNotice }[] = [];
+  private activeNotice?: VoiceNotice;
   private seen = new Set<string>();
   private active?: AudioBufferSourceNode;
   private loading = false;
@@ -99,8 +102,8 @@ export class TileVoice {
       }
     })());
   }
-  say(key: string, tile: number | string) {
-    if (this.seen.has(key)) return;
+  say(key: string, tile: number | string, notice?: VoiceNotice) {
+    if (this.seen.has(key)) { notice?.("cancelled"); return; }
     this.seen.add(key);
     if (this.seen.size > 160)
       this.seen.delete(this.seen.values().next().value!);
@@ -108,13 +111,14 @@ export class TileVoice {
       typeof tile === "number"
         ? this.pack.cues[kind(tile)]
         : this.pack.actions?.[tile];
-    if (!this.enabled || this.context.state !== "running" || !cue) return;
+    if (!this.enabled || this.context.state !== "running" || !cue) { notice?.("failed"); return; }
     this.queue.push({
       cue,
       at: Date.now(),
       lifetime: typeof tile === "number" ? 3000 : 5500,
+      notice,
     });
-    if (this.queue.length > 6) this.queue.shift();
+    if (this.queue.length > 6) this.queue.shift()?.notice?.("cancelled");
     void this.next();
   }
   private async next() {
@@ -126,36 +130,50 @@ export class TileVoice {
     if (epoch !== this.epoch) return;
     this.loading = false;
     if (!buffer || !this.enabled || this.context.state !== "running") {
+      this.queue.forEach((item) => item.notice?.("failed"));
       this.queue = [];
       return;
     }
     let item = this.queue.shift();
-    while (item && Date.now() - item.at > item.lifetime)
+    while (item && Date.now() - item.at > item.lifetime) {
+      item.notice?.("cancelled");
       item = this.queue.shift();
+    }
     if (!item) return;
     const [offset, duration] = item.cue;
     const source = this.context.createBufferSource();
     source.buffer = buffer;
     source.connect(this.output);
     this.active = source;
+    this.activeNotice = item.notice;
     this.activity(true);
     source.onended = () => {
       source.disconnect();
       if (this.active !== source) return;
       this.active = undefined;
+      this.activeNotice = undefined;
       this.activity(false);
+      item.notice?.("ended");
       void this.next();
     };
     try {
       source.start(0, offset, duration);
+      item.notice?.("playing");
     } catch {
+      this.activeNotice = undefined;
+      item.notice?.("failed");
       this.stop();
     }
   }
   stop() {
     this.epoch++;
     this.loading = false;
+    const cancelled = this.queue;
     this.queue = [];
+    cancelled.forEach((item) => item.notice?.("cancelled"));
+    const notice = this.activeNotice;
+    this.activeNotice = undefined;
+    notice?.("cancelled");
     const source = this.active;
     this.active = undefined;
     if (source) {

@@ -1,0 +1,78 @@
+{
+  "version": "0.7.8",
+  "build": 45,
+  "baseCommit": "dde0f72cfa40ff26021c48df21f6357c2e09b290",
+  "sourceSnapshotSha256": "2731f385fd86a089f75e5af7336f4289bb277a15cc9d3d9bd75e760f17584e0a",
+  "cocosSource": "2a00eb2f090de8c4a9ad5761749df62bd06e5e76e0391435f5f00a520123e19c",
+  "sameWebAssetsBothPlatforms": true,
+  "endpointHidden": false,
+  "nativePinningHostRemainsDiscoverable": true,
+  "clientCodeProtection": "RC4 string obfuscation; not a secret store",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 443,
+  "serverDeploymentPerformed": true,
+  "deployment": {
+    "release": "0.7.8-build45",
+    "activatedAt": "2026-09-16T18:39:45Z",
+    "imageId": "sha256:cd4b6dae8921e6a9e4f794b3fa46cb300f0c2589b9741091062d911d839913fe",
+    "health": "healthy",
+    "linuxUnitTestsPassed": 443,
+    "historicalTablesVerified": 17,
+    "historicalDigestsIdentical": true,
+    "oldRoomLedgerUnchanged": true,
+    "backupSha256": "52e25bb9b2acc71d383e3aead8bfa7dc1d10e2f782546afaf1885124b24734e1",
+    "auditDirectory": "/opt/jinling-mahjong/database-backups/0.7.8-build45-deploy",
+    "telegramUnchanged": true,
+    "telegramHealthy": true,
+    "supplementalSource": {
+      "file": ".env.example",
+      "reason": "Public template excluded by deployment archive env wildcard; restored from the frozen snapshot and reverified against its manifest before build.",
+      "sha256": "02e4249e4f43078e5d5bd03565dec32f215ffa7a3b2354ae9ef93cea3961649a"
+    },
+    "publicApiVersion": "0.7.8",
+    "nativeCorsPassed": true,
+    "anonymousEndpointsProtected": true,
+    "anonymousWebSocketRejected": true
+  },
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.8-build45.apk",
+      "version": "0.7.8",
+      "build": 45,
+      "bytes": 116601695,
+      "sha256": "28a70351abbe464996aa53202b9a06490f109b56fc4ce28f46eeda7d8b91c3a4",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.8-build45-AdHoc.ipa",
+      "version": "0.7.8",
+      "build": 45,
+      "bytes": 117500670,
+      "sha256": "8468b394630435f5991bb0d0b7ecf50719e463ca4a8f81ddc34758b594500ea5",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  },
+  "nativeBrowserTestsPassed": 4,
+  "tableSetupBrowserTestsPassed": 6,
+  "gitCommitCreated": false,
+  "rules": {
+    "id": "nj-garden-b-v3",
+    "base": 10,
+    "closed": 10,
+    "flowerFactor": 2,
+    "initialScore": 90,
+    "settlementBase": 100,
+    "externalIncludedInSettlement": true,
+    "externalExcludedFromBankruptcy": true,
+    "burnDealerEnabled": false,
+    "windPaymentsPerOpponent": 5,
+    "windPaymentsFixed": true
+  }
+}

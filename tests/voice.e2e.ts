@@ -120,3 +120,46 @@ for (const [width, height] of [
     ).not.toBeChecked();
   });
 }
+
+test("父页面与牌桌切换焦点后，自摸和点炮胡都真正播放胡了录音", async ({page}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("jinling:music", "false");
+    localStorage.setItem("jinling:sound", "false");
+    localStorage.setItem("jinling:voice", "true");
+    localStorage.setItem("jinling:voiceVolume", "0.85");
+    localStorage.setItem("jinling:voiceGender", '"male"');
+    const Base=window.AudioContext;
+    (window as any).__huStarts=[];
+    (window as any).__huPeak=0;
+    window.AudioContext=class extends Base {
+      constructor(options?:AudioContextOptions){
+        super(options);
+        const analyser=this.createAnalyser(),destination=this.destination;
+        const connect=AudioNode.prototype.connect;
+        AudioNode.prototype.connect=function(this:AudioNode,...args:any[]){
+          const result=(connect as any).apply(this,args);
+          if(args[0]===destination)(connect as any).call(this,analyser);
+          return result;
+        } as typeof AudioNode.prototype.connect;
+        const data=new Float32Array(analyser.fftSize);
+        const measure=()=>{analyser.getFloatTimeDomainData(data);(window as any).__huPeak=Math.max((window as any).__huPeak,...data.map(Math.abs));requestAnimationFrame(measure);};
+        requestAnimationFrame(measure);
+        const create=this.createBufferSource.bind(this);
+        this.createBufferSource=()=>{const source=create(),start=source.start.bind(source);source.start=(...args:Parameters<typeof source.start>)=>{if(source.buffer&&source.buffer.duration>10)(window as any).__huStarts.push(args);start(...args);};return source;};
+      }
+    };
+  });
+  await page.goto('/work/listening-preview.html');
+  const frame=page.frameLocator('iframe[title="可操作麻将牌桌"]');
+  await expect(frame.getByRole('navigation',{name:'牌桌工具'})).toBeVisible();
+  const table=page.frames().find(f=>f.url().endsWith('/work/listening-table.html'))!;
+  for(const [index,name] of ['播放自摸','播放点炮胡'].entries()){
+    await page.getByRole('button',{name,exact:true}).click();
+    // Focus returns from a parent control while the same visible table is active.
+    await expect(frame.getByRole('button',{name:index===0?'自摸':'胡',exact:true})).toBeVisible();
+    await table.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    await expect(page.locator('#voice-state')).toHaveText('胡了已播放');
+    expect(await table.evaluate(()=>(window as any).__huStarts)).toEqual(Array.from({length:index+1},()=>[0,...voice.actions['胡了']]));
+    expect(await table.evaluate(()=>(window as any).__huPeak)).toBeGreaterThan(.001);
+  }
+});

@@ -28,3 +28,20 @@
 .zhaozhi-control{z-index:2}
 
 .hint-win-detail{display:flex;align-items:center;gap:10px}.hint-win-detail .winning-tile-art{flex:none;width:28px;height:41px;margin:0}.hint-win-detail strong{font-size:12px}.hint-win-detail small{display:block;margin-top:4px;font-size:10px;color:#726744}
+
+
+/* A single, fully visible strip above the hand, anchored toward the right. */
+.mahjong-hint-layer .win-hint-panel{bottom:auto;right:auto;display:flex;align-items:center;gap:3px;box-sizing:border-box;max-height:none;padding:2px 5px;border:1px solid #809e8566;border-radius:7px;background:#103f35bb;color:#fff0bd;box-shadow:0 2px 5px #00251c33;overflow:visible}
+.mahjong-hint-layer .win-hint-heading{display:flex;flex:none;min-height:0;padding:0;gap:0;background:none}
+.mahjong-hint-layer .listening-seal{width:20px;height:22px;background:none;border:0;box-shadow:none;font-size:17px;color:#f0da9e}
+.mahjong-hint-layer .winning-tile-list{display:flex;flex:1;min-width:0;align-items:center;gap:0;padding:0;overflow:visible;touch-action:auto}
+.mahjong-hint-layer .winning-tile-item{display:flex;flex:1;min-width:0;flex-direction:row;align-items:center;justify-content:center;gap:2px}
+.mahjong-hint-layer .winning-tile-art{flex:none;width:calc(var(--hint-tile-height)*.69);height:var(--hint-tile-height)}
+.mahjong-hint-layer .winning-tile-item small,.mahjong-hint-layer .winning-tile-item small b{font-size:var(--hint-font);line-height:1;color:#fff0cc}
+.mahjong-hint-layer .hint-win-detail{display:flex;align-items:center;gap:8px;padding:0;font-size:12px}
+.mahjong-hint-layer .hint-win-detail .winning-tile-art{width:calc(var(--hint-tile-height)*.69);height:var(--hint-tile-height)}
+.mahjong-hint-layer .hint-win-detail strong{color:#fff0c3;font-size:12px}.mahjong-hint-layer .hint-win-detail small{display:none}
+.mahjong-hint-layer .can-win .listening-seal{width:24px;height:24px}
+
+.mahjong-hint-layer .winning-tile-item{flex-direction:var(--hint-direction);gap:var(--hint-gap)}
+

@@ -1,6 +1,7 @@
 import type { View } from "../shared/types";
 import { gameFeedback } from "./game-feedback";
-import { TileVoice, voicePacks } from "./tile-voice";
+import { TileVoice, voicePacks, type VoicePlaybackState } from "./tile-voice";
+export type VoicePreviewState = VoicePlaybackState | "loading" | "muted";
 
 export type Cue =
   | "click"
@@ -45,7 +46,37 @@ const hz = (note: number) => 440 * 2 ** ((note - 69) / 12);
 const clamp = (n: number) =>
   Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.5;
 
+export interface AudioHealth {
+  phase: "idle" | "checking" | "ready" | "blocked" | "hidden";
+  enabled: boolean;
+  failures: number;
+  rebuilds: number;
+  lastRecoveryMs: number | null;
+  lastIssue: string;
+}
 export class GameAudio {
+  private health: AudioHealth = {
+    phase: "idle",
+    enabled: true,
+    failures: 0,
+    rebuilds: 0,
+    lastRecoveryMs: null,
+    lastIssue: "",
+  };
+  private healthListeners = new Set<() => void>();
+  private recoveryStartedAt = 0;
+  getHealth = () => this.health;
+  subscribeHealth = (listener: () => void) => {
+    this.healthListeners.add(listener);
+    return () => {
+      this.healthListeners.delete(listener);
+    };
+  };
+  private reportHealth(patch: Partial<AudioHealth>) {
+    this.health = { ...this.health, ...patch };
+    this.healthListeners.forEach((listener) => listener());
+  }
+
   private context?: AudioContext;
   private musicGain?: GainNode;
   private effectsGain?: GainNode;
@@ -82,6 +113,12 @@ export class GameAudio {
   configure(preferences: AudioPreferences, table: boolean) {
     const track = this.musicTrack;
     this.preferences = preferences;
+    this.reportHealth({
+      enabled:
+        (preferences.music && preferences.musicVolume > 0) ||
+        (preferences.sound && preferences.soundVolume > 0) ||
+        (preferences.voice && preferences.voiceVolume > 0),
+    });
     this.table = table;
     if (track !== this.musicTrack) this.changeMusic();
     this.voice?.setPack(voicePacks[preferences.voiceGender ?? "male"]);
@@ -184,7 +221,7 @@ export class GameAudio {
         })
         .catch(() => {});
     } catch {
-      /* A blocked audio device must not block the table. */
+      this.reportHealth({ phase: "blocked", lastIssue: "音频设备暂不可用" });
     }
   };
   private create() {
@@ -308,7 +345,9 @@ export class GameAudio {
   }
 
   setVisible(visible: boolean) {
+    if (visible === this.visible) return;
     this.visible = visible;
+    if (!visible) this.reportHealth({ phase: "hidden" });
     this.voice?.setEnabled(
       this.preferences.voice && visible && (this.table || this.replayActive),
     );
@@ -337,25 +376,41 @@ export class GameAudio {
     if (!this.visible || !this.context || this.resumeRetry) return;
     if (!this.recovering) {
       this.recovering = true;
+      this.recoveryStartedAt = Date.now();
       this.recoveryAttempt = 0;
       this.recoveryRebuilt = false;
     }
-    const context = this.context, clock = context.currentTime;
+    const context = this.context,
+      clock = context.currentTime;
     const delays = [250, 750, 1500, 3000];
     this.resumeRetry = setTimeout(() => {
       this.resumeRetry = undefined;
       if (!this.visible || this.context !== context) return;
       if (context.state === "running" && context.currentTime > clock + 0.001) {
+        this.reportHealth({
+          phase: "ready",
+          lastRecoveryMs: Date.now() - this.recoveryStartedAt,
+        });
         this.stopRecovery();
         return;
       }
+      this.reportHealth({
+        phase: "checking",
+        lastIssue:
+          context.state === "running" ? "输出时钟未前进" : "音频会话未恢复",
+      });
       if (++this.recoveryAttempt >= delays.length) {
         if (this.recoveryRebuilt) {
+          this.reportHealth({
+            phase: "blocked",
+            failures: this.health.failures + 1,
+          });
           this.stopRecovery();
           return;
         }
         // Rebuild every node together; never leave music or voices connected
         // to an abandoned context. No stale game cues are replayed.
+        this.reportHealth({ rebuilds: this.health.rebuilds + 1 });
         this.dispose();
         this.recovering = true;
         this.recoveryRebuilt = true;
@@ -479,13 +534,32 @@ export class GameAudio {
   sayTile(key: string, tile: number | string) {
     this.voice?.say(key, tile);
   }
-  previewVoice() {
-    if (!this.visible || !this.preferences.voice) return;
+  previewVoice(notice?: (state: VoicePreviewState) => void): () => void {
+    if (!this.visible || !this.preferences.voice || this.preferences.voiceVolume <= 0 || this.communication === "recording") {
+      notice?.("muted");
+      return () => {};
+    }
     this.stopVoice();
+    notice?.("loading");
     this.unlock();
     const context = this.context;
-    if (!context) return;
+    if (!context) { notice?.("failed"); return () => {}; }
     const epoch = this.previewEpoch;
+    let finished = false;
+    let timeout: ReturnType<typeof setTimeout>;
+    const update = (state: VoicePreviewState) => {
+      if (finished) return;
+      if (state !== "loading" && state !== "playing") {
+        finished = true;
+        clearTimeout(timeout);
+      }
+      notice?.(state);
+    };
+    timeout = setTimeout(() => {
+      if (finished) return;
+      update("failed");
+      if (epoch === this.previewEpoch) this.stopVoice();
+    }, 10000);
     void context
       .resume()
       .then(() => {
@@ -493,13 +567,18 @@ export class GameAudio {
           this.context !== context ||
           epoch !== this.previewEpoch ||
           !this.visible ||
-          !this.preferences.voice
-        )
-          return;
+          !this.preferences.voice || this.preferences.voiceVolume <= 0
+        ) { update("cancelled"); return; }
         this.voice?.setEnabled(true);
-        this.voice?.say(`preview:${epoch}`, "自摸");
+        if (this.voice) this.voice.say(`preview:${epoch}`, "自摸", update);
+        else update("failed");
       })
-      .catch(() => {});
+      .catch(() => update("failed"));
+    return () => {
+      if (finished) return;
+      if (epoch === this.previewEpoch) this.stopVoice();
+      update("cancelled");
+    };
   }
   stopVoice() {
     this.previewEpoch++;

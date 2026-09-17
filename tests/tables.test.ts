@@ -93,7 +93,8 @@ async function createTables(
       overtimePerTurn: false,
       ...settings,
     },
-    rules: { twoBankrupt: false },
+    // Keep lifecycle fixtures uncapped; B-profile bankruptcy has dedicated coverage.
+    rules: { id: "nj-garden-v2", twoBankrupt: false },
     count,
     creationId,
     requestId: creationId,

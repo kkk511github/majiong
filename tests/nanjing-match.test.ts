@@ -24,7 +24,7 @@ function verifyAccounts(game: Game, where: string) {
   if (game.rules.twoBankrupt) expect(game.players.every(p => p!.score >= 0), where).toBe(true);
 }
 
-it.each(["nj-garden-v2", "nj-open-v2"] as Rules["id"][])(
+it.each(["nj-garden-v2", "nj-open-v2", "nj-garden-b-v3"] as Rules["id"][])(
   "%s：24桌连续八把验证累计、换庄、倍率、历史快照及终桌守恒",
   (id) => {
     const reached = new Set<number>();
@@ -83,7 +83,7 @@ it.each(["nj-garden-v2", "nj-open-v2"] as Rules["id"][])(
     }
     // The audit must actually reach later hands, not pass solely on early bankruptcies.
     expect([...reached].sort()).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    if (id === "nj-garden-v2") expect(earlyEnds).toBeGreaterThan(0);
+    if (id !== "nj-open-v2") expect(earlyEnds).toBeGreaterThan(0);
     else expect(earlyEnds).toBe(0);
   },
   120000,

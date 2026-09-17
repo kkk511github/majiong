@@ -258,3 +258,11 @@
   .polished[data-page="history"] .empty h3 { font-size: 14px; }
   .polished[data-page="history"] .empty .primary { padding-inline: 12px; }
 }
+
+.polished .voice-preview-status {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #46624f;
+  min-height: 18px;
+}

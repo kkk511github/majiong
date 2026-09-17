@@ -1,6 +1,6 @@
 import { counts, kind } from "./tiles";
 import { shapes, type Shape } from "./hand-shapes";
-import { flowerFactor, nanjingValues } from "./nanjing-rules";
+import { flowerFactor, isNanjingB, nanjingValues } from "./nanjing-rules";
 import type { WinContext } from "./scoring";
 import type { Player, Rules, WinScore, Seat } from "./types";
 
@@ -40,7 +40,8 @@ function scoreNanjingBase(
       ]
     : shapes(hand, p.melds.length);
   if (!candidates.length) return null;
-  if (ctx.heavenly && !p.melds.length)
+  const bProfile = isNanjingB(rules);
+  if (ctx.heavenly && !p.melds.length && !bProfile)
     return {
       total: 0,
       items: [{ label: "天胡（三家归零）", value: 0 }],
@@ -55,6 +56,7 @@ function scoreNanjingBase(
     all.filter((k) => k < 27).map((k) => Math.floor(k / 9)),
   );
   const winds = all.some((k) => k >= 27);
+  const windOnlyB = bProfile && suits.size === 0;
   const closed = p.melds.every(
     (m) => m.concealed || (m.type === "kong" && !m.added),
   );
@@ -81,19 +83,20 @@ function scoreNanjingBase(
       major = true;
     };
     add("成牌", values.base);
-    if (shape.seven)
+    if (shape.seven && !windOnlyB)
       big(
         ["七对", "双七对", "豪华双七对", "超豪华双七对"][shape.quads],
         values.seven[shape.quads],
       );
-    if (!shape.seven && shape.groups.every((g) => g[0] === g[1]))
+    if (!shape.seven && !windOnlyB && shape.groups.every((g) => g[0] === g[1]))
       big("对对胡", values.triplets);
     if (suits.size === 1)
       big(winds ? "混一色" : "清一色", winds ? values.mixed : values.pure);
-    if (!suits.size) big("字一色（按清一色）", values.pure);
+    if (!suits.size) big(bProfile ? "风一色" : "字一色（按清一色）", values.winds);
     const global = p.melds.length === 4;
     if (global) big("全球独钓", values.global);
-    if (closed && !shape.seven) add("门清", values.closed);
+    if (closed && !shape.seven && !windOnlyB) add("门清", values.closed);
+    if (ctx.heavenly && !p.melds.length) big("天胡", values.heavenly);
     if (ctx.earthly) big("地胡", values.earthly);
     const large = ctx.replacement === "kong";
     if (large) big("大杠开花", values.largeReplacement);
@@ -126,13 +129,13 @@ function scoreNanjingBase(
               ((g[0] % 9 === 0 && g[2] === winKind) ||
                 (g[0] % 9 === 6 && g[0] === winKind)),
           );
-        if ((middle || edge) && ctx.visiblePungs?.includes(winKind))
+        if ((bProfile || middle || edge) && ctx.visiblePungs?.includes(winKind))
           big("压绝", values.absolute);
         else if (middle || edge) add(middle ? "压档" : "边枝", flower);
         else if (oneWait && shape.pair === winKind) add("独占", flower);
       }
     }
-    if (!p.flowers.length && (closed || major)) big("无花果", values.noFlower);
+    if (!p.flowers.length && (bProfile || closed || major)) big("无花果", values.noFlower);
     if (!closed && !major && p.flowers.length < rules.minimumFlowers) continue;
     add(`硬花 ${p.flowers.length} × ${flower}`, p.flowers.length * flower);
     add(`软花 ${soft} × ${flower}`, soft * flower);

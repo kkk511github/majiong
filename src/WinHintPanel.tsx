@@ -1,61 +1,70 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { TableSceneState, TableSceneCommand } from "../shared/table-scene";
 import { TileFace } from "./Tile";
 import { tileName } from "../shared/tiles";
 import "./win-hint-panel.css";
+import { layoutTable } from "../shared/table-scene";
+import { tableOverlayLayout } from "./table-overlay-layout";
+const NO_READY_DISCARDS: number[] = [];
 
 export function WinHintPanel({
   state: s,
   onCommand,
+  readyDiscards = NO_READY_DISCARDS,
 }: {
   state: TableSceneState;
+  readyDiscards?: number[];
   onCommand: (c: TableSceneCommand) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ left: 0, bottom: 0, width: 0 });
   const [confirm, setConfirm] = useState(false);
-  useEffect(() => {
-    const host = ref.current?.parentElement;
-    if (!host) return;
-    const resize = () => {
-      const w = host.clientWidth,
-        h = host.clientHeight,
-        k = Math.min(w / 1280, h / 590);
-      setBox({
-        left: (w - 1280 * k) / 2 + 128 * k,
-        bottom: (h - 590 * k) / 2 + 107 * k,
-        width: Math.min(
-          s.actions.some((a) => a.id === "hu")
-            ? 290
-            : Math.max(252, 126 + s.hintKinds.length * 43),
-          780 * k,
-          w * 0.7,
-        ),
-      });
+  const hostRef=useRef<HTMLDivElement>(null);
+  const [position,setPosition]=useState<CSSProperties>({visibility:"hidden"});
+  useEffect(()=>{
+    const host=hostRef.current?.parentElement;if(!host)return;
+    const iframe=host.querySelector("iframe");
+    const resize=()=>{
+      const parent=host.getBoundingClientRect(),rect=iframe?.getBoundingClientRect()??parent;
+      const f=tableOverlayLayout(parent,rect,s.safeArea),k=f.scale;
+      const hu=s.actions.some(a=>a.id==="hu") && (s.pending || s.hintDiscard === undefined),count=hu?1:s.hintKinds.length;
+      const meta=hu?26:12;
+      const available=Math.max(80,Math.min(parent.width-f.safeLeft-f.safeRight,1020*k));
+      const width=Math.min(available,Math.max(hu?200:0,meta+count*Math.max(40,52*k)));
+      const right=Math.min(parent.width-f.safeRight,f.contentRight);
+      const left=Math.max(f.safeLeft,Math.min(f.left+624*k,right-width));
+      const own=s.players?.length ? layoutTable(s).filter(t=>t.seat===s.me&&t.area==="hand") : [];
+      const under=own.filter(t=>f.left+(t.x+t.w/2)*k>left&&f.left+(t.x-t.w/2)*k<left+width);
+      const handTop=under.length?Math.min(...under.map(t=>t.y-t.h/2)):491;
+      const h=Math.max(30,40*k);
+      const arrowGap=under.some(t=>t.tile!==undefined&&readyDiscards.includes(t.tile))?Math.max(14,22*k):0;
+      let top=f.top+handTop*k-h-arrowGap-4;
+      const controls=host.querySelector(".table-claim-actions")?.getBoundingClientRect();
+      if(controls&&left+width>controls.left-parent.left-8&&left<controls.right-parent.left+8)
+        top=Math.min(top,controls.top-parent.top-h-8);
+      const item=Math.max(5,(width-(hu?meta+12:12))/Math.max(1,count));
+      const dense=item<32;
+      setPosition({left,top:Math.max(54,top),width,height:h,"--hint-direction":dense?"column":"row","--hint-gap":dense?"0px":"2px","--hint-tile-height":`${dense?Math.min(h-12,item*1.1):Math.min(h-5,(item-12)/.69)}px`,"--hint-font":`${dense?Math.min(9,item*.55):Math.min(13,item*.24)}px`} as CSSProperties);
     };
-    const observer = new ResizeObserver(resize);
-    observer.observe(host);
-    resize();
-    return () => observer.disconnect();
-  }, [s.hintKinds.length, s.actions.some((a) => a.id === "hu")]);
+    const observer=new ResizeObserver(resize);observer.observe(host);if(iframe)observer.observe(iframe);
+    const controls=host.querySelector(".table-claim-actions");if(controls)observer.observe(controls);
+    resize();return ()=>observer.disconnect();
+  },[s.hintKinds.length,s.actions,s.selected,s.drawn,s.players,s.hintDiscard,s.safeArea,readyDiscards]);
   useEffect(() => setConfirm(false), [s.key, s.turn, s.phase, s.zhaozhi]);
   const active =
     s.presentation !== "replay" && ["playing", "claiming"].includes(s.phase);
-  const hu = s.actions.some((a) => a.id === "hu");
+  const hu = s.actions.some((a) => a.id === "hu") && (!!s.pending || s.hintDiscard === undefined);
+  const totalUnseen = s.hintKinds.every(k=>s.hintUnseen?.[k] !== undefined) ? s.hintKinds.reduce((n,k)=>n+s.hintUnseen![k],0) : "—";
   const winningTile = s.pending?.tile ?? s.drawn;
-  const show = active && (hu || s.hintKinds.length > 0 || s.selected !== null);
+  const show = active && (hu || s.hintKinds.length > 0);
   const canPreview = s.hintDiscard !== undefined;
   const title = hu
     ? s.pending
       ? "现在可以胡牌"
       : "现在可以自摸"
-    : !s.hintKinds.length
-      ? "暂未听牌"
-      : canPreview
-        ? "打出后可听"
-        : "已经听牌";
+    : canPreview
+      ? "打出后可听"
+      : "已经听牌";
   return (
-    <div ref={ref} className="mahjong-hint-layer">
+    <div ref={hostRef} className="mahjong-hint-layer">
       {active && (s.zhaozhiAvailable || s.zhaozhi) && (
         <div className="zhaozhi-control">
           {s.zhaozhi ? (
@@ -92,21 +101,20 @@ export function WinHintPanel({
       {show && !confirm && (
         <section
           className={`win-hint-panel${hu ? " can-win" : ""}`}
-          style={box}
+          style={position}
           aria-label="胡牌提示"
+          title="余牌按自己手牌和公开牌计算，包含其他玩家暗手；不是牌库中的确定张数"
         >
-          <div className="win-hint-heading">
-            <span className="listening-seal">
+          <div className={hu ? "win-hint-heading" : "sr-only"}>
+            <span className="listening-seal" aria-hidden="true">
               {hu ? (
                 <img
                   src={`${import.meta.env.BASE_URL}art/hu-badge-v1.webp`}
                   alt=""
                 />
-              ) : (
-                "听"
-              )}
+              ) : null}
             </span>
-            <div>
+            <div className="sr-only">
               <strong>{title}</strong>
               <small>
                 {hu
@@ -116,14 +124,10 @@ export function WinHintPanel({
                     : "等待你的胡牌机会"}
               </small>
             </div>
-            {!hu && canPreview && (
-              <span
-                className="hint-discard"
-                aria-label={`拟打出${tileName(s.hintDiscard!)}`}
-              >
-                <TileFace tile={s.hintDiscard!} />
-              </span>
-            )}
+            {!hu && <div className="hint-preview-summary" aria-label="听牌汇总">
+              <strong>{canPreview ? `打${tileName(s.hintDiscard!)}` : "已听牌"}</strong>
+              <small><b>{s.hintKinds.length}</b>种 · 余<b>{totalUnseen}</b>张</small>
+            </div>}
           </div>
           {!hu && s.hintKinds.length > 0 ? (
             <>
@@ -143,23 +147,38 @@ export function WinHintPanel({
                       <TileFace tile={k * 4} />
                     </span>
                     <small>
-                      未见 <b>{s.hintUnseen?.[k] ?? "—"}</b>
+                      ×<b>{s.hintUnseen?.[k] ?? "—"}</b>
                     </small>
                   </div>
                 ))}
               </div>
-              <footer>
-                {s.hintKinds.length} 种听口 · 未见数含他人暗手
-                <span>{s.hintKinds.length > 3 ? "横滑查看更多" : ""}</span>
+              <footer className="sr-only">
+                {s.hintKinds.length} 种听口 · 合计未见{totalUnseen}张 · 未见数含他人暗手
+
               </footer>
             </>
           ) : !hu ? (
             <p className="hint-empty">这张牌打出后暂无听口，试试其他手牌</p>
           ) : (
             <div className="hint-win-detail">
-              {winningTile !== undefined && <span className="winning-tile-art" aria-label={`胡牌${tileName(winningTile)}`}><TileFace tile={winningTile}/></span>}
-              <div><strong>{s.pending ? "点右侧「胡」确认" : "点右侧「自摸」确认"}</strong>
-                <small>{s.pending ? "选择「过」将放弃本次胡牌" : "继续出牌将放弃这次自摸"}</small></div>
+              {winningTile !== undefined && (
+                <span
+                  className="winning-tile-art"
+                  aria-label={`胡牌${tileName(winningTile)}`}
+                >
+                  <TileFace tile={winningTile} />
+                </span>
+              )}
+              <div>
+                <strong>
+                  {s.pending ? "点右侧「胡」确认" : "点右侧「自摸」确认"}
+                </strong>
+                <small>
+                  {s.pending
+                    ? "选择「过」将放弃本次胡牌"
+                    : "继续出牌将放弃这次自摸"}
+                </small>
+              </div>
             </div>
           )}
         </section>

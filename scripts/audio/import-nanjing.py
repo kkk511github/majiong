@@ -55,13 +55,15 @@ for folder,gender in [('boy','male'),('girl','female')]:
   parts.append(x);cursor+=len(x)
  for tile_kind,(spoken,code) in enumerate(tiles):
   append(next((root/folder).glob(f'card_{code}_*.mp3')),f'card_{code}',spoken,tile_kind)
- for event,label in [(2,'碰'),(3,'杠'),(4,'听'),(5,'胡了'),(6,'自摸'),(11,'补花')]:append(next((root/folder).glob(f'event_{event}_*.mp3')),label,label)
+ for event,label in [(2,'碰'),(3,'杠'),(4,'听'),(6,'定章'),(11,'补花')]:append(next((root/folder).glob(f'event_{event}_*.mp3')),label,label)
  cues=[entries[f'card_{code}']['cue'] for _,code in tiles]+[entries['补花']['cue']]*3
- actions={k:v['cue'] for k,v in entries.items() if not k.startswith('card_')};actions['暗杠']=actions['杠'];actions['补杠']=actions['杠']
+ actions={k:v['cue'] for k,v in entries.items() if not k.startswith('card_')};actions['自摸']=actions['定章'];actions['胡了']=actions['定章'];actions['暗杠']=actions['杠'];actions['补杠']=actions['杠']
  pack={'file':f'/audio/nanjing-{gender}.wav','cues':cues,'actions':actions}
  (p/f'src/nanjing-{gender}.json').write_text(json.dumps(pack,ensure_ascii=False,indent=2)+'\n')
  with wave.open(str(p/f'public/audio/nanjing-{gender}.wav'),'wb') as w:
   w.setnchannels(1);w.setsampwidth(2);w.setframerate(rate);w.writeframes(np.rint(np.clip(np.concatenate(parts),-.98,.98)*32767).astype('<i2').tobytes())
  report['packs'][gender]=entries
 (p/'docs/nanjing-voice-import.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
-print('Built male/female sprites: canonical 万/筒/条 order, direct 二万, 6 actions')
+from hu_voice import SOURCE, apply_hu_voice
+if SOURCE.exists():apply_hu_voice()
+print('Built male/female sprites: canonical 万/筒/条 order, direct 二万, user hu override when supplied')

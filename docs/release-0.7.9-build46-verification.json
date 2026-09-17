@@ -1,0 +1,83 @@
+{
+  "version": "0.7.9",
+  "build": 46,
+  "baseCommit": "dde0f72cfa40ff26021c48df21f6357c2e09b290",
+  "sourceSnapshotSha256": "cfa8c264ab64d050e120f5c3e4e769dbc5e8b651af7d1656a4c51260bb86614d",
+  "cocosSource": "2a00eb2f090de8c4a9ad5761749df62bd06e5e76e0391435f5f00a520123e19c",
+  "sameWebAssetsBothPlatforms": true,
+  "endpointHidden": false,
+  "nativePinningHostRemainsDiscoverable": true,
+  "clientCodeProtection": "RC4 string obfuscation; not a secret store",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 443,
+  "serverDeploymentPerformed": true,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.9-build46.apk",
+      "version": "0.7.9",
+      "build": 46,
+      "bytes": 116601095,
+      "sha256": "35e0f1c137467432cf7e0fcc61fd4e011572eac0bc7254b82a8b3bcef14ab601",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.9-build46-AdHoc.ipa",
+      "version": "0.7.9",
+      "build": 46,
+      "bytes": 117500056,
+      "sha256": "feb5d41ec5b60650323d10ce34cbe1b173ca0917e0022978249e52ecdbabd486",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  },
+  "deployment": {
+    "release": "0.7.9-build46",
+    "activatedAt": "2026-09-17T02:21:28Z",
+    "imageId": "sha256:c11749ba5680475d8b9fd9e2dd536d0f960c3028aeb5625dcb658635e18b4b8b",
+    "health": "healthy",
+    "linuxUnitTestsPassed": 443,
+    "historicalTablesVerified": 17,
+    "historicalDigestsIdentical": true,
+    "oldRoomLedgerUnchanged": true,
+    "backupSha256": "6c8d50626f20a52c3485eb8b37a3cfdc0edf22884f0c92ea5d843a86060da13d",
+    "auditDirectory": "/opt/jinling-mahjong/database-backups/0.7.9-build46-deploy",
+    "telegramUnchanged": true,
+    "telegramHealthy": true,
+    "archiveSha256": "64365853e188c8c89e90eb6464e25b620b13424dd10fb88152a48c134c89bdea",
+    "publicApiVersion": "0.7.9",
+    "nativeCorsPassed": true,
+    "anonymousEndpointsProtected": true,
+    "anonymousWebSocketRejected": true
+  },
+  "nativeBrowserTestsPassed": 4,
+  "winPresentationBrowserTests": {
+    "chromium": 12,
+    "webkit": 12
+  },
+  "gitCommitCreated": false,
+  "realDeviceInstallationTested": false,
+  "changedSourceFilesSinceBuild45": [
+    "android/app/build.gradle",
+    "ios/App/App.xcodeproj/project.pbxproj",
+    "package-lock.json",
+    "package.json",
+    "playwright.optimization.config.ts",
+    "src/CocosTable.tsx",
+    "src/ReplayTable.tsx",
+    "src/TableWinEffect.tsx",
+    "src/table-win-effect.css",
+    "tests/replay-win-presentation.e2e.ts",
+    "tests/win-presentation.e2e.ts"
+  ],
+  "deletedSourceFilesSinceBuild45": [],
+  "unchangedSinceBuild45": {
+    "tileAssets": true,
+    "sharedEngineAndRules": true
+  }
+}

@@ -1,0 +1,5 @@
+.feature-loading{margin:auto;padding:24px;text-align:center;color:#284c3c;background:#f9f4e4;border-radius:12px;max-width:440px}
+.feature-loading strong{font-size:18px}.feature-loading p{line-height:1.6;font-size:14px}
+.feature-loading>div{display:flex;gap:12px;justify-content:center;margin-top:16px}
+.feature-loading button{min-height:44px;min-width:72px;padding:8px 16px;border:1px solid #647d61;border-radius:8px;background:#25583e;color:#fff9e8}
+.feature-loading button:focus-visible{outline:3px solid #28759c;outline-offset:3px}

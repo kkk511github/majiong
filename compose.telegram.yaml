@@ -1,0 +1,38 @@
+# Run alongside the existing game container; it does not restart the game.
+services:
+  telegram-reports:
+    image: ${TELEGRAM_REPORT_IMAGE:?Set the verified report worker image}
+    command: ["node", "--import", "tsx", "server/telegram-report-worker.ts", "run"]
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /source/mahjong.sqlite
+      TELEGRAM_REPORT_CONFIG: /run/report-config.json
+      TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram-bot-token
+      TELEGRAM_REPORT_STATE: /reports/telegram-reports.sqlite
+    volumes:
+      - mahjong-data:/source:ro
+      - telegram-report-state:/reports
+      - ${TELEGRAM_REPORT_CONFIG_FILE:?Set the report config path}:/run/report-config.json:ro
+      - ${TELEGRAM_REPORT_TOKEN_FILE:?Set the bot token file path}:/run/secrets/telegram-bot-token:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 45s
+    healthcheck:
+      test: ["CMD", "node", "-e", "const h=JSON.parse(require('fs').readFileSync('/reports/heartbeat.json'));if(Date.now()-h.at>90000||h.needsAttention||h.error)process.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: "3"}
+
+volumes:
+  mahjong-data:
+    external: true
+    name: jinling-mahjong_mahjong-data
+  telegram-report-state:

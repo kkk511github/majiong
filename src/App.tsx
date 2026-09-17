@@ -1,3 +1,8 @@
+import { DeferredFeature } from "./DeferredFeature";
+import { ruleDisplayName } from "../shared/nanjing-rules";
+import { AudioRecovery } from "./AudioRecovery";
+import { NetworkDiagnostics } from "./NetworkDiagnostics";
+import { networkLabel } from "./network-health";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
 import { CocosTable } from "./CocosTable";
@@ -11,6 +16,7 @@ import { decisionCountdown } from "../shared/timing";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
 import {
+  lazy,
   useEffect,
   useMemo,
   useRef,
@@ -49,14 +55,14 @@ import { Tile, TileBack } from "./Tile";
 import { GameMotion, useGameMotion, useHandMotion } from "./GameMotion";
 import { Dialog } from "./Dialog";
 import { AuthScreen } from "./AuthScreen";
-import { ClubManagement } from "./ClubManagement";
-import { TablePermissions } from "./TablePermissions";
+const ClubManagement = lazy(() => import("./ClubManagement").then(m => ({ default: m.ClubManagement })));
+const TablePermissions = lazy(() => import("./TablePermissions").then(m => ({ default: m.TablePermissions })));
 import { mayCreateTables } from "../shared/permissions";
-import { RecordsPanel } from "./RecordsPanel";
-import { Settlement } from "./Settlement";
+const RecordsPanel = lazy(() => import("./RecordsPanel").then(m => ({ default: m.RecordsPanel })));
+import { Settlement, ScoreDetails } from "./Settlement";
 import { roundReadiness } from "./round-readiness";
 import { RoundReveal } from "./RoundReveal";
-import { listeningHints } from "./listening-hints";
+import { listeningHints, readyDiscardTiles } from "./listening-hints";
 import { riverLayoutFor, tableRiverLayout } from "./river-layout";
 import { DiscardArrow } from "./DiscardArrow";
 import { TableLobby, TableSettingsSummary } from "./TableLobby";
@@ -101,7 +107,7 @@ function RulesContent({ view }: { view?: View | null }) {
     <div className="rules-content">
       <div className="edition">
         <Flower2 size={20} />
-        <span>{view?.rules.id==="nj-open-v2"?"南京麻将 · 敞开头":view?.rules.id==="nj-casual-v1"?"南京麻将 · 历史规则":"南京麻将 · 进园子"}</span>
+        <span>南京麻将 · {ruleDisplayName(view?.rules) ?? "进园子 B档"}</span>
       </div>
       {ruleSections(view?.rules, view?.table?.settings).map(
         ([title, text], i) => (
@@ -137,6 +143,7 @@ function Avatar({
 }
 
 export function App() {
+  const [scoreDetailsKey, setScoreDetailsKey] = useState("");
   const state = useSyncExternalStore(client.subscribe, client.snapshot);
   const [page, setPage] = useState<Page>("home"),
     [modal, setModal] = useState<Modal>(null);
@@ -183,6 +190,7 @@ export function App() {
     riverLayoutFor(480, 220),
   );
   const [selected, setSelected] = useState<number | null>(null);
+  const selectionContext = useRef<{ id?: string; round?: number; canDiscard?: boolean }>({});
   const [, refreshClock] = useState(0);
   const now = client.now();
   const [dismissedResult, setDismissedResult] = useState("");
@@ -207,6 +215,8 @@ export function App() {
   const motionLive =
     state.connected && !(state.mode === "local" && modal !== null);
   const motion = useGameMotion(v, motionLive);
+  const showingWinEffect = !!v?.result && motion.some(e=>e.type==="hu");
+  const readyDiscards = useMemo(()=>v ? readyDiscardTiles(v) : [],[v]);
   const handRef = useHandMotion(v, motionLive);
   const previousAudioView = useRef<View | null>(null);
   const previousRoom = useRef<View | null>(null);
@@ -242,8 +252,14 @@ export function App() {
     }
   }, [toast]);
   useEffect(() => {
-    if (selected !== null && (!mine?.hand.includes(selected) || !v?.canDiscard))
+    const previous = selectionContext.current;
+    // An off-turn preview must not turn the next single tap into a discard.
+    const newDiscardTurn = !!v?.canDiscard && !previous.canDiscard;
+    if (selected !== null && (!mine?.hand.includes(selected) ||
+        !v || !["playing", "claiming"].includes(v.phase) || mine.trustee ||
+        previous.id !== v.id || previous.round !== v.round || newDiscardTurn))
       setSelected(null);
+    selectionContext.current = { id: v?.id, round: v?.round, canDiscard: v?.canDiscard };
   }, [v, selected, mine]);
   useEffect(() => {
     gameAudio.configure(audioPreferences, !!v && v.phase !== "waiting");
@@ -253,11 +269,17 @@ export function App() {
   }, [audioPreferences, v?.phase]);
   useEffect(() => {
     let nativeActive: boolean | undefined;
-    const visibility = () => {
-      previousAudioView.current = null;
+    let wasVisible = !document.hidden;
+    const visibility = (event?: Event) => {
       // Native lifecycle is authoritative once available: WKWebView visibility
       // events can arrive out of order during the foreground transition.
       const visible = nativeActive ?? !document.hidden;
+      // Focus also moves between the canvas iframe, controls and result dialog.
+      // Only a real lifecycle transition should discard the audio baseline;
+      // clearing it on an in-page focus change can swallow the just-confirmed hu.
+      if (event?.type !== "focus" || !visible || !wasVisible)
+        previousAudioView.current = null;
+      wasVisible = visible;
       gameAudio.setVisible(visible);
       client.setNetworkVisible(visible);
     };
@@ -349,7 +371,10 @@ export function App() {
     setSelected(null);
   }
   function selectTile(tile: number) {
-    if (selected === tile) discardTile(tile);
+    if (selected === tile) {
+      if (v?.canDiscard) discardTile(tile);
+      else setSelected(null);
+    }
     else {
       clickSound();
       setSelected(tile);
@@ -420,6 +445,9 @@ export function App() {
     !!saved && ["playing", "claiming", "ended"].includes(saved.phase);
   const commandsDisabled = !state.connected || !!state.submitting;
   const resultKey = v?.result ? `${v.id}-${v.round}-${v.result.reason}` : "";
+  useEffect(() => {
+    setScoreDetailsKey("");
+  }, [resultKey]);
   const gameActive = v && !["waiting"].includes(v.phase);
   const ticking = !!v && ["playing", "claiming"].includes(v.phase);
   const timed = ticking && v.rules.turnSeconds > 0;
@@ -493,7 +521,7 @@ export function App() {
   );
   const hintDiscard =
     mine?.hand.length && mine.hand.length % 3 === 2
-      ? (selected ?? drawnTile)
+      ? (selected ?? undefined)
       : undefined;
   const inspectedTile =
     selected !== null && mine?.hand.includes(selected) ? selected : null;
@@ -571,7 +599,8 @@ export function App() {
       {state.notice && (
         <div className="connection-banner" role="status">
           <WifiOff size={16} />
-          {state.notice}
+          <span><strong>{networkLabel(state.network)}</strong> · {state.notice}</span>
+          {v && state.network.phase !== "blocked" && <button onClick={client.retryNetwork} disabled={["connecting","authenticating","syncing"].includes(state.network.phase)}>重试</button>}
           {!v && <button onClick={() => client.leave()}>返回大厅</button>}
         </div>
       )}
@@ -616,11 +645,11 @@ export function App() {
             </>
           )}
           {page === "history" && (
-            <RecordsPanel
+            <DeferredFeature label="战绩" close={() => setPage("home")}><RecordsPanel
               key={state.account?.id ?? "practice"}
               account={state.account}
               onBack={() => setPage("home")}
-            />
+            /></DeferredFeature>
           )}
           {page === "profile" && <ProfilePage
             account={state.account} name={name} audio={audioPreferences} changeAudio={changeAudio}
@@ -787,6 +816,9 @@ export function App() {
       )}
       {gameActive && v && mine && (
         <CocosTable
+          readyDiscards={readyDiscards}
+          winResult={showingWinEffect ? v.result : undefined}
+          connectionQuality={state.mode === "online" && state.connected && (state.network.consecutiveTimeouts > 0 || (state.network.smoothedRttMs ?? 0) >= 600) ? networkLabel(state.network) : undefined}
           state={cocosState(v, {
             connected: state.connected, disabled: commandsDisabled || paused,
             practice: state.mode === "local", countdown: !state.connected || paused || !timed ? "—" : waitingOthersOvertime ? "…" : String(countdown).padStart(2, "0"),
@@ -805,7 +837,7 @@ export function App() {
               return;
             }
             if (commandsDisabled || paused) return;
-            if (command.type === "select" && v.canDiscard && !mine.trustee && mine.hand.includes(command.tile)) selectTile(command.tile);
+            if (command.type === "select" && ["playing", "claiming"].includes(v.phase) && !mine.trustee && mine.hand.includes(command.tile)) selectTile(command.tile);
             if (command.type === "trustee" && (mine.trustee || v.table?.settings.trusteeMode !== "disabled")) client.trustee(command.enabled);
             if (command.type === "action") {
               if (command.action === "zhaozhi" && v.canZhaozhi) client.action({ type: "zhaozhi" });
@@ -820,6 +852,7 @@ export function App() {
           {state.mode === "online" && <RoomVoice key={v.id} client={client} game={v.id} connected={state.connected} enabled={audioPreferences.chat !== false} volume={audioPreferences.voiceVolume} me={mine.id} messages={state.voiceMessages} />}
         </CocosTable>
       )}
+      <AudioRecovery />
       {!v && (
         <nav className="bottom-nav" aria-label="主导航">
           {(
@@ -848,10 +881,10 @@ export function App() {
         </nav>
       )}
       {modal === "club" && admin && state.account && (
-        <ClubManagement account={state.account} close={() => setModal(null)} />
+        <DeferredFeature label="管理员页面" modal close={() => setModal(null)}><ClubManagement account={state.account} close={() => setModal(null)} /></DeferredFeature>
       )}
       {modal === "permissions" && admin && (
-        <TablePermissions close={() => setModal(null)} />
+        <DeferredFeature label="开桌权限" modal close={() => setModal(null)}><TablePermissions close={() => setModal(null)} /></DeferredFeature>
       )}
       {((modal === "create" && canOpen) || modal === "join") && (
         <Dialog
@@ -1093,6 +1126,8 @@ export function App() {
             <ChevronRight size={18} />
           </button>
           <AudioSettings value={audioPreferences} change={changeAudio} />
+          <AudioRecovery diagnostics />
+          <NetworkDiagnostics health={state.network} online={state.mode==="online"} retry={client.retryNetwork}/>
           <p className="muted">设置会保存在当前设备。</p>
         </Dialog>
       )}
@@ -1187,7 +1222,7 @@ export function App() {
           </div>
         </Dialog>
       )}
-      {v?.result && dismissedResult !== resultKey && (
+      {v?.result && !showingWinEffect && dismissedResult !== resultKey && (
         <Dialog
           title={
             v.result.reason === "dissolved"
@@ -1197,7 +1232,12 @@ export function App() {
                 : "本局牌面"
           }
           variant="round-reveal-dialog"
-          headerAside={v.result.reason === "hu" ? <img className="result-call-art" src={`${import.meta.env.BASE_URL}art/effects/${v.result.from === undefined ? "self-draw" : "hu"}-gold-v1.png`} alt={v.result.from === undefined ? "自摸" : "胡"} /> : undefined}
+          headerAside={<>
+            {v.result.reason === "hu" && <img className="result-call-art" src={`${import.meta.env.BASE_URL}art/effects/${v.result.from === undefined ? "self-draw" : "hu"}-gold-v1.png`} alt={v.result.from === undefined ? "自摸" : "胡"} />}
+            <button className="result-details-button" aria-pressed={scoreDetailsKey === resultKey} onClick={() => setScoreDetailsKey(scoreDetailsKey === resultKey ? "" : resultKey)}>
+              {scoreDetailsKey === resultKey ? "查看牌面" : "计分详情"}
+            </button>
+          </>}
           close={() => {
             setDismissedResult(resultKey);
             setFinishedSnapshot(null);
@@ -1310,7 +1350,10 @@ export function App() {
             )
           }
         >
-          <RoundReveal
+          {scoreDetailsKey === resultKey ? <div className="live-score-details">
+            <p className="live-score-note">{v.phase === "finished" ? "本桌已结束，仍可在战绩中查看各把明细。" : "下一把开始后返回牌桌，仍可在战绩中查看本把明细。"}</p>
+            <ScoreDetails record={v.history.slice(-1)[0]!} me={v.me} />
+          </div> : <RoundReveal
             view={v}
             readiness={!continuousRounds ? nextRound?.seats : undefined}
             record={{
@@ -1321,7 +1364,7 @@ export function App() {
                   ? (v.table?.finishedAt ?? v.history.slice(-1)[0]!.at)
                   : v.history.slice(-1)[0]!.at,
             }}
-          />
+          />}
         </Dialog>
       )}
       {!v && finishedSnapshot?.result && (

@@ -87,12 +87,25 @@ async function fixture(page: Page, member = false) {
       const records = isOld
         ? [item(25, recordDayRange(old).from + 14 * 3600000)]
         : Array.from({ length: 20 }, (_, i) => item(i));
-      const filtered = q.has("code")
+      const byCode = q.has("code")
         ? records.filter((r) => r.code.startsWith(q.get("code")!))
         : records;
+      const byMember = q.has("member")
+        ? byCode.filter((r) => r.record.memberIds?.includes(q.get("member")!))
+        : byCode;
+      const filtered = byMember.filter((r) =>
+        q.get("read") === "unread"
+          ? !reads.has(r.game)
+          : q.get("read") === "read"
+            ? reads.has(r.game)
+            : true,
+      );
       return route.fulfill({
         json: {
-          records: filtered.map(r => ({...r, ...(!member ? {adminReadAt: reads.get(r.game) ?? null} : {})})),
+          records: filtered.map((r) => ({
+            ...r,
+            ...(!member ? { adminReadAt: reads.get(r.game) ?? null } : {}),
+          })),
           total: isOld ? 1 : q.has("code") ? filtered.length : 30,
           page: Number(q.get("page") ?? 1),
           pageSize: 20,
@@ -146,6 +159,10 @@ for (const [width, height] of [
     await page.getByRole("button", { name: "战绩", exact: true }).click();
     await expect(page.locator(".match-card")).toHaveCount(20);
     await expect(page.locator(".record-read")).toHaveCount(0);
+    for (const label of ["战绩查询方式", "战绩阅读状态"]) {
+      const bounds = await page.getByLabel(label).boundingBox();
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+    }
     mkdirSync("test-results/screenshots", { recursive: true });
     await page.screenshot({
       path: `test-results/screenshots/records-all-${width}.png`,
@@ -238,14 +255,23 @@ for (const [width, height] of [
       .getByRole("button", { name: "返回整桌明细", exact: true })
       .click();
     await expect(page.getByLabel("第 1 把明细")).toBeVisible();
-    await expect(button.locator(".record-read")).toHaveText("✅ 已读");
+    await expect(button.locator(".record-read")).toContainText("✅ 已读");
     await dialog.getByRole("button", { name: "关闭", exact: true }).click();
     await expect(page.locator(".record-date[aria-pressed=true]")).toContainText(
       "8月25日",
     );
     await page.getByRole("button", { name: "刷新战绩", exact: true }).click();
-    await expect(button.locator(".record-read")).toHaveText("✅ 已读");
-    await page.screenshot({path: `test-results/screenshots/records-read-${width}.png`});
+    await expect(button.locator(".record-read")).toContainText("✅ 已读");
+    await page.screenshot({
+      path: `test-results/screenshots/records-read-${width}.png`,
+    });
+    const readFilter = page.getByRole("combobox", { name: "战绩阅读状态" });
+    await readFilter.selectOption("unread");
+    await expect(page.locator(".match-card")).toHaveCount(0);
+    expect(queries.at(-1)).toContain("read=unread");
+    await readFilter.selectOption("read");
+    await expect(page.locator(".match-card")).toHaveCount(1);
+    expect(queries.at(-1)).toContain("read=read");
     await page.getByRole("button", { name: "返回大厅", exact: true }).click();
     await expect(page.locator(".records-workspace")).toHaveCount(0);
   });
@@ -286,4 +312,58 @@ test("普通会员可看 ID 和每把回放 ID，战队名不显示；房间查�
     .click();
   await expect(dialog.getByLabel("牌桌结算")).toBeVisible();
   await expect(dialog.locator(".record-team")).toHaveCount(0);
+});
+
+test("管理员会员查询与返回列表位置保留", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  const queries = await fixture(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "战绩", exact: true }).click();
+  await page.getByLabel("战绩查询方式").selectOption("member");
+  await page.getByLabel("战绩会员ID").fill("100002");
+  await page.getByRole("button", { name: "查询战绩", exact: true }).click();
+  await expect.poll(() => queries.at(-1)).toContain("member=100002");
+  await expect(page.locator(".match-card")).toHaveCount(20);
+  await page.locator(".records-list").evaluate((el) => el.scrollTo(0, 250));
+  await expect
+    .poll(() => page.locator(".records-list").evaluate((el) => el.scrollTop))
+    .toBe(250);
+  await page.getByRole("button", { name: "返回大厅", exact: true }).click();
+  await page.getByRole("button", { name: "战绩", exact: true }).click();
+  await expect(page.getByLabel("战绩会员ID")).toHaveValue("100002");
+  await expect(page.locator(".match-card")).toHaveCount(20);
+  await expect
+    .poll(() => page.locator(".records-list").evaluate((el) => el.scrollTop))
+    .toBe(250);
+  await page.getByLabel("战绩会员ID").fill("999999");
+  await page.getByRole("button", { name: "查询战绩", exact: true }).click();
+  await expect(page.locator(".match-card")).toHaveCount(0);
+  await page.getByRole("button", { name: "我的对局", exact: true }).click();
+  await expect(page.getByLabel("战绩查询方式")).toHaveCount(0);
+  await expect(page.getByLabel("战绩房间号")).toBeVisible();
+});
+
+test('战绩摘要与规则反馈可预览复制且不包含战队和会员ID',async({page})=>{
+ await page.setViewportSize({width:568,height:320});await fixture(page);
+ await page.goto('/');await page.getByRole('button',{name:'战绩',exact:true}).click();
+ await page.locator('.match-card').first().click();
+ const details=page.getByRole('dialog',{name:'牌桌战绩详情',exact:true});
+ await details.getByRole('button',{name:'摘要 / 反馈',exact:true}).click();
+ const panel=page.getByRole('dialog',{name:'战绩摘要与反馈',exact:true});
+ const preview=panel.getByLabel('导出内容预览');
+ await expect(preview).toContainText('金陵麻将 · 整桌战绩');
+ const summary=await preview.inputValue();expect(summary).not.toContain('战队');expect(summary).not.toContain('100001');
+ await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{(window as any).exportedRecord=text;}}}));
+ await panel.getByRole('button',{name:'复制内容',exact:true}).click();
+ await expect(panel.getByRole('status')).toContainText('已复制');
+ expect(await page.evaluate(()=>(window as any).exportedRecord)).toBe(summary);
+ await panel.getByLabel('导出内容类型').selectOption('feedback');
+ await panel.getByLabel('反馈相关牌局').selectOption({label:'第 1 把'});
+ await panel.getByLabel('规则问题描述').fill('请核对本把外包计算');
+ await expect(preview).toContainText('REPLAY-20260825-1');
+ await expect(preview).toContainText('请核对本把外包计算');
+ await page.screenshot({path:'test-results/screenshots/record-export-568.png'});
+ await panel.getByRole('button',{name:'复制内容',exact:true}).click();
+ expect(await page.evaluate(()=>(window as any).exportedRecord)).toContain('请核对本把外包计算');
+ await panel.getByRole('button',{name:'关闭',exact:true}).click();await expect(details).toBeVisible();
 });

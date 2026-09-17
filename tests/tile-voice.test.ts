@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import {
   TileVoice,
   discardedVoice,
@@ -57,6 +59,33 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("四家报牌", () => {
+  it.each(["male", "female"] as const)("%s 胡牌播放用户确认的对应性别录音，PCM与原文件一致", async gender => {
+    const { player, sources } = fixture();
+    const pack = voicePacks[gender];
+    player.setPack(pack);
+    player.setEnabled(true);
+    player.say("confirmed-win", "胡了");
+    await vi.waitFor(() => expect(sources).toHaveLength(1));
+    expect(sources[0].start).toHaveBeenCalledWith(0, ...pack.actions["胡了"]);
+    expect(pack.actions["胡了"]).toEqual(pack.actions["自摸"]);
+    expect(pack.actions["定章"]).toEqual(pack.actions["胡了"]);
+    const wavData=(wav:Buffer)=>{
+      for(let offset=12;offset+8<=wav.length;){
+        const size=wav.readUInt32LE(offset+4);
+        if(wav.toString('ascii',offset,offset+4)==='data')return wav.subarray(offset+8,offset+8+size);
+        offset+=8+size+(size%2);
+      }
+      throw new Error('Missing WAV data chunk');
+    };
+    const original=readFileSync(gender==='male'?'public/audio/hu-male-user-v1.wav':'public/audio/hu-female-ai-v2.wav');
+    expect(createHash('sha256').update(original).digest('hex')).toBe(gender==='male'?'c47d4d1ae4bc4557f680b46577846be4d25bbdfa90b406c71a590d52a71d80dc':'0f9d7c1034355818633e5face7c2c7761352d114196e0b9af97522abd195b9d0');
+    const merged=wavData(readFileSync('public'+pack.file));
+    const [offset,duration]=pack.actions['胡了'];
+    expect(merged.subarray(Math.round(offset*24000)*2,Math.round((offset+duration)*24000)*2)).toEqual(wavData(original));
+    const base=wavData(readFileSync(`public/audio/nanjing-${gender}.wav`));
+    expect(merged.subarray(0,base.length)).toEqual(base);
+    player.dispose();
+  });
   it.each(["male", "female"] as const)(
     "%s 所有实体牌都使用对应牌面片段，默认男声",
     async (gender) => {
@@ -236,5 +265,43 @@ describe("四家报牌", () => {
     expect(sources[0].start).toHaveBeenCalledWith(0, 2, 0.8);
     player.dispose();
     vi.restoreAllMocks();
+  });
+});
+
+describe("试听播放反馈", () => {
+  it("开始与结束通知对应真实声源，并恢复背景音乐活动状态", async () => {
+    const { player, sources, activity } = fixture();
+    const notice = vi.fn();
+    player.setEnabled(true);
+    player.say("preview", 0, notice);
+    await vi.waitFor(() => expect(notice).toHaveBeenCalledWith("playing"));
+    sources[0].onended();
+    expect(notice.mock.calls.map(c => c[0])).toEqual(["playing", "ended"]);
+    expect(activity).toHaveBeenLastCalledWith(false);
+    player.dispose();
+  });
+  it("资源失败会通知失败，不能把静默失败显示为播放中", async () => {
+    const { player, activity } = fixture();
+    vi.mocked(fetch).mockRejectedValue(new Error("offline"));
+    const notice = vi.fn();
+    player.setEnabled(true);
+    player.say("preview", 0, notice);
+    await vi.waitFor(() => expect(notice).toHaveBeenCalledWith("failed"));
+    expect(activity).not.toHaveBeenCalledWith(true);
+    player.dispose();
+  });
+  it("加载期间取消后，迟到资源不能开始播放或覆盖取消反馈", async () => {
+    const { player, sources } = fixture();
+    let complete!: (value: any) => void;
+    vi.mocked(fetch).mockReturnValue(new Promise(resolve => { complete = resolve; }));
+    const notice = vi.fn();
+    player.setEnabled(true);
+    player.say("preview", 0, notice);
+    player.stop();
+    complete({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(sources).toHaveLength(0);
+    expect(notice.mock.calls.map(c => c[0])).toEqual(["cancelled"]);
+    player.dispose();
   });
 });

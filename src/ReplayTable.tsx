@@ -7,8 +7,8 @@ import { CocosTable } from './CocosTable';
 
 /** Completed-round snapshots use the same tile, rack and effect renderer as play.
  * No replay command is ever forwarded to the live game client. */
-export function ReplayTable({data,step,perspective,setPerspective,reveal,animate}:{
- data:RoundReplay;step:number;perspective:Seat;setPerspective:(seat:Seat)=>void;reveal:boolean;animate:boolean;
+export function ReplayTable({data,step,perspective,setPerspective,reveal,animate,onSurfaceInteraction}:{
+ data:RoundReplay;step:number;perspective:Seat;setPerspective:(seat:Seat)=>void;reveal:boolean;animate:boolean;onSurfaceInteraction?:()=>void;
 }){
  const state=useMemo<TableSceneState>(()=>{
   const frame=data.frames[step],preceding=data.frames.slice(0,step+1).reverse();
@@ -16,7 +16,7 @@ export function ReplayTable({data,step,perspective,setPerspective,reveal,animate
   const lastDiscard=discard?.seat!==undefined&&discard.tile!==undefined&&frame.players[discard.seat].discards.includes(discard.tile)?{seat:discard.seat,tile:discard.tile}:undefined;
   const event=preceding.find(f=>f.seat===perspective&&['draw','discard','pung','kong','concealedKong','addedKong'].includes(f.type));
   const drawn=event?.type==='draw'&&event.tile!==undefined&&frame.players[perspective].hand.includes(event.tile)?event.tile:undefined;
-  const effectType=frame.type==='pung'?'pung':['kong','concealedKong','addedKong'].includes(frame.type)?'kong':frame.type==='finish'&&frame.result?.winners.length?'hu':undefined;
+  const effectType=frame.type==='pung'?'pung':['kong','concealedKong','addedKong'].includes(frame.type)?'kong':undefined;
   return {
    key:data.id,revision:step,presentation:'replay',me:perspective,turn:frame.turn,dealer:data.frames[0].turn,
    phase:frame.result?'ended':'playing',code:data.code,round:data.round,rounds:data.rules?.rounds,remaining:frame.remaining,
@@ -27,7 +27,8 @@ export function ReplayTable({data,step,perspective,setPerspective,reveal,animate
     hand:seat===perspective||reveal||!!frame.result?[...p.hand].sort((a,b)=>kind(a)-kind(b)||a-b):[],flowers:[...p.flowers],discards:[...p.discards],melds:p.melds.map(m=>({...m,tiles:m.concealed?[]:[...m.tiles]}))})),
   };
  },[data,step,perspective,reveal,animate]);
+ const result=data.frames[step].result;
  return <div className="replay-cocos" aria-label="四家牌桌录像">
-  <CocosTable embedded state={state} onCommand={command=>{if(command.type==='menu'&&command.menu==='table'&&command.seat!==undefined&&command.seat>=0&&command.seat<4)setPerspective(command.seat as Seat);}} />
+  <CocosTable embedded state={state} winResult={result?.winners.length?result:undefined} onSurfaceInteraction={onSurfaceInteraction} onCommand={command=>{if(command.type==='menu'&&command.menu==='table'&&command.seat!==undefined&&command.seat>=0&&command.seat<4)setPerspective(command.seat as Seat);}} />
  </div>;
 }

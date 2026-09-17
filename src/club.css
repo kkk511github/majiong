@@ -243,10 +243,16 @@
   font-size: 15px;
 }
 .club-col-team {
-  width: 28%;
+  width: 24%;
 }
 .club-col-member {
-  width: 36%;
+  width: 32%;
+}
+.club-col-rounds {
+  width: 10%;
+}
+.club-col-tables {
+  width: 20%;
 }
 .club-stats-scroll th,
 .club-stats-scroll td {

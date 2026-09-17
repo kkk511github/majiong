@@ -46,3 +46,7 @@ it("allows normal runtime modules and artwork", async () => {
   await writeFile(join(dir, "tile.png"), Buffer.from([137, 80, 78, 71]));
   await expect(auditNativeWeb(dir, endpoint)).resolves.toBe(2);
 });
+
+it("rejects unresolved Rollup filenames before encryption can hide broken lazy imports", () => {
+  expect(() => protectClientCode('import("./RecordsPanel-!~{005}~.js")')).toThrow("after Rollup resolves");
+});

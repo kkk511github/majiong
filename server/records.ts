@@ -36,7 +36,8 @@ export function createRecords(db: DatabaseSync) {
     record_id TEXT NOT NULL, game_id TEXT NOT NULL, at INTEGER NOT NULL,
     account_id TEXT NOT NULL, name TEXT NOT NULL, team_id TEXT NOT NULL,
     team_name TEXT NOT NULL, points REAL NOT NULL, PRIMARY KEY(record_id,account_id));
-    CREATE INDEX IF NOT EXISTS point_records_filter ON point_records(at,team_id,account_id);`);
+    CREATE INDEX IF NOT EXISTS point_records_filter ON point_records(at,team_id,account_id);
+    CREATE INDEX IF NOT EXISTS point_records_table_member ON point_records(game_id,account_id,at,record_id);`);
   db.exec(`CREATE TABLE IF NOT EXISTS admin_match_reads (
     game_id TEXT NOT NULL, admin_id TEXT NOT NULL, read_at INTEGER NOT NULL,
     PRIMARY KEY(game_id, admin_id));`);
@@ -253,6 +254,18 @@ export function createRecords(db: DatabaseSync) {
     const code = query.get("code")?.trim() ?? "";
     if (code && !/^\d{1,6}$/.test(code))
       throw new AuthError("请输入 1–6 位房间号");
+    const member = query.get("member")?.trim() ?? "";
+    if (member && !admin)
+      throw new AuthError("仅管理员可以按成员查询总战绩", 403);
+    if (member && !/^\d{1,12}$/.test(member))
+      throw new AuthError("请输入有效会员 ID");
+    const source =
+      query.get("scope") === "rounds" ? "round_records" : "match_records";
+    const read = query.get("read") ?? "all";
+    if (!["all", "read", "unread"].includes(read))
+      throw new AuthError("阅读状态不正确");
+    if (read !== "all" && !admin)
+      throw new AuthError("仅管理员可以筛选阅读状态", 403);
     const where: string[] = [],
       args: (string | number)[] = [];
     if (!admin) {
@@ -262,6 +275,18 @@ export function createRecords(db: DatabaseSync) {
     if (code) {
       where.push("code LIKE ?");
       args.push(code + "%");
+    }
+    if (member) {
+      where.push(
+        `EXISTS(SELECT 1 FROM json_each(${source}.player_ids) AS player JOIN account_numbers AS numbers ON numbers.account_id=player.value WHERE numbers.member_id=?)`,
+      );
+      args.push(Number(member));
+    }
+    if (read !== "all") {
+      where.push(
+        `${read === "unread" ? "NOT " : ""}EXISTS(SELECT 1 FROM admin_match_reads AS reads WHERE reads.game_id=${source}.game_id AND reads.admin_id=?)`,
+      );
+      args.push(viewer);
     }
     const dateClause = where.length ? " WHERE " + where.join(" AND ") : "";
     const dateArgs = [...args];
@@ -278,8 +303,6 @@ export function createRecords(db: DatabaseSync) {
       }
     }
     const clause = where.length ? " WHERE " + where.join(" AND ") : "";
-    const source =
-      query.get("scope") === "rounds" ? "round_records" : "match_records";
     const dates = db
       .prepare(
         "SELECT strftime('%Y-%m-%d', at / 1000, 'unixepoch', '+8 hours') AS date, COUNT(*) AS count FROM " +
@@ -429,7 +452,7 @@ export function createRecords(db: DatabaseSync) {
     }
     return {
       from:
-        " FROM point_records p LEFT JOIN accounts a ON a.id=p.account_id LEFT JOIN teams t ON t.id=p.team_id WHERE " +
+        " FROM point_records p LEFT JOIN round_records r ON r.id=p.record_id LEFT JOIN accounts a ON a.id=p.account_id LEFT JOIN teams t ON t.id=p.team_id WHERE " +
         where.join(" AND "),
       args,
     };
@@ -440,8 +463,20 @@ export function createRecords(db: DatabaseSync) {
     if (!Number.isInteger(page) || page < 1 || page > 100000)
       throw new AuthError("页码不正确");
     const filter = pointFilter(query);
+    // Keep the raw hand ledger immutable. Charge the table fee on each member's
+    // first completed hand, before date/team filters, so split reports add up
+    // and a mid-table team change never charges that member twice.
+    // Legacy records retain their saved baseline and multiplier (or 0 fee / 1x).
+    const initial = "COALESCE(json_extract(r.record,'$.initialScore'),0)";
+    const baseline = `COALESCE(json_extract(r.record,'$.settlementBase'),${initial})`;
+    const divisor = "COALESCE(NULLIF(json_extract(r.record,'$.scoreDivisor'),0),1)";
+    const recorded = `(p.points + CASE WHEN p.record_id=(
+      SELECT first.record_id FROM point_records first
+      WHERE first.game_id=p.game_id AND first.account_id=p.account_id
+      ORDER BY first.at,first.record_id LIMIT 1
+    ) THEN ${initial}-${baseline} ELSE 0 END) / (1.0 * ${divisor})`;
     const grouped =
-      "SELECT p.account_id AS accountId,(SELECT CAST(n.member_id AS TEXT) FROM account_numbers n WHERE n.account_id=p.account_id) AS memberId,COALESCE(a.username,p.account_id) AS username,COALESCE(a.name,MAX(p.name)) AS name,p.team_id AS teamId,COALESCE(t.name,MAX(p.team_name)) AS teamName,COUNT(*) AS rounds,SUM(p.points) AS points" +
+      `SELECT p.account_id AS accountId,(SELECT CAST(n.member_id AS TEXT) FROM account_numbers n WHERE n.account_id=p.account_id) AS memberId,COALESCE(a.username,p.account_id) AS username,COALESCE(a.name,MAX(p.name)) AS name,p.team_id AS teamId,COALESCE(t.name,MAX(p.team_name)) AS teamName,COUNT(*) AS rounds,COUNT(DISTINCT p.game_id) AS tables,0.0+ROUND(SUM(${recorded}),6) AS points` +
       filter.from +
       " GROUP BY p.account_id,p.team_id";
     const total = Number(
@@ -451,7 +486,7 @@ export function createRecords(db: DatabaseSync) {
     );
     const totals = db
       .prepare(
-        "SELECT COUNT(DISTINCT p.record_id) AS completedRounds,COUNT(*) AS playerRounds,COALESCE(SUM(p.points),0) AS points" +
+        `SELECT COUNT(DISTINCT p.record_id) AS completedRounds,COUNT(DISTINCT p.game_id) AS tables,COUNT(*) AS playerRounds,COALESCE(0.0+ROUND(SUM(${recorded}),6),0) AS points` +
           filter.from,
       )
       .get(...filter.args)!;
@@ -471,6 +506,7 @@ export function createRecords(db: DatabaseSync) {
       page,
       pageSize,
       completedRounds: Number(totals.completedRounds),
+      tables: Number(totals.tables),
       playerRounds: Number(totals.playerRounds),
       points: Number(totals.points),
     };
@@ -498,11 +534,7 @@ export function createRecords(db: DatabaseSync) {
         "统计结束（北京时间，不含）",
         date("to"),
       ],
-      [
-        "口径",
-        "已完成单局的游戏积分变化；不含本金、桌费或现金；局中换队从下一局生效",
-      ],
-      ["战队", "会员账号", "昵称", "会员ID", "完成局数", "游戏积分"],
+      ["战队", "会员账号", "昵称", "会员ID", "桌数（8局/桌）", "积分"],
     ];
     for (const row of result.rows)
       rows.push([
@@ -510,7 +542,7 @@ export function createRecords(db: DatabaseSync) {
         row.username,
         row.name,
         row.memberId ?? row.accountId,
-        row.rounds,
+        row.tables,
         row.points,
       ]);
     return (

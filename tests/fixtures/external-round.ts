@@ -22,7 +22,7 @@ export function externalRound(
   const g = createGame(
     "789123",
     options.gameId ?? options.previous?.id ?? "external-ledger",
-    newGameRules({ rounds: 4, ...options.rules }),
+    newGameRules({ id: "nj-garden-v2", rounds: 4, ...options.rules }),
   );
   const payer = mode === "three" ? 0 : 3;
   g.players = seats.map((seat) => {

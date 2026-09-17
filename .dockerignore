@@ -1,4 +1,4 @@
-node_modules
+**/node_modules
 data
 dist
 ios
@@ -6,8 +6,24 @@ android
 .git
 .codegraph
 .env*
-test-results
+**/work
+**/test-results*
+**/*.tsbuildinfo
 playwright-report
+docs/research
+
+# Local signing material and native packages
+**/*.p12
+**/*.pfx
+**/*.pem
+**/*.key
+**/*.p8
+**/*.keystore
+**/*.jks
+**/*.mobileprovision
+**/*.apk
+**/*.aab
+**/*.ipa
 
 cocos-table/library
 cocos-table/temp

@@ -120,6 +120,14 @@ function online(ack = true) {
 }
 afterEach(() => vi.unstubAllGlobals());
 describe("联机校时与操作隔离", () => {
+  it("诊断保留服务端版本，旧服务未提供时清除上一连接版本", () => {
+    const { ws } = online();
+    const session = { type: "session" as const, id: "me", token: "test-token", name: "测试" };
+    ws.receive({ ...session, serverVersion: "0.7.5" });
+    expect(client.state.network.serverVersion).toBe("0.7.5");
+    ws.receive(session);
+    expect(client.state.network.serverVersion).toBeNull();
+  });
   it("返回前台立即重发校时，丢弃睡眠前尚未返回的旧pong", () => {
     const { ws, g } = online();
     let mono = 100;
@@ -158,6 +166,7 @@ describe("联机校时与操作隔离", () => {
       timeSync: true,
       serverNow: 1_000_000,
     });
+    ws.receive({ type: "state", state: viewFor(g, 0) });
     const ping = ws.sent.find((m) => m.type === "ping")!;
     expect(ping).toMatchObject({ type: "ping", sentAt: 100 });
     client.ready();
@@ -293,7 +302,7 @@ describe("慢网操作确认", () => {
 
 describe("大厅连接与开桌确认", () => {
   it("自动续桌完成后，旧离桌请求的迟到拒绝不会覆盖大厅通知", () => {
-    const { ws } = online();
+    const { ws, g } = online();
     ws.receive({
       type: "session",
       id: "me",
@@ -303,6 +312,7 @@ describe("大厅连接与开桌确认", () => {
       tableLobby: true,
       commandAck: true,
     });
+    ws.receive({ type: "state", state: viewFor(g, 0) });
     client.send({ type: "leave" });
     const requestId = ws.sent.at(-1)!.requestId;
     ws.receive({ type: "left", lobby: true, message: "本桌结束，已续开空桌" });
@@ -560,10 +570,21 @@ describe("后台保留连接、前台快速同步", () => {
       timeSync: true,
       commandAck: true,
     });
+    ws.receive({ type: "state", state: viewFor(g, 0) });
     const ping = ws.sent.at(-1) as Extract<ClientMessage, { type: "ping" }>;
     ws.receive({ type: "pong", sentAt: ping.sentAt, serverNow: Date.now() });
     return { ws, g };
   }
+  it("画布和工具栏间切换焦点不触发恢复同步或禁用操作", () => {
+    const { ws } = syncedOnline();
+    const before = ws.sent.length;
+    client.setNetworkVisible(true);
+    client.setNetworkVisible(true);
+    expect(ws.sent).toHaveLength(before);
+    expect(client.state.connected).toBe(true);
+    client.ready();
+    expect(ws.sent.at(-1)?.type).toBe("ready");
+  });
   it("后台未确认操作不触发断网；回来获取最新手牌，绝不重发旧操作", () => {
     vi.useFakeTimers();
     const { ws, g } = syncedOnline();
@@ -635,16 +656,28 @@ describe("后台保留连接、前台快速同步", () => {
   });
 });
 
-
 describe("练习真人托管", () => {
   it("超时之后只打刚摸的牌，一次取消就保留新一轮手动时间", () => {
-    vi.useFakeTimers();vi.setSystemTime(10000);
-    let g=createGame("123456","trustee",{turnSeconds:10});
-    g.players=[0,1,2,3].map(i=>({...newPlayer(String(i),String(i),i!==0),ready:true}));
-    g=startRound(g,10000,()=>.51);g.turn=0;
-    g.players[0]!.hand=[0,4,8,36,40,44,72,76,80,108,109,110,112,113];g.lastDraw=113;
-    vi.stubGlobal("localStorage",{getItem:(key:string)=>key==="jinling:practice"?JSON.stringify(g):null,setItem:vi.fn()});
-    client=new GameClient();client.practice("测试",{},true);
+    vi.useFakeTimers();
+    vi.setSystemTime(10000);
+    let g = createGame("123456", "trustee", { turnSeconds: 10 });
+    g.players = [0, 1, 2, 3].map((i) => ({
+      ...newPlayer(String(i), String(i), i !== 0),
+      ready: true,
+    }));
+    g = startRound(g, 10000, () => 0.51);
+    g.turn = 0;
+    g.players[0]!.hand = [
+      0, 4, 8, 36, 40, 44, 72, 76, 80, 108, 109, 110, 112, 113,
+    ];
+    g.lastDraw = 113;
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) =>
+        key === "jinling:practice" ? JSON.stringify(g) : null,
+      setItem: vi.fn(),
+    });
+    client = new GameClient();
+    client.practice("测试", {}, true);
     vi.advanceTimersByTime(10450);
     expect(client.state.view!.players[0]!.discards).toEqual([113]);
     expect(client.state.view!.players[0]!.trustee).toBe(true);

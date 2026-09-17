@@ -44,7 +44,7 @@ function fixture(hands: number[][], rules: Partial<Rules> = {}): Game {
   const g = createGame(
     "123456",
     "v2",
-    newGameRules({ twoBankrupt: false, ...rules }),
+    newGameRules({ id: "nj-garden-v2", twoBankrupt: false, ...rules }),
   );
   const used = new Map<number, number>();
   g.players = seats.map((s) => {
@@ -132,9 +132,9 @@ function physical(g: Game) {
 
 describe("荔枝南京计分档案", () => {
   it("默认进园子、开桌可选敞开头，旧桌版本保持", () => {
-    expect(normalizeRules(newGameRules()).id).toBe("nj-garden-v2");
+    expect(normalizeRules(newGameRules()).id).toBe("nj-garden-b-v3");
     expect(normalizeRules(newGameRules({ id: undefined })).id).toBe(
-      "nj-garden-v2",
+      "nj-garden-b-v3",
     );
     expect(normalizeRules(newGameRules()).turnSeconds).toBe(10);
     expect(normalizeRules(newGameRules()).twoBankrupt).toBe(true);

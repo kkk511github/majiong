@@ -10,7 +10,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { ReplayFrame, RoundReplay, Seat } from "../shared/types";
-import { tileName } from "../shared/tiles";
+import { isReplayKeyEvent, replayEventLabel } from "./replay-events";
 import { client } from "./game-client";
 import { Dialog } from "./Dialog";
 import { gameAudio } from "./audio";
@@ -18,20 +18,6 @@ import { ReplayTable } from "./ReplayTable";
 import "./replay.css";
 import { signedScore } from "../shared/settlement";
 
-const labels: Record<ReplayFrame["type"], string> = {
-  start: "开局发牌",
-  draw: "摸牌",
-  flower: "补花",
-  discard: "打出",
-  pung: "碰牌",
-  kong: "明杠",
-  concealedKong: "暗杠",
-  addedKong: "补杠",
-  zhaozhi: "报照直",
-  claim: "响应出牌",
-  pass: "过",
-  finish: "本局结算",
-};
 export function ReplayPanel({
   initialId = "",
   close,
@@ -52,6 +38,16 @@ export function ReplayPanel({
     [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1),
     [copied, setCopied] = useState(false);
+  const [controlsVisible,setControlsVisible]=useState(true);
+  const [activity,setActivity]=useState(0);
+  const [choosing,setChoosing]=useState(false);
+  const wakeControls=()=>{setControlsVisible(true);setActivity(n=>n+1);};
+  useEffect(()=>{setControlsVisible(true);setChoosing(false);},[playing,query]);
+  useEffect(()=>{
+    if(!playing||!controlsVisible||choosing||searchOpen||busy||error)return;
+    const timer=setTimeout(()=>setControlsVisible(false),3000);
+    return ()=>clearTimeout(timer);
+  },[playing,controlsVisible,choosing,activity,searchOpen,busy,error]);
   useEffect(() => {
     if (!query.id) return;
     let active = true;
@@ -122,7 +118,7 @@ export function ReplayPanel({
               kong: "杠",
               concealedKong: "暗杠",
               addedKong: "补杠",
-  zhaozhi: "报照直",
+              zhaozhi: "报照直",
               flower: "补花",
               finish: frame.result?.winners.length
                 ? frame.result.from === undefined
@@ -138,12 +134,15 @@ export function ReplayPanel({
       );
   }, [playing, frame, data, step]);
   const event = frame
-    ? `${frame.seat !== undefined ? data!.names[frame.seat] + " · " : ""}${labels[frame.type]}${frame.tile !== undefined ? " " + tileName(frame.tile) : ""}`
+    ? replayEventLabel(frame, data!.names, perspective, reveal)
     : "";
+  const keySteps =
+    data?.frames.flatMap((f, index) => (isReplayKeyEvent(f) ? [index] : [])) ??
+    [];
   return (
     <Dialog
       title="牌局回放"
-      variant="replay-dialog"
+      variant={`replay-dialog${data?" replay-loaded":""}${data&&!controlsVisible&&!searchOpen?" replay-controls-hidden":""}`}
       close={close}
       headerAside={
         data && (
@@ -183,6 +182,7 @@ export function ReplayPanel({
       }
     >
       <section className="replay-panel">
+        {data&&<button className="replay-keyboard-controls sr-only" onFocus={wakeControls} onClick={wakeControls}>显示回放控制</button>}
         {(!data || searchOpen) && (
           <form
             className="replay-search"
@@ -236,7 +236,9 @@ export function ReplayPanel({
               setPerspective={setPerspective}
               reveal={reveal}
               animate={playing}
+              onSurfaceInteraction={()=>{setControlsVisible(v=>!v);setActivity(n=>n+1);setChoosing(false);}}
             />
+            <div className="replay-bottom" onPointerDownCapture={wakeControls} onKeyDownCapture={wakeControls} onFocusCapture={e=>{if(e.target instanceof HTMLSelectElement)setChoosing(true);}} onBlurCapture={()=>setChoosing(false)}>
             {frame.players.some((p) => p.externalScore) && (
               <div className="replay-external" aria-label="回放桌外累计记分">
                 <b>桌外累计</b>
@@ -250,14 +252,37 @@ export function ReplayPanel({
             )}
             {!data.summaryOnly && (
               <div className="replay-controls">
-                <input
-                  type="range"
-                  aria-label="回放进度"
-                  min={0}
-                  max={total - 1}
-                  value={step}
-                  onChange={(e) => seek(Number(e.target.value))}
-                />
+                <span className="replay-current-event" aria-hidden="true">{event}</span>
+                <div className="replay-timeline">
+                  <select
+                    aria-label="跳到关键动作"
+                    value={keySteps.includes(step) ? String(step) : ""}
+                    onChange={(e) => {
+                      if (e.target.value !== "") seek(Number(e.target.value));
+                    }}
+                  >
+                    <option value="">跳到碰杠胡</option>
+                    {keySteps.map((index) => (
+                      <option key={index} value={index}>
+                        {index + 1}步 ·{" "}
+                        {replayEventLabel(
+                          data.frames[index],
+                          data.names,
+                          perspective,
+                          reveal,
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="range"
+                    aria-label="回放进度"
+                    min={0}
+                    max={total - 1}
+                    value={step}
+                    onChange={(e) => seek(Number(e.target.value))}
+                  />
+                </div>
                 <div>
                   <span className="replay-step-label">
                     {step + 1} / {total} 步
@@ -306,7 +331,7 @@ export function ReplayPanel({
                   <select
                     aria-label="回放速度"
                     value={speed}
-                    onChange={(e) => setSpeed(Number(e.target.value))}
+                    onChange={(e) => {setSpeed(Number(e.target.value));setChoosing(false);e.target.blur();wakeControls();}}
                   >
                     <option value={1}>1 倍速</option>
                     <option value={2}>2 倍速</option>
@@ -322,6 +347,7 @@ export function ReplayPanel({
                 </div>
               </div>
             )}
+            </div>
           </>
         )}
       </section>

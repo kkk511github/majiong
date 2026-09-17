@@ -29,7 +29,7 @@ for (const [width, height] of [
       .getByRole("navigation")
       .getByRole("button", { name: "我的", exact: true })
       .click();
-    await page.getByRole("button", { name: "战队与会员 · 积分统计" }).click();
+    await page.getByRole("button", { name: "战队与会员", exact: true }).click();
     await page.getByLabel("搜索会员", { exact: true }).fill(username);
     await page.getByRole("button", { name: "查询", exact: true }).click();
     const card = page.getByRole("article", { name: `会员 ${username}` });
@@ -68,7 +68,7 @@ for (const [width, height] of [
     await expect(
       page.getByText(`测试战队${width}`, { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "积分与局数", exact: true }).click();
+    await page.getByRole("button", { name: "积分统计", exact: true }).click();
     await expect(
       page.getByText("这个时间范围内还没有已完成的牌局。", { exact: true }),
     ).toBeVisible();
@@ -76,7 +76,9 @@ for (const [width, height] of [
     await page.getByRole("button", { name: "导出 CSV", exact: true }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/战队积分_.*\.csv/);
-    expect(readFileSync((await file.path())!, "utf8")).toContain("完成局数");
+    const csv = readFileSync((await file.path())!, "utf8");
+    expect(csv).toContain('"把数","桌数（8局/桌）","积分"');
+    expect(csv).not.toContain("完成局数");
     await page.screenshot({
       path: `test-results/screenshots/club-points-${width}.png`,
     });
@@ -148,12 +150,14 @@ for (const [width, height] of [
             teamId: "team-1",
             teamName: "一生所爱战队",
             rounds: 22 + i,
+            tables: 3 + i,
             points: i % 2 ? 125 : -95,
           })),
           total: 20,
           page: 1,
           pageSize: 20,
           completedRounds: 30,
+          tables: 4,
           playerRounds: 120,
           points: 300,
         },
@@ -168,7 +172,7 @@ for (const [width, height] of [
       .getByRole("navigation")
       .getByRole("button", { name: "我的", exact: true })
       .click();
-    await page.getByRole("button", { name: "战队与会员 · 积分统计" }).click();
+    await page.getByRole("button", { name: "战队与会员", exact: true }).click();
     const member = page.getByRole("article", {
       name: "会员 member-0",
       exact: true,
@@ -193,8 +197,13 @@ for (const [width, height] of [
     await expect(page.getByRole("alert")).toContainText("已恢复原设置");
     expect(memberReads).toBe(1);
     expect(teamReads).toBe(1);
-    await page.getByRole("button", { name: "积分与局数", exact: true }).click();
+    await page.getByRole("button", { name: "积分统计", exact: true }).click();
     await expect(page.locator(".club-stats-scroll tbody tr")).toHaveCount(20);
+    await expect(page.getByRole("columnheader", { name: "把数", exact: true })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "桌数（8局/桌）", exact: true })).toBeVisible();
+    await expect(page.locator(".club-stats-scroll tbody tr").first().locator("td")).toHaveText([
+      "一生所爱战队", "牌友0ID — · member-0", "22", "3", "-95",
+    ]);
     const before = (await page.locator(".club-footer").boundingBox())!;
     const area = await page
       .locator(".club-results")

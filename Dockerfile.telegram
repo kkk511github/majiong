@@ -1,0 +1,12 @@
+ARG BASE_IMAGE=jinling-mahjong:0.7.7-build43-csv-tables-20260916
+FROM ${BASE_IMAGE}
+USER root
+RUN mkdir -p /reports && chown node:node /reports
+COPY server/report-xlsx/package.json server/report-xlsx/package-lock.json /app/server/report-xlsx/
+RUN npm ci --prefix /app/server/report-xlsx --omit=dev --ignore-scripts --no-audit --no-fund
+COPY server/report-xlsx/workbook.ts /app/server/report-xlsx/
+COPY server/report-xlsx/templates /app/server/report-xlsx/templates/
+COPY server/telegram-reports.ts server/telegram-report-worker.ts /app/server/
+COPY tests/telegram-reports.test.ts /app/tests/
+USER node
+CMD ["node", "--import", "tsx", "server/telegram-report-worker.ts", "run"]

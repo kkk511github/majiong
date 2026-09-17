@@ -15,7 +15,7 @@ import { mayCreateTables } from "../shared/permissions";
 import { Dialog } from "./Dialog";
 import { client, storage, type ClientState } from "./game-client";
 import { DEFAULT_TABLE_SETTINGS } from "../shared/table-settings";
-import { newGameRules } from "../shared/nanjing-rules";
+import { DEFAULT_NEW_RULES, newGameRules, ruleDisplayName } from "../shared/nanjing-rules";
 import type {
   Rules,
   Seat,
@@ -121,6 +121,7 @@ export function TableSetup({
     count: number,
   ) => void;
 }) {
+  const hasSaved = storage.get("tableDraft-v3", null) !== null;
   const saved = storage.get<{
     settings: TableSettings;
     rounds: number;
@@ -146,10 +147,10 @@ export function TableSetup({
       continuousRounds: true,
       resultSeconds: 10,
     });
-  const [flowerDouble, setFlowerDouble] = useState(saved.flowerDouble ?? true),
-    [seaBottom, setSeaBottom] = useState(saved.seaBottom ?? true),
+  const flowerDouble = true;
+  const [seaBottom, setSeaBottom] = useState(saved.seaBottom ?? true),
     [protectWinner, setProtectWinner] = useState(saved.protectWinner ?? true);
-  const [ruleId,setRuleId]=useState<Rules["id"]>(saved.ruleId==="nj-open-v2"?"nj-open-v2":"nj-garden-v2");
+  const ruleId = DEFAULT_NEW_RULES.id;
   const [successorDouble,setSuccessorDouble]=useState(saved.successorDouble??true),
     [fourWinds,setFourWinds]=useState(saved.fourWinds??true);
   const [rounds, setRounds] = useState(saved.rounds),
@@ -157,7 +158,6 @@ export function TableSetup({
     [count, setCount] = useState(saved.count),
     [kick, setKick] = useState(String(saved.settings.kickAfterSeconds)),
     [localError, setError] = useState("");
-  const body = useRef<HTMLDivElement>(null);
   const update = (patch: Partial<TableSettings>) => {
     setSettings((s) => ({ ...s, ...patch }));
     setError("");
@@ -174,7 +174,7 @@ export function TableSetup({
       Number(seconds) > 300
     ) {
       setError("每步时间需要 10–300 秒");
-      setStep(0);
+      setStep(1);
       return false;
     }
     if (
@@ -192,7 +192,7 @@ export function TableSetup({
       settings.overtimeSeconds! > 300
     ) {
       setError("超时倒计时时间需要 0–300 秒");
-      setStep(0);
+      setStep(1);
       return false;
     }
     return true;
@@ -200,7 +200,6 @@ export function TableSetup({
   const next = () => {
     if (valid()) {
       setStep((s) => s + 1);
-      body.current?.scrollTo({ top: 0 });
     }
   };
   const create = () => {
@@ -231,8 +230,8 @@ export function TableSetup({
         rounds,
         flowerDouble,
         seaBottom,
-        protectWinner: ruleId==="nj-garden-v2"&&protectWinner,
-        twoBankrupt: ruleId==="nj-garden-v2",
+        protectWinner,
+        twoBankrupt: true,
         turnSeconds: settings.trusteeMode === "disabled" ? 0 : Number(seconds),
       },
       count,
@@ -257,7 +256,6 @@ export function TableSetup({
                 disabled={busy}
                 onClick={() => {
                   setStep(step - 1);
-                  body.current?.scrollTo({ top: 0 });
                 }}
               >
                 <ArrowLeft size={16} />
@@ -276,10 +274,15 @@ export function TableSetup({
         </div>
       }
     >
+      <div className="setup-profile" aria-label="本桌固定规则">
+        <div><strong>南京麻将</strong><span>进园子 · B档</span></div>
+        <dl><div><dt>底分</dt><dd>10</dd></div><div><dt>门清</dt><dd>10</dd></div><div><dt>花砸</dt><dd>×2</dd></div></dl>
+      </div>
       <ol className="setup-steps">
         {["玩法设置", "桌子设置", "确认开桌"].map((label, i) => (
           <li
             className={step === i ? "current" : step > i ? "done" : ""}
+            aria-current={step === i ? "step" : undefined}
             key={label}
           >
             <b>{step > i ? <Check size={13} /> : i + 1}</b>
@@ -287,7 +290,7 @@ export function TableSetup({
           </li>
         ))}
       </ol>
-      <div className="setup-content" ref={body}>
+      <div className="setup-content" key={step}>
         {(localError || error) && (
           <p className="room-form-error" role="alert">
             {localError || error}
@@ -303,46 +306,18 @@ export function TableSetup({
                 onChange={(e) => update({ name: e.target.value })}
               />
             </Setting>
-            <Setting label="南京麻将" help="万、筒、条及风牌，20 张花牌">
-              <span className="setup-badge">
-                <Users size={16} />
-                固定四人 · 碰杠不吃
-              </span>
-            </Setting>
-            <Setting label="计分规则" help="进园子为默认；每桌按所选规则独立结算">
-              <Choices label="计分规则" value={ruleId} choices={[
-                {value:"nj-garden-v2",label:"进园子"},
-                {value:"nj-open-v2",label:"敞开头"},
-              ]} change={setRuleId}/>
-            </Setting>
             <Setting
               label="初始分"
-              help={ruleId==="nj-garden-v2"?"本金 100 分，扣桌费 10 分；两家归零立即结算":"本金 100 分，扣桌费 10 分；敞开头按约定局数结算"}
             >
               <span className="setup-badge">90 分 / 人</span>
+              <span className="setting-unit">本金 100 · 桌费 10</span>
             </Setting>
-            <Setting
-              label="记分倍率"
-              help="最终记分 =（桌上分 − 本金 100 分）× 倍率"
-            >
-              <Choices
-                label="记分倍率"
-                value={settings.scoreMultiplier ?? 0.5}
-                choices={[
-                  { value: 0.2, label: "打 20 · 0.2 / 1" },
-                  { value: 0.5, label: "打 50 · 0.5 / 1" },
-                  { value: 1, label: "打 100 · 1 / 1" },
-                ]}
-                change={(scoreMultiplier) =>
-                  update({ scoreMultiplier: scoreMultiplier as 0.2 | 0.5 | 1 })
-                }
-              />
-            </Setting>
-            <Setting label="主流玩法">
+            <Setting label="主流模式">
               <Toggle
                 label="花砸 2"
                 checked={flowerDouble}
-                change={setFlowerDouble}
+                change={() => {}}
+                disabled
               />
               <Toggle
                 label="海底捞月"
@@ -350,7 +325,7 @@ export function TableSetup({
                 change={setSeaBottom}
               />
               <Toggle label="接庄比" checked={successorDouble} change={setSuccessorDouble}/>
-              <Toggle label="四连风" checked={fourWinds} change={setFourWinds}/>
+              <Toggle label="东南西北罚分" checked={fourWinds} change={setFourWinds}/>
             </Setting>
             <Setting
               label="保米"
@@ -358,62 +333,20 @@ export function TableSetup({
             >
               <Toggle
                 label="保米"
-                checked={ruleId==="nj-garden-v2"&&protectWinner}
+                checked={protectWinner}
                 change={setProtectWinner}
-                disabled={ruleId!=="nj-garden-v2"}
               />
             </Setting>
-            <p className="setup-note">
-              花砸 2：硬花、软花按两倍计；海底捞月：牌墙摸至最后，剩余不超过 4
-              张时自摸加 20 花。两家归零结束时，保米由大赢家补最后胡牌者至固定
-              100 分（仅进园子）。比下胡下一把 ×2，胡牌、杠分、罚分均翻倍；同一把多个触发条件不重复相乘。四连风及四张同牌罚分已启用。
-            </p>
-            <Setting label="局数选择">
+            <Setting label="把数选择">
               <Choices
-                label="局数选择"
+                label="把数选择"
                 value={rounds}
                 choices={[4, 8, 12, 16].map((n) => ({
                   value: n,
-                  label: `${n} 局`,
+                  label: `${n} 把`,
                 }))}
                 change={setRounds}
               />
-            </Setting>
-            <Setting
-              label="每步思考"
-              help="超过正常时间后，再开始 90 秒超时倒计时"
-            >
-              <input
-                className="number-setting"
-                aria-label="每步思考秒数"
-                type="number"
-                inputMode="numeric"
-                min={10}
-                max={300}
-                value={seconds}
-                onChange={(e) => {
-                  setSeconds(e.target.value);
-                  setError("");
-                }}
-              />
-              <span className="setting-unit">秒 · 10–300</span>
-            </Setting>
-            <Setting
-              label="超时倒计时"
-              help="每次出牌重新计时；重连保持本次剩余时间"
-            >
-              <input
-                className="number-setting"
-                aria-label="超时倒计时秒数"
-                type="number"
-                min={0}
-                max={300}
-                value={settings.overtimeSeconds ?? 90}
-                onChange={(e) =>
-                  update({ overtimeSeconds: Number(e.target.value) })
-                }
-              />
-              <span className="setting-unit">秒 · 用完进入托管</span>
             </Setting>
             <Setting label="牌面展示">
               <Choices
@@ -423,9 +356,11 @@ export function TableSetup({
                 change={(resultSeconds) => update({ resultSeconds })}
               />
             </Setting>
-            <p className="setup-note">
-              基础胡牌分值沿用当前版本；具体分值可在大厅「玩法」中查看。
-            </p>
+            <div className="setup-rule-note">
+              <strong>两家桌内归零，本桌结束</strong>
+              <span>入桌 90 分，结算按本金 100 分；外包仅记桌外，不参与入园。</span>
+            </div>
+            {hasSaved && <p className="setup-note" role="status">已沿用上次开桌配置，请核对后创建。</p>}
           </>
         )}
         {step === 1 && (
@@ -439,6 +374,23 @@ export function TableSetup({
                   label: `${n} 桌`,
                 }))}
                 change={setCount}
+              />
+            </Setting>
+            <Setting
+              label="记分倍率"
+              help="最终记分 =（桌上分 + 桌外累计 − 本金 100 分）× 倍率"
+            >
+              <Choices
+                label="记分倍率"
+                value={settings.scoreMultiplier ?? 0.5}
+                choices={[
+                  { value: 0.2, label: "打 20 · 0.2 / 1" },
+                  { value: 0.5, label: "打 50 · 0.5 / 1" },
+                  { value: 1, label: "打 100 · 1 / 1" },
+                ]}
+                change={(scoreMultiplier) =>
+                  update({ scoreMultiplier: scoreMultiplier as 0.2 | 0.5 | 1 })
+                }
               />
             </Setting>
             <Setting label="加入方式">
@@ -512,6 +464,42 @@ export function TableSetup({
               />
               <span className="setting-unit">秒 · 10–60</span>
             </Setting>
+            <Setting
+              label="每步思考"
+              help={settings.trusteeMode === "disabled" ? "关闭托管时不限出牌时间" : `超过正常时间后，再开始 ${settings.overtimeSeconds ?? 90} 秒超时倒计时`}
+            >
+              <input
+                className="number-setting"
+                aria-label="每步思考秒数"
+                type="number"
+                inputMode="numeric"
+                min={10}
+                max={300}
+                value={seconds}
+                onChange={(e) => {
+                  setSeconds(e.target.value);
+                  setError("");
+                }}
+              />
+              <span className="setting-unit">秒 · 10–300</span>
+            </Setting>
+            <Setting
+              label="超时倒计时"
+              help="每次出牌重新计时；重连保持本次剩余时间"
+            >
+              <input
+                className="number-setting"
+                aria-label="超时倒计时秒数"
+                type="number"
+                min={0}
+                max={300}
+                value={settings.overtimeSeconds ?? 90}
+                onChange={(e) =>
+                  update({ overtimeSeconds: Number(e.target.value) })
+                }
+              />
+              <span className="setting-unit">秒 · 用完进入托管</span>
+            </Setting>
             <Setting label="超时托管" help="关闭托管时，不限制每步时间">
               <Choices
                 label="超时托管"
@@ -571,14 +559,18 @@ export function TableSetup({
               <div>
                 <h3>{settings.name}</h3>
                 <p>
-                  {count} 张空桌 · 每桌 4 人 · {rounds} 局
+                  {count} 张空桌 · 每桌 4 人 · {rounds} 把
                 </p>
               </div>
             </div>
             <dl>
               <div>
                 <dt>计分规则</dt>
-                <dd>{ruleId==="nj-garden-v2"?"南京麻将 · 进园子":"南京麻将 · 敞开头"}</dd>
+                <dd>南京麻将 · {ruleDisplayName({ id: ruleId })} · 底分 10 · 门清 10</dd>
+              </div>
+              <div>
+                <dt>可选规则</dt>
+                <dd>{[["花砸2",flowerDouble],["海底捞月",seaBottom],["接庄比",successorDouble],["四连风",fourWinds],["保米",protectWinner]].map(([label,on])=>`${label}：${on?"开启":"关闭"}`).join(" · ")}</dd>
               </div>
               <div>
                 <dt>开桌人</dt>
@@ -604,11 +596,7 @@ export function TableSetup({
               <div>
                 <dt>等待与托管</dt>
                 <dd>
-                  {settings.trusteeMode === "disabled"
-                    ? "不限时"
-                    : `${seconds} 秒 / 步`}{" "}
-                  · 超时倒计时 {settings.overtimeSeconds ?? 90} 秒 ·{" "}
-                  {trusteeNames[settings.trusteeMode]}
+                  {settings.trusteeMode === "disabled" ? "不限时 · 关闭托管" : `${seconds} 秒 / 步 · 超时倒计时 ${settings.overtimeSeconds ?? 90} 秒 · ${trusteeNames[settings.trusteeMode]}`}
                 </dd>
               </div>
               <div>
@@ -620,7 +608,7 @@ export function TableSetup({
             </dl>
             <p className="setup-note">
               每人本金 100 分，扣 10 分桌费后入桌 90
-              分，{ruleId==="nj-garden-v2"?"两家归零结束":"按所选局数结算"}；最终记分为（桌上分 − 100）×{" "}
+              分，两家桌内归零结束；最终记分为（桌上分 + 桌外累计 − 100）×{" "}
               {settings.scoreMultiplier ?? 0.5}
               。创建后会进入牌桌大厅。你可以选择座位，也可以复制房号邀请朋友；未满四人时不会发牌。
             </p>

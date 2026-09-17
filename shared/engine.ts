@@ -17,6 +17,8 @@ import { scoreHand, type WinContext } from "./scoring";
 import { structuralWaits, threeMouths } from "./scoring-nanjing";
 import {
   flowerFactor,
+  isGarden,
+  isNanjingB,
   isNanjingV2,
   nanjingValues,
   ruleDefaults,
@@ -99,7 +101,8 @@ export function normalizeRules(input: Partial<Rules> = {}): Rules {
     ...(typeof input.protectWinner === "boolean"
       ? { protectWinner: input.protectWinner }
       : {}),
-    rounds: [4, 8, 12, 16].includes(input.rounds!) ? input.rounds! : 4,
+    ...(isNanjingB(base) ? { flowerDouble: true, twoBankrupt: true } : {}),
+    rounds: [4, 8, 12, 16].includes(input.rounds!) ? input.rounds! : base.rounds,
     turnSeconds:
       Number.isInteger(input.turnSeconds) &&
       (input.turnSeconds === 0 ||
@@ -119,6 +122,7 @@ export function createGame(
     code,
     ownerId: null,
     initialScore: 90,
+    ...(isNanjingB({ id: rules.id ?? "nj-casual-v1" }) ? { settlementBase: 100 } : {}),
     scoreDivisor: 2,
     rules: normalizeRules(rules),
     phase: "waiting",
@@ -454,28 +458,34 @@ function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
   const state = g.ruleState;
   if (!state) return;
   const k = kind(tile),
-    own = state.ownDiscards[seat];
+    own = state.ownDiscards[seat],
+    bProfile = isNanjingB(g.rules);
   own.push(k);
   state.discards = [...state.discards.slice(-3), { seat, tile }];
   const bills: Bill[] = [];
-  const payOthers = (payer: Seat, flowers: number, reason: Bill["reason"]) => {
+  const payOthers = (payer: Seat, amount: number, reason: Bill["reason"]) => {
     for (const to of seats)
       if (to !== payer)
-        bills.push({ from: payer, to, amount: sideAmount(g, flowers), reason });
+        bills.push({ from: payer, to, amount, reason });
     flagNext(g, reason);
   };
   if (g.rules.discardPenalties) {
     if (own.filter((n) => n === k).length === 4)
-      payOthers(seat, nanjingValues(g.rules).penaltyFlowers, "四张同牌");
+      payOthers(seat, sideAmount(g, nanjingValues(g.rules).penaltyFlowers), "四张同牌");
     const chain = state.discards;
     if (
       chain.length === 4 &&
       new Set(chain.map((d) => d.seat)).size === 4 &&
-      chain.every((d) => kind(d.tile) === k)
+      chain.every((d) => kind(d.tile) === k) &&
+      (!bProfile || (
+        k >= 27 && k <= 30 &&
+        state.ownDiscards.every((discards) => discards.length === 1) &&
+        chain.every((d, index) => d.seat === (g.dealer + index) % 4)
+      ))
     )
       payOthers(
         chain[0].seat,
-        nanjingValues(g.rules).penaltyFlowers,
+        bProfile ? 5 : sideAmount(g, nanjingValues(g.rules).penaltyFlowers),
         "四家跟牌",
       );
   }
@@ -490,7 +500,7 @@ function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
         bills.push({
           from,
           to: seat,
-          amount: sideAmount(g, nanjingValues(g.rules).fourWindsFlowers),
+          amount: bProfile ? 5 : sideAmount(g, nanjingValues(g.rules).fourWindsFlowers),
           reason: "四连风",
         });
     flagNext(g, "四连风");
@@ -505,7 +515,8 @@ function winContext(g: Game, tile?: Tile, seat: Seat = g.turn): WinContext {
       !!g.ruleState?.heavenlyEligible &&
       seat === g.dealer &&
       tile === undefined,
-    earthly: isNanjingV2(g.rules) && !!g.ruleState?.heavenlyWaits[seat]?.length,
+    earthly: isNanjingV2(g.rules) && !!g.ruleState?.heavenlyWaits[seat]?.length &&
+      (!isNanjingB(g.rules) || g.ruleState?.earthlyDeclared?.[seat] === true),
     tile,
     winTile: tile === undefined ? g.lastDraw : undefined,
     replacement: tile === undefined ? g.replacement?.type : undefined,
@@ -723,7 +734,7 @@ function settle(
     total: number,
     reason: Bill["reason"],
   ) => {
-    if (g.rules.id === "nj-garden-v2") {
+    if (isGarden(g.rules)) {
       // User-confirmed fixed external payment: 50 normally, 100 on a 比下胡 hand.
       const amount = (g.ruleState?.multiplier ?? 1) > 1 ? 100 : 50;
       externalBills.push({ from, to, amount, reason, scope: "external" });
@@ -1061,6 +1072,12 @@ export function act(
       if (g.ruleState) {
         g.ruleState.heavenlyEligible = false;
         updateHeavenlyWait(g, seat);
+        if (isNanjingB(g.rules) && seat !== g.dealer &&
+            g.ruleState.ownDiscards[seat].length === 0 && g.ruleState.heavenlyWaits[seat]?.length) {
+          g.ruleState.earthlyDeclared ??= {};
+          g.ruleState.earthlyDeclared[seat] = true;
+          note(g, `${p.name} 地胡报听`);
+        }
         applyDiscardPenalties(g, seat, action.tile);
       }
       g.lastDiscard = { tile: action.tile, seat };
@@ -1096,6 +1113,7 @@ export function act(
             : 6;
           if (
             g.ruleState &&
+            !isNanjingB(g.rules) &&
             threeMouths(p, seat) !== undefined &&
             p.melds.length === 4
           ) {
@@ -1139,7 +1157,8 @@ export function viewFor(g: Game, me: Seat): View {
       ? {
           roundMultiplier: g.ruleState.multiplier,
           nextRoundMultiplier: g.ruleState.nextMultiplier,
-          earthlyWaits: g.ruleState.heavenlyWaits[me] ?? [],
+          earthlyWaits: isNanjingB(g.rules) && !g.ruleState.earthlyDeclared?.[me]
+            ? [] : g.ruleState.heavenlyWaits[me] ?? [],
         }
       : {}),
     remaining: wall.length,

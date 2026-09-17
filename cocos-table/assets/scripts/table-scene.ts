@@ -3,11 +3,27 @@ const tileAspect = (pose: string) => TILE_POSE_METRICS[pose].w / TILE_POSE_METRI
 /** The table renderer is a view, never a rules engine or a source of hidden cards. */
 export interface ScenePlayer {
   avatar?: string;
+  online?: boolean;
   name: string; score: number; seat: number; bot: boolean; trustee: boolean;
   hand: number[]; handCount: number; flowers: number[]; discards: number[];
   melds: {type:'pung'|'kong'; tiles:number[]; from:number; concealed:boolean}[];
 }
+/** Presence comes from the public snapshot; never infer another player's claims. */
+export function scenePlayerStatus(s: TableSceneState, p: ScenePlayer) {
+  const active = s.connected && s.phase === 'playing' && s.turn === p.seat;
+  if (!s.connected) return {active:false,label:'',tone:'muted' as const};
+  if (s.presentation === 'replay') return {active,label:active?'出牌中':'',tone:'normal' as const};
+  if (!p.bot && p.online === false) return {active,label:p.trustee?'离线·托管':'已离线',tone:'offline' as const};
+  if (!p.bot && p.trustee) return {active,label:'托管中',tone:'trustee' as const};
+  if (active) return {active,label:'出牌中',tone:'normal' as const};
+  if (s.phase === 'claiming' && p.seat === s.me && s.actions.length)
+    return {active:false,label:s.disabled?'提交中':'待响应',tone:'normal' as const};
+  return {active:false,label:'',tone:'normal' as const};
+}
 export interface TableSceneState {
+  externalControls?:boolean;
+  /** Local viewport cutouts, in 1280×590 design coordinates. */
+  safeArea?:TableSafeArea;
   key:string; revision:number; presentation?:'replay'; me:number; turn:number; dealer:number;
   phase:string; code:string; round:number; rounds?:number; remaining:number;
   rulesName?:string; roundMultiplier?:number; nextRoundMultiplier?:number;
@@ -21,6 +37,21 @@ export interface TableSceneState {
   pending?:{tile:number;from:number;answered:boolean;kind:string};
   effects:{key:string;type:string;seat:number;concealed?:boolean;upgraded?:boolean;selfDraw?:boolean}[];
   trusteeDisabled:boolean;
+}
+export interface TableSafeArea { left:number; right:number; top:number; bottom:number }
+
+/** Move player information inside the cutout without scaling the table or tiles. */
+export function layoutPlayerHud(offset:number, safe?:TableSafeArea) {
+ const x=offset===2?950:offset===0?1198:offset===3?68:1200;
+ const y=offset===2?32:offset===0?508:207;
+ const w=offset===2?166:100,h=offset===2?56:126,plateOffset=offset===2?0:25;
+ const edge=(value:number|undefined)=>value&&value>0?value+8:0;
+ const left=edge(safe?.left),right=1280-edge(safe?.right);
+ const top=edge(safe?.top),bottom=590-edge(safe?.bottom);
+ const px=Math.max(left+w/2,Math.min(right-w/2,x));
+ // Preserve the existing bottom alignment on screens with no lower inset.
+ const py=safe?.top||safe?.bottom?Math.max(top+h/2,Math.min(bottom-h/2,y+plateOffset))-plateOffset:y;
+ return {x:px,y:py,dx:px-x,dy:py-y,w,h,plateY:py+plateOffset};
 }
 export type TableSceneCommand =
   | {type:'select';tile:number}
@@ -156,6 +187,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
   const o=sceneOffset(p.seat,s.me), pose=poses[o];
   if(o===0) {
    let x=110;
+   const selectable=s.presentation!=='replay'&&s.connected&&!s.disabled&&!p.trustee&&['playing','claiming'].includes(s.phase);
    // Keep the selection glow while leaving the fixed claim strip unobstructed.
    const selectedLift=s.actions.length?2:15;
    p.melds.forEach((m,mi)=>{
@@ -165,9 +197,9 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile:m.concealed?undefined:tile,seat:p.seat,pose:m.concealed?'cover-bottom':'bottom',area:'meld',x:x+(ti===3?1:ti)*46,y:556-(ti===3?22:0),w:46,h:46*163/116,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
     x+=146;
    });
-   p.hand.filter(t=>t!==s.drawn).forEach((tile,i)=>add({id:`hand-${tile}`,tile,seat:p.seat,pose:'own',area:'hand',x:x+i*65,y:540-(s.selected===tile?selectedLift:0),w:65,h:98,z:1000+i,selected:s.selected===tile,clickable:s.canDiscard&&!p.trustee&&!s.disabled}));
+   p.hand.filter(t=>t!==s.drawn).forEach((tile,i)=>add({id:`hand-${tile}`,tile,seat:p.seat,pose:'own',area:'hand',x:x+i*65,y:540-(s.selected===tile?selectedLift:0),w:65,h:98,z:1000+i,selected:s.selected===tile,clickable:selectable}));
    // A constant rack capacity, not the current hand length, reserves the draw slot.
-   if(s.drawn!==undefined)add({id:`draw-${s.drawn}`,tile:s.drawn,seat:p.seat,pose:'own',area:'hand',x:x+Math.max(0,13-3*p.melds.length)*65+15,y:540-(s.selected===s.drawn?selectedLift:0),w:65,h:98,z:1050,selected:s.selected===s.drawn,clickable:s.canDiscard&&!p.trustee&&!s.disabled});
+   if(s.drawn!==undefined)add({id:`draw-${s.drawn}`,tile:s.drawn,seat:p.seat,pose:'own',area:'hand',x:x+Math.max(0,13-3*p.melds.length)*65+15,y:540-(s.selected===s.drawn?selectedLift:0),w:65,h:98,z:1050,selected:s.selected===s.drawn,clickable:selectable});
   } else {
    const revealed=p.hand.length>0;
    for(let i=0;i<p.handCount;i++){

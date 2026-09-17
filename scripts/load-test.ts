@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { fork } from "node:child_process";
+import { fork, execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { DatabaseSync } from "node:sqlite";
+import { randomBytes, randomUUID, createHash } from "node:crypto";
+import { hashPassword } from "../server/accounts";
 import { once } from "node:events";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,6 +20,10 @@ const clients: Peer[] = [];
 const latency: number[] = [];
 let stateMessages = 0;
 let serverErrors = 0;
+let unexpectedDisconnects = 0;
+let closing = false;
+const residentMemoryMB: number[] = [];
+const runFile = promisify(execFile);
 let fatal: (error: Error) => void;
 const failure = new Promise<never>((_, reject) => {
   fatal = reject;
@@ -33,6 +41,12 @@ const child = fork(
   },
 );
 let serverLog = "";
+const memorySampler = setInterval(() => {
+  if (!child.pid || closing) return;
+  void runFile("ps", ["-o", "rss=", "-p", String(child.pid)])
+    .then(({ stdout }) => { const kb = Number(stdout.trim()); if (Number.isFinite(kb) && kb > 0) residentMemoryMB.push(kb / 1024); })
+    .catch(() => {});
+}, 1000);
 child.stderr!.on("data", (data) => {
   serverLog += data.toString();
 });
@@ -50,9 +64,10 @@ class Peer {
   view?: View;
   session?: Extract<ServerMessage, { type: "session" }>;
   private listeners = new Set<() => void>();
-  constructor(port: number, name: string) {
+  constructor(port: number, name: string, token: string) {
     this.socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    this.socket.once("open", () => this.send({ type: "hello", name }));
+    this.socket.once("open", () => this.send({ type: "hello", name, token }));
+    this.socket.on("close", () => { if (!closing) { unexpectedDisconnects++; fatal(Error("Unexpected socket close")); } });
     this.socket.on("error", (error) => fatal(error));
     this.socket.on("message", (data) => {
       try {
@@ -174,7 +189,24 @@ const timeout = setTimeout(
 try {
   const run = async () => {
     const port = await portPromise;
-    for (let i = 0; i < 100; i++) clients.push(new Peer(port, `试打${i + 1}`));
+    // Provision only the owned temporary database; this measures gameplay,
+    // not registration/password hashing throughput or authentication rate limits.
+    const hash = await hashPassword("Local-load-fixture-only-2026");
+    const db = new DatabaseSync(join(directory, "load.sqlite"));
+    const credentials: string[] = [];
+    try {
+      db.exec("BEGIN");
+      for (let i = 0; i < 100; i++) {
+        const id = randomUUID(), token = randomBytes(32).toString("hex"), name = `试打${i + 1}`;
+        db.prepare("INSERT INTO accounts VALUES (?,?,?,?,?,?,?)").run(id, `load-${i}`, name, hash, "member", 0, Date.now());
+        db.prepare("INSERT INTO team_memberships VALUES (?,?,?,?,?)").run(id, "team-1", 0, "load-fixture", Date.now());
+        if (i % 4 === 0) db.prepare("INSERT INTO table_permissions VALUES (?,?,?,?)").run(id, 1, "load-fixture", Date.now());
+        db.prepare("INSERT INTO sessions VALUES (?,?,?,?)").run(createHash("sha256").update(token).digest("hex"), id, name, Date.now());
+        credentials.push(token);
+      }
+      db.exec("COMMIT");
+    } finally { db.close(); }
+    for (let i = 0; i < 100; i++) clients.push(new Peer(port, `试打${i + 1}`, credentials[i]));
     await Promise.all(clients.map((p) => p.wait(() => !!p.session)));
     const tables = Array.from({ length: 25 }, (_, i) =>
       clients.slice(i * 4, i * 4 + 4),
@@ -208,15 +240,19 @@ try {
       acceptedOperations: latency.length,
       receivedStates: stateMessages,
       serverErrors,
+      unexpectedDisconnects,
+      targets: { completedRooms: 25, serverErrors: 0, unexpectedDisconnects: 0, localStateConfirmationP95Ms: 500 },
+      targetMet: serverErrors === 0 && unexpectedDisconnects === 0 && quantile(0.95) <= 500,
+      serverResidentMemoryMB: { samples: residentMemoryMB.length, peak: residentMemoryMB.length ? Math.round(Math.max(...residentMemoryMB) * 10) / 10 : null, last: residentMemoryMB.at(-1) ?? null },
       elapsedSeconds: Math.round((performance.now() - started) / 10) / 100,
-      acknowledgementMs: {
+      stateConfirmationMs: {
         p50: quantile(0.5),
         p95: quantile(0.95),
         p99: quantile(0.99),
         max: latency.at(-1),
       },
       limitations:
-        "Local loopback, 100ms think time, four rounds per room; does not establish WAN or long-duration production capacity",
+        "Local loopback, pre-provisioned authenticated members, 100ms think time, four rounds per room. Latency ends at matching game state, not ACK. RSS is sampled server memory, not client/GPU memory. Does not establish WAN, recovery, registration or long-duration production capacity.",
     };
   };
   const report = await Promise.race([run(), failure]);
@@ -226,13 +262,18 @@ try {
       process.env.LOAD_REPORT_PATH,
       JSON.stringify(report, null, 2) + "\n",
     );
+  assert(report.targetMet, "Local gameplay load targets were not met; inspect the saved report");
 } catch (error) {
   console.error(error, serverLog);
   process.exitCode = 1;
 } finally {
   clearTimeout(timeout);
+  closing = true;
+  clearInterval(memorySampler);
   clients.forEach((p) => p.socket.close());
-  const exited = once(child, "exit");
+  const exited = !child.pid || child.exitCode !== null || child.signalCode !== null
+    ? Promise.resolve()
+    : once(child, "exit");
   child.kill("SIGTERM");
   const force = setTimeout(() => child.kill("SIGKILL"), 5000);
   await exited;

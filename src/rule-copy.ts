@@ -2,6 +2,8 @@ import { DEFAULT_RULES, type Rules, type TableSettings } from "../shared/types";
 import {
   DEFAULT_NEW_RULES,
   isNanjingV2,
+  isNanjingB,
+  isGarden,
   nanjingValues,
 } from "../shared/nanjing-rules";
 
@@ -41,7 +43,8 @@ export function ruleSections(
   table?: TableSettings,
 ): string[][] {
   const sections = BASE_RULE_SECTIONS.map((row) => [...row]);
-  const factor = rules.flowerDouble === false ? 1 : 2;
+  const b = isNanjingB(rules);
+  const factor = b ? 2 : rules.flowerDouble === false ? 1 : 2;
   sections[1][1] = sections[1][1].replace(
     "至少需要 4 个硬花",
     `至少需要 ${rules.minimumFlowers} 个硬花`,
@@ -72,15 +75,15 @@ export function ruleSections(
     const v = nanjingValues(rules);
     sections[2] = [
       `${v.name}计分`,
-      `成牌 ${v.base}；门清 ${v.closed}；混一色 ${v.mixed}；清一色 ${v.pure}；对对胡 ${v.triplets}；全球独钓 ${v.global}；七对、双七对、豪华双七对、超豪华双七对依次为 ${v.seven.join("、")}；无花果 ${v.noFlower}。硬花、软花各 ${factor} 分。七对不另计门清；全球独钓不重复计独占；无花果须门清或满足大胡。`,
+      `成牌 ${v.base}；门清 ${v.closed}；混一色 ${v.mixed}；清一色 ${v.pure}；对对胡 ${v.triplets}；全球独钓 ${v.global}；七对、双七对、豪华双七对、超豪华双七对依次为 ${v.seven.join("、")}；无花果 ${v.noFlower}。硬花、软花各 ${factor} 分。七对不另计门清；全球独钓不重复计独占；${b ? "零硬花可计无花果；全球独钓叠加对对胡；风一色100，不再重复计门清、对对胡或七对。" : "无花果须门清或满足大胡。"}`,
     ];
     sections[3] = [
       "软花与补牌",
-      `缺一门、风刻、风对各 1 个软花；数字明杠 1、暗杠 2，风牌再加 1。独占、边枝、压档须唯一听口；边枝、压档胡到公开碰牌的第四张，压绝 ${v.absolute}，不另加该听口软花。直杠仍算门清，碰后补杠不算。小杠开花加 ${v.smallReplacement}；大杠开花${v.largeReplacementMultiplier === 2 ? "按整份胡牌分 ×2" : `加 ${v.largeReplacement}`}。${rules.seaBottom ? `牌墙最后不超过 4 张时自摸，海底捞月加 ${v.seaBottom}。` : "剩余 16 张流局。"}`,
+      `缺一门、风刻、风对各 1 个软花；数字明杠 1、暗杠 2，风牌再加 1。独占、边枝、压档须唯一听口；${b ? "胡到公开碰牌的第四张，压绝" : "边枝、压档胡到公开碰牌的第四张，压绝"} ${v.absolute}，不另加该听口软花。直杠仍算门清，碰后补杠不算。小杠开花加 ${v.smallReplacement}；大杠开花${v.largeReplacementMultiplier === 2 ? "按整份胡牌分 ×2" : `加 ${v.largeReplacement}`}。${rules.seaBottom ? `牌墙最后不超过 4 张时自摸，海底捞月加 ${v.seaBottom}。` : "剩余 16 张流局。"}`,
     ];
     sections[4] = [
       "杠与承包",
-      `明杠、补杠供牌者付 ${v.openKongFlowers * factor}，暗杠每家 ${v.concealedKongFlowers * factor}，花杠每家 ${v.flowerKongFlowers * factor}，再应用本把倍率。抢杠成功不收本次杠分；普通顺子单钓不触发三嘴外包；抢杠胡由补杠者付三份。连续补杠开花保留最初供牌者；杠后又补花胡牌按小杠开花计分，仍保留点杠者付款责任。三嘴须前三嘴均来自同一家（暗杠计一嘴，至少一嘴由该家供牌），对对胡或全球独钓时承包；先碰另一家、后连续碰三嘴不成立。三清须前三嘴为同花色明碰，同花色点炮按清一色外包，自摸不触发三清外包。${rules.id === "nj-garden-v2" ? "三口承包、清一色外包及符合架牌条件的全球独钓外包均桌外单独记分：普通50分，比下胡100分，不按胡牌分乘三、不扣桌内余额，不触发两家干或保米；外包计入最终输赢。" : "承包按胡牌分的三份在桌内结算。"}快照：三嘴后第四组碰牌，或三清后第四组同色碰牌，可忽略剩余两张，出现胡按钮后可主动胡牌；顺子不能触发快照。`,
+      `明杠、补杠供牌者付 ${v.openKongFlowers * factor}，暗杠每家 ${v.concealedKongFlowers * factor}，花杠每家 ${v.flowerKongFlowers * factor}，再应用本把倍率。抢杠成功不收本次杠分；普通顺子单钓不触发三嘴外包；抢杠胡由补杠者付三份。连续补杠开花保留最初供牌者；杠后又补花胡牌按小杠开花计分，仍保留点杠者付款责任。三嘴须前三嘴均来自同一家（暗杠计一嘴，至少一嘴由该家供牌），对对胡或全球独钓时承包；先碰另一家、后连续碰三嘴不成立。三清须前三嘴为同花色明碰，同花色点炮按清一色外包，自摸不触发三清外包。${isGarden(rules) ? "三口承包、清一色外包及符合架牌条件的全球独钓外包均桌外单独记分：普通50分，比下胡100分，不按胡牌分乘三、不扣桌内余额，不触发两家干或保米；外包计入最终输赢。" : "承包按胡牌分的三份在桌内结算。"}快照：三嘴后第四组碰牌，或三清后第四组同色碰牌，可忽略剩余两张，出现胡按钮后可主动胡牌；顺子不能触发快照。`,
     ];
     sections[5] = [
       "结算与过水",
@@ -88,12 +91,14 @@ export function ruleSections(
     ];
     sections.push([
       "天胡、地胡与比下胡",
-      `庄家补完起手花牌后直接成牌为天胡，其他三家可用分归零。非庄家起手听牌且此后不碰、不换听，胡牌加 ${v.earthly}；暗杠、明杠、补杠后听口只能不变或减少。庄家胡、大胡、海底捞月、流局、包牌、花杠、罚分、一炮多响保留庄家；${rules.successorDouble ? "普通闲家胡后接庄也触发比下胡。" : ""}${rules.biXiaHu === "off" ? "本桌关闭比下胡。" : rules.biXiaHu === "cumulative" ? "连续触发时下把倍率在当前倍率上 ×2。" : "触发后下一把 ×2，连续触发仍为 ×2，同一把多个条件不重复相乘。"}${rules.doubleSidePayments ? "本把倍率同时用于胡牌、杠分、罚分。" : "本把倍率只用于胡牌分。"}`,
+      `庄家补完起手花牌后直接成牌为天胡，${b ? "加50，按正常自摸收分。" : "其他三家可用分归零。"}非庄家起手听牌${b ? "，打出第一张牌并保留起手听口时自动地胡报听，" : "且"}此后不碰、不换听，胡牌加 ${v.earthly}；暗杠、明杠、补杠后听口只能不变或减少。庄家胡、大胡、海底捞月、流局、包牌、花杠、罚分、一炮多响保留庄家；${rules.successorDouble ? "普通闲家胡后接庄也触发比下胡。" : ""}${rules.biXiaHu === "off" ? "本桌关闭比下胡。" : rules.biXiaHu === "cumulative" ? "连续触发时下把倍率在当前倍率上 ×2。" : "触发后下一把 ×2，连续触发仍为 ×2，同一把多个条件不重复相乘。"}${rules.doubleSidePayments ? (b ? "本把倍率用于胡牌、杠分和四张同牌罚分；两项风牌收付仍固定每家5分。" : "本把倍率同时用于胡牌、杠分、罚分。") : "本把倍率只用于胡牌分。"}`,
     ]);
     sections.push(["架牌与照直", "全球独钓以第四嘴后首次打出的牌为架牌：同花色前后两张点炮外包，架风牌时四风点炮外包；换过单钓牌即取消这项责任，摸切不取消。可在自己的出牌阶段、第四嘴之前报照直，本局不可撤销：不参与外包，不可胡对对胡，三嘴后禁止杠。非法胡牌由系统直接禁止，不收诈胡罚分。"]);
     sections.push([
       "风牌奖励与罚分",
-      `${rules.fourWinds ? `自己前四张依次打出四种不同风牌（顺序不限），其他每家付 ${v.fourWindsFlowers * factor}。` : "本桌关闭四连风奖励。"}${rules.discardPenalties ? `四家连续各打一张相同牌，第一位向其他每家付 ${v.penaltyFlowers * factor}；一人打齐同种四张，也向其他每家付 ${v.penaltyFlowers * factor}；中途碰杠打断四家连续记录。` : "本桌关闭弃牌罚分。"}以上再应用本把倍率。`,
+      b
+        ? `${rules.fourWinds ? "自己开局前四次出牌须连续打出东南西北各一张，顺序不限，其他每家付5分；夹入其他牌即失效，后面补齐不算。" : "本桌关闭四连风奖励。"}${rules.discardPenalties ? `首轮庄家出风牌，其他三家按座序各自第一张跟同一种风牌，庄家向其他每家付5分；碰杠会打断跟牌。单人打齐同种四张，向其他每家付${v.penaltyFlowers * factor}分，再应用本把倍率。` : "本桌关闭弃牌罚分。"}前述两项风牌收付固定每家5分，不乘花砸2或本把倍率。`
+        : `${rules.fourWinds ? `自己前四张依次打出四种不同风牌（顺序不限），其他每家付 ${v.fourWindsFlowers * factor}。` : "本桌关闭四连风奖励。"}${rules.discardPenalties ? `四家连续各打一张相同牌，第一位向其他每家付 ${v.penaltyFlowers * factor}；一人打齐同种四张，也向其他每家付 ${v.penaltyFlowers * factor}；中途碰杠打断四家连续记录。` : "本桌关闭弃牌罚分。"}以上再应用本把倍率。`,
     ]);
   }
   return sections;

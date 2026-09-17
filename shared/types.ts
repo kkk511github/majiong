@@ -1,7 +1,7 @@
 export type Tile = number;
 export type Seat = 0 | 1 | 2 | 3;
 export interface Rules {
-  id: "nj-casual-v1" | "nj-garden-v2" | "nj-open-v2";
+  id: "nj-casual-v1" | "nj-garden-v2" | "nj-open-v2" | "nj-garden-b-v3";
   rounds: number;
   turnSeconds: number;
   minimumFlowers: number;
@@ -227,6 +227,7 @@ export interface PointSummary {
   teamId: string;
   teamName: string;
   rounds: number;
+  tables: number;
   points: number;
 }
 export interface PointSummaryPage {
@@ -235,6 +236,7 @@ export interface PointSummaryPage {
   page: number;
   pageSize: number;
   completedRounds: number;
+  tables: number;
   playerRounds: number;
   points: number;
 }
@@ -398,6 +400,8 @@ export interface NanjingRuleState {
   /** Only the server may read these waits; never include in a live public View. */
   heavenlyEligible: boolean;
   heavenlyWaits: Partial<Record<Seat, number[]>>;
+  /** B profile: the first discarded tile declares the retained opening wait. */
+  earthlyDeclared?: Partial<Record<Seat, boolean>>;
   discards: { seat: Seat; tile: Tile }[];
   ownDiscards: number[][];
   kongOccurred: boolean;
@@ -440,6 +444,7 @@ export type ServerMessage = (
       commandAck?: true;
       tableLobby?: true;
       timeSync?: true;
+      serverVersion?: string;
       account?: Account;
     }
   | { type: "state"; state: View }

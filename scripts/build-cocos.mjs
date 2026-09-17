@@ -1,3 +1,4 @@
+import { resourceDigest, sourceDigest } from './runtime-integrity.mjs';
 import { cp, mkdir, readFile, readdir, rm, writeFile, access } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -10,33 +11,33 @@ async function saveRuntime(source){
  await mkdir(runtime,{recursive:true});
  const packed=spawnSync('tar',['-czf',archive,'-C',output,'.'],{encoding:'utf8',env:{...process.env,COPYFILE_DISABLE:'1'}});
  if(packed.status!==0)throw new Error('Could not archive Cocos runtime: '+packed.stderr);
- await writeFile(resolve(runtime,'manifest.json'),JSON.stringify({source,sha256:createHash('sha256').update(await readFile(archive)).digest('hex'),creator:'3.8.8'}));
+ await writeFile(resolve(runtime,'manifest.json'),JSON.stringify({source,sha256:createHash('sha256').update(await readFile(archive)).digest('hex'),creator:'3.8.8',output:await resourceDigest(output)}));
 }
 await cp(resolve(app,'shared/table-scene.ts'),resolve(project,'assets/scripts/table-scene.ts'));
 await cp(resolve(app,'shared/tile-pose-metrics.ts'),resolve(project,'assets/scripts/tile-pose-metrics.ts'));
-async function fingerprint(){
- const hash=createHash('sha256');
- for(const folder of ['assets','settings']) {
-  const base=resolve(project,folder),files=await readdir(base,{recursive:true,withFileTypes:true});
-  for(const file of files.filter(f=>f.isFile()).sort((a,b)=>(a.parentPath+a.name).localeCompare(b.parentPath+b.name))){
-   const path=resolve(file.parentPath,file.name);hash.update(relative(project,path));hash.update(await readFile(path));
-  }
- }
- return hash.digest('hex');
-}
+const fingerprint=()=>sourceDigest(project);
 const source=await fingerprint();
-try { const stamp=JSON.parse(await readFile(resolve(output,'build-manifest.json'),'utf8'));await access(resolve(output,'index.html'));if(stamp.source===source){await saveRuntime(source);console.log('Cocos table: current production build');process.exit(0);} }catch{}
 // Linux deployment uses the verified web export of these exact Creator sources.
 // Any source change invalidates it and requires an explicit Creator rebuild.
 try {
  const manifest=JSON.parse(await readFile(resolve(runtime,'manifest.json'),'utf8'));
  if(manifest.source===source&&manifest.sha256===createHash('sha256').update(await readFile(archive)).digest('hex')){
+  // A source stamp alone cannot prove the cached files are still intact.
+  try {
+   const current=await resourceDigest(output);
+   if(manifest.output?.sha256===current.sha256){console.log('Cocos table: verified current production build');process.exit(0);}
+  }catch{}
   await rm(output,{recursive:true,force:true});await mkdir(output,{recursive:true});
   const unpacked=spawnSync('tar',['-xzf',archive,'-C',output],{encoding:'utf8'});
   if(unpacked.status!==0)throw new Error(unpacked.stderr);
   const stamp=JSON.parse(await readFile(resolve(output,'build-manifest.json'),'utf8'));
   if(stamp.source!==source)throw new Error('Cocos archive source mismatch');
-  await access(resolve(output,'index.html'));console.log('Cocos table: verified portable runtime');process.exit(0);
+  await access(resolve(output,'index.html'));
+  const restored=await resourceDigest(output);
+  if(manifest.output && manifest.output.sha256!==restored.sha256)throw new Error('Cocos archive resource mismatch');
+  // Upgrade an older verified archive without repacking or changing its bytes.
+  if(!manifest.output)await writeFile(resolve(runtime,'manifest.json'),JSON.stringify({...manifest,output:restored}));
+  console.log('Cocos table: verified portable runtime');process.exit(0);
  }
 }catch(e){console.warn('Cocos runtime cache unavailable:',e.message);}
 const choices=[process.env.COCOS_CREATOR,resolve(app,'../../work/cocos-tools/creator/CocosCreator.app/Contents/MacOS/CocosCreator'),'/Applications/CocosCreator.app/Contents/MacOS/CocosCreator'].filter(Boolean);

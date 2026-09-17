@@ -1,0 +1,121 @@
+{
+  "version": "0.7.7",
+  "build": 44,
+  "baseCommit": "dde0f72cfa40ff26021c48df21f6357c2e09b290",
+  "sourceSnapshotSha256": "35b4cea87e6ee71a3cf897705055f159151f3af83b6a883aeb218182a7d1b1bf",
+  "cocosSource": "4edef5ec5a98f070e96f9cac36e140e43b6f1dfc52a959e3dde35e92490189e1",
+  "sameWebAssetsBothPlatforms": true,
+  "endpointHidden": false,
+  "nativePinningHostRemainsDiscoverable": true,
+  "clientCodeProtection": "RC4 string obfuscation; not a secret store",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "unitTestsPassed": 337,
+  "serverDeploymentPerformed": true,
+  "packages": {
+    "Android": {
+      "file": "金陵麻将-0.7.7-build44.apk",
+      "version": "0.7.7",
+      "build": 44,
+      "bytes": 116600575,
+      "sha256": "c64f1698cb731c34bc98c70913b7afeb936c75c23f77094bbb723d5dfa275a71",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "金陵麻将-0.7.7-build44-AdHoc.ipa",
+      "version": "0.7.7",
+      "build": 44,
+      "bytes": 117499534,
+      "sha256": "0da9ba212470b3ea5589abd666ed6599d8215bce380150f21fc252e9c6c8e2f4",
+      "matchedWebFiles": 218,
+      "sourceMaps": false,
+      "certificatePinsBundled": true,
+      "signatureVerified": true
+    }
+  },
+  "serverRelease": "0.7.7-build43-csv-tables-20260916",
+  "publicCheck": {
+    "ok": true,
+    "version": "0.7.7",
+    "backend": "https://212.189.31.194/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-16T12:30:41.799Z"
+  },
+  "uiRegressionChecksPassed": 26,
+  "uiEngines": [
+    "chromium",
+    "webkit"
+  ],
+  "builtBundleChecksPassed": 4,
+  "unitTestRerun": {
+    "passed": 337,
+    "maxWorkers": 2,
+    "durationSeconds": 41.91,
+    "reason": "Initial parallel run during native builds hit time limits in 3 tests; no assertions failed. All 337 passed after builds completed, without changes to test timeouts."
+  },
+  "sourceSnapshotVerification": {
+    "files": 889,
+    "workspaceUnchanged": true,
+    "generatedDependencyPathNormalization": [
+      "android/capacitor.settings.gradle",
+      "ios/App/CapApp-SPM/Package.swift"
+    ]
+  },
+  "iosSafeAreaValidation": {
+    "device": "iPhone 17 Pro",
+    "runtime": "iOS 26.5 Simulator",
+    "orientations": [
+      "landscapeLeft",
+      "landscapeRight"
+    ],
+    "method": "Existing simulator host with current-source local WebView preview; isolated from distribution packages.",
+    "physicalDeviceTested": false,
+    "distributionPackagesDoNotUseLocalServer": true
+  },
+  "csv": {
+    "release": "0.7.7-build43-csv-tables-20260916",
+    "change": "Remove the exported CSV hand-count column; the previously removed 口径 row remains absent.",
+    "csvColumns": [
+      "战队",
+      "会员账号",
+      "昵称",
+      "会员ID",
+      "桌数（8局/桌）",
+      "积分"
+    ],
+    "patch": {
+      "server/records.ts": "e01ac58546c6804ce9ea0f6e2b2f1f090b5d591ad68a2e5506ca85973c650e7f",
+      "tests/club.test.ts": "dac2c0a1ef8d75564315b6677878d180de7c4ca43733c8be7a7f117d5fd82267"
+    },
+    "localTestsPassed": 7,
+    "linuxTestsPassed": 7,
+    "verifiedExampleTablePoints": [
+      -50,
+      30,
+      0,
+      0
+    ],
+    "verifiedExampleTableActualTables": 1,
+    "handCountColumnAbsent": true,
+    "basisRowAbsent": true,
+    "columnHeaderIsSecondRow": true,
+    "scoreCalculationUnchanged": true,
+    "originalExampleTableLedgerAndSnapshotsUnchanged": true,
+    "publicCheck": {
+      "ok": true,
+      "version": "0.7.7",
+      "backend": "https://212.189.31.194/mahjong",
+      "anonymousEndpointsProtected": true,
+      "nativeCors": true,
+      "anonymousWebSocketRejected": true,
+      "at": "2026-09-16T12:30:41.799Z"
+    },
+    "nativePackageUpdateRequired": false
+  },
+  "gitCommitCreated": false
+}

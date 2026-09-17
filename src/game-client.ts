@@ -1,3 +1,10 @@
+import {
+  initialNetworkHealth,
+  timedOut,
+  measuredResponse,
+  reconnectDelay,
+  type NetworkHealth,
+} from "./network-health";
 import { voiceDuration, type RoomVoiceMessage } from "../shared/room-voice";
 import { newGameRules } from "../shared/nanjing-rules";
 import { ServerClock } from "./server-clock";
@@ -50,6 +57,7 @@ export const storage = {
   },
 };
 export interface ClientState {
+  network: NetworkHealth;
   account: Account | null;
   authChecked: boolean;
   authBusy: boolean;
@@ -74,6 +82,7 @@ export const avatarURL = (path?: string) =>
 export const onlineAvailable = !Capacitor.isNativePlatform() || !!base;
 export class GameClient {
   state: ClientState = {
+    network: initialNetworkHealth(),
     account: null,
     authChecked: false,
     authBusy: false,
@@ -118,13 +127,17 @@ export class GameClient {
   private tablesTimer?: ReturnType<typeof setTimeout>;
   private networkVisible = true;
   private resumePending = false;
+  private awaitingRoom?: string;
+  private resumeViewSeen = false;
+  private recoveryStartedAt?: number;
+  private heartbeatAt = 0;
   private openedAt = 0;
   private lastResumeAt = -Infinity;
   now = () => (this.state.mode === "online" ? this.clock.now() : Date.now());
   syncTime = (fresh = false) => {
     if (
       !this.timeSync ||
-      (!this.state.connected && !this.resumePending) ||
+      (!this.state.connected && !this.resumePending && !this.awaitingRoom) ||
       this.socket?.readyState !== WebSocket.OPEN
     )
       return;
@@ -134,10 +147,12 @@ export class GameClient {
       this.clockPing = undefined;
       clearTimeout(this.pongTimer);
     }
+    if (!this.networkVisible) return;
     const now = performance.now();
     if (this.clockPing !== undefined && now - this.clockPing < 10000) return;
     clearTimeout(this.pongTimer);
     this.clockPing = now;
+    this.heartbeatAt = Date.now();
     try {
       this.socket.send(
         JSON.stringify({
@@ -148,8 +163,11 @@ export class GameClient {
       );
       if (this.networkVisible)
         this.pongTimer = setTimeout(
-          () => this.restartConnection("正在恢复牌桌连接…", this.resumePending),
-          this.resumePending ? 2000 : 10000,
+          () => {
+            this.updateNetwork(timedOut(this.state.network));
+            this.restartConnection("正在恢复牌桌连接…", this.resumePending);
+          },
+          this.resumePending ? 2000 : 5000,
         );
     } catch {
       this.restartConnection("连接中断，正在重新连接…");
@@ -161,6 +179,8 @@ export class GameClient {
     this.clockPing = undefined;
     this.timeSync = false;
     this.resumePending = false;
+    this.awaitingRoom = undefined;
+    this.resumeViewSeen = false;
     clearTimeout(this.pongTimer);
     this.pongTimer = undefined;
   }
@@ -168,8 +188,28 @@ export class GameClient {
     clearTimeout(this.tablesTimer);
     this.tablesTimer = undefined;
   }
+  private updateNetwork(patch: Partial<NetworkHealth>) {
+    this.emit({ network: { ...this.state.network, ...patch } });
+  }
+  private connectionReady() {
+    this.updateNetwork({
+      phase: "ready",
+      ...(this.recoveryStartedAt === undefined
+        ? {}
+        : { lastRecoveryMs: Date.now() - this.recoveryStartedAt }),
+    });
+    this.recoveryStartedAt = undefined;
+  }
+  retryNetwork = () => {
+    if (this.state.mode === "online" && !this.stopped)
+      this.restartConnection("正在重新连接…", true);
+  };
   private restartConnection(notice: string, immediate = false) {
     if (this.stopped || this.state.mode !== "online") return;
+    this.recoveryStartedAt ??= Date.now();
+    this.updateNetwork({
+      phase: navigator.onLine === false ? "offline" : "retrying",
+    });
     const previous = this.socket;
     // A half-open socket may never emit close. Retire it before waiting or retrying.
     this.socket = undefined;
@@ -188,7 +228,7 @@ export class GameClient {
     // Keep a working socket while hidden, but don't run retry/timeout loops
     // while the OS has suspended the WebView. Foreground resumes immediately.
     if (!this.networkVisible) return;
-    const delay = immediate ? 0 : Math.min(15000, 1000 * 2 ** this.attempt++);
+    const delay = immediate ? 0 : reconnectDelay(this.attempt++);
     this.retry = setTimeout(() => this.open(), delay);
   }
   resumeConnection = () => {
@@ -210,6 +250,9 @@ export class GameClient {
       this.commandTimer = undefined;
       this.finishTables();
       this.resumePending = true;
+      this.resumeViewSeen = false;
+      this.recoveryStartedAt ??= Date.now();
+      this.updateNetwork({ phase: "syncing" });
       this.emit({
         connected: false,
         connecting: true,
@@ -235,13 +278,17 @@ export class GameClient {
     const returning = visible && !this.networkVisible;
     this.networkVisible = visible;
     if (visible) {
-      if (returning) this.lastResumeAt = -Infinity;
-      this.resumeConnection();
+      // Moving focus from the canvas iframe to a toolbar button is not an
+      // app foreground transition. Resync only after an actual hidden state.
+      if (returning) {
+        this.lastResumeAt = -Infinity;
+        this.resumeConnection();
+      }
     } else {
       if (this.resumePending) {
         this.resumePending = false;
         this.emit({
-          connected: this.socket?.readyState === WebSocket.OPEN,
+          connected: false,
           connecting: false,
         });
       }
@@ -769,10 +816,19 @@ export class GameClient {
   }
   private open() {
     if (this.stopped || !this.networkVisible) return;
+    if (navigator.onLine === false) {
+      this.updateNetwork({ phase: "offline" });
+      return;
+    }
     clearTimeout(this.retry);
     this.retry = undefined;
     this.stopClock();
     this.clock.reset();
+    this.updateNetwork({
+      phase: "connecting",
+      rttMs: null,
+      reconnects: this.state.network.reconnects + (this.openedAt ? 1 : 0),
+    });
     const url = base
       ? base.replace(/^http/, "ws").replace(/\/$/, "") + "/ws"
       : `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`;
@@ -785,6 +841,7 @@ export class GameClient {
     );
     ws.onopen = () => {
       if (this.socket !== ws || this.stopped) return;
+      this.updateNetwork({ phase: "authenticating" });
       ws.send(
         JSON.stringify({
           type: "hello",
@@ -803,13 +860,22 @@ export class GameClient {
           this.connectTimer = undefined;
           this.commandAck = msg.commandAck === true;
           this.timeSync = msg.timeSync === true;
+          this.updateNetwork({ serverVersion: typeof msg.serverVersion === "string" && msg.serverVersion.length <= 64 ? msg.serverVersion : null });
           storage.set("token", msg.token);
           storage.set("onlineActive", !!msg.roomCode);
           this.attempt = 0;
+          this.awaitingRoom = msg.roomCode;
+          this.updateNetwork({ phase: msg.roomCode ? "syncing" : "ready" });
+          if (msg.roomCode)
+            this.connectTimer = setTimeout(
+              () => this.restartConnection("牌桌状态未同步，正在重试…"),
+              5000,
+            );
+          else this.connectionReady();
           this.emit({
-            connected: true,
-            connecting: false,
-            notice: "",
+            connected: !msg.roomCode,
+            connecting: !!msg.roomCode,
+            notice: msg.roomCode ? "正在同步牌桌…" : "",
             error: "",
             tableLobby: msg.tableLobby === true,
             ...(msg.account ? { account: msg.account } : {}),
@@ -819,11 +885,15 @@ export class GameClient {
             this.syncTime(true);
             clearInterval(this.clockTimer);
             this.clockTimer = setInterval(() => {
-              this.syncTime();
-            }, 30000);
+              const playing =
+                this.state.view &&
+                ["playing", "claiming"].includes(this.state.view.phase);
+              if (playing || Date.now() - this.heartbeatAt >= 30000)
+                this.syncTime();
+            }, 10000);
           }
           if (this.pending && !msg.roomCode) this.send(this.pending);
-          else if (this.lobbyWanted && msg.tableLobby)
+          else if (this.lobbyWanted && msg.tableLobby && !this.awaitingRoom)
             this.send({ type: "tables" });
           this.pending = undefined;
         } else if (msg.type === "pong") {
@@ -832,12 +902,28 @@ export class GameClient {
             this.clockPing !== undefined &&
             Number.isFinite(msg.serverNow)
           ) {
+            this.updateNetwork(
+              measuredResponse(
+                this.state.network,
+                performance.now() - this.clockPing,
+              ),
+            );
             this.clock.sample(msg.serverNow!, this.clockPing);
             this.clockPing = undefined;
             clearTimeout(this.pongTimer);
             this.pongTimer = undefined;
             if (this.resumePending) {
+              if (
+                !msg.synced ||
+                (msg.roomCode &&
+                  (!this.resumeViewSeen ||
+                    this.state.view?.code !== msg.roomCode))
+              ) {
+                this.restartConnection("正在重新获取完整牌桌…", true);
+                return;
+              }
               this.resumePending = false;
+              this.connectionReady();
               this.finishCommand();
               if (msg.synced && !msg.roomCode)
                 storage.set("onlineActive", false);
@@ -891,7 +977,26 @@ export class GameClient {
         } else if (msg.type === "state") {
           storage.set("onlineActive", true);
           if (!this.commandAck) this.finishCommand();
-          this.emit({ view: msg.state });
+          const restored = this.awaitingRoom !== undefined;
+          if (restored && msg.state.code !== this.awaitingRoom) return;
+          this.resumeViewSeen = this.resumePending;
+          this.updateNetwork({
+            lastSnapshotAt: Date.now(),
+            lastResponseAt: Date.now(),
+          });
+          if (restored) {
+            this.awaitingRoom = undefined;
+            clearTimeout(this.connectTimer);
+            this.connectTimer = undefined;
+            this.connectionReady();
+          }
+          this.emit({
+            view: msg.state,
+            ...(restored
+              ? { connected: true, connecting: false, notice: "" }
+              : {}),
+          });
+          if (restored && this.lobbyWanted) this.send({ type: "tables" });
           this.archive();
         } else if (msg.type === "ack") {
           if (msg.requestId === this.commandId) this.finishCommand();
@@ -942,6 +1047,7 @@ export class GameClient {
       }
       if (event.code === 4001) {
         this.stopped = true;
+        this.updateNetwork({ phase: "blocked" });
         this.emit({
           connected: false,
           connecting: false,
@@ -997,6 +1103,9 @@ export class GameClient {
       this.commandTimer = setTimeout(() => {
         // The server may have accepted the move: reconnect for authoritative state,
         // never replay an unconfirmed discard or ready command.
+        this.updateNetwork({
+          commandTimeouts: this.state.network.commandTimeouts + 1,
+        });
         this.restartConnection("牌桌响应较慢，正在重新同步…");
       }, 8000);
     }
@@ -1086,7 +1195,14 @@ export class GameClient {
     this.socket = undefined;
     this.local = undefined;
     this.pending = undefined;
-    this.emit({ connected: false, connecting: false, tablesLoading: false });
+    this.recoveryStartedAt = undefined;
+    this.openedAt = 0;
+    this.emit({
+      connected: false,
+      connecting: false,
+      tablesLoading: false,
+      network: initialNetworkHealth(),
+    });
   }
 }
 export const client = new GameClient();

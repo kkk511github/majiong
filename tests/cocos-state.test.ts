@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { createGame, newPlayer, seats, startRound, viewFor } from '../shared/engine';
 import { seededRandom } from '../shared/tiles';
 import { cocosState } from '../src/cocos-state';
-import { layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics } from '../shared/table-scene';
+import { scenePlayerStatus, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics } from '../shared/table-scene';
 
 const ui = { connected:true, disabled:false, practice:false, countdown:'30', selected:null, inspectedKind:null, hintKinds:[], hintLabel:'可胡', effects:[] };
 function fixture() {
@@ -41,7 +41,22 @@ it('selection raises one physical card without resizing or moving the rest of th
     expect([b.x,b.w,b.h]).toEqual([a.x,a.w,a.h]);
     expect(b.y).toBe(a.y-(a.tile===selected?15:0));
   }
-  expect(layoutTable({...s,canDiscard:false}).filter(t=>t.clickable)).toEqual([]);
+  expect(layoutTable({...s,canDiscard:false}).filter(t=>t.clickable).map(t=>t.tile))
+    .toEqual(after.filter(t=>t.area==='hand'&&t.seat===0).map(t=>t.tile));
+});
+
+it('allows off-turn hand selection only during active play and never unlocks replay or blocked hands',()=>{
+ const s=cocosState(viewFor(fixture(),0),ui);
+ s.canDiscard=false;s.turn=1;
+ for(const phase of ['playing','claiming']){
+  const clickable=layoutTable({...s,phase}).filter(t=>t.clickable);
+  expect(clickable).toHaveLength(s.players[0].hand.length);
+  expect(clickable.every(t=>t.seat===s.me&&t.area==='hand')).toBe(true);
+ }
+ for(const patch of [{phase:'waiting'},{phase:'ended'},{phase:'finished'},{disabled:true},{connected:false},{presentation:'replay' as const}])
+  expect(layoutTable({...s,...patch}).filter(t=>t.clickable)).toEqual([]);
+ s.players[0].trustee=true;
+ expect(layoutTable(s).filter(t=>t.clickable)).toEqual([]);
 });
 
 it('stacks every exposed kong on its middle tile and paints the upper tile last',()=>{
@@ -338,4 +353,33 @@ it('keeps each side flower body visible instead of burying its thickness under i
    }
   }
  }
+});
+
+it('practice computers do not appear as humans who enabled trustee mode',()=>{
+ const g=createGame('练习桌','practice-presence');
+ g.players=seats.map(seat=>({...newPlayer(`p${seat}`,`牌友${seat}`,seat!==0),ready:true}));
+ const s=cocosState(viewFor(startRound(g,1000,seededRandom(8)),0),{...ui,practice:true});
+ expect(s.players.slice(1).every(p=>p.bot&&p.trustee)).toBe(true);
+ expect(s.players.map(p=>scenePlayerStatus(s,p).label)).toEqual(['出牌中','','','']);
+ s.turn=1;
+ expect(s.players.map(p=>scenePlayerStatus(s,p).label)).toEqual(['','出牌中','','']);
+ s.players[0].trustee=true;
+ expect(scenePlayerStatus(s,s.players[0]).label).toBe('托管中');
+ s.players[0].trustee=false;
+ expect(scenePlayerStatus(s,s.players[0]).label).toBe('');
+});
+
+it('player presence distinguishes disconnection, trustee and live turn without leaking other claims',()=>{
+ const v=viewFor(fixture(),0);v.players[1]!.online=false;v.players[1]!.trustee=true;
+ const s=cocosState(v,ui);s.turn=1;s.phase='playing';
+ const p=s.players[1];expect(p.online).toBe(false);
+ expect(scenePlayerStatus(s,p)).toEqual({active:true,label:'离线·托管',tone:'offline'});
+ p.online=true;expect(scenePlayerStatus(s,p).label).toBe('托管中');
+ p.trustee=false;expect(scenePlayerStatus(s,p).label).toBe('出牌中');
+ s.phase='claiming';s.actions=[{id:'hu',label:'胡'}];
+ expect(scenePlayerStatus(s,p).label).toBe('');
+ expect(scenePlayerStatus(s,s.players[0]).label).toBe('待响应');
+ s.connected=false;expect(scenePlayerStatus(s,p)).toEqual({active:false,label:'',tone:'muted'});
+ s.connected=true;s.presentation='replay';p.online=false;p.trustee=true;s.phase='playing';
+ expect(scenePlayerStatus(s,p).label).toBe('出牌中');
 });

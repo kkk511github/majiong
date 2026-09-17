@@ -1,6 +1,6 @@
 import { test, expect } from "./browser-fixtures";
 for (const width of [568, 844, 1280])
-  test(`新听牌面板：多听口横滑、可胡状态和照直确认 ${width}`, async ({
+  test(`长条听牌面板：全部听口与汇总、可胡状态和照直确认 ${width}`, async ({
     page,
   }) => {
     await page.setViewportSize({
@@ -54,16 +54,16 @@ for (const width of [568, 844, 1280])
     const panel = page.getByRole("region", { name: "胡牌提示" });
     await expect(panel).toContainText("打出后可听");
     await expect(panel.getByRole("listitem")).toHaveCount(31);
+    await expect(panel.getByLabel("听牌汇总")).toContainText("31种 · 余60张");
     expect(
       await panel
         .locator(".winning-tile-list")
-        .evaluate((e) => e.scrollWidth > e.clientWidth),
-    ).toBe(true);
+        .evaluate((e) => e.scrollWidth > e.clientWidth + 1),
+    ).toBe(false);
+    for(const item of await panel.getByRole("listitem").all()) await expect(item).toBeInViewport();
+    await expect(panel.getByRole("button")).toHaveCount(0);
     const box = (await panel.boundingBox())!;
     expect(box.x + box.width).toBeLessThan(width);
-    await panel
-      .locator(".winning-tile-list")
-      .evaluate((e) => (e.scrollLeft = e.scrollWidth));
     await expect(panel.getByRole("listitem").last()).toBeInViewport();
     await page.getByRole("button", { name: "报照直", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "确认照直" })).toContainText(
@@ -75,11 +75,20 @@ for (const width of [568, 844, 1280])
     ).toEqual([{ type: "action", action: "zhaozhi" }]);
     await page.evaluate(() => {
       const q = (window as any).__hintQA;
+      q.state.hintKinds = [0];
+      q.state.hintUnseen = { 0: 0 };
+      q.render();
+    });
+    await expect(panel.getByRole("listitem")).toHaveCount(1);
+    await expect(panel.getByRole("listitem")).toHaveAttribute("aria-label", "一万，未见0张");
+    await expect(panel).toContainText("1 种听口 · 合计未见0张 · 未见数含他人暗手");
+    await expect(panel.getByRole("listitem")).toBeInViewport();
+    await page.evaluate(() => {
+      const q = (window as any).__hintQA;
       q.state.hintKinds = [];
       q.render();
     });
-    await expect(panel).toContainText("暂未听牌");
-    await expect(panel).not.toContainText("打出后可听");
+    await expect(panel).toHaveCount(0);
     await page.evaluate(() => {
       const q = (window as any).__hintQA;
       q.state.actions = [{ id: "hu", label: "胡" }];

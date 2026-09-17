@@ -21,7 +21,7 @@ export function useGameMotion(view: View | null, live: boolean) {
       clearTimeout(timeout.current);
     };
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!live || !visible) {
       before.current = null;
       setEvents([]);
@@ -33,7 +33,7 @@ export function useGameMotion(view: View | null, live: boolean) {
     if (!fresh.length) return;
     setEvents(fresh);
     clearTimeout(timeout.current);
-    timeout.current = setTimeout(() => setEvents([]), 1050);
+    timeout.current = setTimeout(() => setEvents([]), fresh.some(e => e.type === "hu") ? 2200 : 1050);
   }, [view, live, visible]);
   return events;
 }

@@ -4,6 +4,7 @@ import { replayedRound } from "./fixtures/replayed-round";
 for (const [width, height] of [
   [568, 320],
   [874, 402],
+  [1280, 590],
 ]) {
   test(`普通会员通过ID播放、暂停、跳步和看结算 ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
@@ -96,6 +97,11 @@ for (const [width, height] of [
     await expect(dialog.locator(".replay-table-event")).toContainText(
       "开局发牌",
     );
+    const keyStep=replay.frames.findIndex(f=>['pung','kong','concealedKong','addedKong','finish'].includes(f.type));
+    await dialog.getByLabel('跳到关键动作').selectOption(String(keyStep));
+    await expect(dialog.getByRole('slider',{name:'回放进度'})).toHaveValue(String(keyStep));
+    await expect(dialog.getByRole('button',{name:'播放回放',exact:true})).toBeVisible();
+    await dialog.getByRole('button',{name:'回到开局',exact:true}).click();
     await dialog.getByRole("button", { name: "下一步", exact: true }).click();
     await expect(dialog.getByRole("slider", { name: "回放进度" })).toHaveValue(
       "1",
@@ -104,6 +110,12 @@ for (const [width, height] of [
     await expect
       .poll(async () => Number(await dialog.getByRole("slider").inputValue()))
       .toBeGreaterThan(1);
+    await expect(dialog.locator('.replay-controls')).toBeHidden({timeout:5000});
+    expect(await canvas.boundingBox()).toEqual({x:0,y:0,width,height});
+    await page.screenshot({path:`test-results/screenshots/replay-hidden-${width}.png`});
+    const surface=(await canvas.boundingBox())!;
+    await page.mouse.click(surface.width/2,surface.height/2);
+    await expect(dialog.locator('.replay-controls')).toBeVisible();
     await dialog.getByRole("button", { name: "暂停回放", exact: true }).click();
     const paused = await dialog.getByRole("slider").inputValue();
     await page.waitForTimeout(1100);
@@ -119,6 +131,7 @@ for (const [width, height] of [
       expect(ended.tiles.filter((t:any) => t.seat===i && t.area==='hand')).toHaveLength(p.hand.length);
     }
     for (let seat=0;seat<4;seat++) {
+      if(await dialog.locator('.replay-controls').isVisible())await page.mouse.click(width/2,height/2);
       const prior=await scene(), offset=(seat-prior.state.me+4)%4;
       const [x,y]=[[1198,508],[1200,207],[892,32],[68,207]][offset];
       const box=(await canvas.boundingBox())!,scale=Math.min(box.width/1280,box.height/590);
@@ -150,7 +163,9 @@ for (const [width, height] of [
     expect(layout.right).toBeLessThanOrEqual(width);
     expect(layout.bottom).toBeLessThanOrEqual(height);
     expect(layout.width).toBeGreaterThan(width * 0.85);
-    expect(layout.tableBottom).toBeLessThanOrEqual(layout.controlsTop);
+    expect(layout.tableBottom).toBe(height);
+    expect(layout.controlsTop).toBeLessThan(layout.tableBottom);
+    expect(await canvas.boundingBox()).toEqual({x:0,y:0,width,height});
     expect(layout.overflow).toBeLessThanOrEqual(1);
     await page.screenshot({
       path: `test-results/screenshots/replay-${width}.png`,

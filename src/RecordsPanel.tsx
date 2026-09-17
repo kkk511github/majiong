@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,7 +16,8 @@ import { Dialog } from "./Dialog";
 import { MatchRecordDetails, RecordPlayers } from "./MatchRecordDetails";
 import "./records-match.css";
 import "./records-workspace.css";
-import { ReplayPanel } from "./ReplayPanel";
+import { DeferredFeature } from "./DeferredFeature";
+const ReplayPanel = lazy(() => import("./ReplayPanel").then(m => ({ default: m.ReplayPanel })));
 import {
   recordClock,
   recordDate,
@@ -25,6 +26,17 @@ import {
 } from "./record-dates";
 import type { Account, RecordsPage, StoredRound } from "../shared/types";
 
+type WorkspaceMemory = {
+  tab: "admin" | "online" | "practice";
+  code: string;
+  searchMode: string;
+  filter: { code: string; date: string; member: string };
+  readFilter: string;
+  page: number;
+  scroll: number;
+};
+const workspaceMemory = new Map<string, WorkspaceMemory>();
+
 export function RecordsPanel({
   account,
   onBack,
@@ -32,13 +44,22 @@ export function RecordsPanel({
   account: Account | null;
   onBack: () => void;
 }) {
+  const memoryKey = account?.id ?? "practice";
+  const saved = useRef(workspaceMemory.get(memoryKey)).current;
   const showTeams = account?.role === "admin";
   const [tab, setTab] = useState<"admin" | "online" | "practice">(
-    account?.role === "admin" ? "admin" : "online",
+    saved?.tab === "admin" && !showTeams
+      ? "online"
+      : (saved?.tab ?? (showTeams ? "admin" : "online")),
   );
-  const [code, setCode] = useState("");
-  const [filter, setFilter] = useState({ code: "", date: "" });
-  const [page, setPage] = useState(1),
+  const [code, setCode] = useState(saved?.code ?? "");
+  const [searchMode, setSearchMode] = useState(saved?.searchMode ?? "code");
+  const [filter, setFilter] = useState(
+    saved?.filter ?? { code: "", date: "", member: "" },
+  );
+  const [readFilter, setReadFilter] = useState(saved?.readFilter ?? "all");
+  const readChanged = useRef(false);
+  const [page, setPage] = useState(saved?.page ?? 1),
     [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<RecordsPage>({
     records: [],
@@ -51,7 +72,39 @@ export function RecordsPanel({
   const [selected, setSelected] = useState<StoredRound | null>(null);
   const [replayId, setReplayId] = useState<string | null>(null);
   const list = useRef<HTMLDivElement>(null);
+  const initialScroll = useRef(saved?.scroll ?? 0);
+  const latestMemory = useRef<WorkspaceMemory>({
+    tab,
+    code,
+    searchMode,
+    filter,
+    readFilter,
+    page,
+    scroll: initialScroll.current,
+  });
+  latestMemory.current = {
+    ...latestMemory.current,
+    tab,
+    code,
+    searchMode,
+    filter,
+    readFilter,
+    page,
+  };
+  useEffect(
+    () => () => {
+      workspaceMemory.set(memoryKey, latestMemory.current);
+    },
+    [memoryKey],
+  );
+  useEffect(() => {
+    if (!busy && list.current && initialScroll.current) {
+      list.current.scrollTop = initialScroll.current;
+      initialScroll.current = 0;
+    }
+  }, [busy]);
   const onRead = useCallback((game: string, readAt: number) => {
+    readChanged.current = true;
     setData((previous) => ({
       ...previous,
       records: previous.records.map((item) =>
@@ -105,7 +158,9 @@ export function RecordsPanel({
       return;
     }
     const query = new URLSearchParams({ page: String(page) });
+    if (tab === "admin") query.set("read", readFilter);
     if (filter.code) query.set("code", filter.code);
+    if (tab === "admin" && filter.member) query.set("member", filter.member);
     if (filter.date) {
       const { from, to } = recordDayRange(filter.date);
       query.set("from", String(from));
@@ -125,7 +180,16 @@ export function RecordsPanel({
     return () => {
       cancelled = true;
     };
-  }, [tab, page, refresh, filter.code, filter.date, account?.id]);
+  }, [
+    tab,
+    page,
+    refresh,
+    filter.code,
+    filter.date,
+    filter.member,
+    readFilter,
+    account?.id,
+  ]);
   const days = useMemo(
     () =>
       [
@@ -163,6 +227,10 @@ export function RecordsPanel({
               aria-pressed={tab === item.id}
               onClick={() => {
                 setTab(item.id as typeof tab);
+                if (item.id !== "admin") {
+                  setSearchMode("code");
+                  setCode(filter.code);
+                }
                 setPage(1);
                 setData({ records: [], total: 0, page: 1, pageSize: 20 });
               }}
@@ -175,18 +243,30 @@ export function RecordsPanel({
           className="record-search"
           onSubmit={(e) => {
             e.preventDefault();
-            setFilter((f) => ({ ...f, code }));
+            setFilter((f) => ({
+              ...f,
+              code: searchMode === "code" ? code : "",
+              member: tab === "admin" && searchMode === "member" ? code : "",
+            }));
             setPage(1);
             setRefresh((n) => n + 1);
           }}
         >
           <label>
-            <span className="sr-only">战绩房间号</span>
+            <span className="sr-only">
+              {tab === "admin" && searchMode === "member"
+                ? "战绩会员ID"
+                : "战绩房间号"}
+            </span>
             <input
               inputMode="numeric"
-              placeholder="输入房间号"
+              placeholder={
+                tab === "admin" && searchMode === "member"
+                  ? "输入会员ID"
+                  : "输入房间号"
+              }
               value={code}
-              maxLength={6}
+              maxLength={tab === "admin" && searchMode === "member" ? 12 : 6}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             />
           </label>
@@ -201,6 +281,37 @@ export function RecordsPanel({
       </div>
       <div className="records-workspace-body">
         <aside className="record-dates" aria-label="按日期查看战绩">
+          {tab === "admin" && (
+            <label className="record-read-filter">
+              <span className="sr-only">战绩阅读状态</span>
+              <select
+                aria-label="战绩阅读状态"
+                value={readFilter}
+                onChange={(e) => {
+                  setReadFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">全部战绩</option>
+                <option value="unread">只看未读</option>
+                <option value="read">只看已读</option>
+              </select>
+            </label>
+          )}
+          {tab === "admin" && (
+            <select
+              className="record-query-mode"
+              aria-label="战绩查询方式"
+              value={searchMode}
+              onChange={(e) => {
+                setSearchMode(e.target.value);
+                setCode("");
+              }}
+            >
+              <option value="code">房号</option>
+              <option value="member">会员ID</option>
+            </select>
+          )}
           <div className="record-date-list">
             <button
               className="record-date"
@@ -250,6 +361,7 @@ export function RecordsPanel({
               <b>{recordDateLabel(filter.date, today)}</b>
               {!busy && !error && ` · 共 ${data.total} 桌`}
               {filter.code && ` · 房间 ${filter.code}`}
+              {tab === "admin" && filter.member && ` · 会员 ${filter.member}`}
             </span>
             <div>
               {tab === "admin" && (
@@ -258,16 +370,16 @@ export function RecordsPanel({
                   战队仅管理员可见
                 </span>
               )}
-              {filter.code && (
+              {(filter.code || (tab === "admin" && filter.member)) && (
                 <button
                   className="records-clear"
                   onClick={() => {
                     setCode("");
-                    setFilter((f) => ({ ...f, code: "" }));
+                    setFilter((f) => ({ ...f, code: "", member: "" }));
                     setPage(1);
                   }}
                 >
-                  清除房间
+                  清除查询
                 </button>
               )}
               <div className="records-pagination">
@@ -301,7 +413,14 @@ export function RecordsPanel({
               </button>
             </div>
           </div>
-          <div className="records-list" aria-busy={busy} ref={list}>
+          <div
+            className="records-list"
+            aria-busy={busy}
+            ref={list}
+            onScroll={(e) => {
+              latestMemory.current.scroll = e.currentTarget.scrollTop;
+            }}
+          >
             {error ? (
               <div className="records-empty" role="alert">
                 <p>{error}</p>
@@ -320,16 +439,24 @@ export function RecordsPanel({
               <div className="records-empty">
                 <History size={32} />
                 <h3>
-                  {filter.code
-                    ? "没有找到这桌战绩"
-                    : filter.date
-                      ? "这一天还没有战绩"
-                      : "还没有已完成的牌桌"}
+                  {tab === "admin" && readFilter !== "all"
+                    ? readFilter === "unread"
+                      ? "当前筛选下没有未读战绩"
+                      : "当前筛选下没有已读战绩"
+                    : tab === "admin" && filter.member
+                      ? "没有找到该会员的战绩"
+                      : filter.code
+                        ? "没有找到这桌战绩"
+                        : filter.date
+                          ? "这一天还没有战绩"
+                          : "还没有已完成的牌桌"}
                 </h3>
                 <p>
-                  {filter.code
-                    ? "请核对房间号，或清除房间筛选。"
-                    : "整桌结束后会显示总战绩，可按日期查看。"}
+                  {tab === "admin" && filter.member
+                    ? "请核对会员 ID，或清除查询条件。"
+                    : filter.code
+                      ? "请核对房间号，或清除房间筛选。"
+                      : "整桌结束后会显示总战绩，可按日期查看。"}
                 </p>
                 {filter.date && (
                   <button className="secondary" onClick={() => chooseDate("")}>
@@ -371,7 +498,21 @@ export function RecordsPanel({
                           item.adminReadAt ? "record-read" : "record-unread"
                         }
                       >
-                        {item.adminReadAt ? "✅ 已读" : "未读"}
+                        {item.adminReadAt ? (
+                          <>
+                            ✅ 已读
+                            <time
+                              className="record-read-time"
+                              dateTime={new Date(
+                                item.adminReadAt,
+                              ).toISOString()}
+                            >
+                              {recordClock(item.adminReadAt, true)}
+                            </time>
+                          </>
+                        ) : (
+                          "未读"
+                        )}
                       </span>
                     )}
                     <span className="record-detail-caption">
@@ -389,7 +530,18 @@ export function RecordsPanel({
         <Dialog
           title="牌桌战绩详情"
           variant="match-record-dialog"
-          close={() => setSelected(null)}
+          close={() => {
+            setSelected(null);
+            if (
+              readChanged.current &&
+              tab === "admin" &&
+              readFilter !== "all"
+            ) {
+              setPage(1);
+              setRefresh((n) => n + 1);
+            }
+            readChanged.current = false;
+          }}
         >
           <MatchRecordDetails
             selected={selected}
@@ -400,7 +552,7 @@ export function RecordsPanel({
         </Dialog>
       )}
       {replayId !== null && (
-        <ReplayPanel initialId={replayId} close={() => setReplayId(null)} />
+        <DeferredFeature label="回放" modal close={() => setReplayId(null)}><ReplayPanel initialId={replayId} close={() => setReplayId(null)} /></DeferredFeature>
       )}
     </section>
   );

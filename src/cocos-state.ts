@@ -65,6 +65,7 @@ export function cocosState(
               seat,
               bot: p.bot,
               trustee: p.trustee,
+              online: p.online,
               avatar: avatarURL(p.avatar),
               hand: seat === view.me || reveal ? [...p.hand] : [],
               handCount: p.handCount,

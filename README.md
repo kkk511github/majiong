@@ -1,11 +1,12 @@
 # 金陵麻将
 
-南京麻将联机 App，使用 React、TypeScript、Cocos Creator、Capacitor 与 Node.js。当前源码为 **0.7.5 / build 41**，包含 iOS、Android、Web 客户端和完整服务端。源码更新不代表安装包已发布。
+南京麻将联机 App，使用 React、TypeScript、Cocos Creator、Capacitor 与 Node.js。当前源码为 **0.7.10 / build 47**，包含 iOS、Android、Web 客户端和完整服务端。源码更新不代表服务器已部署。
 
 ## 本次更新
 
-- 同步全部本地修改：直排牌桌与手牌、整套筒牌、固定起点的弃牌网格，横向弃牌从左到右、换行从上到下，碰杠胡目标牌高亮。
-- 版本、验证与发布记录见 [0.7.5 发布说明](docs/RELEASE-0.7.5.md)。
+- 未摸牌时也能点选、切换和放下手牌；轮到自己出牌时清除预选，防止误打。点击与出牌保持原音效。
+- 同步胡牌、点炮及回放展示，断线恢复、战绩导出和战队日结/周结报表；报表排除单人练习，按期末战队汇总并显示总计。
+- 版本与安装包验证见 [0.7.10 发布说明](docs/RELEASE-0.7.10-build47.md)，报表运行方式见 [战队定时统计](docs/TELEGRAM-REPORTS.md)。
 
 - 重做“我的”页面，支持照片头像、昵称和设置弹窗；普通成员不显示管理及开桌授权入口。注册和修改密码最低 4 位。
 - 碰牌来源使用金色内凹箭头，固定显示在中间牌面；明杠显示在上叠的中间牌面，暗杠不显示来源。自己的副露使用带厚度的平放牌图，两侧花牌紧贴排列。
@@ -35,9 +36,12 @@
 
 ```sh
 npm ci
+npm ci --prefix server/report-xlsx --ignore-scripts
 npm run build:cocos
 npm run dev
 ```
+
+表格导出的 ExcelJS 依赖独立安装在 `server/report-xlsx/`；首次拉取后需执行上面两条安装命令，构建和测试也会用到该依赖。
 
 打开 `http://localhost:5173`，服务端端口为 8787。数据库默认位于 `data/mahjong.sqlite`。初次启动会创建表结构；管理员由 `scripts/admin-account.ts` 初始化，该脚本从标准输入读取 `{"password":"自行设置的密码"}`，首次登录需要修改密码。普通账号通过注册创建。
 
@@ -91,6 +95,7 @@ cd android
 
 ```sh
 npm ci
+npm ci --prefix server/report-xlsx --ignore-scripts
 npm run build
 npm run server
 ```

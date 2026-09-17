@@ -148,6 +148,19 @@ for (const [width, height, edge, bottom] of [
     await page.screenshot({
       path: `test-results/screenshots/round-reveal-${width}.png`,
     });
+    await dialog.getByRole("button", { name: "计分详情", exact: true }).click();
+    await expect(dialog.locator(".score-details")).toBeVisible();
+    await expect(dialog.locator(".score-players tbody tr")).toHaveCount(4);
+    await expect(dialog.locator(".score-breakdown").first()).toBeVisible();
+    await dialog.locator(".score-ledger summary").click();
+    expect(await dialog.locator(".score-ledger li").count()).toBeGreaterThan(0);
+    await dialog.locator(".live-score-details").evaluate(el => { el.scrollTop = el.scrollHeight; });
+    expect(await blocked()).toEqual([]);
+    await page.screenshot({ path: `test-results/screenshots/round-score-details-${width}.png` });
+    await dialog.getByRole("button", { name: "查看牌面", exact: true }).click();
+    await expect(dialog.locator(".reveal-player")).toHaveCount(4);
+    await dialog.getByRole("button", { name: "计分详情", exact: true }).click();
+    await page.screenshot({ path: `test-results/screenshots/round-score-overview-${width}.png` });
     await dialog
       .getByRole("button", { name: "进入下一局", exact: true })
       .click();
@@ -182,6 +195,7 @@ for (const [width, height, edge, bottom] of [
     await expect(
       dialog.getByRole("heading", { name: "本桌最终战绩" }),
     ).toBeVisible();
+    await expect(dialog.locator(".score-details")).toHaveCount(0);
     await expect(dialog.locator(".reveal-scores").first()).toContainText(
       "记分",
     );

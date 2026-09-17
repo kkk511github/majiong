@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { makeServer } from "../server/service";
 import { seedTestAdmin, registerTestPort, peerCredential } from "./account-fixtures";
 import { botAction } from "../shared/engine";
+import { version } from "../package.json";
 import type {
   ClientMessage,
   Game,
@@ -78,6 +79,7 @@ describe("真实 WebSocket 房间服务", () => {
     const { s, port } = await boot();
     const host = await peer(port, "校时房主");
     expect(host.session.timeSync).toBe(true);
+    expect(host.session.serverVersion).toBe(version);
     expect(Math.abs(host.session.serverNow! - Date.now())).toBeLessThan(2000);
     host.send({ type: "create" });
     const update = await host.read("state");
@@ -407,7 +409,7 @@ describe("真实 WebSocket 房间服务", () => {
     },
   );
 
-  it("同一响应窗口两家同时胡牌，无需因另一家先响应而重试", async () => {
+  it("同一窗口两家胡牌可用原版本响应，重复请求不能改写响应或再次结算", async () => {
     const { s, port } = await boot();
     const peers = await Promise.all(
       ["甲", "乙", "丙", "丁"].map((n) => peer(port, n)),
@@ -437,7 +439,15 @@ describe("真实 WebSocket 房间服务", () => {
     g.players[2]!.hand = [0, 1, 2, 3, 4, 5, 12, 13, 14, 21, 22, 23, 30].map(
       (k) => k * 4 + 2,
     );
-    peers[1].send({ type: "action", revision: before, action: { type: "hu" } });
+    peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "winner-1" });
+    await peers[1].read("ack", m => m.requestId === "winner-1");
+    const firstResponse = structuredClone(s.games.get(state.code));
+    // The claim-window revision exception must not let one seat answer twice.
+    for (const requestId of ["winner-1", "winner-duplicate-new-id"]) {
+      peers[1].send({ type: "action", revision: before, action: { type: "pass" }, requestId });
+      await peers[1].read("error", m => m.requestId === requestId);
+      expect(s.games.get(state.code)).toEqual(firstResponse);
+    }
     peers[2].send({ type: "action", revision: before, action: { type: "hu" } });
     const ended = await peers[0].read(
       "state",
@@ -445,9 +455,15 @@ describe("真实 WebSocket 房间服务", () => {
     );
     expect(ended.state.result!.winners).toEqual([1, 2]);
     expect(ended.state.result!.deltas.reduce((a, b) => a + b, 0)).toBe(0);
+    const settled = structuredClone(s.games.get(state.code));
+    for (const requestId of ["winner-1", "winner-retry-after-settlement"]) {
+      peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId });
+      await peers[1].read("error", m => m.requestId === requestId);
+      expect(s.games.get(state.code)).toEqual(settled);
+    }
   });
-  it("创建加入、四人准备、屏蔽手牌、拒绝过期操作", async () => {
-    const { port } = await boot();
+  it("创建加入、四人准备、屏蔽手牌、拒绝过期与重复出牌", async () => {
+    const { s, port } = await boot();
     const peers = await Promise.all(
       ["甲", "乙", "丙", "丁"].map((n) => peer(port, n)),
     );
@@ -482,6 +498,15 @@ describe("真实 WebSocket 房间服务", () => {
       action: { type: "discard", tile: states[1].state.players[1]!.hand[0] },
     });
     expect((await peers[1].read("error")).message).toContain("还没轮到");
+    const action = { type: "discard" as const, tile: states[0].state.players[0]!.hand[0] };
+    peers[0].send({ type: "action", revision: states[0].state.revision, action, requestId: "discard-once" });
+    await peers[0].read("ack", m => m.requestId === "discard-once");
+    const accepted = structuredClone(s.games.get(code));
+    for (const requestId of ["discard-once", "duplicate-discard-new-id"]) {
+      peers[0].send({ type: "action", revision: states[0].state.revision, action, requestId });
+      await peers[0].read("error", m => m.requestId === requestId);
+      expect(s.games.get(code)).toEqual(accepted);
+    }
   });
   it("持有随机会话凭证才能恢复自己的座位，冒用昵称不能恢复", async () => {
     const { port } = await boot();

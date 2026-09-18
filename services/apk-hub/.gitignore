@@ -1,0 +1,4 @@
+service.env
+data/
+*.bak-*
+__pycache__/

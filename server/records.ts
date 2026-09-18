@@ -96,8 +96,8 @@ export function createRecords(db: DatabaseSync) {
         g.table?.settings.privacy === "all" ? 1 : 0,
         JSON.stringify(record),
       );
-      // Only completed hands count; a dissolved partial hand is not a played round.
-      if (record.result.reason !== "dissolved") {
+      // Only completed online hands count; practice remains viewable history.
+      if (g.code !== "练习桌" && record.result.reason !== "dissolved") {
         record.playerIds!.forEach((id, seat) => {
           if (!id || !db.prepare("SELECT 1 FROM accounts WHERE id=?").get(id))
             return;
@@ -197,8 +197,9 @@ export function createRecords(db: DatabaseSync) {
     // Some legacy rooms were removed after completion. Their durable round
     // records still contribute, with an explicit unknown historical team.
     for (const row of db
-      .prepare("SELECT id,game_id,at,record,player_ids FROM round_records")
+      .prepare("SELECT id,game_id,code,at,record,player_ids FROM round_records")
       .iterate()) {
+      if (row.code === "练习桌") continue;
       let record: RoundRecord, ids: string[];
       try {
         record = JSON.parse(String(row.record)) as RoundRecord;
@@ -418,7 +419,12 @@ export function createRecords(db: DatabaseSync) {
     };
   }
   function pointFilter(query: URLSearchParams) {
-    const where: string[] = [],
+    // Keep unmatched legacy ledger rows, but exclude identified practice and
+    // dissolved hands even when an older import already wrote their points.
+    const where: string[] = [
+      "COALESCE(r.code,'')<>'练习桌'",
+      "COALESCE(json_extract(r.record,'$.result.reason'),'')<>'dissolved'",
+    ],
       args: (string | number)[] = [];
     const from = query.has("from") ? Number(query.get("from")) : 0;
     const to = query.has("to") ? Number(query.get("to")) : 8640000000000000;
@@ -472,7 +478,10 @@ export function createRecords(db: DatabaseSync) {
     const divisor = "COALESCE(NULLIF(json_extract(r.record,'$.scoreDivisor'),0),1)";
     const recorded = `(p.points + CASE WHEN p.record_id=(
       SELECT first.record_id FROM point_records first
+      LEFT JOIN round_records original ON original.id=first.record_id
       WHERE first.game_id=p.game_id AND first.account_id=p.account_id
+        AND COALESCE(original.code,'')<>'练习桌'
+        AND COALESCE(json_extract(original.record,'$.result.reason'),'')<>'dissolved'
       ORDER BY first.at,first.record_id LIMIT 1
     ) THEN ${initial}-${baseline} ELSE 0 END) / (1.0 * ${divisor})`;
     const grouped =

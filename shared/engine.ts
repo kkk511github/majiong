@@ -413,19 +413,19 @@ function dealNanjing(g: Game, now: number): boolean {
   g.players[g.dealer]!.hand.push(dealerTile);
   let dealerLast: Tile = dealerTile;
   let replacing = true;
-  let stoppedPayments = bankrupt(g);
+  if (finishBankrupt(g, now)) return false;
   while (replacing) {
     replacing = false;
     for (const s of order) {
       const p = g.players[s]!,
         flowers = p.hand.filter(isFlower);
-      p.hand = p.hand.filter((t) => !isFlower(t));
       for (const t of flowers) {
+        // Move one flower at a time: if its kong ends the table, unprocessed
+        // flowers must remain in the dealt hand rather than disappear.
+        remove(p, [t]);
         p.flowers.push(t);
-        if (!stoppedPayments) {
-          flowersKong(g, s, t, true);
-          stoppedPayments = bankrupt(g);
-        }
+        flowersKong(g, s, t, true);
+        if (finishBankrupt(g, now, s)) return false;
       }
       const target = s === g.dealer ? 14 : 13;
       while (p.hand.length < target) {

@@ -59,7 +59,8 @@
   padding: 4px 8px;
 }
 
-:root[data-keyboard-open] .account-screen {
+:root[data-keyboard-open] .account-screen,
+:root[data-account-editing] .account-screen {
   position: fixed;
   top: var(--input-viewport-top);
   height: var(--input-viewport-height);
@@ -69,17 +70,23 @@
   padding: 6px max(24px, env(safe-area-inset-right)) 6px
     max(24px, env(safe-area-inset-left));
   gap: 0;
+  align-items: start;
 }
 :root[data-keyboard-open] .account-welcome,
+:root[data-account-editing] .account-welcome,
 :root[data-keyboard-open] .account-card-heading,
+:root[data-account-editing] .account-card-heading,
 :root[data-keyboard-open] .account-tabs,
-:root[data-keyboard-open] .account-footnote {
+:root[data-account-editing] .account-tabs,
+:root[data-keyboard-open] .account-footnote,
+:root[data-account-editing] .account-footnote {
   display: none;
 }
-:root[data-keyboard-open] .account-card {
+:root[data-keyboard-open] .account-card,
+:root[data-account-editing] .account-card {
   height: 100%;
   min-height: 0;
-  max-height: 100%;
+  max-height: min(120px, 100%);
   max-width: 760px;
   padding: 4px 12px;
   display: grid;
@@ -89,7 +96,8 @@
   gap: 10px;
   overflow: hidden;
 }
-:root[data-keyboard-open] .account-form {
+:root[data-keyboard-open] .account-form,
+:root[data-account-editing] .account-form {
   grid-column: 1;
   grid-row: 1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -102,19 +110,22 @@
   scroll-padding-block: 3px;
   gap: 4px;
 }
-:root[data-keyboard-open] .account-form label {
+:root[data-keyboard-open] .account-form label,
+:root[data-account-editing] .account-form label {
   font-size: 0;
   gap: 0;
   min-width: 0;
 }
-:root[data-keyboard-open] .account-form input {
+:root[data-keyboard-open] .account-form input,
+:root[data-account-editing] .account-form input {
   height: 44px;
   min-height: 44px;
   font-size: 16px;
   line-height: normal;
   flex-shrink: 0;
 }
-:root[data-keyboard-open] .account-card > .account-submit {
+:root[data-keyboard-open] .account-card > .account-submit,
+:root[data-account-editing] .account-card > .account-submit {
   grid-column: 2;
   grid-row: 1;
   min-height: 44px;
@@ -122,4 +133,47 @@
   padding: 6px 8px;
   font-size: 13px;
   gap: 6px;
+}
+
+/* Move password entry up on focus, before Android reports any viewport resize. */
+:root[data-keyboard-open] .polished .password-dialog[open],
+:root[data-account-editing] .polished .password-dialog[open] {
+  top: calc(var(--input-viewport-top) + 2px);
+  bottom: auto;
+  margin-block: 0;
+  height: min(120px, calc(var(--input-viewport-height) - 4px));
+  max-height: calc(var(--input-viewport-height) - 4px);
+  padding: 4px 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 6px;
+}
+:root[data-keyboard-open] .password-dialog .modal-head,
+:root[data-account-editing] .password-dialog .modal-head {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+:root[data-keyboard-open] .password-dialog .modal-head h2,
+:root[data-account-editing] .password-dialog .modal-head h2 { display: none; }
+:root[data-keyboard-open] .polished .password-dialog .modal-body,
+:root[data-account-editing] .polished .password-dialog .modal-body {
+  grid-column: 1;
+  grid-row: 1;
+  max-height: 100%;
+  padding: 0;
+}
+:root[data-keyboard-open] .password-dialog .account-form,
+:root[data-account-editing] .password-dialog .account-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: visible;
+  max-height: none;
+}
+:root[data-keyboard-open] .password-dialog .account-form > button,
+:root[data-account-editing] .password-dialog .account-form > button {
+  grid-column: 1 / -1;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px;
 }

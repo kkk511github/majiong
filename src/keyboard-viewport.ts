@@ -1,49 +1,60 @@
-/** WKWebView can show a keyboard without shrinking the layout viewport. */
+/** Keep account inputs visible even when a fullscreen keyboard overlays the WebView. */
 export function installKeyboardViewport() {
   const viewport = window.visualViewport;
-  if (!viewport) return () => {};
   const root = document.documentElement;
+  const touchInput = matchMedia("(pointer: coarse)").matches ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const editable = 'input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),textarea,[contenteditable="true"]';
   let fullHeight = window.innerHeight;
   let width = window.innerWidth;
   let open = false;
+  let accountEditing = false;
+  let focusIntent = touchInput;
   let frame = 0;
   let revealFrame = 0;
+  const visibleHeight = () => Math.min(window.innerHeight, viewport?.height ?? window.innerHeight);
+  const visibleTop = () => viewport?.offsetTop ?? 0;
   const revealInput = () => {
     revealFrame = 0;
     const input = document.activeElement;
-    if (!open || !(input instanceof HTMLElement)) return;
+    if (!(open || accountEditing) || !(input instanceof HTMLElement)) return;
     const form = input.closest<HTMLElement>(".account-form");
     if (!form) return;
-    const rect = input.getBoundingClientRect();
-    const bounds = form.getBoundingClientRect();
-    const top = Math.max(bounds.top, viewport.offsetTop) + 2;
-    const bottom =
-      Math.min(bounds.bottom, viewport.offsetTop + viewport.height) - 2;
-    // Scroll only the input area, never pan the whole WKWebView under the keyboard.
-    if (rect.bottom > bottom) form.scrollTop += rect.bottom - bottom;
-    else if (rect.top < top) form.scrollTop -= top - rect.top;
+    // The login form scrolls itself; change-password dialogs scroll their body.
+    // Never scroll the whole WebView, which can pan the password below the IME.
+    const scrollers = [form, form.closest<HTMLElement>(".modal-body")];
+    for (const scroller of scrollers) {
+      if (!scroller || scroller.scrollHeight <= scroller.clientHeight) continue;
+      const rect = input.getBoundingClientRect();
+      const bounds = scroller.getBoundingClientRect();
+      const top = Math.max(bounds.top, visibleTop()) + 2;
+      const bottom = Math.min(bounds.bottom, visibleTop() + visibleHeight()) - 2;
+      if (rect.bottom > bottom) scroller.scrollTop += rect.bottom - bottom;
+      else if (rect.top < top) scroller.scrollTop -= top - rect.top;
+    }
   };
   const update = () => {
     frame = 0;
-    const editing = document.activeElement?.matches(
-      'input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),textarea,[contenteditable="true"]',
-    );
+    const active = document.activeElement;
+    const editing = active?.matches(editable);
     if (Math.abs(width - window.innerWidth) > 80) {
       width = window.innerWidth;
       fullHeight = window.innerHeight;
       open = false;
     }
-    // Android adjustResize can shrink innerHeight before focusin is delivered.
-    // Keep the unoccluded height until an orientation-width change resets it.
-    fullHeight = Math.max(fullHeight, window.innerHeight, viewport.height);
-    open =
-      !!(editing || open) &&
-      Math.abs(viewport.scale - 1) < 0.02 &&
-      fullHeight - viewport.height > 80;
+    // Preserve the height before Android's adjustResize, even when resize arrives
+    // before focusin. Some WebViews update innerHeight before visualViewport.
+    fullHeight = Math.max(fullHeight, window.innerHeight, viewport?.height ?? 0);
+    const wasOpen = open;
+    const unzoomed = Math.abs((viewport?.scale ?? 1) - 1) < 0.02;
+    open = !!(editing || open) && unzoomed && fullHeight - visibleHeight() > 80;
+    if (wasOpen && !open) focusIntent = false;
+    accountEditing = !!(touchInput && focusIntent && editing && unzoomed && active?.closest(".account-form"));
     root.toggleAttribute("data-keyboard-open", open);
-    if (open) {
-      root.style.setProperty("--input-viewport-height", `${viewport.height}px`);
-      root.style.setProperty("--input-viewport-top", `${viewport.offsetTop}px`);
+    root.toggleAttribute("data-account-editing", accountEditing);
+    if (open || accountEditing) {
+      root.style.setProperty("--input-viewport-height", `${visibleHeight()}px`);
+      root.style.setProperty("--input-viewport-top", `${visibleTop()}px`);
       cancelAnimationFrame(revealFrame);
       revealFrame = requestAnimationFrame(revealInput);
     } else {
@@ -54,21 +65,28 @@ export function installKeyboardViewport() {
   const schedule = () => {
     if (!frame) frame = requestAnimationFrame(update);
   };
-  viewport.addEventListener("resize", schedule);
-  viewport.addEventListener("scroll", schedule);
+  const focus = (event: Event) => {
+    if (event.target instanceof Element && event.target.matches(editable)) focusIntent = true;
+    schedule();
+  };
+  viewport?.addEventListener("resize", schedule);
+  viewport?.addEventListener("scroll", schedule);
   window.addEventListener("resize", schedule);
-  document.addEventListener("focusin", schedule);
+  document.addEventListener("focusin", focus);
   document.addEventListener("focusout", schedule);
+  document.addEventListener("pointerdown", focus);
   update();
   return () => {
     cancelAnimationFrame(frame);
     cancelAnimationFrame(revealFrame);
-    viewport.removeEventListener("resize", schedule);
-    viewport.removeEventListener("scroll", schedule);
+    viewport?.removeEventListener("resize", schedule);
+    viewport?.removeEventListener("scroll", schedule);
     window.removeEventListener("resize", schedule);
-    document.removeEventListener("focusin", schedule);
+    document.removeEventListener("focusin", focus);
     document.removeEventListener("focusout", schedule);
+    document.removeEventListener("pointerdown", focus);
     root.removeAttribute("data-keyboard-open");
+    root.removeAttribute("data-account-editing");
     root.style.removeProperty("--input-viewport-height");
     root.style.removeProperty("--input-viewport-top");
   };

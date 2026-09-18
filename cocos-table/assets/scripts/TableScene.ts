@@ -231,8 +231,8 @@ export class TableScene extends Component {
   }
   const prompt=claimPrompt(s);
   if(prompt){
-   // During a claim, the enlarged public target occupies the compass's clear
-   // space. No river tile is moved or hidden; controls remain above the hand.
+   // During a claim, the enlarged public target occupies only the compass's
+   // clear space. The counters stay visible beside it throughout the response.
    const card=this.plate(h,640,280,162,96,'#123c33f5','#f0cf70',12);card.name='claim-prompt';
    this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,619,244,109,20,15);
    this.text(h,s.disabled?'提交中':`${s.countdown}秒`,695,244,40,20,14,GOLD);
@@ -244,8 +244,15 @@ export class TableScene extends Component {
   const g=this.make('compass',640,278,116,92,center).addComponent(Graphics);g.fillColor=new Color('#092724');g.roundRect(-61,-46,122,92,14);g.fill();g.fillColor=new Color('#283633');g.moveTo(-45,-41);g.lineTo(45,-41);g.lineTo(58,-25);g.lineTo(58,25);g.lineTo(42,41);g.lineTo(-42,41);g.lineTo(-58,25);g.lineTo(-58,-25);g.close();g.fill();g.strokeColor=new Color('#697264');g.lineWidth=2;g.stroke();g.fillColor=new Color('#09201e');g.roundRect(-30,-19,60,38,13);g.fill();
   const positions=[[640,311],[684,278],[640,245],[596,278]];for(let o=0;o<4;o++){const seat=(s.me+o)%4;this.text(center,['东','南','西','北'][seat],positions[o][0],positions[o][1],28,23,19,s.turn===seat?GOLD:'#c3ccc0');}
   this.text(center,s.countdown,640,278,57,36,s.countdown.length>=3?25:33,'#26ddf5');
-  const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));this.text(center,`余牌 ${s.remaining}`,548,265,60,27,15,'#deebd9');this.text(center,`余花 ${flowers}`,548,294,60,27,15,'#deebd9');this.text(center,'把数',732,262,60,23,16,'#a4c4b2');this.text(center,s.rounds?`${s.round} / ${s.rounds}`:String(s.round),732,290,60,29,21,GOLD);
   }
+  const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));
+  // The claim card is wider than the compass. Use its side gutters so neither
+  // the public counters nor the neighbouring discard columns are covered.
+  const countX=prompt?527:548,roundX=prompt?753:732,countWidth=prompt?54:60;
+  this.text(h,`余牌 ${s.remaining}`,countX,265,countWidth,27,15,'#deebd9').name='table-remaining-count';
+  this.text(h,`余花 ${flowers}`,countX,294,countWidth,27,15,'#deebd9').name='table-flowers-count';
+  this.text(h,'把数',roundX,262,countWidth,23,16,'#a4c4b2').name='table-round-label';
+  this.text(h,s.rounds?`${s.round} / ${s.rounds}`:String(s.round),roundX,290,countWidth,29,21,GOLD).name='table-round-count';
   if(this.trusteeButton)this.trusteeButton.active=s.presentation!=='replay'&&!s.externalControls;
   if(s.presentation==='replay'){this.text(h,'点击头像切换视角',640,455,250,30,17,'#bdd2bd');h.setSiblingIndex(this.root.children.length-1);return;}
   if(s.externalControls){h.setSiblingIndex(this.root.children.length-1);return;}

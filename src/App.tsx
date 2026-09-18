@@ -1091,6 +1091,8 @@ export function App() {
               <input
                 type="password"
                 autoComplete="current-password"
+                placeholder="请输入原密码"
+                enterKeyHint="next"
                 minLength={MIN_PASSWORD_LENGTH}
                 maxLength={128}
                 required
@@ -1103,6 +1105,8 @@ export function App() {
               <input
                 type="password"
                 autoComplete="new-password"
+                placeholder="请输入新密码"
+                enterKeyHint="next"
                 minLength={MIN_PASSWORD_LENGTH}
                 maxLength={128}
                 required
@@ -1115,6 +1119,8 @@ export function App() {
               <input
                 type="password"
                 autoComplete="new-password"
+                placeholder="再次输入新密码"
+                enterKeyHint="done"
                 minLength={MIN_PASSWORD_LENGTH}
                 maxLength={128}
                 required

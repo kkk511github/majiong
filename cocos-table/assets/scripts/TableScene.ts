@@ -11,13 +11,19 @@ export class TableScene extends Component {
  private effectData=new Map<string,sp.SkeletonData>();
  private frames=new Map<string,SpriteFrame>(); private nodes=new Map<string,Node>(); private shadows=new Map<string,Node>();
  private tileLayout=new Map<string,SceneTile>();
- private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3};
+ private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3;released?:boolean;moved:boolean};
  private avatarLoads=new Set<string>();
  private ready=false; private channel=''; private lastEffect='';
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
  private pointer?:Node; private pointerKey=''; private pointerAt='';
  private cancelHandTouch=()=>{if(!this.handTouch)return;this.handTouch=undefined;if(this.ready&&this.state)this.draw();};
  private onVisibility=()=>{if(document.hidden)this.cancelHandTouch();};
+ // Creator converts an actual touchend outside the last rendered tile bounds to
+ // TOUCH_CANCEL. Remember the browser event before Creator dispatches it, so an
+ // updated release position still discards, while a real system cancel never does.
+ private onTouchRelease=(event:TouchEvent)=>{const touch=this.handTouch;if(touch&&Array.from(event.changedTouches).some(point=>point.identifier===touch.pointer))touch.released=true;};
+ private onTouchCancel=(event:TouchEvent)=>{const touch=this.handTouch;if(touch&&Array.from(event.changedTouches).some(point=>point.identifier===touch.pointer))this.cancelHandTouch();};
+ private onMouseRelease=(event:MouseEvent)=>{if(event.button===0&&this.handTouch?.pointer===0)this.handTouch.released=true;};
  private onMessage=(event:MessageEvent)=>{
   if(event.source!==window.parent||event.origin!==location.origin)return;
   const d=event.data;
@@ -33,6 +39,7 @@ export class TableScene extends Component {
   this.effectsRoot=this.make('Effects',640,295,1280,590);
   window.addEventListener('message',this.onMessage);
   window.addEventListener('blur',this.cancelHandTouch);document.addEventListener('visibilitychange',this.onVisibility);
+  window.addEventListener('touchend',this.onTouchRelease,true);window.addEventListener('touchcancel',this.onTouchCancel,true);window.addEventListener('mouseup',this.onMouseRelease,true);window.addEventListener('resize',this.cancelHandTouch);
   try{
    const catalog=(await load<JsonAsset>('tile-atlas',JsonAsset)).json as Atlas;
    await Promise.all(Object.entries(catalog).map(async([pose,data])=>{
@@ -59,7 +66,7 @@ export class TableScene extends Component {
    if(this.state)this.draw();
   }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error'},location.origin==='null'?'*':location.origin);}
  }
- onDestroy(){window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.cancelHandTouch);document.removeEventListener('visibilitychange',this.onVisibility);this.handTouch=undefined;}
+ onDestroy(){window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.cancelHandTouch);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;}
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}
  private text(parent:Node,str:string,x:number,y:number,w:number,h:number,size=20,color=INK){const n=this.make(str,x,y,w,h,parent),l=n.addComponent(Label);l.string=str;l.fontSize=size;l.lineHeight=size+4;l.color=new Color(color);l.isBold=true;l.overflow=Label.Overflow.SHRINK;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;return n;}
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
@@ -161,29 +168,33 @@ export class TableScene extends Component {
    if(this.handTouch||!state||!tile?.clickable||tile.tile===undefined)return;
    const origin=beginTileDrag(state,tile.tile);if(!origin)return;
    const point=event.getUILocation();
-   this.handTouch={id,pointer:event.getID(),origin,startX:point.x,startY:point.y,x:point.x,y:point.y,base:node.position.clone()};
+   this.handTouch={id,pointer:event.getID(),origin,startX:point.x,startY:point.y,x:point.x,y:point.y,base:node.position.clone(),moved:false};
   });
   node.on(Node.EventType.TOUCH_MOVE,(event:EventTouch)=>{
    const touch=this.handTouch;if(!touch||touch.id!==id||touch.pointer!==event.getID())return;
    if(!this.state||!canContinueTileDrag(this.state,touch.origin)){this.cancelHandTouch();return;}
-   const point=event.getUILocation();touch.x=point.x;touch.y=point.y;this.positionDraggedTile();
+   const point=event.getUILocation();touch.x=point.x;touch.y=point.y;touch.moved ||= Math.hypot(point.x-touch.startX,point.y-touch.startY)>=10;this.positionDraggedTile();
   });
   node.on(Node.EventType.TOUCH_END,(event:EventTouch)=>{
-   const touch=this.handTouch;if(!touch||touch.id!==id||touch.pointer!==event.getID())return;
-   const point=event.getUILocation(),state=this.state;
-   this.handTouch=undefined;
-   if(state&&canContinueTileDrag(state,touch.origin)){
-    const discard=shouldDiscardDraggedTile(state,touch.origin,point.x-touch.startX,point.y-touch.startY);
-    // An unsuccessful drag keeps the raised selection. A tap still toggles it.
-    const tapped=Math.hypot(point.x-touch.startX,point.y-touch.startY)<10;
-    if(discard)this.emit({type:'discard',tile:touch.origin.tile});
-    else if(tapped)this.emit({type:'select',tile:touch.origin.tile});
-   }
-   if(this.ready&&this.state)this.draw();
+   if(this.handTouch?.id===id)this.finishHandTouch(event);
   });
   node.on(Node.EventType.TOUCH_CANCEL,(event:EventTouch)=>{
-   if(this.handTouch?.id===id&&this.handTouch.pointer===event.getID())this.cancelHandTouch();
+   if(this.handTouch?.id!==id||this.handTouch.pointer!==event.getID())return;
+   if(this.handTouch.released)this.finishHandTouch(event);else this.cancelHandTouch();
   });
+ }
+ private finishHandTouch(event:EventTouch){
+  const touch=this.handTouch;if(!touch||touch.pointer!==event.getID())return;
+  const point=event.getUILocation(),state=this.state;
+  this.handTouch=undefined;
+  if(state&&canContinueTileDrag(state,touch.origin)){
+   const discard=shouldDiscardDraggedTile(state,touch.origin,point.x-touch.startX,point.y-touch.startY,point);
+   // An unsuccessful drag keeps the selection; taps preserve the existing click flow.
+   const tapped=!touch.moved&&Math.hypot(point.x-touch.startX,point.y-touch.startY)<10;
+   if(discard)this.emit({type:'discard',tile:touch.origin.tile});
+   else if(tapped)this.emit({type:'select',tile:touch.origin.tile});
+  }
+  if(this.ready&&this.state)this.draw();
  }
  private positionDraggedTile(){
   const touch=this.handTouch;

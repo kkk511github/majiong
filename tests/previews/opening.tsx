@@ -28,8 +28,9 @@ function Preview() {
   const state = cocosState(viewFor(current, 0), { connected: true, disabled: false, practice: true, countdown: "—", selected, inspectedKind: null, hintKinds: [], hintLabel: "", effects: [] });
   return <div className="app classic polished" data-page="table">
     <CocosTable state={state} opening={cue} onCommand={command => {
-      if (command.type === "select") setSelected(value => value === command.tile ? null : command.tile);
-      if (command.type === "discard" && selected === command.tile && state.canDiscard) {
+      if (command.type === "select" && !(state.canDiscard && selected === command.tile))
+        setSelected(value => value === command.tile ? null : command.tile);
+      if (state.canDiscard && (command.type === "discard" || command.type === "select") && selected === command.tile) {
         setCurrent(value => act(value, 0, { type: "discard", tile: command.tile }));
         setSelected(null);
       }

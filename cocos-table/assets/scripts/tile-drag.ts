@@ -43,9 +43,14 @@ export function shouldDiscardDraggedTile(
   origin: TileDragOrigin,
   deltaX: number,
   deltaY: number,
+  release: { x: number; y: number },
 ) {
   return canContinueTileDrag(state, origin) && origin.selected === origin.tile &&
     origin.canDiscard && state.canDiscard && state.phase === 'playing' &&
     state.turn === state.me && Number.isFinite(deltaX) && Number.isFinite(deltaY) &&
-    deltaY >= TILE_DISCARD_DRAG_DISTANCE && deltaY >= Math.abs(deltaX);
+    // Release above the standing hand, inside the 1280 × 590 design surface.
+    // Horizontal travel and speed do not matter: side tiles may go to the centre.
+    Number.isFinite(release.x) && Number.isFinite(release.y) &&
+    release.x >= 0 && release.x <= 1280 && release.y >= 110 && release.y <= 590 &&
+    deltaY >= TILE_DISCARD_DRAG_DISTANCE;
 }

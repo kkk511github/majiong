@@ -93,7 +93,7 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     const tile=initial.tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
     await clickTable(page,tile.x,tile.y);
     await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
-    await expect(page.locator('.table-activity')).toContainText('已选三万 · 上拖出牌');
+    await expect(page.locator('.table-activity')).toContainText('已选三万 · 再点或上拖出牌');
     expect((await scene(page)).state.hintKinds).toEqual([0,1]);
     const hint=page.getByRole('region',{name:'胡牌提示'});
     await expect(hint).toContainText('打出后可听');
@@ -108,12 +108,8 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     expect(hintBox.x+hintBox.width).toBeLessThanOrEqual(width);
     await page.screenshot({path:`test-results/screenshots/win-hint-${width}.png`});
     expect(commands).toHaveLength(0);
-    const selectedTile=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
-    await clickTable(page,selectedTile.x,selectedTile.y);
-    await expect.poll(async()=>(await scene(page)).state.selected).toBe(null);
-    expect(commands).toHaveLength(0);
-    await dragTile(page,8,0,-90);
-    await expect.poll(async()=>(await scene(page)).state.selected).toBe(null);
+    await dragTile(page,4,0,-90);
+    await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
     expect(commands).toHaveLength(0);
     const choose=async(tile:number)=>{const t=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===tile);await clickTable(page,t.x,t.y);await expect.poll(async()=>(await scene(page)).state.selected).toBe(tile);};
     await choose(0);
@@ -222,7 +218,7 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
 }
 
 for (const [width, height] of [[844,390],[1280,590]]) {
-  test(`未摸牌可预选但上拖不出牌，摸牌后须重新选牌再上拖 ${width}`,async({page})=>{
+  test(`未摸牌可预选但上拖不出牌，摸牌后保留再次点击出牌 ${width}`,async({page})=>{
     await page.setViewportSize({width,height});
     const v=viewFor(structuredClone(late) as unknown as Game,0);
     Object.assign(v,{phase:'playing',turn:1,canDiscard:false,actions:[],selfKongs:[],pending:undefined,result:undefined,lastDraw:undefined,deadline:Date.now()+600000});
@@ -290,7 +286,7 @@ for (const [width, height] of [[844,390],[1280,590]]) {
     await selected(null);
     await tap(4);await selected(4);
     expect(commands).toHaveLength(0);
-    await dragTile(page,4,0,-90);
+    await tap(4);
     await expect.poll(()=>commands.length).toBe(1);
     expect(commands[0].action).toEqual({type:'discard',tile:4});
     await expect.poll(async()=>(await scene(page)).state.disabled).toBe(true);
@@ -312,6 +308,124 @@ for (const [width, height] of [[844,390],[1280,590]]) {
     expect(commands).toHaveLength(1);
   });
 }
+
+test.describe('真实触屏拖牌',()=>{
+  test.use({hasTouch:true});
+  test('点选后慢拖到桌面松手、斜拖和终点更新可出牌，取消与拖回不误出',async({page,browserName})=>{
+    await page.setViewportSize({width:844,height:390});
+    const v=viewFor(structuredClone(late) as unknown as Game,0);
+    Object.assign(v,{phase:'playing',turn:0,canDiscard:true,actions:[],selfKongs:[],pending:undefined,result:undefined,lastDraw:8,deadline:Date.now()+600000});
+    Object.assign(v.players[0]!,{hand:[0,1,4,5,8,92,96,100],handCount:8,trustee:false,trusteeLocked:false,
+      melds:[{type:'pung',tiles:[64,65,66],from:1,concealed:false},{type:'pung',tiles:[24,25,26],from:1,concealed:false}],flowers:[]});
+    const commands:any[]=[];
+    let socket:WebSocketRoute;
+    const push=()=>{
+      socket.send(JSON.stringify({type:'state',state:v,serverNow:Date.now()}));
+      if(commands.length)socket.send(JSON.stringify({type:'ack',requestId:commands.at(-1).requestId}));
+    };
+    await page.routeWebSocket('**/ws',ws=>{
+      socket=ws;const server=ws.connectToServer();
+      ws.onMessage(raw=>{const m=JSON.parse(String(raw));if(['action','trustee'].includes(m.type))commands.push(m);else server.send(raw);});
+      server.onMessage(raw=>{const m=JSON.parse(String(raw));if(m.type==='session'){ws.send(JSON.stringify({...m,roomCode:v.code}));push();}else ws.send(raw);});
+    });
+    await page.goto('/');
+    await expect.poll(async()=>frame(page)?.evaluate(()=>!!(window as any).__JINLING_TABLE_READY__)).toBe(true);
+    await expect.poll(async()=>(await scene(page)).state?.key).not.toBe('demo');
+    const flush=()=>page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+    const tile=async()=> (await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
+    const selected=()=>expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
+    const select=async()=>{const t=await tile(),p=await tablePoint(page,t.x,t.y);await page.touchscreen.tap(p.x,p.y);await selected();};
+    const touch=async(type:'touchstart'|'touchmove'|'touchend'|'touchcancel',x:number,y:number)=>{
+      // Browser TouchEvent path through Creator's canvas input adapter. These
+      // constructed events are untrusted; Chrome's CDP gesture below additionally
+      // covers native input dispatch. WebKit requires legacy Touch/TouchList factories.
+      // Unlike CDP touchEnd, TouchEvent permits a final position different from
+      // the last move, which reproduces iOS/coalesced-event release behaviour.
+      await frame(page).evaluate(({type,x,y})=>{
+        const canvas=document.querySelector('canvas')!,rect=canvas.getBoundingClientRect();
+        const scale=Math.min(rect.width/1280,rect.height/590);
+        const clientX=rect.x+(rect.width-1280*scale)/2+x*scale,clientY=rect.y+(rect.height-590*scale)/2+y*scale;
+        const ended=type==='touchend'||type==='touchcancel';
+        const legacy=document as Document&{
+          createTouch?:(view:Window,target:EventTarget,id:number,pageX:number,pageY:number,screenX:number,screenY:number)=>Touch;
+          createTouchList?:(...touches:Touch[])=>TouchList;
+        };
+        let event:TouchEvent;
+        if(legacy.createTouch&&legacy.createTouchList){
+          const point=legacy.createTouch(window,canvas,29,clientX+window.scrollX,clientY+window.scrollY,clientX,clientY);
+          const changed=legacy.createTouchList(point),active=ended?legacy.createTouchList():changed;
+          event=new TouchEvent(type,{bubbles:true,cancelable:true,changedTouches:changed as unknown as Touch[],touches:active as unknown as Touch[],targetTouches:active as unknown as Touch[]});
+        }else{
+          const point=new Touch({identifier:29,target:canvas,clientX,clientY});
+          event=new TouchEvent(type,{bubbles:true,cancelable:true,changedTouches:[point],touches:ended?[]:[point],targetTouches:ended?[]:[point]});
+        }
+        canvas.dispatchEvent(event);
+      },{type,x,y});
+      await flush();
+    };
+    const ack=async(count:number)=>{
+      await expect.poll(()=>commands.length).toBe(count);
+      expect(commands[count-1].action).toEqual({type:'discard',tile:8});
+      v.revision++;push();
+      await expect.poll(async()=>(await scene(page)).state.disabled).toBe(false);
+      await expect.poll(async()=>(await scene(page)).state.selected).toBe(null);
+    };
+
+    await select();
+    let t=await tile();
+    await touch('touchstart',t.x,t.y);
+    await touch('touchmove',t.x,t.y-100);
+    expect(commands).toHaveLength(0); // Crossing the edge alone must not submit.
+    await touch('touchmove',t.x,t.y);
+    await touch('touchend',t.x,t.y);
+    await selected();expect(commands).toHaveLength(0);
+
+    await touch('touchstart',t.x,t.y);
+    await touch('touchmove',t.x,t.y-140);
+    await touch('touchcancel',t.x,t.y-140);
+    await selected();expect(commands).toHaveLength(0);
+
+    // A release coordinate can be newer than the final move. Creator reports
+    // TOUCH_CANCEL because its old sprite bounds no longer contain the finger.
+    await touch('touchstart',t.x,t.y);
+    await touch('touchmove',t.x,t.y-20);
+    await touch('touchend',t.x-250,t.y-140);
+    await ack(1);
+
+    await select();t=await tile();
+    if(browserName==='chromium'){
+      const cdp=await page.context().newCDPSession(page);
+      const start=await tablePoint(page,t.x,t.y);
+      try {
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:start.x,y:start.y,id:41}]});
+        for(let step=1;step<=4;step++){
+          const p=await tablePoint(page,t.x-180*step/4,t.y-100*step/4);
+          await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x,y:p.y,id:41}]});
+          await page.waitForTimeout(150); // Deliberate slow drag, no speed requirement.
+          expect(commands).toHaveLength(1);
+        }
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      } finally {await cdp.detach();}
+    }else{
+      await touch('touchstart',t.x,t.y);
+      for(let step=1;step<=4;step++){
+        await touch('touchmove',t.x-180*step/4,t.y-100*step/4);
+        await page.waitForTimeout(150);
+        expect(commands).toHaveLength(1);
+      }
+      await touch('touchend',t.x-180,t.y-100);
+    }
+    await ack(2);
+
+    await select();t=await tile();
+    await touch('touchstart',t.x,t.y);
+    await touch('touchmove',t.x,t.y-100);
+    v.turn=1;v.canDiscard=false;v.revision++;push();
+    await expect.poll(async()=>(await scene(page)).state.turn).toBe(1);
+    await touch('touchend',t.x,t.y-140);
+    expect(commands).toHaveLength(2);
+  });
+});
 
 test('灵动岛安全区更新时四家信息避让，牌桌和牌面尺寸保持全屏',async({page})=>{
   await page.setViewportSize({width:874,height:402});

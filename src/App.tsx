@@ -386,7 +386,8 @@ export function App() {
   }
   function selectTile(tile: number) {
     if (selected === tile) {
-      setSelected(null);
+      if (v?.canDiscard) discardTile(tile);
+      else setSelected(null);
     }
     else {
       clickSound();

@@ -59,7 +59,7 @@ export function TableControls({
           ? "已开启托管"
           : s.canDiscard
             ? s.selected !== null
-              ? `已选${sceneTileName(s.selected)} · 上拖出牌`
+              ? `已选${sceneTileName(s.selected)} · 再点或上拖出牌`
               : "轮到你出牌"
             : s.phase === "claiming"
               ? `${claimContext}${claimContext ? " · " : ""}${s.pending?.answered ? "已响应，等待牌友" : s.actions.length ? "请选择操作" : "等待牌友响应"}`

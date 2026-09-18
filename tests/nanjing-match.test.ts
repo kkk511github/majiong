@@ -43,7 +43,8 @@ it.each(["nj-garden-v2", "nj-open-v2", "nj-garden-b-v3"] as Rules["id"][])(
         reached.add(game.round);
         expect(game.round, where).toBe(nextRound);
         expect(game.ruleState!.multiplier, where).toBe(previous.ruleState?.nextMultiplier ?? 1);
-        expect(game.dealer, where).toBe(previous.round && !previous.ruleState!.keepDealer ? (previous.dealer + 1) % 4 : previous.dealer);
+        const keepDealer = !previous.round || previous.result?.reason === "draw" || previous.result?.winners.includes(previous.dealer);
+        expect(game.dealer, where).toBe(keepDealer ? previous.dealer : (previous.dealer + 1) % 4);
         expect(game.roundStartScores, where).toEqual(previous.players.map(p => p!.score));
         expect(game.roundStartExternalScores, where).toEqual(previous.players.map(p => p!.externalScore ?? 0));
         expect(game.replay!.multiplier, where).toBe(game.ruleState!.multiplier);
@@ -65,6 +66,7 @@ it.each(["nj-garden-v2", "nj-open-v2", "nj-garden-b-v3"] as Rules["id"][])(
         expect(JSON.stringify(game.history.slice(0, -1)), where).toBe(frozenHistory);
         const saved = game.history.at(-1)!;
         expect(saved.result, where).toEqual(game.result);
+        expect(game.ruleState!.keepDealer, where).toBe(saved.result.reason === "draw" || saved.result.winners.includes(game.dealer));
         expect(saved.scores, where).toEqual(game.players.map(p => p!.score));
         expect(saved.externalScores, where).toEqual(game.players.map(p => p!.externalScore ?? 0));
         expect(game.replay!.frames.at(-1)!.result, where).toEqual(game.result);

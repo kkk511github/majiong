@@ -83,10 +83,18 @@ for (let index = 0; index < 6; index++) {
 const all = [...matches.values()]
   .map((m) => m.match)
   .sort((a, b) => b.record.at - a.record.at);
+const reads = new Map<string, number>();
+client.markMatchRead = async (game) => {
+  const readAt = reads.get(game) ?? Date.now(); reads.set(game, readAt); return { readAt };
+};
 client.loadRecords = async (_admin, query) => {
   const q = query ?? new URLSearchParams(),
     code = q.get("code") ?? "";
-  const found = all.filter((r) => r.code.startsWith(code));
+  const found = all.filter((r) => {
+    const member = q.get("member"), read = q.get("read");
+    return r.code.startsWith(code) && (!member || r.record.memberIds?.includes(member)) &&
+      (!_admin || !read || read === "all" || (read === "read" ? reads.has(r.game) : !reads.has(r.game)));
+  });
   const counts = new Map<string, number>();
   for (const item of found) {
     const day = recordDate(item.record.at);
@@ -98,7 +106,7 @@ client.loadRecords = async (_admin, query) => {
       (!q.has("to") || r.record.at < Number(q.get("to"))),
   );
   return {
-    records,
+    records: records.map(r => ({ ...r, adminReadAt: reads.get(r.game) })),
     total: records.length,
     page: 1,
     pageSize: 20,
@@ -163,12 +171,14 @@ function Preview() {
         >
           本地预览 · 演示数据
         </span>
-        <button onClick={() => (location.href = "/cocos-table/index.html")}>
+        <button onClick={() => (location.href = "./opening.html")}>
           <LayoutGrid />
-          牌桌预览
+          开桌预览
         </button>
       </nav>
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(<Preview />);
+const root = createRoot(document.getElementById("root")!);
+root.render(<Preview />);
+if (import.meta.hot) import.meta.hot.dispose(() => root.unmount());

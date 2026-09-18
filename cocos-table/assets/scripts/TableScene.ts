@@ -1,5 +1,6 @@
-import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp } from 'cc';
+import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp, EventTouch } from 'cc';
 import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
+import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type TileDragOrigin } from './tile-drag';
 const { ccclass } = _decorator;
 const GOLD='#e4c573', INK='#fcf1d0', GREEN='#093f37';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
@@ -9,10 +10,14 @@ export class TableScene extends Component {
  private root!:Node; private hud!:Node; private racks!:Node; private effectsRoot!:Node; private state?:TableSceneState;
  private effectData=new Map<string,sp.SkeletonData>();
  private frames=new Map<string,SpriteFrame>(); private nodes=new Map<string,Node>(); private shadows=new Map<string,Node>();
+ private tileLayout=new Map<string,SceneTile>();
+ private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3};
  private avatarLoads=new Set<string>();
  private ready=false; private channel=''; private lastEffect='';
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
  private pointer?:Node; private pointerKey=''; private pointerAt='';
+ private cancelHandTouch=()=>{if(!this.handTouch)return;this.handTouch=undefined;if(this.ready&&this.state)this.draw();};
+ private onVisibility=()=>{if(document.hidden)this.cancelHandTouch();};
  private onMessage=(event:MessageEvent)=>{
   if(event.source!==window.parent||event.origin!==location.origin)return;
   const d=event.data;
@@ -27,6 +32,7 @@ export class TableScene extends Component {
   this.racks=this.make('Flower racks',640,295,1280,590);
   this.effectsRoot=this.make('Effects',640,295,1280,590);
   window.addEventListener('message',this.onMessage);
+  window.addEventListener('blur',this.cancelHandTouch);document.addEventListener('visibilitychange',this.onVisibility);
   try{
    const catalog=(await load<JsonAsset>('tile-atlas',JsonAsset)).json as Atlas;
    await Promise.all(Object.entries(catalog).map(async([pose,data])=>{
@@ -53,7 +59,7 @@ export class TableScene extends Component {
    if(this.state)this.draw();
   }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error'},location.origin==='null'?'*':location.origin);}
  }
- onDestroy(){window.removeEventListener('message',this.onMessage);}
+ onDestroy(){window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.cancelHandTouch);document.removeEventListener('visibilitychange',this.onVisibility);this.handTouch=undefined;}
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}
  private text(parent:Node,str:string,x:number,y:number,w:number,h:number,size=20,color=INK){const n=this.make(str,x,y,w,h,parent),l=n.addComponent(Label);l.string=str;l.fontSize=size;l.lineHeight=size+4;l.color=new Color(color);l.isBold=true;l.overflow=Label.Overflow.SHRINK;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;return n;}
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
@@ -94,6 +100,8 @@ export class TableScene extends Component {
  }
  private draw(){
   const s=this.state!,tiles=layoutTable(s),ids=new Set(tiles.map(t=>t.id));
+  this.tileLayout=new Map(tiles.map(tile=>[tile.id,tile]));
+  if(this.handTouch&&(!ids.has(this.handTouch.id)||!canContinueTileDrag(s,this.handTouch.origin)))this.handTouch=undefined;
   for(const [id,n]of this.nodes)if(!ids.has(id)){n.destroy();this.nodes.delete(id);this.shadows.get(id)?.destroy();this.shadows.delete(id);}
   this.hud.destroy();this.hud=this.make('HUD',640,295,1280,590);
   this.drawRacks(s,tiles);
@@ -114,7 +122,7 @@ export class TableScene extends Component {
    if(this.pointerKey!==last.id||this.pointerAt!==positionKey){if(this.pointer){Tween.stopAllByTarget(this.pointer);this.pointer.destroy();}this.pointer=this.image('pointer',last.x,last.y-last.h/2-17,24,30,this.effectsRoot);const at=this.pointer.position.clone();tween(this.pointer).repeatForever(tween().to(.65,{position:new Vec3(at.x,at.y+5,0)},{easing:'sineInOut'}).to(.65,{position:at},{easing:'sineInOut'})).start();this.pointerKey=last.id;this.pointerAt=positionKey;}
    this.pointer?.setSiblingIndex(this.root.children.length-1);
   }else{this.pointer?.destroy();this.pointer=undefined;this.pointerKey='';}
-  this.drawEffect(s);this.effectsRoot.setSiblingIndex(this.root.children.length-1);(window as any).__JINLING_TABLE_LAYOUT__=tiles;
+  this.drawEffect(s);this.positionDraggedTile();this.effectsRoot.setSiblingIndex(this.root.children.length-1);(window as any).__JINLING_TABLE_LAYOUT__=tiles;
  }
  private drawRacks(s:TableSceneState,tiles:SceneTile[]){
   this.racks.destroy();this.racks=this.make('Flower racks',640,295,1280,590);
@@ -138,12 +146,52 @@ export class TableScene extends Component {
    for(let i=2;i>=0;i--){g.fillColor=new Color(i===0?'#03291c65':'#03291c1a');const contact=t.area==='hand'?{...t,y:t.y+t.h*.32,h:t.h*.28}:t;const points=tileFootprint(contact,t.area==='flower'?-i/2:i);g.moveTo(points[0][0]-t.x,t.y-points[0][1]);for(const pt of points.slice(1))g.lineTo(pt[0]-t.x,t.y-pt[1]);g.close();g.fill();}
    shadow.setSiblingIndex(this.root.children.length-1);
   }
-  let n=this.nodes.get(t.id);if(!n){n=this.make(t.id,t.x,t.y,t.w,t.h);n.addComponent(Sprite);this.nodes.set(t.id,n);}
+  let n=this.nodes.get(t.id);if(!n){n=this.make(t.id,t.x,t.y,t.w,t.h);n.addComponent(Sprite);this.nodes.set(t.id,n);if(t.area==='hand'&&t.pose==='own')this.bindTileTouch(n,t.id);}
   n.getComponent(UITransform)!.setContentSize(t.w,t.h);n.setPosition(t.x-640,295-t.y,0);
   n.setRotationFromEuler(0,0,t.rotation||0);
   let pose=t.pose;
   const sp=n.getComponent(Sprite)!;sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(pose+'-'+(t.tile===undefined?0:tileKind(t.tile)))||null;n.getComponent(UITransform)!.setContentSize(t.w,t.h);sp.color=new Color(t.selected||t.highlight?'#fff7b1':'#ffffff');
-  n.off(Node.EventType.TOUCH_END);if(t.clickable&&t.tile!==undefined)n.on(Node.EventType.TOUCH_END,()=>this.emit({type:'select',tile:t.tile!}));n.setSiblingIndex(this.root.children.length-1);
+  n.setSiblingIndex(this.root.children.length-1);
+ }
+ private bindTileTouch(node:Node,id:string){
+  // Bind once: one-second countdown pushes must not replace an in-flight touch.
+  // Resolve the latest layout by physical tile ID, never by the sorted hand index.
+  node.on(Node.EventType.TOUCH_START,(event:EventTouch)=>{
+   const tile=this.tileLayout.get(id),state=this.state;
+   if(this.handTouch||!state||!tile?.clickable||tile.tile===undefined)return;
+   const origin=beginTileDrag(state,tile.tile);if(!origin)return;
+   const point=event.getUILocation();
+   this.handTouch={id,pointer:event.getID(),origin,startX:point.x,startY:point.y,x:point.x,y:point.y,base:node.position.clone()};
+  });
+  node.on(Node.EventType.TOUCH_MOVE,(event:EventTouch)=>{
+   const touch=this.handTouch;if(!touch||touch.id!==id||touch.pointer!==event.getID())return;
+   if(!this.state||!canContinueTileDrag(this.state,touch.origin)){this.cancelHandTouch();return;}
+   const point=event.getUILocation();touch.x=point.x;touch.y=point.y;this.positionDraggedTile();
+  });
+  node.on(Node.EventType.TOUCH_END,(event:EventTouch)=>{
+   const touch=this.handTouch;if(!touch||touch.id!==id||touch.pointer!==event.getID())return;
+   const point=event.getUILocation(),state=this.state;
+   this.handTouch=undefined;
+   if(state&&canContinueTileDrag(state,touch.origin)){
+    const discard=shouldDiscardDraggedTile(state,touch.origin,point.x-touch.startX,point.y-touch.startY);
+    // An unsuccessful drag keeps the raised selection. A tap still toggles it.
+    const tapped=Math.hypot(point.x-touch.startX,point.y-touch.startY)<10;
+    if(discard)this.emit({type:'discard',tile:touch.origin.tile});
+    else if(tapped)this.emit({type:'select',tile:touch.origin.tile});
+   }
+   if(this.ready&&this.state)this.draw();
+  });
+  node.on(Node.EventType.TOUCH_CANCEL,(event:EventTouch)=>{
+   if(this.handTouch?.id===id&&this.handTouch.pointer===event.getID())this.cancelHandTouch();
+  });
+ }
+ private positionDraggedTile(){
+  const touch=this.handTouch;
+  if(!touch||touch.origin.selected!==touch.origin.tile||!touch.origin.canDiscard)return;
+  const node=this.nodes.get(touch.id);if(!node?.isValid)return;
+  // getUILocation uses upward-positive design coordinates, matching node space.
+  node.setPosition(touch.base.x+touch.x-touch.startX,touch.base.y+touch.y-touch.startY,0);
+  node.setSiblingIndex(this.root.children.length-1);
  }
  private drawHud(s:TableSceneState){
   const h=this.hud;if(s.presentation!=='replay'&&!s.externalControls){

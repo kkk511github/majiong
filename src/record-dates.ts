@@ -12,8 +12,22 @@ export function recordClock(at: number, includeDate = false) {
 }
 export function recordDateLabel(date: string, today = recordDate(Date.now())) {
   if (!date) return "全部";
+  if (date === "recent") return "近7天";
   if (date === today) return "今天";
   if (date === recordDate(recordDayRange(today).from - 86400000)) return "昨天";
+  return recordCalendarLabel(date, today);
+}
+export function recordCalendarLabel(date: string, today = recordDate(Date.now())) {
   const [year, month, day] = date.split("-").map(Number);
   return `${year !== Number(today.slice(0, 4)) ? year + "年" : ""}${month}月${day}日`;
+}
+
+/** Inclusive China-calendar days, with an exclusive upper bound for API queries. */
+export function recordFilterRange(date: string, today = recordDate(Date.now())) {
+  if (!date) return undefined;
+  if (date === "recent") {
+    const { from, to } = recordDayRange(today);
+    return { from: from - 6 * 86400000, to };
+  }
+  return recordDayRange(date);
 }

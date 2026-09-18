@@ -14,11 +14,32 @@ async function scene(page: Page) {
     return { state: c.state, tiles: (window as any).__JINLING_TABLE_LAYOUT__, labels: c.hud.getComponentsInChildren(cc.Label).map((l:any)=>l.string) };
   });
 }
-async function clickTable(page: Page, x: number, y: number) {
+async function tablePoint(page: Page, x: number, y: number) {
   const box = (await page.locator('#cocos-table-board iframe').boundingBox())!;
   const scale = Math.min(box.width / 1280, box.height / 590);
-  await page.mouse.click(box.x + (box.width - 1280 * scale) / 2 + x * scale,
-    box.y + (box.height - 590 * scale) / 2 + y * scale);
+  return {x:box.x + (box.width - 1280 * scale) / 2 + x * scale,
+    y:box.y + (box.height - 590 * scale) / 2 + y * scale};
+}
+async function clickTable(page: Page, x: number, y: number) {
+  const point=await tablePoint(page,x,y);
+  await page.mouse.click(point.x,point.y);
+}
+async function dragTile(page: Page, tile: number, dx: number, dy: number, duringDrag?:()=>Promise<void>) {
+  const t=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===tile);
+  expect(t).toBeDefined();
+  const start=await tablePoint(page,t.x,t.y),middle=await tablePoint(page,t.x+dx/2,t.y+dy/2),end=await tablePoint(page,t.x+dx,t.y+dy);
+  await page.mouse.move(start.x,start.y);
+  await page.mouse.down();
+  try {
+    await page.mouse.move(middle.x,middle.y,{steps:5});
+    await duringDrag?.();
+    await page.mouse.move(end.x,end.y,{steps:5});
+  } finally {
+    await page.mouse.up();
+  }
+  // Deliver iframe postMessages and render the resulting selection/disabled state
+  // before asserting that an invalid gesture submitted no action.
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
 }
 
 for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
@@ -72,7 +93,7 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     const tile=initial.tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
     await clickTable(page,tile.x,tile.y);
     await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
-    await expect(page.locator('.table-activity')).toContainText('已选三万 · 再点出牌');
+    await expect(page.locator('.table-activity')).toContainText('已选三万 · 上拖出牌');
     expect((await scene(page)).state.hintKinds).toEqual([0,1]);
     const hint=page.getByRole('region',{name:'胡牌提示'});
     await expect(hint).toContainText('打出后可听');
@@ -86,6 +107,13 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     await expect(page.getByLabel("打出三万可听牌",{exact:true})).toBeVisible();
     expect(hintBox.x+hintBox.width).toBeLessThanOrEqual(width);
     await page.screenshot({path:`test-results/screenshots/win-hint-${width}.png`});
+    expect(commands).toHaveLength(0);
+    const selectedTile=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
+    await clickTable(page,selectedTile.x,selectedTile.y);
+    await expect.poll(async()=>(await scene(page)).state.selected).toBe(null);
+    expect(commands).toHaveLength(0);
+    await dragTile(page,8,0,-90);
+    await expect.poll(async()=>(await scene(page)).state.selected).toBe(null);
     expect(commands).toHaveLength(0);
     const choose=async(tile:number)=>{const t=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===tile);await clickTable(page,t.x,t.y);await expect.poll(async()=>(await scene(page)).state.selected).toBe(tile);};
     await choose(0);
@@ -106,8 +134,34 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     await choose(8);
     await expect(hint.getByLabel('听牌汇总')).toContainText('打三万2种 · 余3张');
     expect(commands).toHaveLength(0);
-    const selected=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
-    await clickTable(page,selected.x,selected.y);
+    await dragTile(page,8,0,-30);
+    await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
+    expect(commands).toHaveLength(0);
+    await dragTile(page,8,0,35);
+    await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
+    expect(commands).toHaveLength(0);
+    const dragStart=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
+    await dragTile(page,8,0,-90,async()=>{
+      const held=await frame(page).evaluate(async()=>{
+        const cc=await (window as any).System.import('cc');
+        const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+        const node=c.nodes.get(c.handTouch.id);
+        return {id:c.handTouch.id,x:node.position.x,y:node.position.y};
+      });
+      expect(held.id).toBe('draw-8');
+      expect(Math.abs(held.y-(295-dragStart.y+45))).toBeLessThan(2);
+      v.deadline=Date.now()+9000;v.revision++;push();
+      await expect.poll(async()=>(await scene(page)).state.revision).toBe(v.revision);
+      await expect.poll(async()=>(await scene(page)).state.countdown).not.toBe(initial.state.countdown);
+      const updated=await frame(page).evaluate(async()=>{
+        const cc=await (window as any).System.import('cc');
+        const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+        const node=c.nodes.get(c.handTouch.id);
+        return {id:c.handTouch.id,x:node.position.x,y:node.position.y};
+      });
+      expect(updated).toEqual(held);
+      expect(commands).toHaveLength(0);
+    });
     await expect.poll(()=>commands.filter(m=>m.type==='action').length).toBe(1);
     expect(commands[0].action).toEqual({type:'discard',tile:8});
     await expect(page.locator('.table-activity')).toContainText('正在提交操作');
@@ -168,7 +222,7 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
 }
 
 for (const [width, height] of [[844,390],[1280,590]]) {
-  test(`未摸牌可预选手牌，摸牌后仍须再次选牌再出牌 ${width}`,async({page})=>{
+  test(`未摸牌可预选但上拖不出牌，摸牌后须重新选牌再上拖 ${width}`,async({page})=>{
     await page.setViewportSize({width,height});
     const v=viewFor(structuredClone(late) as unknown as Game,0);
     Object.assign(v,{phase:'playing',turn:1,canDiscard:false,actions:[],selfKongs:[],pending:undefined,result:undefined,lastDraw:undefined,deadline:Date.now()+600000});
@@ -206,6 +260,9 @@ for (const [width, height] of [[844,390],[1280,590]]) {
     await selectable(true);
     await tap(0);await selected(0);
     await tap(4);await selected(4);
+    await dragTile(page,4,0,-90);
+    await selected(4);
+    expect(commands).toHaveLength(0);
     await tap(4);await selected(null);
     expect(commands).toHaveLength(0);
     await tap(4);await selected(4);
@@ -218,6 +275,9 @@ for (const [width, height] of [[844,390],[1280,590]]) {
     v.phase='claiming';v.actions=['pass','pung'];v.pending={tile:8,from:1,kind:'discard',answered:false};v.revision++;push();
     await expect.poll(async()=>(await scene(page)).state.phase).toBe('claiming');
     await selected(4);await selectable(true);
+    await dragTile(page,4,0,-90);
+    await selected(4);
+    expect(commands).toHaveLength(0);
     await tap(92);await selected(92);
     await tap(92);await selected(null);
     await tap(4);await selected(4);
@@ -230,7 +290,7 @@ for (const [width, height] of [[844,390],[1280,590]]) {
     await selected(null);
     await tap(4);await selected(4);
     expect(commands).toHaveLength(0);
-    await tap(4);
+    await dragTile(page,4,0,-90);
     await expect.poll(()=>commands.length).toBe(1);
     expect(commands[0].action).toEqual({type:'discard',tile:4});
     await expect.poll(async()=>(await scene(page)).state.disabled).toBe(true);

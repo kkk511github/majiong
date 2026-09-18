@@ -53,7 +53,7 @@ describe("服务器校时", () => {
     clock.observe(80_000);
     expect(clock.now()).toBe(80_000);
   });
-  it.each([-6, 6])("手机快慢 %s 小时不影响10秒出牌与90秒单次超时", (hours) => {
+  it.each([-6, 6])("手机快慢 %s 小时不影响10秒出牌与整桌90秒累计超时", (hours) => {
     const { time, clock } = setup();
     time.wall = 1_000_000 + hours * 3600_000;
     const g = createGame("123456", "clock", { turnSeconds: 10 });
@@ -79,7 +79,7 @@ describe("服务器校时", () => {
     time.local += 12_000;
     time.wall += 24 * 3600_000;
     expect(decisionCountdown(view, clock.now())).toEqual({
-      seconds: 88,
+      seconds: 82,
       overtime: true,
     });
     time.local += 88_000;

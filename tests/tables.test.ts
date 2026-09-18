@@ -84,6 +84,7 @@ async function createTables(
   settings: Partial<TableSettings> = {},
   count = 1,
   creationId = "setup-1",
+  rules: Partial<Game["rules"]> = {},
 ) {
   p.send({
     type: "createTables",
@@ -94,7 +95,7 @@ async function createTables(
       ...settings,
     },
     // Keep lifecycle fixtures uncapped; B-profile bankruptcy has dedicated coverage.
-    rules: { id: "nj-garden-v2", twoBankrupt: false },
+    rules: { id: "nj-garden-v2", twoBankrupt: false, ...rules },
     count,
     creationId,
     requestId: creationId,
@@ -477,7 +478,7 @@ describe("建桌大厅真实联机", () => {
     expect(final.phase).toBe("finished");
     expect(final.table!.endReason).toContain("连续托管 2 局");
   });
-  it("超时结束后按原房号续开空桌，完整战绩持久化，重连仍可读", async () => {
+  it("超时结束后换新房号续开空桌，重启保留战绩，并一次修复旧版复用房号的空桌", async () => {
     const file = databasePath(),
       { s, port } = await boot(file),
       host = await peer(port, "开桌人"),
@@ -498,9 +499,14 @@ describe("建桌大厅真实联机", () => {
     expect(s.games.get(code)!.id).toBe(id);
     s.games.get(code)!.table!.finishedAt = Date.now() - 6000;
     await ps[0].read("left");
-    expect(s.games.get(code)!.id).not.toBe(id);
-    expect(s.games.get(code)!.players.every((p) => p === null)).toBe(true);
-    expect(s.games.get(code)!.table!.settings.trusteeMode).toBe("dissolve");
+    expect(s.games.has(code)).toBe(false);
+    expect(s.games.size).toBe(1);
+    const renewed = [...s.games.values()][0];
+    expect(renewed.code).toMatch(/^\d{6}$/);
+    expect(renewed.code).not.toBe(code);
+    expect(renewed.id).not.toBe(id);
+    expect(renewed.players.every((p) => p === null)).toBe(true);
+    expect(renewed.table!.settings.trusteeMode).toBe("dissolve");
     const back = await peer(port, "东家", ps[0].session.token),
       records = (await back.read("records")).records;
     expect(records.some((r) => r.game === id)).toBe(true);
@@ -515,7 +521,190 @@ describe("建桌大厅真实联机", () => {
       ).players.every(Boolean),
     ).toBe(true);
     db.close();
+    await stop(s);
+    const restarted = await boot(file);
+    expect([...restarted.s.games.keys()]).toEqual([renewed.code]);
+    expect(restarted.s.games.get(renewed.code)).toMatchObject({
+      id: renewed.id,
+      phase: "waiting",
+      round: 0,
+      history: [],
+      players: [null, null, null, null],
+    });
+    const restored = await peer(restarted.port, "东家", ps[0].session.token);
+    expect(
+      (await restored.read("records")).records.some((r) => r.game === id),
+    ).toBe(true);
+    await stop(restarted.s);
+    // Simulate an old release that persisted the renewed empty table under
+    // the finished match's room code, while keeping the new game identity.
+    const legacyDb = new DatabaseSync(file);
+    const persisted = JSON.parse(
+      String(legacyDb.prepare("SELECT state FROM rooms WHERE id=?").get(renewed.id)!.state),
+    ) as Game;
+    persisted.code = code;
+    legacyDb.prepare("UPDATE rooms SET state=? WHERE id=?").run(
+      JSON.stringify(persisted),
+      renewed.id,
+    );
+    legacyDb.close();
+    const repaired = await boot(file);
+    expect(repaired.s.games.has(code)).toBe(false);
+    expect(repaired.s.games.size).toBe(1);
+    const repairedTable = [...repaired.s.games.values()][0];
+    expect(repairedTable.code).toMatch(/^\d{6}$/);
+    expect(repairedTable).toMatchObject({
+      id: renewed.id,
+      phase: "waiting",
+      round: 0,
+      history: [],
+      players: [null, null, null, null],
+      rules: renewed.rules,
+      table: { settings: renewed.table!.settings },
+    });
+    await stop(repaired.s);
+    const stable = await boot(file);
+    expect([...stable.s.games.keys()]).toEqual([repairedTable.code]);
+    expect(stable.s.games.get(repairedTable.code)!.id).toBe(renewed.id);
+    const afterRepair = await peer(stable.port, "东家", ps[0].session.token);
+    expect(
+      (await afterRepair.read("records")).records.some((r) => r.game === id),
+    ).toBe(true);
   });
+  it.each(["twoBankrupt", "eightRounds"] as const)(
+    "%s结束整桌后连续换新桌号，旧号不能再加入，战绩保留且新桌重置积分",
+    async (ending) => {
+      const { s, port } = await boot(),
+        host = await peer(port, "续桌管理员"),
+        [code] = await createTables(
+          host,
+          { continuousRounds: true, name: "自动续桌", scoreMultiplier: 0.2 },
+          1,
+          `renew-${ending}`,
+          { rounds: 8, twoBankrupt: ending === "twoBankrupt" },
+        ),
+        ps = await fill(port, code);
+      await ps[0].read("state", (m) => m.state.phase === "playing");
+      const original = s.games.get(code)!;
+      expect(original.rules.rounds).toBe(8);
+      original.players.forEach((p) => { p!.overtimeUsedMs = 40000; });
+      const finalRound = ending === "twoBankrupt" ? 1 : 8;
+      async function finishMatch(activeCode: string) {
+        const current = s.games.get(activeCode)!;
+        if (ending === "twoBankrupt") {
+          current.players.forEach(
+            (p, seat) => (p!.score = [180, 0, 1, 179][seat]),
+          );
+          current.roundStartScores = [180, 0, 1, 179];
+        }
+        for (let round = 1; round <= finalRound; round++) {
+          const settled = await win(s, activeCode, ps[0]);
+          expect(settled.round).toBe(round);
+          expect(settled.phase).toBe(
+            round === finalRound ? "finished" : "ended",
+          );
+          if (round < finalRound) {
+            s.games.get(activeCode)!.history.at(-1)!.at = Date.now() - 11000;
+            await ps[0].read(
+              "state",
+              (m) =>
+                m.state.code === activeCode &&
+                m.state.round === round + 1 &&
+                m.state.phase === "playing",
+            );
+          }
+        }
+      }
+      await finishMatch(code);
+      const finished = s.games.get(code)!;
+      expect(finished.players.map((p) => p!.overtimeUsedMs)).toEqual([
+        40000, 40000, 40000, 40000,
+      ]);
+      if (ending === "twoBankrupt")
+        expect(finished.players.filter((p) => p!.score === 0)).toHaveLength(2);
+      finished.table!.finishedAt = Date.now() - 11000;
+      for (const p of ps) expect((await p.read("left")).lobby).toBe(true);
+      expect(s.games.has(code)).toBe(false);
+      expect(s.games.size).toBe(1);
+      const renewed = [...s.games.values()][0];
+      expect(renewed.code).toMatch(/^\d{6}$/);
+      expect(renewed.code).not.toBe(code);
+      expect(renewed.id).not.toBe(original.id);
+      expect(renewed).toMatchObject({
+        phase: "waiting",
+        round: 0,
+        history: [],
+        initialScore: 90,
+        players: [null, null, null, null],
+      });
+      expect(renewed.table!.settings).toEqual(finished.table!.settings);
+      expect(renewed.rules).toEqual(finished.rules);
+      expect(renewed.ownerId).toBe(original.ownerId);
+      expect(renewed.scoreDivisor).toBe(5);
+      expect(renewed.table).toMatchObject({
+        creatorId: original.table!.creatorId,
+        groupId: original.table!.groupId,
+        number: original.table!.number,
+      });
+      host.send({ type: "tables" });
+      const listing = await host.read("tables", (m) =>
+        m.tables.some((t) => t.code === renewed.code),
+      );
+      expect(listing.tables.map((t) => t.code)).toEqual([renewed.code]);
+      ps[0].send({ type: "join", code });
+      expect((await ps[0].read("error")).message).toContain("房间不存在");
+      const oldRecord = await fetch(
+        `http://127.0.0.1:${port}/api/matches/${original.id}`,
+        { headers: { Authorization: `Bearer ${ps[0].session.token}` } },
+      );
+      expect(oldRecord.status).toBe(200);
+      const archived = await oldRecord.json();
+      expect(archived.match.code).toBe(code);
+      expect(archived.rounds).toHaveLength(finalRound);
+      expect(archived.match.record.scores).toEqual(
+        finished.players.map((p) => p!.score),
+      );
+      for (let seat = 0; seat < 4; seat++) {
+        ps[seat].send({ type: "join", code: renewed.code, seat: seat as Seat });
+        await ps[seat].read("state", (m) => m.state.code === renewed.code);
+      }
+      const restarted = (
+        await ps[0].read(
+          "state",
+          (m) => m.state.code === renewed.code && m.state.phase === "playing",
+        )
+      ).state;
+      expect(restarted.round).toBe(1);
+      expect(restarted.history).toEqual([]);
+      expect(restarted.players.map((p) => p!.score)).toEqual([90, 90, 90, 90]);
+      expect(restarted.players.map((p) => p!.overtimeUsedMs ?? 0)).toEqual([
+        0, 0, 0, 0,
+      ]);
+      await finishMatch(renewed.code);
+      s.games.get(renewed.code)!.table!.finishedAt = Date.now() - 11000;
+      for (const p of ps) await p.read("left");
+      const next = [...s.games.values()][0];
+      expect(s.games.size).toBe(1);
+      expect(new Set([code, renewed.code, next.code]).size).toBe(3);
+      expect(new Set([original.id, renewed.id, next.id]).size).toBe(3);
+      expect(next).toMatchObject({
+        phase: "waiting",
+        round: 0,
+        history: [],
+        initialScore: 90,
+        scoreDivisor: 5,
+        ownerId: original.ownerId,
+        players: [null, null, null, null],
+        rules: original.rules,
+        table: {
+          creatorId: original.table!.creatorId,
+          groupId: original.table!.groupId,
+          number: original.table!.number,
+          settings: original.table!.settings,
+        },
+      });
+    },
+  );
   it("只有创建人可收桌，禁止收进行中的桌或绕过关闭解散设置", async () => {
     const { s, port } = await boot(),
       host = await peer(port, "开桌人"),
@@ -602,7 +791,7 @@ describe("新版计时服务端执行", () => {
         expect(s.games.get(code)!.players[0]!.trustee).toBe(false);
       });
   it.each([true, false])(
-    "10+90秒后托管可取消，按次/全局策略 %s",
+    "旧客户端计时设置 %s 都累计扣时，取消托管不回充额度",
     async (overtimePerTurn) => {
       const { s, port } = await boot(),
         host = await peer(port, "计时管理员");
@@ -618,6 +807,7 @@ describe("新版计时服务端执行", () => {
       const ps = await fill(port, code);
       expect(s.games.get(code)!.phase).toBe("waiting");
       expect(s.games.get(code)!.scoreDivisor).toBe(2);
+      expect(s.games.get(code)!.table!.settings.overtimePerTurn).toBe(false);
       for (const p of ps) p.send({ type: "ready" });
       await ps[0].read("state", (m) => m.state.phase === "playing");
       let g = s.games.get(code)!;
@@ -654,7 +844,7 @@ describe("新版计时服务端执行", () => {
       });
       await ps[0].read("ack", (m) => m.requestId === "cancel-return");
       expect(s.games.get(code)!.players[0]!.trusteeLocked).toBe(false);
-      expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(0);
+      expect(s.games.get(code)!.players[0]!.overtimeUsedMs).toBe(90000);
     },
   );
   it("重启保持剩余额度与本次原始截止时间；三档倍率持久化并用于续桌", async () => {
@@ -668,6 +858,8 @@ describe("新版计时服务端执行", () => {
     const ps = await fill(a.port, codes[0]);
     await ps[0].read("state", (m) => m.state.phase === "playing");
     const g = a.s.games.get(codes[0])!;
+    // Simulate a game persisted by the previous per-decision release.
+    g.table!.settings.overtimePerTurn = true;
     g.players[0]!.overtimeUsedMs = 42000;
     const deadline = Date.now() + 80000;
     g.deadline = deadline;
@@ -678,6 +870,7 @@ describe("新版计时服务端执行", () => {
       restored = b.s.games.get(codes[0])!;
     expect(restored.deadline).toBe(deadline);
     expect(restored.players[0]!.overtimeUsedMs).toBe(42000);
+    expect(restored.table!.settings.overtimePerTurn).toBe(false);
     expect(restored.scoreDivisor).toBe(5);
   });
 });

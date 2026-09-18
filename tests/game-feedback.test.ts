@@ -109,7 +109,7 @@ describe("玩法文案遵守当前牌桌设置", () => {
     expect(off).toContain("硬花每张 1");
     expect(off).toContain("每个 1 分");
   });
-  it("手动准备、踢人、每次超时和可取消托管文案", () => {
+  it("手动准备、踢人、整桌累计超时和可取消托管文案", () => {
     const text = ruleSections(
       { ...DEFAULT_RULES, turnSeconds: 10 },
       {
@@ -127,7 +127,8 @@ describe("玩法文案遵守当前牌桌设置", () => {
     expect(text).toContain("四位真人");
     expect(text).toContain("每人手动准备");
     expect(text).toContain("满四人后 10 秒");
-    expect(text).toContain("再倒计时 90 秒");
+    expect(text).toContain("整桌共用的 90 秒超时额度");
+    expect(text).toContain("换新桌才恢复");
     expect(text).toContain("可随时取消");
     expect(text).not.toContain("添加电脑");
   });

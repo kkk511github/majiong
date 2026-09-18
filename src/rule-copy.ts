@@ -93,7 +93,7 @@ export function ruleSections(
     ];
     sections.push([
       "天胡、地胡与比下胡",
-      `庄家补完起手花牌后直接成牌为天胡，${b ? "其他三家每家固定付400分，余额不足付剩余全部；不叠加其他牌型、花分或本把倍率。两家归零则结束本桌。" : "其他三家可用分归零。"}非庄家起手听牌${b ? "，打出第一张牌并保留起手听口时自动地胡报听，" : "且"}此后不碰、不换听，胡牌加 ${v.earthly}；暗杠、明杠、补杠后听口只能不变或减少。庄家胡、大胡、海底捞月、流局、包牌、花杠、罚分、一炮多响保留庄家；${rules.successorDouble ? "普通闲家胡后接庄也触发比下胡。" : ""}${rules.biXiaHu === "off" ? "本桌关闭比下胡。" : rules.biXiaHu === "cumulative" ? "连续触发时下把倍率在当前倍率上 ×2。" : "触发后下一把 ×2，连续触发仍为 ×2，同一把多个条件不重复相乘。"}${rules.doubleSidePayments ? (b ? "本把倍率用于胡牌、杠分和四张同牌罚分；两项风牌收付仍固定每家5分。" : "本把倍率同时用于胡牌、杠分、罚分。") : "本把倍率只用于胡牌分。"}`,
+      `庄家补完起手花牌后直接成牌为天胡，${b ? "其他三家每家固定付400分，余额不足付剩余全部；不叠加其他牌型、花分或本把倍率。两家归零则结束本桌。" : "其他三家可用分归零。"}非庄家起手听牌${b ? "，打出第一张牌并保留起手听口时自动地胡报听，" : "且"}此后不碰、不换听，胡牌加 ${v.earthly}；暗杠、明杠、补杠后听口只能不变或减少。只有庄家胡牌或流局才连庄，其他情况一律由下家坐庄。庄家胡、大胡、海底捞月、流局、包牌、花杠、弃牌奖励或罚分、一炮多响触发下一把比下胡；是否翻倍不决定谁坐庄。${rules.successorDouble ? "只有下一位庄家在本把胡牌且下一把接庄时，才触发接庄比；其他闲家普通胡牌后的换庄不因此翻倍。" : ""}${rules.biXiaHu === "off" ? "本桌关闭比下胡。" : rules.biXiaHu === "cumulative" ? "连续触发时下把倍率在当前倍率上 ×2。" : "触发后下一把 ×2，连续触发仍为 ×2，同一把多个条件不重复相乘。"}${rules.doubleSidePayments ? (b ? "本把倍率用于胡牌、杠分和四张同牌罚分；两项风牌收付仍固定每家5分。" : "本把倍率同时用于胡牌、杠分、罚分。") : "本把倍率只用于胡牌分。"}`,
     ]);
     sections.push(["架牌", "全球独钓以第四嘴后首次打出的牌为架牌：同花色前后两张点炮外包，架风牌时四风点炮外包；换过单钓牌即取消这项责任，摸切不取消。非法胡牌由系统直接禁止，不收诈胡罚分。"]);
     sections.push([
@@ -108,25 +108,16 @@ export function ruleSections(
 function trusteeDescription(rules: Rules, table: TableSettings): string {
   if (table.trusteeMode === "disabled" || !rules.turnSeconds)
     return "本桌不限时，关闭超时托管。";
-  if (table.overtimePerTurn) {
-    const effect =
-      table.trusteeMode === "dissolve"
-        ? "耗尽后结束本桌并结算。"
-        : table.trusteeMode === "afterRounds"
-          ? `耗尽后托管，可随时取消；连续托管 ${table.trusteeRounds} 把后结束本桌。`
-          : "耗尽后托管，可随时取消。";
-    const next = table.continuousRounds
-      ? "每把结束展示四家牌面与本把输赢，10 秒后自动开下一把，四人都点击继续可提前开。"
-      : "";
-    return `每次出牌或响应先有 ${rules.turnSeconds} 秒，超出后再倒计时 ${table.overtimeSeconds ?? 90} 秒；${effect}${next}`;
-  }
-  const clock = `每次出牌或响应先有 ${rules.turnSeconds} 秒，${table.overtimeSeconds ? `超出的时间计入整桌累计超时，累计达到 ${table.overtimeSeconds} 秒后` : "超时后"}`;
+  const clock = `每次出牌或响应先有 ${rules.turnSeconds} 秒，${table.overtimeSeconds ? `每人另有整桌共用的 ${table.overtimeSeconds} 秒超时额度；只扣超出正常时间的部分，出牌后暂停扣减，下次超时接着剩余秒数计时。同桌跨把、重连和取消托管均不恢复额度，换新桌才恢复。额度耗尽后` : "超时后"}`;
   const effect = {
-    match: "进入全局托管，持续到主动取消；随时可取消接手。",
+    match: "进入全局托管，持续到主动取消；可随时取消接手。",
     round: "托管至本把结算，下一把需手动继续。",
     dissolve: "结束本桌并结算。",
     afterRounds: `托管累计 ${table.trusteeRounds} 把后结束本桌。`,
     disabled: "",
   };
-  return clock + effect[table.trusteeMode];
+  const next = table.continuousRounds
+    ? "每把结束展示四家牌面与本把输赢，10 秒后自动开下一把，四人都点击继续可提前开。"
+    : "";
+  return clock + effect[table.trusteeMode] + next;
 }

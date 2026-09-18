@@ -21,14 +21,7 @@ export function overtimeRemaining(
     !g.overtimeCharged?.includes(seat) && deadline > 0
       ? Math.max(0, now - deadline)
       : 0;
-  return Math.max(
-    0,
-    limit -
-      (g.table?.settings.overtimePerTurn && !g.overtimeCharged?.includes(seat)
-        ? 0
-        : (p?.overtimeUsedMs ?? 0)) -
-      elapsed,
-  );
+  return Math.max(0, limit - (p?.overtimeUsedMs ?? 0) - elapsed);
 }
 export function overtimeExpired(
   g: TimedGame,
@@ -41,7 +34,7 @@ export function overtimeExpired(
     overtimeRemaining(g, seat, now) === 0
   );
 }
-/** Charge one decision once; act() works on a clone so invalid input cannot consume time. */
+/** Charge an active clock once; act() clones state so invalid input cannot consume time. */
 export function chargeOvertime(g: Game, seat: Seat, now: number): void {
   const p = g.players[seat],
     limit = (g.table?.settings.overtimeSeconds ?? 0) * 1000;
@@ -62,8 +55,7 @@ export function chargeOvertime(g: Game, seat: Seat, now: number): void {
     return;
   p.overtimeUsedMs = Math.min(
     limit,
-    (g.table?.settings.overtimePerTurn ? 0 : (p.overtimeUsedMs ?? 0)) +
-      Math.max(0, now - decisionDeadline(g, seat)),
+    (p.overtimeUsedMs ?? 0) + Math.max(0, now - decisionDeadline(g, seat)),
   );
   (g.overtimeCharged ??= []).push(seat);
 }
@@ -79,19 +71,26 @@ export function setTrustee(
   if (enabled && g.table?.settings.trusteeMode === "disabled")
     throw Error("本桌已关闭托管");
   const wasAutomatic = p.trustee || p.trusteeLocked;
+  // Switching to automatic play must not erase time already spent deciding.
+  if (enabled && !wasAutomatic) chargeOvertime(g, seat, now);
   p.trustee = enabled;
   if (!enabled) {
     p.trusteeLocked = false;
     p.trusteeRounds = 0;
     if (wasAutomatic) {
-      p.overtimeUsedMs = 0;
       const active =
         (g.phase === "playing" && g.turn === seat) ||
         (g.phase === "claiming" &&
           !!g.pending?.offers[seat] &&
           g.pending.replies[seat] === undefined);
       if (active) {
-        p.resumedDeadline = now + g.rules.turnSeconds * 1000;
+        // Give a returning player one normal decision window. Repeated toggles
+        // in the same decision preserve unused normal time without refilling it.
+        p.resumedDeadline = !g.rules.turnSeconds
+          ? 0
+          : p.resumedDeadline === undefined
+            ? now + g.rules.turnSeconds * 1000
+            : Math.max(p.resumedDeadline, now);
         g.overtimeCharged = g.overtimeCharged?.filter((s) => s !== seat);
       }
     }

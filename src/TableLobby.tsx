@@ -143,7 +143,7 @@ export function TableSetup({
     [settings, setSettings] = useState<TableSettings>({
       ...DEFAULT_TABLE_SETTINGS,
       ...saved.settings,
-      overtimePerTurn: true,
+      overtimePerTurn: false,
       continuousRounds: true,
       resultSeconds: 10,
     });
@@ -191,7 +191,7 @@ export function TableSetup({
       settings.overtimeSeconds! < 0 ||
       settings.overtimeSeconds! > 300
     ) {
-      setError("超时倒计时时间需要 0–300 秒");
+      setError("整桌超时额度需要 0–300 秒");
       setStep(1);
       return false;
     }
@@ -415,7 +415,7 @@ export function TableSetup({
                 change={(readyMode) => update({ readyMode })}
               />
             </Setting>
-            <Setting label="自动续桌" help="本桌结束后按原设置续开空桌">
+            <Setting label="自动续桌" help="本桌结束后换新桌号，按原设置开空桌">
               <Toggle
                 label="自动续桌"
                 checked={settings.autoRenew}
@@ -466,7 +466,7 @@ export function TableSetup({
             </Setting>
             <Setting
               label="每步思考"
-              help={settings.trusteeMode === "disabled" ? "关闭托管时不限出牌时间" : `超过正常时间后，再开始 ${settings.overtimeSeconds ?? 90} 秒超时倒计时`}
+              help={settings.trusteeMode === "disabled" ? "关闭托管时不限出牌时间" : "每次独立计时；超过后消耗本桌个人剩余超时额度"}
             >
               <input
                 className="number-setting"
@@ -484,12 +484,12 @@ export function TableSetup({
               <span className="setting-unit">秒 · 10–300</span>
             </Setting>
             <Setting
-              label="超时倒计时"
-              help="每次出牌重新计时；重连保持本次剩余时间"
+              label="整桌超时额度"
+              help="每人独立累计，同桌跨把不重置；换新桌才恢复额度"
             >
               <input
                 className="number-setting"
-                aria-label="超时倒计时秒数"
+                aria-label="整桌超时额度秒数"
                 type="number"
                 min={0}
                 max={300}
@@ -596,13 +596,13 @@ export function TableSetup({
               <div>
                 <dt>等待与托管</dt>
                 <dd>
-                  {settings.trusteeMode === "disabled" ? "不限时 · 关闭托管" : `${seconds} 秒 / 步 · 超时倒计时 ${settings.overtimeSeconds ?? 90} 秒 · ${trusteeNames[settings.trusteeMode]}`}
+                  {settings.trusteeMode === "disabled" ? "不限时 · 关闭托管" : `${seconds} 秒 / 步 · 累计超时额度 ${settings.overtimeSeconds ?? 90} 秒 · ${trusteeNames[settings.trusteeMode]}`}
                 </dd>
               </div>
               <div>
                 <dt>桌子结束后</dt>
                 <dd>
-                  {settings.autoRenew ? "按原设置续开空桌" : "不自动续桌"}
+                  {settings.autoRenew ? "换新桌号，按原设置开空桌" : "不自动续桌"}
                 </dd>
               </div>
             </dl>
@@ -971,7 +971,7 @@ export function TableSettingsSummary({
             {rules.turnSeconds > 0 && (
               <>
                 {" "}
-                {s.overtimePerTurn ? "超时倒计时" : "累计超时"}{" "}
+                累计超时{" "}
                 {s.overtimeSeconds ?? 0} 秒 ·{" "}
               </>
             )}
@@ -983,7 +983,7 @@ export function TableSettingsSummary({
           <dt>记分与续桌</dt>
           <dd>
             输赢 × {s.scoreMultiplier ?? 0.5} · 展示 {s.resultSeconds} 秒 ·{" "}
-            {s.autoRenew ? "结束后续开空桌" : "不续桌"}
+            {s.autoRenew ? "结束后换新桌号开空桌" : "不续桌"}
           </dd>
         </div>
         <div>

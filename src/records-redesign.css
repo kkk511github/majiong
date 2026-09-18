@@ -1,0 +1,237 @@
+/* Jade-and-paper records: one horizontal date bar and four equal score columns. */
+.app.classic.polished[data-page="history"] {
+  background: #eeeee4 url('/art/records/jiangnan-records-v1.webp') center bottom / 100% auto no-repeat;
+  --records-nav: 54px;
+}
+.app.polished[data-page="history"] > .lobby { padding: 0; }
+.app.polished .records-workspace { gap: 0; }
+.app.polished .records-workspace .records-heading {
+  padding: 8px max(24px, env(safe-area-inset-right)) 8px max(24px, env(safe-area-inset-left));
+  min-height: 64px; gap: 16px; background: #1a5147; border: 0;
+  grid-template-columns: auto minmax(64px, 1fr) auto minmax(130px, 190px) auto;
+}
+.app.polished .records-heading h1 { font-size: 26px; color: #fbf6df; text-shadow: none; text-align: left; }
+.records-back span { display: none; }
+.app.polished .records-heading nav { background: #123e36; padding: 0; border: 0; border-radius: 7px; }
+.app.polished .records-heading nav button { min-height: 44px; padding: 8px 20px; color: #e2e8d9; font-size: 14px; }
+.app.polished .records-heading nav button[aria-pressed="true"] { background: #f3e3b5; color: #314334; }
+.app.polished .records-heading > .replay-open { background: transparent; border-color: #aac5b15c; box-shadow: none; font-size: 13px; }
+.app.polished .records-workspace-body {
+  display: flex; flex-direction: column; gap: 0; padding: 12px 0 0; min-height: 0;
+  width: min(1120px, calc(100% - 100px)); margin: 0 auto;
+}
+.record-dates { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0; border: 0; flex-shrink: 0; }
+.record-date-list { flex: 0 0 auto; flex-direction: row; overflow: visible; gap: 6px; }
+.app.polished .record-date { min-height: 44px; min-width: 74px; padding: 8px 18px; font-size: 14px; border: 1px solid #c5ccbb; border-radius: 6px; background: #faf9f0; color: #3e5349; align-items: center; }
+.app.polished .record-date[aria-pressed="true"] { background: #226355; color: #fff8dd; border-color: #226355; }
+.record-calendar { display: flex; align-items: center; gap: 2px; }
+.app.polished .record-calendar > button { width: 36px; height: 44px; min-height: 44px; padding: 6px; background: transparent; color: #355b4b; border: 0; }
+.record-date-picker { min-width: 128px; min-height: 44px; padding: 6px 12px; background: #faf9f0; border-color: #c5ccbb; color: #344c40; font-size: 14px; border-radius: 6px; }
+.record-admin-filters { display: flex; gap: 6px; margin-left: auto; }
+.record-read-filter { padding: 0; }
+.record-query-mode, .record-read-filter select { width: 106px; font-size: 12px; border-color: #c5ccbb; background-color: #faf9f0; }
+.records-results { flex: 1; min-height: 0; gap: 5px; }
+.records-results-heading { min-height: 42px; color: #425a4a; font-size: 12px; }
+.app.polished .records-results-heading .records-admin { color: #5d7365; }
+.app.polished .records-pagination { color: #425a4a; }
+.app.polished .records-pagination button, .app.polished .records-results-heading .icon-button { background: #faf9f099; color: #425a4a; border-color: #c5ccbb; min-height: 36px; height: 36px; }
+.app.polished .records-clear { color: #8b5c22; }
+.app.polished .records-workspace .records-list { gap: 12px; padding: 0 3px 18px; }
+.app.polished .records-workspace .match-card { padding: 0 138px 0 0; min-height: 126px; background: #fffdf4f0; border: 1px solid #fdfbf3; border-radius: 10px; box-shadow: 0 3px 14px #2144310a; }
+.records-workspace .match-card-header { padding: 12px 16px 5px; background: transparent; border: 0; gap: 14px; flex-wrap: wrap; }
+.records-workspace .match-card-header > b { font-size: 16px; width: auto; }
+.records-workspace .match-card-header > b > span { font-size: 14px; }
+.records-workspace .match-card-header time { margin-left: auto; font-size: 11px; }
+.record-round-count { font-size: 11px; }
+.records-workspace .match-players { padding: 8px 16px 12px; gap: 8px; }
+.match-players .record-avatar { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #c3ccb9; flex-shrink: 0; grid-row: 1 / 4; margin: 0; align-self: center; }
+.records-workspace .match-player, .record-detail-total .match-player { display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: 9px; row-gap: 3px; padding: 7px 10px; border: 0; border-radius: 6px; background: #edeee575; }
+.records-workspace .match-player:first-child { padding-left: 10px; }
+.match-player-name, .match-player .record-member-id, .match-player .match-points { min-width: 0; }
+.records-workspace .match-player-name > strong { font-size: 14px; font-weight: 500; }
+.records-workspace .record-member-id { font-size: 10px; }
+.records-workspace .match-points b { font-size: 26px; font-weight: 700; }
+.app.polished .records-workspace .match-detail-link { right: 16px; min-width: 104px; min-height: 48px; padding: 8px 10px; border: 1px solid #c7aa6c; border-radius: 7px; background: #f3e1b5; color: #604820; font-size: 14px; box-shadow: inset 0 1px #fff8df; }
+.record-read-time { display: none; }
+.records-list .records-empty { color: #5b7062; background: #fffcf0a6; border-color: #a8baa3; }
+.records-list .records-empty h3 { color: #315a49; }
+.records-workspace button:focus-visible, .record-round-rail button:focus-visible { outline: 3px solid #b98832; outline-offset: -3px; }
+.app.polished[data-page="history"] > .bottom-nav { background: #164a40; border: 0; }
+.app.polished[data-page="history"] > .bottom-nav button.active { background: #285d4b; box-shadow: inset 0 -3px #e6cd83; border-radius: 0; }
+
+/* Fullscreen details preserve real scoring, replay and administrator-only team data. */
+.app.polished .modal.match-record-dialog[open] { background: #eeeee4 url('/art/records/jiangnan-records-v1.webp') center bottom / 100% auto no-repeat; color: #304d3f; gap: 0; }
+.app.polished .match-record-dialog .modal-head { background: #1a5147; border: 0; min-height: 58px; padding-block: max(6px, env(safe-area-inset-top)) 6px; }
+.app.polished .match-record-dialog .modal-head h2 { font-size: 23px; color: #fff4d6; }
+.app.polished .match-record-dialog .modal-body { padding: 14px max(24px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
+.match-details-summary { background: #fffdf2ed; border: 1px solid #ffffff; box-shadow: none; border-radius: 10px; }
+.match-summary-meta { background: transparent; border-color: #d7dccb; }
+.match-summary-meta > b { font-size: 16px; }
+.match-details-summary .match-player { position: relative; padding-left: 58px; }
+.match-details-summary .record-avatar { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); }
+.match-details-summary .match-player-name > strong { font-size: 15px; }
+.match-details-summary .match-points b { font-size: 24px; }
+.match-rounds-title h3 { font-size: 19px; color: #2d5142; }
+.match-rounds-title > span { color: #5f7567; }
+.app.polished .match-round { border: 1px solid #fffef6; border-radius: 9px; background: #fffdf2ed; color: #34513e; box-shadow: none; }
+.match-round-heading { background: #e9eddf; border-color: #d7dccb; }
+.match-round-heading b, .match-round-heading time, .match-result-label { color: #365a46; }
+.match-round-footer { background: #f4f4e9; border-color: #d7dccb; }
+.match-round-detail { gap: 10px; }
+.record-detail-total { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.app.polished .match-record-dialog .modal-head h2 { flex: 0 1 auto; }
+.match-record-dialog .modal-head .record-detail-total { flex: 1; min-width: 0; margin-left: auto; }
+.match-record-dialog .modal-head .record-detail-total .match-player { background: transparent; color: #f2edda; padding-block: 0; }
+.match-record-dialog .modal-head .record-detail-total .record-avatar { grid-row: 1 / 3; }
+.app.polished .match-record-dialog .modal-head .record-detail-total .match-points.positive { color: #ffd084 !important; }
+.match-record-dialog .modal-head .record-detail-total .match-points.negative { color: #a0d5d4; }
+.match-record-dialog .modal-head .record-detail-total .record-team { display: none; }
+.record-detail-total > span { color: #466955; font-size: 13px; white-space: nowrap; }
+.record-detail-total .match-players { flex: 1; padding: 0; gap: 8px; }
+.record-detail-total .match-player { background: #fffdf1cc; }
+.record-detail-total .match-player-name strong { font-size: 14px; }
+.record-detail-total .match-points b { font-size: 23px; }
+.record-detail-total .record-member-id { display: none; }
+.app.polished .match-detail-actions { gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+.app.polished .match-detail-actions button { min-height: 44px; background: #fdf9e8; color: #315642; border: 1px solid #c5ceba; border-radius: 7px; font-size: 13px; box-shadow: none; }
+.app.polished .round-detail-tabs { background: #dce5d5; border: 1px solid #c4d0b8; padding: 0; border-radius: 7px; }
+.app.polished .round-detail-tabs button { background: transparent; border: 0; min-width: 120px; }
+.app.polished .round-detail-tabs button[aria-selected="true"] { background: #f3e3b5; color: #4f472a; }
+.record-round-workspace { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 18px; flex: 1; min-height: 0; }
+.record-round-rail { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; padding-bottom: 8px; }
+.app.polished .record-round-rail button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 62px; flex-shrink: 0; gap: 3px; background: #d3deced9; color: #325444; border: 1px solid transparent; border-radius: 7px; }
+.record-round-rail button b { font-size: 17px; }
+.record-round-rail button small { font-size: 11px; color: #617b68; }
+.app.polished .record-round-rail button[aria-current="step"] { background: #f2e1af; border-color: #d1b56d; color: #3b5038; }
+.app.polished .match-round-detail-content { padding: 16px 20px; background: #fffdf4ed; border: 1px solid #fffdf2; border-radius: 10px; min-width: 0; overflow: auto; }
+.record-hand-heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.record-hand-heading h3 { margin: 0; font-size: 20px; color: #284735; }
+.record-hand-heading time { font-size: 12px; color: #768675; }
+.app.polished .score-details.record-score-ledger { display: flex; flex-direction: column; align-items: stretch; gap: 18px; }
+.record-transfer-section h4 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 14px; }
+.record-transfer-section h4 small { font-size: 11px; font-weight: 400; color: #718473; }
+.record-transfer-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.app.polished .record-transfer-table th, .app.polished .record-transfer-table td { text-align: left; padding: 9px 14px; border-bottom: 1px solid #dce0cf; font-size: 14px; overflow-wrap: anywhere; }
+.app.polished .record-transfer-table th { background: #e1e6d8; color: #3b5141; font-weight: 500; }
+.app.polished .record-transfer-table th:first-child { width: 42%; }
+.app.polished .record-transfer-table th:last-child, .app.polished .record-transfer-table td:last-child { width: 15%; text-align: right; }
+.app.polished .record-transfer-table td:last-child { color: #ae531f; font-weight: 700; font-size: 17px; }
+.record-transfer-table td:last-child small { font-size: 11px; font-weight: 400; }
+.record-external-tag { display: inline-block; margin-left: 6px; padding: 2px 5px; background: #ebddbd; color: #785528; border-radius: 3px; font-size: 10px; }
+.record-net-strip { display: grid; grid-template-columns: 120px repeat(4, minmax(0, 1fr)); align-items: center; border-radius: 7px; background: #dfe9d6; padding: 12px; gap: 12px; }
+.record-net-strip h4 { font-size: 14px; margin: 0; font-weight: 500; }
+.record-net-strip > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; border-left: 1px solid #becdb5; padding-left: 12px; }
+.record-net-strip span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.record-net-strip b { font-size: 25px; font-variant-numeric: tabular-nums; }
+.record-score-ledger .positive { color: #b5531a; }
+.record-score-ledger .negative { color: #177386; }
+.record-score-ledger .score-players { border-top: 1px solid #d5ddc8; padding-top: 12px; }
+.record-score-ledger .score-note, .record-score-ledger .form-note { color: #697d6b; line-height: 1.7; font-size: 12px; }
+.record-score-ledger .score-explanation { min-width: 0; }
+.record-score-ledger .score-players table { width: 100%; }
+@media (max-height: 450px) {
+  .app.polished .match-record-dialog .modal-head .match-points b { font-size: 21px; }
+  .app.polished .match-record-dialog .modal-head .match-player-name strong { font-size: 12px; }
+  .record-hand-heading { margin-bottom: 8px; }
+  .record-hand-heading h3 { font-size: 17px; }
+  .record-transfer-section h4 { margin-bottom: 6px; font-size: 12px; }
+  .app.polished .record-transfer-table th, .app.polished .record-transfer-table td { padding-block: 5px; font-size: 12px; }
+  .app.polished .score-details.record-score-ledger { gap: 12px; }
+  .record-net-strip { padding-block: 8px; }
+  .record-net-strip b { font-size: 22px; }
+}
+
+@media (max-width: 1050px) {
+  .app.polished .records-workspace .records-heading { gap: 10px; padding-inline: max(12px, env(safe-area-inset-left)); grid-template-columns: auto 1fr auto minmax(110px, 145px) auto; }
+  .app.polished .records-heading nav button { padding-inline: 10px; font-size: 12px; }
+  .app.polished .records-heading h1 { font-size: 23px; }
+  .app.polished .records-workspace-body { width: calc(100% - 40px); }
+  .record-dates { gap: 6px; }
+  .app.polished .record-date { min-width: 60px; padding-inline: 12px; }
+  .record-admin-filters { margin-left: auto; }
+  .record-query-mode, .record-read-filter select { width: 88px; }
+  .app.polished .records-workspace .match-card { padding-right: 112px; }
+  .app.polished .records-workspace .match-detail-link { min-width: 90px; right: 10px; padding-inline: 7px; font-size: 13px; }
+  .records-workspace .match-player { column-gap: 7px; grid-template-columns: 30px minmax(0, 1fr); padding: 6px 8px; }
+  .records-workspace .record-avatar { width: 30px; height: 30px; }
+  .records-workspace .match-points b { font-size: 23px; }
+  .records-workspace .match-player-name > strong { font-size: 13px; }
+  .record-round-workspace { grid-template-columns: 88px minmax(0, 1fr); gap: 10px; }
+  .app.polished .match-round-detail-content { padding: 12px 14px; }
+}
+@media (max-width: 760px) {
+  .app.classic.polished[data-page="history"] { --records-nav: 44px; }
+  .app.polished .records-workspace .records-heading { grid-template-columns: auto auto 1fr minmax(95px, 120px) 44px; grid-template-areas: none; min-height: 54px; gap: 7px; padding: 4px 10px; }
+  .app.polished .records-heading > * { grid-area: auto; }
+  .app.polished .records-heading h1 { font-size: 20px; }
+  .app.polished .records-heading nav button { font-size: 11px; padding-inline: 8px; min-height: 44px; }
+  .app.polished .records-heading > .replay-open { display: flex; width: 44px; min-height: 44px; padding: 8px; }
+  .app.polished .records-heading > .replay-open span { display: none; }
+  .record-search { height: 44px; }
+  .app.polished .record-search input { height: 42px; font-size: 12px; }
+  .app.polished .records-workspace-body { width: calc(100% - 24px); padding-top: 7px; }
+  .record-dates { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 3px; }
+  .record-date-list, .record-calendar, .record-admin-filters { flex-shrink: 0; }
+  .app.polished .record-date { min-width: 52px; padding-inline: 10px; font-size: 12px; }
+  .record-date-list { gap: 4px; }
+  .record-date-picker { min-width: 104px; font-size: 12px; padding-inline: 8px; }
+  .app.polished .record-calendar > button { width: 30px; }
+  .records-results-heading { min-height: 35px; font-size: 11px; }
+  .app.polished .records-workspace .records-list { gap: 8px; }
+  .app.polished .records-workspace .match-card { min-height: 0; padding-right: 86px; }
+  .records-workspace .match-card-header { padding: 8px 10px 3px; gap: 5px 10px; }
+  .records-workspace .match-card-header > b { font-size: 13px; }
+  .records-workspace .match-card-header > b > span { font-size: 12px; }
+  .records-workspace .match-card-header time { margin-left: auto; font-size: 10px; }
+  .record-round-count { font-size: 10px; }
+  .records-workspace .match-players { padding: 5px 10px 9px; gap: 4px; }
+  .records-workspace .match-player { grid-template-columns: minmax(0, 1fr); gap: 3px; padding: 5px 7px; }
+  .records-workspace .match-player:first-child { padding-left: 7px; }
+  .records-workspace .record-avatar { display: none; }
+  .records-workspace .match-points b { font-size: 23px; }
+  .records-workspace .record-member-id { display: none; }
+  .records-workspace .match-player-name > strong { font-size: 12px; }
+  .app.polished .records-workspace .match-detail-link { min-width: 70px; right: 8px; font-size: 12px; }
+  .app.polished .match-record-dialog .modal-head { min-height: 48px; padding-block: 4px; }
+  .app.polished .match-record-dialog .modal-head h2 { font-size: 18px; }
+  .match-record-dialog .modal-head .record-detail-total .record-avatar { display: none; }
+  .match-record-dialog .modal-head .record-detail-total .match-player { display: flex; padding: 0 3px; }
+  .match-record-dialog .modal-head .record-detail-total .match-players { gap: 3px; }
+  .app.polished .match-record-dialog .modal-body { padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); }
+  .record-detail-total { gap: 8px; }
+  .record-detail-total > span { display: none; }
+  .record-detail-total .match-player { grid-template-columns: 26px minmax(0, 1fr); padding: 4px 7px; column-gap: 6px; }
+  .record-detail-total .record-avatar { width: 26px; height: 26px; }
+  .record-detail-total .match-player-name strong { font-size: 12px; }
+  .record-detail-total .match-points b { font-size: 19px; }
+  .record-detail-total .record-team { display: none; }
+  .app.polished .match-detail-actions { gap: 6px; }
+  .app.polished .match-detail-actions button { font-size: 11px; padding-inline: 8px; }
+  .app.polished .round-detail-tabs button { min-width: 90px; }
+  .record-round-workspace { grid-template-columns: 70px minmax(0, 1fr); gap: 8px; }
+  .app.polished .record-round-rail button { min-height: 50px; }
+  .record-round-rail button b { font-size: 14px; }
+  .record-hand-heading h3 { font-size: 16px; }
+  .app.polished .record-transfer-table th, .app.polished .record-transfer-table td { padding: 6px; font-size: 12px; }
+  .app.polished .record-transfer-table td:last-child { font-size: 15px; }
+  .record-net-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px; }
+  .record-net-strip h4 { grid-column: 1 / -1; font-size: 12px; }
+  .record-net-strip > div { padding-left: 6px; }
+  .record-net-strip span { font-size: 11px; }
+  .record-net-strip b { font-size: 20px; }
+}
+@media (max-height: 450px) and (min-width: 761px) {
+  .app.classic.polished[data-page="history"] { --records-nav: 44px; }
+  .app.polished .records-workspace .records-heading { min-height: 52px; padding-block: 4px; }
+  .app.polished .records-workspace-body { padding-top: 6px; }
+  .records-results-heading { min-height: 34px; }
+  .app.polished .records-workspace .match-card { min-height: 98px; }
+  .records-workspace .record-member-id { display: none; }
+  .records-workspace .record-avatar { grid-row: 1 / 3; }
+  .records-workspace .match-card-header { padding-block: 6px 2px; }
+  .records-workspace .match-players { padding-block: 5px 8px; }
+  .app.polished .match-record-dialog .modal-head { min-height: 48px; }
+  .app.polished .match-record-dialog .modal-head h2 { font-size: 20px; }
+  .app.polished .match-record-dialog .modal-body { padding-top: 8px; }
+  .record-detail-total .match-player { padding-block: 4px; }
+}

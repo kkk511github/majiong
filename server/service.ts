@@ -112,6 +112,16 @@ export function makeServer(
   const save = db.prepare(
     "INSERT INTO rooms VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at",
   );
+  function freshTableCode() {
+    let code: string;
+    do {
+      code = String(randomInt(100000, 1000000));
+    } while (
+      games.has(code) ||
+      db.prepare("SELECT 1 FROM match_records WHERE code=? LIMIT 1").get(code)
+    );
+    return code;
+  }
   for (const row of db
     .prepare(
       "SELECT state FROM rooms WHERE updated_at > ? OR CASE WHEN json_valid(state) THEN json_type(state, '$.table') = 'object' ELSE 0 END",
@@ -125,7 +135,8 @@ export function makeServer(
       if (g.table) {
         const saved = g.table.settings;
         g.table.settings = normalizeTableSettings(saved);
-        // Existing tables retain their timing and settlement contract.
+        // Keep saved limits and consumed time while upgrading all tables to a
+        // personal cumulative overtime balance (including legacy per-turn tables).
         g.table.settings.overtimeSeconds = saved.overtimeSeconds ?? 0;
         g.table.settings.scoreMultiplier = saved.scoreMultiplier ?? 0.5;
         if (!accounts.canOpenTables(g.table.creatorId))
@@ -147,6 +158,21 @@ export function makeServer(
     } catch {
       /* Keep corrupt records for diagnosis, never start a partial game. */
     }
+  }
+  // Retire reused codes on empty tables renewed by older server versions.
+  for (const [oldCode, g] of games) {
+    if (
+      !g.table || g.phase !== "waiting" || g.round !== 0 ||
+      g.history.length || g.players.some(Boolean) ||
+      !db.prepare("SELECT 1 FROM match_records WHERE code=? LIMIT 1").get(oldCode)
+    ) continue;
+    const renewed = structuredClone(g);
+    renewed.code = freshTableCode();
+    renewed.table!.createdAt = Date.now();
+    renewed.revision++;
+    save.run(renewed.id, JSON.stringify(renewed), Date.now());
+    games.delete(oldCode);
+    games.set(renewed.code, renewed);
   }
   const send = (ws: WebSocket, message: ServerMessage) => {
     if (ws.readyState === WebSocket.OPEN)
@@ -1200,12 +1226,13 @@ export function makeServer(
           g.table.settings.autoRenew &&
           accounts.canOpenTables(g.table.creatorId)
         ) {
-          const renewed = createGame(g.code, randomUUID(), g.rules);
+          const renewed = createGame(freshTableCode(), randomUUID(), g.rules);
           renewed.settlementBase = 100;
           renewed.scoreDivisor = 1 / (g.table.settings.scoreMultiplier ?? 0.5);
           renewed.ownerId = g.table.creatorId;
           renewed.table = {
             ...g.table,
+            createdAt: now,
             settledRound: undefined,
             readyDeadline: undefined,
             endReason: undefined,
@@ -1224,9 +1251,10 @@ export function makeServer(
             db.exec("ROLLBACK");
             throw new StorageError(error);
           }
-          games.set(g.code, renewed);
+          games.delete(g.code);
+          games.set(renewed.code, renewed);
           lastAuto.delete(g.id);
-          sendLeft(g, "本桌结束，已按原设置续开空桌");
+          sendLeft(g, `本桌结束，已按原设置新开空桌 ${renewed.code}`);
           broadcastTables();
           continue;
         }

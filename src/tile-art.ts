@@ -97,7 +97,7 @@ export function frameStyle(frame: TileFrame) {
   const [x, y, width, height] = frame.rect;
   const [sheetWidth, sheetHeight] = frame.sheet ?? [1024, 1536];
   return {
-    backgroundImage: `url("/tiles/sculpted/${frame.file}.png")`,
+    backgroundImage: `url("${import.meta.env.BASE_URL}tiles/sculpted/${frame.file}.png")`,
     backgroundSize: `${(sheetWidth / width) * 100}% ${(sheetHeight / height) * 100}%`,
     backgroundPosition: `${(x / (sheetWidth - width)) * 100}% ${(y / (sheetHeight - height)) * 100}%`,
   };

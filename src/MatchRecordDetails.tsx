@@ -1,4 +1,3 @@
-import { RecordExport } from "./RecordExport";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -15,6 +14,7 @@ import { client } from "./game-client";
 import { RoundReveal } from "./RoundReveal";
 import { ScoreDetails, Settlement } from "./Settlement";
 import { recordClock, recordDate } from "./record-dates";
+import { resultDisplayLabel } from "./win-label";
 
 export function RecordPlayers({
   record,
@@ -30,6 +30,7 @@ export function RecordPlayers({
         const score = rows.find((r) => r.seat === seat)!;
         return (
           <div className="match-player" key={seat}>
+            <span className={`avatar avatar-${seat} record-avatar`} aria-hidden="true"><span className="portrait-art" /></span>
             <div className="match-player-name">
               <strong title={name}>{name}</strong>
               {showTeams && record.teamNames?.[seat] && (
@@ -89,7 +90,7 @@ export function MatchRecordDetails({
       : client.loadMatch(selected.game);
     request
       .then((next) => {
-        if (!cancelled) setData(next);
+        if (!cancelled) { setData(next); setRound(next.rounds[0] ?? null); setRoundView("details"); }
       })
       .catch((e) => {
         if (!cancelled) setError((e as Error).message);
@@ -152,7 +153,7 @@ export function MatchRecordDetails({
           </button>
           <div className="round-detail-tabs" role="tablist" aria-label="本把记录视图">
             <button role="tab" aria-selected={roundView === "details"} onClick={() => setRoundView("details")}><ReceiptText size={16} />本把明细</button>
-            {round.record.hands && <button role="tab" aria-selected={roundView === "tiles"} onClick={() => setRoundView("tiles")}><Layers3 size={16} />查看牌面</button>}
+            {round.record.hands && <button role="tab" aria-selected={roundView === "tiles"} onClick={() => setRoundView("tiles")}><Layers3 size={16} />查看盘面</button>}
           </div>
           <button
             className="replay-open"
@@ -161,11 +162,17 @@ export function MatchRecordDetails({
             <Play size={16} /> 回放第 {round.record.round} 把
           </button>
         </div>
-        <div className="match-round-detail-content">
+        <div className="record-round-workspace">
+        <nav className="record-round-rail" aria-label="选择把数">
+          {data.rounds.map(item => <button key={item.record.id} aria-current={round.record.id === item.record.id ? "step" : undefined} onClick={() => {setRound(item); if (!item.record.hands) setRoundView("details");}}>
+            <b>第 {item.record.round} 把</b><small>{recordClock(item.record.at)}</small>
+          </button>)}
+        </nav>
+        <div className="match-round-detail-content" key={`${round.record.id}:${roundView}`}>
           {roundView === "details" ? (
             <>
-              <h3>第 {round.record.round} 把 · 本把明细</h3>
-              <ScoreDetails record={visibleRecord} />
+              <div className="record-hand-heading"><h3>第 {round.record.round} 把 · {round.record.result.winners.length ? resultDisplayLabel(round.record.result) : round.record.result.reason === "dissolved" ? "提前解散" : "流局"}</h3><time>{recordClock(round.record.at)}</time></div>
+              <ScoreDetails record={visibleRecord} ledgerFirst />
             </>
           ) : round.record.hands ? (
             <RoundReveal
@@ -192,6 +199,7 @@ export function MatchRecordDetails({
               me={round.me}
             />
           )}
+        </div>
         </div>
       </div>
     );
@@ -224,11 +232,9 @@ export function MatchRecordDetails({
           </time>
           <span className="match-summary-label">整桌总战绩</span>
         </div>
-        <RecordPlayers record={data.match.record} showTeams={showTeams} />
       </div>
       <div className="match-rounds-title">
         <h3>每把明细</h3>
-        <RecordExport data={data}/>
         <span>共 {data.rounds.length} 把 · 以下为每把积分变化</span>
       </div>
       <div className="match-rounds" aria-label="每把战绩列表" tabIndex={0}>
@@ -248,7 +254,7 @@ export function MatchRecordDetails({
                 {item.record.result.reason === "dissolved"
                   ? "提前解散"
                   : item.record.result.winners.length
-                    ? "胡牌"
+                    ? resultDisplayLabel(item.record.result)
                     : "流局"}
               </span>
             </div>
@@ -299,7 +305,7 @@ export function MatchRecordDetails({
                 <ChevronRight size={15} />
               </button>
               {item.record.hands && <button className="secondary" onClick={() => {setRoundView("tiles");setRound(item);}}>
-                查看牌面 <ChevronRight size={15} />
+                查看盘面 <ChevronRight size={15} />
               </button>}
               <button
                 className="replay-open"

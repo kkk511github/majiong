@@ -33,7 +33,7 @@ function HomeTable({
   const ready = t.seats.filter((p) => p?.ready && p.online).length;
   return (
     <article className="home-table" aria-label={`${t.name} 房号 ${t.code}`}>
-      <img className="home-table-image" src="/art/home-table-v1.webp" alt="" />
+      <img className="home-table-image" src={`${import.meta.env.BASE_URL}art/home-table-v1.webp`} alt="" />
       <div className="home-table-heading">
         <strong title={t.name}>{t.name}</strong>
         <span className="home-table-meta">
@@ -303,7 +303,7 @@ export function OnlineHome({
             <div className="home-empty">
               <img
                 className="home-empty-image"
-                src="/art/home-table-v1.webp"
+                src={`${import.meta.env.BASE_URL}art/home-table-v1.webp`}
                 alt=""
               />
               <strong>

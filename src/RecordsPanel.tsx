@@ -1,4 +1,4 @@
-import { lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +16,7 @@ import { Dialog } from "./Dialog";
 import { MatchRecordDetails, RecordPlayers } from "./MatchRecordDetails";
 import "./records-match.css";
 import "./records-workspace.css";
+import "./records-redesign.css";
 import { DeferredFeature } from "./DeferredFeature";
 const ReplayPanel = lazy(() => import("./ReplayPanel").then(m => ({ default: m.ReplayPanel })));
 import {
@@ -23,6 +24,8 @@ import {
   recordDate,
   recordDateLabel,
   recordDayRange,
+  recordFilterRange,
+  recordCalendarLabel,
 } from "./record-dates";
 import type { Account, RecordsPage, StoredRound } from "../shared/types";
 
@@ -141,8 +144,9 @@ export function RecordsPanel({
         const day = recordDate(r.record.at);
         dates.set(day, (dates.get(day) ?? 0) + 1);
       });
+      const range = recordFilterRange(filter.date, today);
       const filtered = all.filter(
-        (r) => !filter.date || recordDate(r.record.at) === filter.date,
+        (r) => !range || (r.record.at >= range.from && r.record.at < range.to),
       );
       setData({
         records: filtered.slice((page - 1) * 20, page * 20),
@@ -162,7 +166,7 @@ export function RecordsPanel({
     if (filter.code) query.set("code", filter.code);
     if (tab === "admin" && filter.member) query.set("member", filter.member);
     if (filter.date) {
-      const { from, to } = recordDayRange(filter.date);
+      const { from, to } = recordFilterRange(filter.date, today)!;
       query.set("from", String(from));
       query.set("to", String(to));
     }
@@ -189,20 +193,8 @@ export function RecordsPanel({
     filter.member,
     readFilter,
     account?.id,
+    today,
   ]);
-  const days = useMemo(
-    () =>
-      [
-        ...new Set([
-          today,
-          yesterday,
-          ...(data.dates ?? []).map((d) => d.date),
-          ...(filter.date ? [filter.date] : []),
-        ]),
-      ].sort((a, b) => b.localeCompare(a)),
-    [today, yesterday, data.dates, filter.date],
-  );
-  const counts = new Map(data.dates?.map((d) => [d.date, d.count]));
   const chooseDate = (date: string) => {
     setFilter((f) => ({ ...f, date }));
     setPage(1);
@@ -219,13 +211,14 @@ export function RecordsPanel({
           <ArrowLeft size={23} />
           <span>返回</span>
         </button>
-        <h1>{tab === "admin" ? "牌桌总战绩" : "我的战绩"}</h1>
+        <h1>战绩</h1>
         <nav aria-label="战绩范围">
           {tabs.map((item) => (
             <button
               key={item.id}
               aria-pressed={tab === item.id}
               onClick={() => {
+                if (tab === item.id) return;
                 setTab(item.id as typeof tab);
                 if (item.id !== "admin") {
                   setSearchMode("code");
@@ -274,13 +267,33 @@ export function RecordsPanel({
             <Search size={18} />
           </button>
         </form>
-        <button className="replay-open" onClick={() => setReplayId("")}>
+        <button className="replay-open" aria-label="牌局回放" onClick={() => setReplayId("")}>
           <History size={17} />
-          牌局回放
+          <span>牌局回放</span>
         </button>
       </div>
       <div className="records-workspace-body">
-        <aside className="record-dates" aria-label="按日期查看战绩">
+        <div className="record-dates" aria-label="按日期查看战绩">
+          <div className="record-date-list">
+            {[
+              { date: "", label: "全部" },
+              { date: today, label: "今天" },
+              { date: yesterday, label: "昨天" },
+              { date: "recent", label: "近7天" },
+            ].map(({ date, label }) => (
+              <button className="record-date" key={date} aria-pressed={filter.date === date} onClick={() => chooseDate(date)}>{label}</button>
+            ))}
+          </div>
+          <div className="record-calendar">
+            <button aria-label="前一天战绩" onClick={() => chooseDate(recordDate(recordDayRange(filter.date && filter.date !== "recent" ? filter.date : today).from - 86400000))}><ArrowLeft size={16} /></button>
+            <label className="record-date-picker">
+              <CalendarDays size={17} />
+              <span>{filter.date && filter.date !== "recent" ? recordCalendarLabel(filter.date, today) : "选择日期"}</span>
+              <input type="date" aria-label="选择战绩日期" value={filter.date === "recent" ? "" : filter.date} max={today} onChange={(e) => chooseDate(e.target.value)} />
+            </label>
+            <button aria-label="后一天战绩" disabled={!filter.date || filter.date === "recent" || filter.date >= today} onClick={() => chooseDate(recordDate(recordDayRange(filter.date).from + 86400000))}><ArrowRight size={16} /></button>
+          </div>
+          <div className="record-admin-filters">
           {tab === "admin" && (
             <label className="record-read-filter">
               <span className="sr-only">战绩阅读状态</span>
@@ -312,49 +325,8 @@ export function RecordsPanel({
               <option value="member">会员ID</option>
             </select>
           )}
-          <div className="record-date-list">
-            <button
-              className="record-date"
-              aria-pressed={!filter.date}
-              onClick={() => chooseDate("")}
-            >
-              <b>全部</b>
-              <small>
-                {data.dateTotal === undefined
-                  ? "所有日期"
-                  : `共 ${data.dateTotal} 桌`}
-              </small>
-            </button>
-            {days.map((day) => (
-              <button
-                className="record-date"
-                key={day}
-                aria-pressed={filter.date === day}
-                onClick={() => chooseDate(day)}
-              >
-                <b>{recordDateLabel(day, today)}</b>
-                <small>
-                  {counts.has(day)
-                    ? `${counts.get(day)} 桌`
-                    : data.dates
-                      ? "0 桌"
-                      : "查看对局"}
-                </small>
-              </button>
-            ))}
           </div>
-          <label className="record-date-picker">
-            <CalendarDays size={18} />
-            <span>选择日期</span>
-            <input
-              type="date"
-              aria-label="选择战绩日期"
-              value={filter.date}
-              max={today}
-              onChange={(e) => chooseDate(e.target.value)}
-            />
-          </label>
-        </aside>
+        </div>
         <div className="records-results">
           <div className="records-results-heading">
             <span>
@@ -473,12 +445,9 @@ export function RecordsPanel({
                   aria-label={`查看房间 ${item.code} 最终战绩`}
                 >
                   <span className="match-card-header">
-                    <span className="record-tile-mark" aria-hidden="true">
-                      發
-                    </span>
                     <b>
-                      {item.record.tableName ?? "好友桌"}
-                      <span> · 房间 {item.code}</span>
+                      房间 {item.code}
+                      <span> · {item.record.tableName ?? "好友桌"}</span>
                     </b>
                     <time dateTime={new Date(item.record.at).toISOString()}>
                       <Clock3 size={16} />
@@ -516,7 +485,7 @@ export function RecordsPanel({
                       </span>
                     )}
                     <span className="record-detail-caption">
-                      详情
+                      查看详情
                       <ChevronRight size={18} />
                     </span>
                   </span>
@@ -528,8 +497,9 @@ export function RecordsPanel({
       </div>
       {selected && (
         <Dialog
-          title="牌桌战绩详情"
+          title={`房间 ${selected.code} · 战绩详情`}
           variant="match-record-dialog"
+          headerAside={<div className="record-detail-total" aria-label="整桌总战绩"><RecordPlayers record={selected.record} showTeams={showTeams} /></div>}
           close={() => {
             setSelected(null);
             if (

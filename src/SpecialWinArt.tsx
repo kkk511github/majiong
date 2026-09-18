@@ -18,7 +18,7 @@ export function SpecialWinArt({
     >
       <img
         className="special-win-ornament"
-        src={`/art/win-v2/${theme}.webp`}
+        src={`${import.meta.env.BASE_URL}art/win-v2/${theme}.webp`}
         alt=""
         draggable={false}
       />

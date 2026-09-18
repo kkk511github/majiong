@@ -39,8 +39,8 @@ export function gameCues(before: View | null, after: View | null): Cue[] {
 
 // User-provided scene tracks, normalized with smooth loop boundaries offline.
 export const BACKGROUND_MUSIC = {
-  lobby: { file: "/audio/mahjong-lobby.m4a", title: "大厅背景音乐" },
-  table: { file: "/audio/mahjong-table.m4a", title: "牌局背景音乐" },
+  lobby: { file: `${import.meta.env.BASE_URL}audio/mahjong-lobby.m4a`, title: "大厅背景音乐" },
+  table: { file: `${import.meta.env.BASE_URL}audio/mahjong-table.m4a`, title: "牌局背景音乐" },
 };
 const hz = (note: number) => 440 * 2 ** ((note - 69) / 12);
 const clamp = (n: number) =>

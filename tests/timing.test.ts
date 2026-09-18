@@ -18,7 +18,7 @@ import {
 import { settlementRows } from "../shared/settlement";
 import { scoreHand } from "../shared/scoring";
 import type { Game, RoundRecord, Seat } from "../shared/types";
-function table(overtimePerTurn = true): Game {
+function table(overtimePerTurn = false): Game {
   const g = createGame("123456", "timing", { turnSeconds: 10 });
   g.table = {
     creatorId: "admin",
@@ -34,7 +34,7 @@ function table(overtimePerTurn = true): Game {
   return startRound(g, 1000, () => 0.51);
 }
 describe("建桌指定参数", () => {
-  it("默认90分、手动准备、离线不开局、10秒踢人、每次出牌90秒超时", () => {
+  it("默认90分、手动准备、离线不开局、10秒踢人、个人90秒累计超时", () => {
     const g = table(),
       s = g.table!.settings;
     expect(g.initialScore).toBe(90);
@@ -45,11 +45,17 @@ describe("建桌指定参数", () => {
       kickUnready: true,
       kickAfterSeconds: 10,
       overtimeSeconds: 90,
-      overtimePerTurn: true,
+      overtimePerTurn: false,
       continuousRounds: true,
       scoreMultiplier: 0.5,
     });
     expect(g.deadline).toBe(11000);
+  });
+  it("旧客户端提交每次重新计时也统一使用累计余额", () => {
+    expect(normalizeTableSettings({ overtimePerTurn: true }).overtimePerTurn)
+      .toBe(false);
+    expect(normalizeTableSettings({ overtimePerTurn: false }).overtimePerTurn)
+      .toBe(false);
   });
   it.each([0.2, 0.5, 1] as const)(
     "记分倍率 %s 只乘累计输赢，负分不截断",
@@ -78,11 +84,10 @@ describe("建桌指定参数", () => {
     expect(() => normalizeTableSettings({ overtimeSeconds: -1 })).toThrow();
   });
 });
-describe("每次10+90秒和返回接手", () => {
-  it("本次100秒边界触发，前一手已用的时间不影响下一手", () => {
-    const g = table(),
-      seat = g.turn;
-    g.players[seat]!.overtimeUsedMs = 80000;
+describe("每次10秒后接着使用个人超时余额", () => {
+  it("三次超时按90→87→50秒递减，每次仍先给10秒且耗尽才托管", () => {
+    let g = table();
+    const seat = g.turn;
     expect(decisionCountdown(viewFor(g, seat), 10000)).toEqual({
       seconds: 1,
       overtime: false,
@@ -91,8 +96,55 @@ describe("每次10+90秒和返回接手", () => {
       seconds: 90,
       overtime: true,
     });
-    expect(overtimeExpired(g, seat, 100999)).toBe(false);
-    expect(overtimeExpired(g, seat, 101000)).toBe(true);
+    g = act(g, seat, { type: "discard", tile: g.players[seat]!.hand[0] }, 14000);
+    expect(g.players[seat]!.overtimeUsedMs).toBe(3000);
+    // The next decision starts after the other seats have played.
+    g.phase = "playing";
+    g.pending = undefined;
+    g.turn = seat;
+    g.deadline = 40000;
+    g.overtimeCharged = [];
+    expect(decisionCountdown(viewFor(g, seat), 30000)).toEqual({
+      seconds: 10,
+      overtime: false,
+    });
+    expect(decisionCountdown(viewFor(g, seat), 40000)).toEqual({
+      seconds: 87,
+      overtime: true,
+    });
+    g = act(g, seat, { type: "discard", tile: g.players[seat]!.hand[0] }, 77000);
+    expect(g.players[seat]!.overtimeUsedMs).toBe(40000);
+    // A stored/reconnected game keeps the same remaining balance.
+    g = JSON.parse(JSON.stringify(g));
+    g.phase = "playing";
+    g.pending = undefined;
+    g.turn = seat;
+    g.deadline = 100000;
+    g.overtimeCharged = [];
+    expect(decisionCountdown(viewFor(g, seat), 100000)).toEqual({
+      seconds: 50,
+      overtime: true,
+    });
+    expect(overtimeExpired(g, seat, 149999)).toBe(false);
+    expect(overtimeExpired(g, seat, 150000)).toBe(true);
+    chargeOvertime(g, seat, 150000);
+    chargeOvertime(g, seat, 160000);
+    expect(g.players[seat]!.overtimeUsedMs).toBe(90000);
+  });
+  it("未耗尽的其他玩家保留自己的独立余额", () => {
+    const g = table(),
+      seat = g.turn;
+    g.players[seat]!.overtimeUsedMs = 80000;
+    expect(decisionCountdown(viewFor(g, seat), 10000)).toEqual({
+      seconds: 1,
+      overtime: false,
+    });
+    expect(decisionCountdown(viewFor(g, seat), 11000)).toEqual({
+      seconds: 10,
+      overtime: true,
+    });
+    expect(overtimeExpired(g, seat, 20999)).toBe(false);
+    expect(overtimeExpired(g, seat, 21000)).toBe(true);
     const next = act(
       g,
       seat,
@@ -103,9 +155,11 @@ describe("每次10+90秒和返回接手", () => {
     next.turn = seat;
     next.deadline = 50000;
     next.overtimeCharged = [];
-    expect(overtimeRemaining(next, seat, 50000)).toBe(90000);
+    expect(overtimeRemaining(next, seat, 50000)).toBe(1000);
+    const other = ((seat + 1) % 4) as Seat;
+    expect(overtimeRemaining(next, other, 50000)).toBe(90000);
   });
-  it.each([true,false])("取消每步/全局超时托管 %s，恢复自己的10秒且重复取消不加时", (perTurn) => {
+  it.each([true,false])("取消旧计时模式 %s 的托管，恢复自己的10秒但不返还超时余额", (perTurn) => {
     const g = table(perTurn);
     g.phase = "claiming";
     g.deadline = 10000;
@@ -119,6 +173,7 @@ describe("每次10+90秒和返回接手", () => {
     };
     g.players[1]!.trustee = true;
     g.players[1]!.trusteeLocked = true;
+    g.players[1]!.overtimeUsedMs = 40000;
     setTrustee(g, 1, false, 25000);
     expect(g.players[1]!.trustee).toBe(false);
     expect(decisionCountdown(viewFor(g, 1), 25000)).toEqual({
@@ -130,10 +185,48 @@ describe("每次10+90秒和返回接手", () => {
     expect(g.players[1]!.resumedDeadline).toBe(35000);
     expect(
       decisionCountdown(viewFor(JSON.parse(JSON.stringify(g)), 1), 35000),
-    ).toEqual({ seconds: 90, overtime: true });
+    ).toEqual({ seconds: 50, overtime: true });
+  });
+  it("反复开关托管不能回充余额，也不能反复刷新同次决策的10秒", () => {
+    const g = table();
+    const seat = g.turn;
+    setTrustee(g, seat, true, 14000);
+    expect(g.players[seat]!.overtimeUsedMs).toBe(3000);
+    setTrustee(g, seat, false, 15000);
+    expect(g.players[seat]!.resumedDeadline).toBe(25000);
+    setTrustee(g, seat, true, 19000);
+    setTrustee(g, seat, false, 20000);
+    expect(g.players[seat]!.resumedDeadline).toBe(25000);
+    expect(decisionCountdown(viewFor(g, seat), 25000)).toEqual({
+      seconds: 87,
+      overtime: true,
+    });
+    setTrustee(g, seat, true, 30000);
+    expect(g.players[seat]!.overtimeUsedMs).toBe(8000);
+    setTrustee(g, seat, false, 31000);
+    expect(decisionCountdown(viewFor(g, seat), 31000)).toEqual({
+      seconds: 82,
+      overtime: true,
+    });
+    chargeOvertime(g, seat, 33000);
+    expect(g.players[seat]!.overtimeUsedMs).toBe(10000);
+  });
+  it("额度耗尽后接手仍有10秒，但不能通过取消托管重获90秒", () => {
+    const g = table();
+    const seat = g.turn;
+    chargeOvertime(g, seat, 101000);
+    g.players[seat]!.trustee = true;
+    setTrustee(g, seat, false, 102000);
+    expect(decisionCountdown(viewFor(g, seat), 102000)).toEqual({
+      seconds: 10,
+      overtime: false,
+    });
+    expect(overtimeExpired(g, seat, 111999)).toBe(false);
+    expect(overtimeExpired(g, seat, 112000)).toBe(true);
+    expect(g.players[seat]!.overtimeUsedMs).toBe(90000);
   });
 });
-describe("旧桌个人累计超时兼容", () => {
+describe("个人累计超时边界与兼容", () => {
   it("前10秒免费，额外6秒被记录，下次继续消耗剩余84秒", () => {
     const g = table(false),
       seat = g.turn;
@@ -187,6 +280,36 @@ describe("旧桌个人累计超时兼容", () => {
     expect(b.players[1]!.overtimeUsedMs).toBe(6000);
     expect(b.players[2]!.overtimeUsedMs).toBe(13000);
   });
+  it.each(["pung", "kong"] as const)("%s响应与接下来的出牌共用余额", (claim) => {
+    const g = table();
+    g.phase = "claiming";
+    g.deadline = 10000;
+    g.overtimeCharged = [];
+    g.players[0]!.discards = [3];
+    g.players[1]!.hand = [0, 1, 2, 4, 8, 12, 36, 40, 44, 72, 76, 80, 84];
+    g.players[1]!.overtimeUsedMs = 3000;
+    g.wall = g.wall.filter((tile) => tile < 124);
+    g.pending = {
+      openedAtRevision: g.revision,
+      tile: 3,
+      from: 0,
+      kind: "discard",
+      offers: { 1: [claim, "pass"] },
+      replies: {},
+    };
+    const next = act(g, 1, { type: claim }, 20000);
+    expect(next.phase).toBe("playing");
+    expect(next.turn).toBe(1);
+    expect(next.players[1]!.overtimeUsedMs).toBe(13000);
+    expect(decisionCountdown(viewFor(next, 1), 20000)).toEqual({
+      seconds: 10,
+      overtime: false,
+    });
+    expect(decisionCountdown(viewFor(next, 1), 30000)).toEqual({
+      seconds: 77,
+      overtime: true,
+    });
+  });
   it("界面从10秒切换为累计余时，重连不会补回时间", () => {
     const g = table(false),
       v = viewFor(g, g.turn);
@@ -202,8 +325,8 @@ describe("旧桌个人累计超时兼容", () => {
     const clone = JSON.parse(JSON.stringify(g));
     expect(overtimeRemaining(clone, g.turn, 12000)).toBe(83000);
   });
-  it("下一把仍保留已耗时间", () => {
-    const g = table(false);
+  it("同桌下一把保留已耗时间，并重新给每次决策的正常10秒", () => {
+    const g = table();
     g.phase = "ended";
     g.players.forEach((p) => {
       p!.ready = true;
@@ -211,6 +334,14 @@ describe("旧桌个人累计超时兼容", () => {
     });
     const next = startRound(g, 50000, () => 0.31);
     expect(next.players.every((p) => p!.overtimeUsedMs === 44000)).toBe(true);
+    expect(decisionCountdown(viewFor(next, next.turn), 50000)).toEqual({
+      seconds: 10,
+      overtime: false,
+    });
+    expect(decisionCountdown(viewFor(next, next.turn), 60000)).toEqual({
+      seconds: 46,
+      overtime: true,
+    });
   });
 });
 describe("已核实玩法开关", () => {

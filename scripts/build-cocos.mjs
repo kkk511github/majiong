@@ -15,6 +15,7 @@ async function saveRuntime(source){
 }
 await cp(resolve(app,'shared/table-scene.ts'),resolve(project,'assets/scripts/table-scene.ts'));
 await cp(resolve(app,'shared/tile-pose-metrics.ts'),resolve(project,'assets/scripts/tile-pose-metrics.ts'));
+await cp(resolve(app,'shared/tile-drag.ts'),resolve(project,'assets/scripts/tile-drag.ts'));
 const fingerprint=()=>sourceDigest(project);
 const source=await fingerprint();
 // Linux deployment uses the verified web export of these exact Creator sources.

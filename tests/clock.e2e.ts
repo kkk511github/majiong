@@ -102,7 +102,7 @@ for (const [width, height, skew] of [
     await expect(page.locator(".feedback-flower")).toHaveCount(0);
     await expect(page.getByRole("timer")).toHaveAttribute(
       "aria-label",
-      /超时剩余8[78]秒/,
+      /超时剩余8[12]秒/,
     );
     const hidden = await page.locator(".turn-countdown").evaluateAll((els) =>
       els

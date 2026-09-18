@@ -55,6 +55,7 @@ export function layoutPlayerHud(offset:number, safe?:TableSafeArea) {
 }
 export type TableSceneCommand =
   | {type:'select';tile:number}
+  | {type:'discard';tile:number}
   | {type:'action';action:string;tile?:number}
   | {type:'trustee';enabled:boolean}
   | {type:'menu';menu:'leave'|'settings'|'events'|'table'|'result';seat?:number};

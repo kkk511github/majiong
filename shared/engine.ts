@@ -387,8 +387,12 @@ function finishNanjingRound(g: Game, result: Result) {
     )
   )
     flagNext(g, "包牌");
-  state.keepDealer = state.nextReasons.length > 0;
-  if (!state.keepDealer && result.reason === "hu" && g.rules.successorDouble)
+  // Retaining the dealer is independent of the next hand's multiplier.
+  state.keepDealer = result.reason === "draw" || result.winners.includes(g.dealer);
+  if (
+    !state.keepDealer && result.reason === "hu" && g.rules.successorDouble &&
+    result.winners.includes(next(g.dealer))
+  )
     flagNext(g, "接庄");
   const mode = g.rules.biXiaHu ?? "next";
   state.nextMultiplier =
@@ -644,9 +648,7 @@ export function startRound(
   const g = clone(source);
   if (
     g.round > 0 &&
-    (isNanjingV2(g.rules) && g.ruleState
-      ? !g.ruleState.keepDealer
-      : g.result?.reason !== "draw" && !g.result?.winners.includes(g.dealer))
+    g.result?.reason !== "draw" && !g.result?.winners.includes(g.dealer)
   )
     g.dealer = next(g.dealer);
   if (isNanjingV2(g.rules))

@@ -1,0 +1,16 @@
+.table-opening { position: absolute; inset: 0; z-index: 25; overflow: hidden; background: #103f33; animation: opening-reveal 1.8s ease both; }
+.opening-scene { width: 100%; height: 100%; object-fit: cover; object-position: center 58%; animation: opening-camera 1.8s cubic-bezier(.22,.65,.3,1) both; will-change: transform, opacity; }
+.opening-call { position: absolute; width: min(48vw, 620px); left: 50%; top: 48%; transform: translate(-50%,-50%); text-align: center; color: #fff0b2; pointer-events: none; animation: opening-call 1.8s ease both; }
+.opening-call > img { display: block; width: 100%; height: auto; filter: drop-shadow(0 5px 18px #251c17a0); }
+.opening-call p { margin: -1% 0 10px; font-family: var(--display-font, serif); font-size: 27px; letter-spacing: 0; text-shadow: 0 2px 8px #00180a, 0 1px 3px #00180a; }
+.opening-call small { font-size: 15px; letter-spacing: 0; color: #f1e6bc; text-shadow: 0 2px 4px #072d22; }
+.app.polished .opening-skip { position: absolute; top: max(16px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1px solid #e6d19880; border-radius: 24px; background: #103c30d9; color: #f8edcb; font-size: 13px; }
+@keyframes opening-camera { 0% { transform: scale(1) translateY(0); } 48% { transform: scale(1.06) translateY(-1%); } 100% { transform: scale(1.65) translateY(-9%); } }
+@keyframes opening-call { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.72); } 22%, 52% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 78%,100% { opacity: 0; transform: translate(-50%,-56%) scale(1.1); } }
+@keyframes opening-reveal { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
+.table-opening.opening-reduced { animation: none; background: #103f33e6; pointer-events: none; }
+.opening-reduced .opening-scene { display: none; }
+.opening-reduced .opening-call { animation: none; }
+.opening-reduced .opening-skip { display: none; }
+@media (prefers-reduced-motion: reduce) { .table-opening, .opening-scene, .opening-call { animation: none; } }
+@media (max-width: 760px) { .opening-call p { font-size: 16px; } .opening-call small { font-size: 11px; } }

@@ -6,6 +6,7 @@ import { networkLabel } from "./network-health";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
 import { CocosTable } from "./CocosTable";
+import { openingScene, openingTitle, type OpeningCue } from "./TableOpening";
 import { cocosState } from "./cocos-state";
 import { referenceRiverSlot } from "./table-camera";
 import { TableSeatTiles, SurfaceTile } from "./TableSeat";
@@ -217,6 +218,17 @@ export function App() {
   const motionLive =
     state.connected && !(state.mode === "local" && modal !== null);
   const motion = useGameMotion(v, motionLive);
+  const [opening, setOpening] = useState<OpeningCue | null>(null);
+  const dealKey = motion.find(event => event.type === "deal")?.key;
+  useEffect(() => {
+    if (dealKey && v?.round === 1) setOpening({ key: dealKey, game: v.id, round: v.round, at: Date.now() });
+  }, [dealKey]);
+  useEffect(() => {
+    if (!motionLive || !v || v.result) setOpening(null);
+  }, [motionLive, v?.id, v?.result]);
+  useEffect(() => {
+    for (const src of [openingScene, openingTitle]) { const image = new Image(); image.src = src; }
+  }, []);
   const showingWinEffect = !!v?.result && motion.some(e=>e.type==="hu");
   const readyDiscards = useMemo(()=>v ? readyDiscardTiles(v) : [],[v]);
   const handRef = useHandMotion(v, motionLive);
@@ -374,8 +386,7 @@ export function App() {
   }
   function selectTile(tile: number) {
     if (selected === tile) {
-      if (v?.canDiscard) discardTile(tile);
-      else setSelected(null);
+      setSelected(null);
     }
     else {
       clickSound();
@@ -399,6 +410,8 @@ export function App() {
     submittedRevision.current = null;
     setDismissedResult("");
     client.practice(name.trim(), { rounds, turnSeconds: seconds }, resume);
+    const fresh = client.snapshot().view;
+    if (!resume && fresh) setOpening({ key: `${fresh.id}:${fresh.round}:practice`, game: fresh.id, round: fresh.round, at: Date.now() });
     if (!resume) gameAudio.play("deal");
   }
   async function beginOnline(type: "create" | "join") {
@@ -462,8 +475,6 @@ export function App() {
     : 0;
   const continuousRounds =
     state.mode === "local" || !!v?.table?.settings.continuousRounds;
-  const perTurnOvertime = !!v?.table?.settings.overtimePerTurn;
-  const overtimeLabel = perTurnOvertime ? "超时倒计时" : "累计余时";
   const autoNext =
     state.mode === "online" &&
     (v?.table?.settings.readyMode === "auto" || !!mine?.trustee) &&
@@ -580,7 +591,7 @@ export function App() {
           }}
           aria-label="金陵麻将首页"
         >
-          <img className="brand-emblem" src="/brand-icon.png" alt="" />
+          <img className="brand-emblem" src={`${import.meta.env.BASE_URL}brand-icon.png`} alt="" />
           <span>
             金陵麻将<small>JINLING MAHJONG</small>
           </span>
@@ -818,6 +829,7 @@ export function App() {
       )}
       {gameActive && v && mine && (
         <CocosTable
+          opening={opening}
           readyDiscards={readyDiscards}
           winResult={showingWinEffect ? v.result : undefined}
           connectionQuality={state.mode === "online" && state.connected && (state.network.consecutiveTimeouts > 0 || (state.network.smoothedRttMs ?? 0) >= 600) ? networkLabel(state.network) : undefined}
@@ -840,6 +852,7 @@ export function App() {
             }
             if (commandsDisabled || paused) return;
             if (command.type === "select" && ["playing", "claiming"].includes(v.phase) && !mine.trustee && mine.hand.includes(command.tile)) selectTile(command.tile);
+            if (command.type === "discard" && command.tile === selected) discardTile(command.tile);
             if (command.type === "trustee" && (mine.trustee || v.table?.settings.trusteeMode !== "disabled")) client.trustee(command.enabled);
             if (command.type === "action") {
               if (command.action === "zhaozhi" && v.canZhaozhi) client.action({ type: "zhaozhi" });
@@ -1252,7 +1265,7 @@ export function App() {
                     第 {v.round} / {v.rules.rounds} 局
                     {v.phase === "finished"
                       ? v.table?.settings.autoRenew
-                        ? ` · ${resultSecondsLeft} 秒后续开空桌`
+                        ? ` · ${resultSecondsLeft} 秒后换新桌号开空桌`
                         : " · 本桌结束"
                       : resultSecondsLeft > 0
                         ? ` · 结算展示 ${resultSecondsLeft} 秒`
@@ -1560,7 +1573,6 @@ function Opponent({
   dealer,
   countdown,
   overtime,
-  perTurnOvertime,
   totalSeconds,
   paused,
 }: {
@@ -1573,7 +1585,6 @@ function Opponent({
   dealer: boolean;
   countdown: number;
   overtime: boolean;
-  perTurnOvertime: boolean;
   totalSeconds: number;
   paused: boolean;
 }) {
@@ -1596,7 +1607,7 @@ function Opponent({
             <TurnCountdown
               name={p.name}
               action={
-                overtime ? (perTurnOvertime ? "超时" : "累计超时") : "出牌"
+                overtime ? "累计超时" : "出牌"
               }
               seconds={countdown}
               total={totalSeconds}
@@ -1621,14 +1632,12 @@ function Opponent({
           <span
             className="opponent-turn-status"
             role="status"
-            aria-label={`${p.name}${paused ? "已暂停" : overtime ? (perTurnOvertime ? "超时倒计时中" : "累计超时中") : p.trustee ? "托管出牌中" : "正在思考"}`}
+            aria-label={`${p.name}${paused ? "已暂停" : overtime ? "累计超时中" : p.trustee ? "托管出牌中" : "正在思考"}`}
           >
             {paused
               ? "已暂停"
               : overtime
-                ? perTurnOvertime
-                  ? "超时倒计时"
-                  : "累计超时"
+                ? "累计超时"
                 : p.trustee
                   ? "托管出牌"
                   : "正在思考…"}

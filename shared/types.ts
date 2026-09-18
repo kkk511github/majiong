@@ -35,9 +35,9 @@ export interface TableSettings {
   trusteeRounds: number;
   /** Per-table recording ratio; independent of hand scoring. */
   scoreMultiplier?: 0.2 | 0.5 | 1;
-  /** Missing in legacy games: no cumulative time bank. */
+  /** Personal overtime bank for the entire table. Missing in legacy games: none. */
   overtimeSeconds?: number;
-  /** New tables get a fresh overtime countdown for each decision. */
+  /** Legacy input accepted for older clients; normalized to cumulative timing. */
   overtimePerTurn?: boolean;
   /** Keep the table visible and deal automatically between rounds. */
   continuousRounds?: boolean;
@@ -101,6 +101,7 @@ export interface Player {
   joinedAt?: number;
   trusteeRounds?: number;
   awaitingReady?: boolean;
+  /** Spent personal overtime for this table; only a new table refills the bank. */
   overtimeUsedMs?: number;
   trusteeLocked?: boolean;
   /** Fresh decision deadline after this player cancels automatic play. */

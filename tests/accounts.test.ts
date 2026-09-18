@@ -363,7 +363,7 @@ describe("管理员每桌最终战绩", () => {
       } catch {}
     }
   });
-  it("5桌各8局只返回5条；进行中不显示，重复保存不重复，同房续桌另记一条，会员只能查自己", async () => {
+  it("5桌各8局只返回5条；进行中不显示，重复保存不重复，旧版同房号历史仍分别保留，会员只能查自己", async () => {
     const { file, auth, request } = await boot();
     const admin = await auth("guanli@1", true),
       a = await auth("member1"),
@@ -750,8 +750,15 @@ describe("授权与自动续桌", () => {
           Date.now() < until
         )
           await new Promise((resolve) => setTimeout(resolve, 10));
-        expect(server.games.get(finished.code)?.id).not.toBe(finished.id);
-        expect(server.games.get(finished.code)?.phase).toBe("waiting");
+        expect(server.games.has(finished.code)).toBe(false);
+        expect(server.games.size).toBe(1);
+        const renewed = [...server.games.values()][0];
+        expect(renewed.code).not.toBe(finished.code);
+        expect(renewed.code).toMatch(/^\d{6}$/);
+        expect(renewed.id).not.toBe(finished.id);
+        expect(renewed.phase).toBe("waiting");
+        expect(renewed.table?.creatorId).toBe(member.account.id);
+        expect(renewed.table?.settings.autoRenew).toBe(true);
       }
     });
   }

@@ -642,7 +642,7 @@ describe("南京特殊牌局状态", () => {
     g.rules.biXiaHu = "off";
     expect(g.history[0].rules!.biXiaHu).toBe("next");
   });
-  it("普通闲家胡换庄，接庄比独立于连庄", () => {
+  it("下一位庄家胡牌才触发接庄比，接庄比独立于连庄", () => {
     let g = fixture([
       [30],
       [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30],
@@ -657,6 +657,114 @@ describe("南京特殊牌局状态", () => {
     g.players.forEach((p) => (p!.ready = true));
     g = startRound(g, 2000, seededRandom(3));
     expect(g.dealer).toBe(1);
+    expect(g.ruleState!.multiplier).toBe(2);
+  });
+  it.each([2, 3] as const)("座位%s普通胡牌不触发下一位庄家的接庄比", (winner) => {
+    const hands = [[30], [], [], []];
+    hands[winner] = [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30];
+    let g = fixture(hands, { id: "nj-garden-b-v3" });
+    g.players[winner]!.flowers = [124];
+    g = act(g, 0, { type: "discard", tile: g.players[0]!.hand[0] }, 1000);
+    g = pendingDone(g, { [winner]: "hu" });
+    expect(g.result!.winners).toEqual([winner]);
+    expect(g.ruleState!.keepDealer).toBe(false);
+    expect(g.ruleState!.nextReasons).toEqual([]);
+    expect(g.ruleState!.nextMultiplier).toBe(1);
+    g.players.forEach((p) => (p!.ready = true));
+    g = startRound(g, 2000, seededRandom(3));
+    expect(g.dealer).toBe(1);
+    expect(g.ruleState!.multiplier).toBe(1);
+  });
+  it.each([
+    ["next", 2],
+    ["off", 1],
+  ] as const)("闲家大胡仍轮到下一家坐庄，比下胡配置为%s", (biXiaHu, multiplier) => {
+    let g = fixture(
+      [[], [], [0, 0, 0, 9, 9, 9, 18, 18, 18, 27, 27, 27, 28, 28], []],
+      { id: "nj-garden-b-v3", biXiaHu },
+    );
+    g.turn = 2;
+    g.lastDraw = g.players[2]!.hand.at(-1);
+    g = act(g, 2, { type: "hu" }, 1000);
+    expect(g.result!.winners).toEqual([2]);
+    expect(g.result!.details[2]!.major).toBe(true);
+    expect(g.ruleState!.keepDealer).toBe(false);
+    expect(g.ruleState!.nextReasons).toContain("大胡");
+    g.players.forEach((p) => (p!.ready = true));
+    g = startRound(g, 2000, seededRandom(3));
+    expect(g.dealer).toBe(1);
+    expect(g.ruleState!.multiplier).toBe(multiplier);
+  });
+  it.each(["花杠", "四张同牌", "四家跟牌", "四连风"])(
+    "本把发生%s后闲家普通胡牌，只翻倍不连庄",
+    (reason) => {
+      let g = fixture(
+        [[30], [], [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30], []],
+        { id: "nj-garden-b-v3" },
+      );
+      g.players[2]!.flowers = [124];
+      g.ruleState!.nextReasons = [reason];
+      g = act(g, 0, { type: "discard", tile: g.players[0]!.hand[0] }, 1000);
+      g = pendingDone(g, { 2: "hu" });
+      expect(g.result!.winners).toEqual([2]);
+      expect(g.result!.details[2]!.major).toBe(false);
+      expect(g.ruleState!.nextReasons).toEqual([reason]);
+      expect(g.ruleState!.keepDealer).toBe(false);
+      g.players.forEach((p) => (p!.ready = true));
+      g = startRound(g, 2000, seededRandom(3));
+      expect(g.dealer).toBe(1);
+      expect(g.ruleState!.multiplier).toBe(2);
+    },
+  );
+  it("恢复旧快照时，闲家大胡留下的旧连庄标记不阻止正常轮庄", () => {
+    let g = fixture(
+      [[], [], [0, 0, 0, 9, 9, 9, 18, 18, 18, 27, 27, 27, 28, 28], []],
+      { id: "nj-garden-b-v3" },
+    );
+    g.turn = 2;
+    g.lastDraw = g.players[2]!.hand.at(-1);
+    g = act(g, 2, { type: "hu" }, 1000);
+    expect(g.result!.details[2]!.major).toBe(true);
+    g.ruleState!.keepDealer = true;
+    g = JSON.parse(JSON.stringify(g)) as Game;
+    g.players.forEach((p) => (p!.ready = true));
+    g = startRound(g, 2000, seededRandom(3));
+    expect(g.dealer).toBe(1);
+    expect(g.ruleState!.multiplier).toBe(2);
+  });
+  it.each([
+    ["next", 2],
+    ["off", 1],
+  ] as const)("庄家普通胡牌仍连庄，比下胡配置为%s", (biXiaHu, multiplier) => {
+    let g = fixture(
+      [[0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30, 30], [], [], []],
+      { id: "nj-garden-b-v3", biXiaHu },
+    );
+    g.players[0]!.flowers = [124];
+    g = act(g, 0, { type: "hu" }, 1000);
+    expect(g.result!.details[0]!.major).toBe(false);
+    expect(g.ruleState!.keepDealer).toBe(true);
+    g.players.forEach((p) => (p!.ready = true));
+    g = startRound(g, 2000, seededRandom(3));
+    expect(g.dealer).toBe(0);
+    expect(g.ruleState!.multiplier).toBe(multiplier);
+  });
+  it("末位庄家下一位胡牌，回环到首位接庄并翻倍", () => {
+    let g = fixture(
+      [[0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30], [], [], [30]],
+      { id: "nj-garden-b-v3" },
+    );
+    g.dealer = 3;
+    g.turn = 3;
+    g.lastDraw = g.players[3]!.hand[0];
+    g.players[0]!.flowers = [124];
+    g = act(g, 3, { type: "discard", tile: g.players[3]!.hand[0] }, 1000);
+    g = pendingDone(g, { 0: "hu" });
+    expect(g.ruleState!.keepDealer).toBe(false);
+    expect(g.ruleState!.nextReasons).toEqual(["接庄"]);
+    g.players.forEach((p) => (p!.ready = true));
+    g = startRound(g, 2000, seededRandom(3));
+    expect(g.dealer).toBe(0);
     expect(g.ruleState!.multiplier).toBe(2);
   });
   it("连续比下胡默认保持2倍，不重复翻成4倍；关闭时下一把1倍", () => {
@@ -682,6 +790,10 @@ describe("南京特殊牌局状态", () => {
     expect(g.result!.reason).toBe("draw");
     expect(g.ruleState!.nextMultiplier).toBe(2);
     expect(g.ruleState!.keepDealer).toBe(true);
+    g.players.forEach((p) => (p!.ready = true));
+    g = startRound(g, 2000, seededRandom(3));
+    expect(g.dealer).toBe(0);
+    expect(g.ruleState!.multiplier).toBe(2);
   });
   it("天听换听失效，天听可胡地胡但不能通过碰牌保留", () => {
     let g = fixture([

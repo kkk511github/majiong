@@ -90,7 +90,7 @@ export function createClub(
           );
           const ids = db
             .prepare(
-              "SELECT a.id" + from + " ORDER BY a.username LIMIT ? OFFSET ?",
+              "SELECT a.id" + from + " ORDER BY a.created_at DESC, a.rowid DESC LIMIT ? OFFSET ?",
             )
             .all(...args, pageSize, (page - 1) * pageSize);
           res.end(

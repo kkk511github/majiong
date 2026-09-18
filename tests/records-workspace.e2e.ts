@@ -178,11 +178,9 @@ for (const [width, height] of [
       .locator(".records-list")
       .evaluate((el) => el.scrollTo(0, el.scrollHeight));
     expect(await page.locator(".record-dates").boundingBox()).toEqual(before);
-    await page
-      .getByRole("button", { name: "8月25日 1 桌", exact: true })
-      .click();
+    await page.getByLabel("选择战绩日期").fill(old);
     await expect(page.locator(".match-card")).toHaveCount(1);
-    await expect(page.locator(".record-date[aria-pressed=true]")).toContainText(
+    await expect(page.locator(".record-date-picker")).toContainText(
       "8月25日",
     );
     expect(queries.at(-1)).toContain("from=" + recordDayRange(old).from);
@@ -190,7 +188,7 @@ for (const [width, height] of [
       await page.locator(".records-list").evaluate((el) => el.scrollTop),
     ).toBe(0);
     const sidebar = (await page.locator(".record-dates").boundingBox())!;
-    expect(sidebar.x + sidebar.width).toBeLessThan(list.x);
+    expect(sidebar.y + sidebar.height).toBeLessThan(list.y);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -219,11 +217,13 @@ for (const [width, height] of [
     });
     await button.click();
     const dialog = page.getByRole("dialog", {
-      name: "牌桌战绩详情",
+      name: "房间 582644 · 战绩详情",
       exact: true,
     });
     await expect(dialog).toBeVisible();
     expect(await dialog.boundingBox()).toEqual({ x: 0, y: 0, width, height });
+    await expect(dialog.getByLabel("第 1 把战绩详情")).toBeVisible();
+    await dialog.getByRole("button", { name: "返回整桌明细", exact: true }).click();
     const firstRound = page.getByLabel("第 1 把明细");
     await expect(firstRound).toContainText("REPLAY-20260825-1");
     await expect(firstRound.locator(".round-player-points b")).toHaveText([
@@ -233,7 +233,7 @@ for (const [width, height] of [
       "0",
     ]);
     await expect(
-      dialog.locator(".match-details-summary .match-points b"),
+      dialog.locator(".modal-head .match-points b"),
     ).toHaveText(["+42", "-12", "-30", "0"]);
     await page.screenshot({
       path: `test-results/screenshots/records-details-${width}.png`,
@@ -244,7 +244,7 @@ for (const [width, height] of [
     await expect(
       last.getByRole("button", { name: "回放", exact: true }),
     ).toBeVisible();
-    await last.getByRole("button", { name: "查看牌面", exact: true }).click();
+    await last.getByRole("button", { name: "查看盘面", exact: true }).click();
     await expect(page.getByLabel("第 4 把战绩详情")).toBeVisible();
     await expect(dialog.getByLabel("本局四家牌面")).toBeVisible();
     await expect(dialog.locator(".reveal-score-items")).toHaveCount(0);
@@ -261,7 +261,7 @@ for (const [width, height] of [
     await expect(page.getByLabel("第 1 把明细")).toBeVisible();
     await expect(button.locator(".record-read")).toContainText("✅ 已读");
     await dialog.getByRole("button", { name: "关闭", exact: true }).click();
-    await expect(page.locator(".record-date[aria-pressed=true]")).toContainText(
+    await expect(page.locator(".record-date-picker")).toContainText(
       "8月25日",
     );
     await page.getByRole("button", { name: "刷新战绩", exact: true }).click();
@@ -291,20 +291,21 @@ test("普通会员可看 ID 和每把回放 ID，战队名不显示；房间查�
   await expect(page.locator(".match-card")).toHaveCount(20);
   await expect(page.locator(".record-team")).toHaveCount(0);
   await expect(page.locator(".record-read, .record-unread")).toHaveCount(0);
-  await expect(page.locator(".records-heading h1")).toHaveText("我的战绩");
+  await expect(page.locator(".records-heading h1")).toHaveText("战绩");
   await page.screenshot({
     path: "test-results/screenshots/records-member-1280.png",
   });
-  await page.getByRole("button", { name: "8月25日 1 桌", exact: true }).click();
+  await page.getByLabel("选择战绩日期").fill(old);
   await page.getByLabel("战绩房间号").fill("582644");
   await page.getByRole("button", { name: "查询战绩", exact: true }).click();
   await expect.poll(() => queries.at(-1)).toContain("code=582644");
   expect(queries.at(-1)).toContain("from=" + recordDayRange(old).from);
   await page.getByRole("button", { name: "查看房间 582644 最终战绩" }).click();
   const dialog = page.getByRole("dialog", {
-    name: "牌桌战绩详情",
+    name: "房间 582644 · 战绩详情",
     exact: true,
   });
+  await dialog.getByRole("button", { name: "返回整桌明细", exact: true }).click();
   await expect(dialog.getByLabel("第 1 把明细")).toContainText("100001");
   await expect(dialog.getByLabel("第 1 把明细")).toContainText(
     "REPLAY-20260825-1",
@@ -330,13 +331,13 @@ for (const [width,height] of [[568,320],[1280,590]]) test(`本把明细分项与
   await page.route("**/api/matches/*",route=>route.fulfill({json:{match:saved,rounds:[saved]}}));
   await page.goto("/");await page.getByRole("button",{name:"战绩",exact:true}).click();
   await page.locator(".match-card").first().click();
-  const dialog=page.getByRole("dialog",{name:"牌桌战绩详情",exact:true});
-  await dialog.getByRole("button",{name:"本把明细",exact:true}).click();
+  const dialog=page.getByRole("dialog",{name:/房间 .* · 战绩详情/});
+  await expect(dialog.getByRole("tab",{name:"本把明细",exact:true})).toHaveAttribute("aria-selected", "true");
   const score=dialog.getByRole("table",{name:"秦淮月的胡牌计分"});
   await expect(score.locator("tbody tr")).toHaveText(["成牌底分合法成牌+10分","门清牌型加分+10分","硬花6张 × 2分/张+12分","软花2个 × 2分/个+4分"]);
   await expect(score.locator("tfoot")).toContainText("36分");
-  await expect(dialog.locator(".score-ledger li")).toHaveCount(3);
-  await expect(dialog.locator(".score-ledger li").first()).toContainText("月白");
+  await expect(dialog.locator(".record-transfer-table tbody tr")).toHaveCount(3);
+  await expect(dialog.locator(".record-transfer-table tbody tr").first()).toContainText("月白");
   await expect(dialog.locator(".score-players tbody tr").first().locator("td")).toHaveText([/秦淮月/,"90","+108","+198"]);
   await score.scrollIntoViewIfNeeded();
   expect(await score.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
@@ -372,27 +373,16 @@ test("管理员会员查询与返回列表位置保留", async ({ page }) => {
   await expect(page.getByLabel("战绩房间号")).toBeVisible();
 });
 
-test('战绩摘要与规则反馈可预览复制且不包含战队和会员ID',async({page})=>{
+test('战绩移除摘要反馈入口，默认明细可切换把数和返回整桌',async({page})=>{
  await page.setViewportSize({width:568,height:320});await fixture(page);
  await page.goto('/');await page.getByRole('button',{name:'战绩',exact:true}).click();
  await page.locator('.match-card').first().click();
- const details=page.getByRole('dialog',{name:'牌桌战绩详情',exact:true});
- await details.getByRole('button',{name:'摘要 / 反馈',exact:true}).click();
- const panel=page.getByRole('dialog',{name:'战绩摘要与反馈',exact:true});
- const preview=panel.getByLabel('导出内容预览');
- await expect(preview).toContainText('金陵麻将 · 整桌战绩');
- const summary=await preview.inputValue();expect(summary).not.toContain('战队');expect(summary).not.toContain('100001');
- await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{(window as any).exportedRecord=text;}}}));
- await panel.getByRole('button',{name:'复制内容',exact:true}).click();
- await expect(panel.getByRole('status')).toContainText('已复制');
- expect(await page.evaluate(()=>(window as any).exportedRecord)).toBe(summary);
- await panel.getByLabel('导出内容类型').selectOption('feedback');
- await panel.getByLabel('反馈相关牌局').selectOption({label:'第 1 把'});
- await panel.getByLabel('规则问题描述').fill('请核对本把外包计算');
- await expect(preview).toContainText('REPLAY-20260825-1');
- await expect(preview).toContainText('请核对本把外包计算');
- await page.screenshot({path:'test-results/screenshots/record-export-568.png'});
- await panel.getByRole('button',{name:'复制内容',exact:true}).click();
- expect(await page.evaluate(()=>(window as any).exportedRecord)).toContain('请核对本把外包计算');
- await panel.getByRole('button',{name:'关闭',exact:true}).click();await expect(details).toBeVisible();
+ const details=page.getByRole('dialog',{name:/房间 .* · 战绩详情/});
+ await expect(details.getByRole('button',{name:'摘要 / 反馈',exact:true})).toHaveCount(0);
+ await expect(details.getByRole('tab',{name:'本把明细',exact:true})).toHaveAttribute('aria-selected','true');
+ await details.getByRole('navigation',{name:'选择把数'}).getByRole('button',{name:/第 2 把/}).click();
+ await expect(details.getByLabel('第 2 把战绩详情')).toBeVisible();
+ await details.getByRole('button',{name:'返回整桌明细',exact:true}).click();
+ await expect(details.getByLabel('第 1 把明细')).toBeVisible();
+ await expect(details.getByRole('button',{name:'摘要 / 反馈',exact:true})).toHaveCount(0);
 });

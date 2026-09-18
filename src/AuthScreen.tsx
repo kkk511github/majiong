@@ -51,7 +51,7 @@ export function AuthScreen({
       <main className="account-screen">
         <section className="account-welcome">
           <div className="account-brand">
-            <img src="/brand-icon.png" alt="金陵麻将" />
+            <img src={`${import.meta.env.BASE_URL}brand-icon.png`} alt="金陵麻将" />
             <span>
               金陵麻将<small>JINLING MAHJONG</small>
             </span>

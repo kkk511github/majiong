@@ -194,15 +194,33 @@ export function Settlement({
 export function ScoreDetails({
   record,
   me,
+  ledgerFirst = false,
 }: {
   record: RoundRecord;
   me?: Seat;
+  ledgerFirst?: boolean;
 }) {
   const hasExternal =
     record.result.transfers?.some((t) => t.scope === "external") ||
     record.result.externalDeltas?.some((n) => n !== 0);
   return (
-    <div className="score-details">
+    <div className={`score-details${ledgerFirst ? " record-score-ledger" : ""}`}>
+      {ledgerFirst && <>
+        <section className="record-transfer-section" aria-label="本把逐笔收支">
+          <h4>本把逐笔收支 <small>{record.result.transfers?.length ?? 0} 笔</small></h4>
+          {record.result.transfers?.length ? <table className="record-transfer-table">
+            <thead><tr><th>事项</th><th>付分方</th><th>收分方</th><th>分数</th></tr></thead>
+            <tbody>{record.result.transfers.map((entry, index) => <tr key={index}>
+              <td>{entry.reason}{entry.scope === "external" && <small className="record-external-tag">桌外</small>}</td>
+              <td>{record.names[entry.from]}</td><td>{record.names[entry.to]}</td><td>{entry.amount}<small> 分</small></td>
+            </tr>)}</tbody>
+          </table> : <p className="score-note">{record.result.transfers === undefined ? "这局为旧版记录，未保存逐笔收支。" : "本把没有积分收支。"}</p>}
+        </section>
+        <section className="record-net-strip" aria-label="本把积分变化">
+          <h4>本把积分变化</h4>
+          {record.names.map((name, i) => <div key={i}><span>{name}</span><b className={roundNet(record.result, i) > 0 ? "positive" : roundNet(record.result, i) < 0 ? "negative" : "neutral"}>{scoreText(roundNet(record.result, i))}</b></div>)}
+        </section>
+      </>}
       <div className="score-players">
         <table>
           <thead>
@@ -285,7 +303,7 @@ export function ScoreDetails({
             </p>}
           </details>
         ))}
-        {record.result.transfers !== undefined ? (
+        {!ledgerFirst && (record.result.transfers !== undefined ? (
           <details
             className="score-ledger"
             open
@@ -321,7 +339,7 @@ export function ScoreDetails({
           </details>
         ) : (
           <p className="score-note">这局为旧版记录，未保存逐笔收支。</p>
-        )}
+        ))}
         <p className="form-note">
           上表为每份胡牌分；实际收付款以逐笔明细为准，包含余额不足、承包和保米调整。积分仅记录牌局。
         </p>

@@ -4,7 +4,8 @@ import type { Result } from "../shared/types";
 import { TableControls } from "./TableControls";
 import { gameAudio } from "./audio";
 import { WinHintPanel } from "./WinHintPanel";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { TableOpening, canShowOpening, type OpeningCue } from "./TableOpening";
 import type { TableSceneCommand, TableSceneState, TableSafeArea } from "../shared/table-scene";
 import { tableSafeArea } from "./table-safe-area";
 import "./cocos-table.css";
@@ -21,6 +22,7 @@ export function CocosTable({
   readyDiscards = [],
   winResult,
   onSurfaceInteraction,
+  opening,
 }: {
   state: TableSceneState;
   onCommand: (command: TableSceneCommand) => void;
@@ -30,7 +32,10 @@ export function CocosTable({
   readyDiscards?: number[];
   winResult?: Result;
   onSurfaceInteraction?: () => void;
+  opening?: OpeningCue | null;
 }) {
+  const [dismissedOpening, setDismissedOpening] = useState("");
+  const dismissOpening = useCallback(() => setDismissedOpening(opening?.key ?? ""), [opening?.key]);
   const frame = useRef<HTMLIFrameElement>(null);
   const surfaceInteraction=useRef(onSurfaceInteraction);
   surfaceInteraction.current=onSurfaceInteraction;
@@ -47,7 +52,7 @@ export function CocosTable({
     // Decode before a win occurs so the short reveal never starts with empty art.
     for (const theme of ["sea", "jade", "bloom", "celestial", "gold"]) {
       const image = new Image();
-      image.src = `/art/win-v2/${theme}.webp`;
+      image.src = `${import.meta.env.BASE_URL}art/win-v2/${theme}.webp`;
       void image.decode().catch(() => {});
     }
   }, []);
@@ -160,9 +165,9 @@ export function CocosTable({
       />
       {status !== "ready" && (
         <div className="cocos-loading" role="status">
-          <strong>
-            {status === "error" ? {timeout:"牌桌加载超时",page:"牌桌页面未能打开",resources:"牌桌资源加载失败"}[failure] : "正在摆好牌桌…"}
-          </strong>
+          {status === "error" && <strong>
+            {{timeout:"牌桌加载超时",page:"牌桌页面未能打开",resources:"牌桌资源加载失败"}[failure]}
+          </strong>}
           {status === "error" && <p>可以重新加载牌桌，当前对局进度会保留。</p>}
           {status === "error" && (
             <button
@@ -190,6 +195,7 @@ export function CocosTable({
       {status === "ready" && !embedded && <ReadyDiscardArrows state={state} tiles={readyDiscards} />}
       {status === "ready" && winResult && <TableWinEffect state={viewState} result={winResult} />}
       {children && <div className="cocos-voice">{children}</div>}
+      {status === "ready" && !embedded && opening && dismissedOpening !== opening.key && canShowOpening(opening, state, Date.now()) && <TableOpening key={opening.key} state={state} done={dismissOpening} />}
     </main>
   );
 }

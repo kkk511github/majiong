@@ -34,7 +34,7 @@ export const DEFAULT_TABLE_SETTINGS: TableSettings = {
   trusteeRounds: 3,
   scoreMultiplier: 0.5,
   overtimeSeconds: 90,
-  overtimePerTurn: true,
+  overtimePerTurn: false,
   continuousRounds: true,
   allowDissolve: true,
   privacy: "open",
@@ -78,7 +78,9 @@ export function normalizeTableSettings(
   ] as const) {
     if (input[key] !== undefined) {
       if (typeof input[key] !== "boolean") throw Error("牌桌设置无效");
-      s[key] = input[key];
+      // Older clients still send overtimePerTurn=true; all tables now share
+      // one personal overtime balance across decisions.
+      s[key] = key === "overtimePerTurn" ? false : input[key];
     }
   }
   for (const [key, min, max] of [

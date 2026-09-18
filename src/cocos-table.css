@@ -9,6 +9,8 @@
 .table-safe-edge.safe-bottom{height:var(--table-safe-bottom)}
 .cocos-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#0a3933;color:#f7e7b7}
 .cocos-loading strong{font-size:24px}
+.cocos-loading-pending{overflow:hidden}
+.cocos-loading-pending>img{width:100%;height:100%;object-fit:cover;object-position:center 58%}
 .cocos-loading button{min-width:150px;padding:12px 20px;border:1px solid #d1b66c;border-radius:10px;background:#23574b;color:#fff1c4;font-size:18px}
 .cocos-game .cocos-voice{position:absolute;top:2%;right:14.5%;z-index:2}
 

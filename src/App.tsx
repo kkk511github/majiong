@@ -219,6 +219,7 @@ export function App() {
     state.connected && !(state.mode === "local" && modal !== null);
   const motion = useGameMotion(v, motionLive);
   const [opening, setOpening] = useState<OpeningCue | null>(null);
+  const [tableEntryBusy, setTableEntryBusy] = useState(false);
   const dealKey = motion.find(event => event.type === "deal")?.key;
   useEffect(() => {
     if (dealKey && v?.round === 1) setOpening({ key: dealKey, game: v.id, round: v.round, at: Date.now() });
@@ -359,13 +360,13 @@ export function App() {
     setAudioPreferences(next);
   };
   useEffect(() => {
-    client.pauseLocal(modal !== null || document.hidden);
-  }, [modal]);
+    client.pauseLocal(modal !== null || tableEntryBusy || document.hidden);
+  }, [modal, tableEntryBusy]);
   useEffect(() => {
-    const change = () => client.pauseLocal(document.hidden || modal !== null);
+    const change = () => client.pauseLocal(document.hidden || modal !== null || tableEntryBusy);
     document.addEventListener("visibilitychange", change);
     return () => document.removeEventListener("visibilitychange", change);
-  }, [modal]);
+  }, [modal, tableEntryBusy]);
   function clickSound() {
     gameAudio.play("select");
   }
@@ -410,7 +411,9 @@ export function App() {
     setSelected(null);
     submittedRevision.current = null;
     setDismissedResult("");
+    setTableEntryBusy(true);
     client.practice(name.trim(), { rounds, turnSeconds: seconds }, resume);
+    client.pauseLocal(true);
     const fresh = client.snapshot().view;
     if (!resume && fresh) setOpening({ key: `${fresh.id}:${fresh.round}:practice`, game: fresh.id, round: fresh.round, at: Date.now() });
     if (!resume) gameAudio.play("deal");
@@ -495,7 +498,7 @@ export function App() {
     !mine?.trustee;
   const waitingOthersOvertime =
     !!v && v.phase === "claiming" && !v.actions.length && decisionTime.overtime;
-  const paused = state.mode === "local" && modal !== null;
+  const paused = state.mode === "local" && (modal !== null || tableEntryBusy);
   const waitingFor = v?.players
     .filter((p) => p && !p.ready)
     .map((p) => p!.name)
@@ -831,6 +834,7 @@ export function App() {
       {gameActive && v && mine && (
         <CocosTable
           opening={opening}
+          onEntryBusyChange={setTableEntryBusy}
           readyDiscards={readyDiscards}
           winResult={showingWinEffect ? v.result : undefined}
           connectionQuality={state.mode === "online" && state.connected && (state.network.consecutiveTimeouts > 0 || (state.network.smoothedRttMs ?? 0) >= 600) ? networkLabel(state.network) : undefined}

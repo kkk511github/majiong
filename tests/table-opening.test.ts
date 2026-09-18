@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canShowOpening } from "../src/TableOpening";
+import { canShowOpening, openingMatchesState } from "../src/TableOpening";
 import { cocosState } from "../src/cocos-state";
 import { createGame, newPlayer, startRound, viewFor, seats } from "../shared/engine";
 import { seededRandom } from "../shared/tiles";
@@ -16,9 +16,13 @@ it("开局动画仅用于刚开局的本桌，恢复、回放、过期及已出�
   expect(canShowOpening({ ...cue, game: "renewed-table" }, { ...state, key: "renewed-table" }, 1100)).toBe(true);
   expect(canShowOpening(undefined, state, 1100)).toBe(false);
   expect(canShowOpening(cue, state, 8000)).toBe(false);
+  // Freshness is checked when entry is accepted, not while the board loads.
+  expect(openingMatchesState(cue, state)).toBe(true);
   expect(canShowOpening({ ...cue, game: "another-table" }, state, 1100)).toBe(false);
   expect(canShowOpening(cue, { ...state, connected: false }, 1100)).toBe(false);
   expect(canShowOpening(cue, { ...state, presentation: "replay" }, 1100)).toBe(false);
   expect(canShowOpening(cue, { ...state, phase: "claiming" }, 1100)).toBe(false);
   expect(canShowOpening(cue, { ...state, lastDiscard: { tile: 4, seat: 0 } }, 1100)).toBe(false);
+  expect(openingMatchesState(cue, { ...state, round: 2 })).toBe(false);
+  expect(openingMatchesState(cue, { ...state, connected: false })).toBe(false);
 });

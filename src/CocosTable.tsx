@@ -4,8 +4,8 @@ import type { Result } from "../shared/types";
 import { TableControls } from "./TableControls";
 import { gameAudio } from "./audio";
 import { WinHintPanel } from "./WinHintPanel";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { TableOpening, canShowOpening, type OpeningCue } from "./TableOpening";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { TableOpening, canShowOpening, openingMatchesState, openingScene, type OpeningCue } from "./TableOpening";
 import type { TableSceneCommand, TableSceneState, TableSafeArea } from "../shared/table-scene";
 import { tableSafeArea } from "./table-safe-area";
 import "./cocos-table.css";
@@ -23,6 +23,7 @@ export function CocosTable({
   winResult,
   onSurfaceInteraction,
   opening,
+  onEntryBusyChange,
 }: {
   state: TableSceneState;
   onCommand: (command: TableSceneCommand) => void;
@@ -33,8 +34,10 @@ export function CocosTable({
   winResult?: Result;
   onSurfaceInteraction?: () => void;
   opening?: OpeningCue | null;
+  onEntryBusyChange?: (busy: boolean) => void;
 }) {
   const [dismissedOpening, setDismissedOpening] = useState("");
+  const [acceptedOpening, setAcceptedOpening] = useState("");
   const dismissOpening = useCallback(() => setDismissedOpening(opening?.key ?? ""), [opening?.key]);
   const frame = useRef<HTMLIFrameElement>(null);
   const surfaceInteraction=useRef(onSurfaceInteraction);
@@ -47,6 +50,17 @@ export function CocosTable({
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  useLayoutEffect(() => {
+    if (!embedded && opening && canShowOpening(opening, state, Date.now()))
+      setAcceptedOpening(opening.key);
+  }, [opening?.key, state.key, state.round, embedded]);
+  const showingOpening = !embedded && status !== "error" && !!opening &&
+    acceptedOpening === opening.key && dismissedOpening !== opening.key &&
+    openingMatchesState(opening, state);
+  useEffect(() => {
+    onEntryBusyChange?.(status !== "ready" || showingOpening);
+  }, [status, showingOpening, onEntryBusyChange]);
+  useEffect(() => () => onEntryBusyChange?.(false), [onEntryBusyChange]);
   const latest = useRef({ state:viewState, onCommand });
   useEffect(() => {
     // Decode before a win occurs so the short reveal never starts with empty art.
@@ -163,8 +177,9 @@ export function CocosTable({
         allow="autoplay"
         onError={() => {setFailure("page");setStatus("error");}}
       />
-      {status !== "ready" && (
-        <div className="cocos-loading" role="status">
+      {status !== "ready" && !showingOpening && (
+        <div className={`cocos-loading${status === "loading" ? " cocos-loading-pending" : ""}`} role="status" aria-label={status === "loading" ? "正在进入牌桌" : undefined}>
+          {status === "loading" && <img src={openingScene} alt="" draggable={false} />}
           {status === "error" && <strong>
             {{timeout:"牌桌加载超时",page:"牌桌页面未能打开",resources:"牌桌资源加载失败"}[failure]}
           </strong>}
@@ -179,7 +194,7 @@ export function CocosTable({
               重新加载
             </button>
           )}
-          {!embedded && (
+          {status === "error" && !embedded && (
             <button onClick={() => onCommand({ type: "menu", menu: "leave" })}>
               返回大厅
             </button>
@@ -195,7 +210,7 @@ export function CocosTable({
       {status === "ready" && !embedded && <ReadyDiscardArrows state={state} tiles={readyDiscards} />}
       {status === "ready" && winResult && <TableWinEffect state={viewState} result={winResult} />}
       {children && <div className="cocos-voice">{children}</div>}
-      {status === "ready" && !embedded && opening && dismissedOpening !== opening.key && canShowOpening(opening, state, Date.now()) && <TableOpening key={opening.key} state={state} done={dismissOpening} />}
+      {showingOpening && opening && <TableOpening key={opening.key} state={state} done={dismissOpening} tableReady={status === "ready"} />}
     </main>
   );
 }

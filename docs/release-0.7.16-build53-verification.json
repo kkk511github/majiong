@@ -1,0 +1,60 @@
+{
+  "version": "0.7.16",
+  "build": 53,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "sameWebAssetsBothPlatforms": true,
+  "includedExistingFeatures": [
+    "cumulativeTableOvertime",
+    "selectedTileUpwardDrag",
+    "tapOrDragDiscard"
+  ],
+  "openingCoversTableLoading": true,
+  "firstRoundOnlyOpening": true,
+  "realDeviceInstallationTested": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.16-build53.apk",
+      "bytes": 117874827,
+      "sha256": "cee4cef39cf78245dc8189f912e24f2bee2b755a0f732db32eb41f1a0fbb4e8a",
+      "matchedWebFiles": 228,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.16-build53-AdHoc.ipa",
+      "bytes": 118774918,
+      "sha256": "02e39ebe10492cff0820f8d9e507c33e7289f9da487d7124301b3696a45e7fe7",
+      "matchedWebFiles": 228,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 560,
+  "browserTestsPassed": 14,
+  "browserValidation": "Chromium and WebKit browser scenarios cover first-round opening and table loading. Physical-device installation and touch validation were not performed.",
+  "slowRendererValidation": {
+    "delayMs": 6500,
+    "browsers": [
+      "Chromium",
+      "WebKit"
+    ],
+    "openingRemainsVisible": true,
+    "practiceStateStableDuringLoading": true,
+    "practiceTurnBudgetPreserved": true
+  },
+  "deployment": {
+    "release": "0.7.16-opening-20260918",
+    "url": "https://212.189.31.46/play/",
+    "verifiedAt": "2026-09-18T13:03:31.640Z",
+    "health": {
+      "ok": true,
+      "service": "jinling-mahjong",
+      "version": "0.7.16"
+    },
+    "websocket": true,
+    "sourceFilesVerified": 637,
+    "changedContainerFilesVerified": 7,
+    "publicResourcesVerified": 8
+  }
+}

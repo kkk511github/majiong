@@ -1071,41 +1071,20 @@ describe("规则图架牌、改支与照直", () => {
     );
     expect(globalLiability(g, 0, 104)).toBe(false);
   });
-  it("照直声明由服务器校验，不重复、不越权，不泄露暗手", () => {
-    let g = fixture([
-      [0, 1, 2, 9, 10, 11, 18, 19, 20, 27, 27, 27, 28, 28],
-      [],
-      [],
-      [],
-    ]);
-    expect(viewFor(g, 0).canZhaozhi).toBe(true);
-    expect(() => act(g, 1, { type: "zhaozhi" })).toThrow();
-    g = act(g, 0, { type: "zhaozhi" });
-    expect(g.players[0]!.zhaozhi).toBe(true);
+  it("手机规则拒绝照直声明且不展示入口", () => {
+    const g = fixture([[0,1,2,9,10,11,18,19,20,27,27,27,28,28],[],[],[]]);
     expect(viewFor(g, 0).canZhaozhi).toBe(false);
     expect(() => act(g, 0, { type: "zhaozhi" })).toThrow();
     expect(viewFor(g, 1).players[0]!.hand).toEqual([]);
   });
-  it("照直不能胡对对胡，普通顺子成牌仍能胡", () => {
-    const p = hand([0, 0, 0, 9, 9, 9, 18, 18, 18, 27, 27, 27, 28, 28]);
+  it("旧状态照直标记不再禁止对对胡或杠牌", () => {
+    const p = hand([0,0,0,9,9,9,18,18,18,27,27,27,28,28]);
     p.zhaozhi = true;
-    expect(scoreHand(p, garden)).toBeNull();
-    p.hand = makeTiles([0, 1, 2, 9, 10, 11, 18, 19, 20, 27, 27, 27, 28, 28]);
     expect(scoreHand(p, garden)).not.toBeNull();
-  });
-  it("照直三嘴后暗杠和补杠都禁止，四嘴后不能补声明", () => {
-    const g = fixture([[0, 0, 0, 0, 28], [], [], []]);
-    g.players[0]!.melds = [9, 18, 27].map((k) => ({
-      type: "pung",
-      tiles: [k * 4, k * 4 + 1, k * 4 + 2],
-      from: 1,
-      concealed: false,
-    }));
-    const declared = act(g, 0, { type: "zhaozhi" });
-    expect(selfKongs(declared, 0)).toEqual([]);
-    expect(() => act(declared, 0, { type: "selfKong", tile: 0 })).toThrow();
-    const four = globalGame();
-    expect(viewFor(four, 0).canZhaozhi).toBe(false);
+    const g=fixture([[0,0,0,0,28],[],[],[]]);
+    g.players[0]!.zhaozhi=true;
+    g.players[0]!.melds=[9,18,27].map(k=>({type:"pung",tiles:[k*4,k*4+1,k*4+2],from:1,concealed:false}));
+    expect(selfKongs(g,0)).toContain(0);
   });
 });
 

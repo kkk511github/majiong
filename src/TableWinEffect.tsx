@@ -3,6 +3,8 @@ import type { Result } from "../shared/types";
 import { layoutTable, sceneOffset, type TableSceneState } from "../shared/table-scene";
 import { tableOverlayLayout } from "./table-overlay-layout";
 import { winDisplayLabel } from "./win-label";
+import { winTheme } from "./win-theme";
+import { SpecialWinArt } from "./SpecialWinArt";
 import "./table-win-effect.css";
 
 /** Show each result beside the player it belongs to, relative to the viewer's seat. */
@@ -53,7 +55,11 @@ export function TableWinEffect({ state, result }: { state: TableSceneState; resu
     return ()=>observer.disconnect();
   },[state,result]);
   const name=(seat:number)=>state.players.find(p=>p.seat===seat)?.name??`牌友${seat+1}`;
+  const specials=[...new Set(result.winners.map(seat=>winDisplayLabel(result,seat)))].filter(label=>winTheme(label));
   return <div ref={ref} className="table-win-effect" role="status" aria-label="胡牌结果">
+    {specials.length>0&&<div className="special-win-stage" data-count={specials.length} aria-hidden="true">
+      {specials.map(label=><SpecialWinArt key={label} label={label} names={result.winners.filter(seat=>winDisplayLabel(result,seat)===label).map(name).join(" · ")} />)}
+    </div>}
     {result.from!==undefined&&<strong className="seat-discarder" data-seat={result.from} data-relative-seat={sceneOffset(result.from,state.me)} style={discarderPosition} aria-label={`${name(result.from)}点炮`}>点炮</strong>}
     {result.winners.map(seat=><div key={seat} className={`win-callout${sceneOffset(seat,state.me)%2?" win-callout-side":""}${winDisplayLabel(result,seat).length>2?" win-callout-pattern":""}`} data-seat={seat} data-relative-seat={sceneOffset(seat,state.me)} style={positions[seat]??{visibility:"hidden"}}>
       <strong className="win-call-art" role="img" aria-label={winDisplayLabel(result,seat)}>{winDisplayLabel(result,seat)}</strong>

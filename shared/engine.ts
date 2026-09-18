@@ -263,8 +263,50 @@ function transferExternal(g: Game, entry: Bill) {
   winner.externalScore = credit;
   g.roundTransfers?.push({ ...entry, scope: "external" });
 }
-function finishBankrupt(g: Game, now: number): boolean {
+/** Top up the players whose winning hand or kong ended the table. */
+function protectFinishers(g: Game, winners: Seat[]) {
+  if (g.rules.protectWinner) {
+    // User-confirmed: the finishing winner is topped up to 100 points (user-confirmed fixed target, initial stake remains 90).
+    for (const winner of winners) {
+      if (isNanjingV2(g.rules)) {
+        for (const donor of seats
+          .filter((s) => s !== winner)
+          .sort((a, b) => g.players[b]!.score - g.players[a]!.score || a - b)) {
+          const missing = Math.max(0, 100 - g.players[winner]!.score),
+            amount = Math.min(
+              missing,
+              Math.max(
+                0,
+                g.players[donor]!.score - (winners.includes(donor) ? 100 : 0),
+              ),
+            );
+          if (amount > 0) {
+            transfer(g, donor, winner, amount, "保米");
+            note(
+              g,
+              `${g.players[winner]!.name} 保米，由 ${g.players[donor]!.name} 补 ${amount} 分`,
+            );
+          }
+        }
+        continue;
+      }
+      const missing = Math.max(0, 100 - g.players[winner]!.score);
+      const donor = seats
+        .filter((s) => s !== winner)
+        .sort((a, b) => g.players[b]!.score - g.players[a]!.score || a - b)[0];
+      if (missing > 0 && g.players[donor]!.score > g.players[winner]!.score) {
+        transfer(g, donor, winner, missing, "保米");
+        note(
+          g,
+          `${g.players[winner]!.name} 保米补到 100 分，由 ${g.players[donor]!.name} 补 ${missing} 分`,
+        );
+      }
+    }
+  }
+}
+function finishBankrupt(g: Game, now: number, kongRecipient?: Seat): boolean {
   if (!bankrupt(g)) return false;
+  if (kongRecipient !== undefined) protectFinishers(g, [kongRecipient]);
   finish(g, { reason: "bankrupt", winners: [], details: {}, deltas: [] }, now);
   return true;
 }
@@ -474,7 +516,7 @@ function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
   };
   if (g.rules.discardPenalties) {
     if (own.filter((n) => n === k).length === 4)
-      payOthers(seat, sideAmount(g, nanjingValues(g.rules).penaltyFlowers), "四张同牌");
+      payOthers(seat, bProfile ? sidePoints(g, 5) : sideAmount(g, nanjingValues(g.rules).penaltyFlowers), "四张同牌");
     const chain = state.discards;
     if (
       chain.length === 4 &&
@@ -569,7 +611,7 @@ function draw(
       p.flowers.push(t);
       flowersKong(g, seat, t, initial);
       if (!initial) captureReplay(g, "flower", now, seat, t);
-      if (finishBankrupt(g, now)) return false;
+      if (finishBankrupt(g, now, seat)) return false;
       replacement = true;
       if (isNanjingV2(g.rules))
         g.replacement = { ...g.replacement, type: "flower" };
@@ -686,7 +728,6 @@ export function selfKongs(g: Game, seat: Seat): Tile[] {
     return [];
   const p = g.players[seat]!,
     c = counts(p.hand);
-  if (p.zhaozhi && p.melds.length >= 3) return [];
   return p.hand.filter(
     (t) =>
       ((c[kind(t)] === 4 && t === p.hand.find((a) => kind(a) === kind(t))) ||
@@ -783,7 +824,6 @@ function settle(
     // Three-pure liability requires a same-suit winning discard; self draws
     // and concealed kongs do not create a fourth supplier.
     const purePayer =
-      !p.zhaozhi &&
       pure &&
       from !== undefined &&
       !robbed &&
@@ -862,44 +902,7 @@ function settle(
   payBills(g, bills);
   for (const entry of externalBills) transferExternal(g, entry);
   result.bankrupt = result.bankrupt || bankrupt(g);
-  if (result.bankrupt && g.rules.protectWinner) {
-    // User-confirmed: the finishing winner is topped up to 100 points (user-confirmed fixed target, initial stake remains 90).
-    for (const winner of winners) {
-      if (isNanjingV2(g.rules)) {
-        for (const donor of seats
-          .filter((s) => s !== winner)
-          .sort((a, b) => g.players[b]!.score - g.players[a]!.score || a - b)) {
-          const missing = Math.max(0, 100 - g.players[winner]!.score),
-            amount = Math.min(
-              missing,
-              Math.max(
-                0,
-                g.players[donor]!.score - (winners.includes(donor) ? 100 : 0),
-              ),
-            );
-          if (amount > 0) {
-            transfer(g, donor, winner, amount, "保米");
-            note(
-              g,
-              `${g.players[winner]!.name} 保米，由 ${g.players[donor]!.name} 补 ${amount} 分`,
-            );
-          }
-        }
-        continue;
-      }
-      const missing = Math.max(0, 100 - g.players[winner]!.score);
-      const donor = seats
-        .filter((s) => s !== winner)
-        .sort((a, b) => g.players[b]!.score - g.players[a]!.score || a - b)[0];
-      if (missing > 0 && g.players[donor]!.score > g.players[winner]!.score) {
-        transfer(g, donor, winner, missing, "保米");
-        note(
-          g,
-          `${g.players[winner]!.name} 保米补到 100 分，由 ${g.players[donor]!.name} 补 ${missing} 分`,
-        );
-      }
-    }
-  }
+  if (result.bankrupt) protectFinishers(g, winners);
   finish(g, result, now);
 }
 function offerClaims(
@@ -923,7 +926,6 @@ function offerClaims(
       const c = p.hand.filter((t) => kind(t) === kind(tile)).length;
       if (!robbed && !p.passedPung.includes(kind(tile))) {
         if (
-          !(p.zhaozhi && p.melds.length >= 3) &&
           c >= 3 &&
           g.wall.length > (g.rules.seaBottom ? 0 : 16) &&
           preservesHeavenlyWait(g, seat, tile, true)
@@ -970,7 +972,7 @@ function completeAddedKong(g: Game, from: Seat, tile: Tile, now: number) {
   recordKong(g, from);
   note(g, `${p.name} 补杠 ${tileName(tile)}`);
   captureReplay(g, "addedKong", now, from, tile);
-  draw(g, from, now, true);
+  if (!finishBankrupt(g, now, from)) draw(g, from, now, true);
 }
 function resolveClaims(g: Game, now: number) {
   const pending = g.pending!;
@@ -1034,7 +1036,7 @@ function resolveClaims(g: Game, now: number) {
     captureReplay(g, "kong", now, chosen, pending.tile);
     g.replacement = { type: "kong", from: pending.from, direct: true };
     recordKong(g, chosen);
-    draw(g, chosen, now, true);
+    if (!finishBankrupt(g, now, chosen)) draw(g, chosen, now, true);
   } else {
     if (g.ruleState) {
       delete g.ruleState.heavenlyWaits[chosen];
@@ -1115,10 +1117,7 @@ export function act(
       if (!offerClaims(g, seat, action.tile, false, now))
         draw(g, next(seat), now);
     } else if (action.type === "zhaozhi") {
-      if (!canDeclareZhaozhi(g, seat)) throw Error("当前不能报照直");
-      p.zhaozhi = true;
-      note(g, `${p.name} 报照直：不外包、不胡对对胡，三嘴后不可杠`);
-      captureReplay(g, "zhaozhi", now, seat);
+      throw Error("手机麻将不支持照直");
     } else if (action.type === "hu") {
       if (!g.canSelfWin) throw Error("当前不能自摸");
       settle(g, [seat], undefined, now);
@@ -1152,7 +1151,7 @@ export function act(
         recordKong(g, seat);
         note(g, `${p.name} 暗杠`);
         captureReplay(g, "concealedKong", now, seat, action.tile);
-        draw(g, seat, now, true);
+        if (!finishBankrupt(g, now, seat)) draw(g, seat, now, true);
       } else if (!offerClaims(g, seat, action.tile, true, now))
         completeAddedKong(g, seat, action.tile, now);
     } else throw Error("当前不能执行这个操作");

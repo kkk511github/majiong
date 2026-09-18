@@ -777,3 +777,233 @@
   background-size: 4px 4px;
   background-repeat: no-repeat;
 }
+
+/* A calm records desk: parchment results, consistent controls, readable numbers. */
+.app.classic.polished[data-page="history"] {
+  background: #123f36;
+}
+.app.polished[data-page="history"] > .lobby {
+  padding-inline: max(20px, env(safe-area-inset-left))
+    max(20px, env(safe-area-inset-right));
+}
+.app.polished .records-workspace .records-heading {
+  min-height: 84px;
+  border-color: #d7cda238;
+  padding-block: 12px;
+}
+.app.polished .records-heading h1 {
+  text-align: left;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+}
+.records-title-note {
+  display: block;
+  font: 400 11px/1.5 var(--sans, sans-serif);
+  color: #bbd0c4;
+  letter-spacing: 0.03em;
+  margin-top: 5px;
+}
+.records-heading nav {
+  border-color: #bfd0bd38;
+  background: #082e2840;
+  border-radius: 10px;
+}
+.app.polished .records-heading nav button[aria-pressed="true"] {
+  background: #f2e5bf;
+  box-shadow: none;
+  color: #244b3b;
+}
+.records-workspace-body {
+  gap: 20px;
+  padding-top: 5px;
+}
+.record-dates {
+  border-color: #c8d3b326;
+  padding-right: 16px;
+}
+.app.polished .record-date {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  align-items: flex-start;
+  padding-left: 18px;
+}
+.app.polished .record-date[aria-pressed="true"] {
+  background: #e8dfb9;
+  color: #244936;
+  border-color: #e8dfb9;
+  box-shadow: none;
+}
+.record-date[aria-pressed="true"] small {
+  color: #516853;
+}
+.record-date b {
+  font-size: 19px;
+}
+.app.polished .records-workspace .records-list {
+  gap: 12px;
+  padding-bottom: 12px;
+}
+.app.polished .records-workspace .match-card {
+  border: 1px solid #e7ddbf;
+  border-radius: 12px;
+  background: #fbf7e9;
+  box-shadow: 0 3px 10px #052b2429;
+  min-height: 140px;
+}
+.records-workspace .match-card::before {
+  display: none;
+}
+.records-workspace .match-card-header {
+  padding-block: 9px;
+  border-bottom: 1px solid #d8cfb970;
+  background: #f2eddf;
+}
+.records-workspace .match-players {
+  padding-block: 12px;
+}
+.records-workspace .match-points b {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  font-size: 30px;
+}
+.records-workspace .match-player-name > strong {
+  font-size: 16px;
+}
+.records-workspace .match-player {
+  border-color: #d8cfb970;
+}
+.app.polished .records-workspace .match-detail-link {
+  background: #e9e1c8;
+  border: 1px solid #d1c6a4;
+  box-shadow: none;
+  border-radius: 9px;
+  font-size: 15px;
+  color: #34543f;
+  min-height: 48px;
+}
+.app.polished .records-workspace .match-card:hover {
+  border-color: #baa25f;
+  box-shadow: 0 4px 14px #031e2433;
+}
+.records-list .records-empty {
+  margin-bottom: 12px;
+  border: 1px dashed #b6c9b83d;
+  border-radius: 14px;
+  background: #082e281f;
+}
+.records-results-heading {
+  min-height: 36px;
+}
+.record-search {
+  background: #082e2840;
+  border-color: #b8cab050;
+}
+@media (max-width: 1050px) {
+  .records-title-note {
+    display: none;
+  }
+  .app.polished .records-heading h1 {
+    font-size: 24px;
+  }
+  .app.polished .records-workspace .records-heading {
+    min-height: 66px;
+  }
+  .records-workspace-body {
+    gap: 12px;
+  }
+}
+@media (max-width: 760px) {
+  .app.polished[data-page="history"] > .lobby {
+    padding-inline: 10px;
+  }
+  .app.polished .records-workspace .records-heading {
+    padding-block: 4px;
+    min-height: 68px;
+  }
+  .app.polished .records-heading h1 {
+    text-align: center;
+    font-size: 22px;
+  }
+  .records-workspace-body {
+    gap: 8px;
+    padding-top: 0;
+  }
+  .record-dates {
+    padding-right: 6px;
+  }
+  .app.polished .record-date {
+    padding-left: 12px;
+  }
+  .app.polished .records-workspace .match-card {
+    min-height: 0;
+    border-radius: 9px;
+  }
+  .records-workspace .match-card-header {
+    padding-block: 5px;
+  }
+  .records-workspace .match-players {
+    padding-block: 7px;
+  }
+  .records-workspace .match-player-name > strong {
+    font-size: 13px;
+  }
+  .records-workspace .match-points b {
+    font-size: 24px;
+  }
+  .app.polished .records-workspace .match-detail-link {
+    font-size: 12px;
+  }
+  .app.polished .records-workspace .records-list {
+    gap: 8px;
+  }
+}
+@media (max-height: 450px) {
+  .app.polished .records-workspace .records-heading {
+    min-height: 50px;
+    padding-block: 4px;
+  }
+  .records-title-note {
+    display: none;
+  }
+  .records-workspace-body {
+    padding-top: 0;
+  }
+  .records-results-heading {
+    min-height: 26px;
+  }
+}
+@media (max-height: 400px) {
+  .record-query-mode,
+  .record-read-filter select {
+    height: 32px;
+    min-height: 32px;
+    background-position:
+      calc(100% - 10px) 13px,
+      calc(100% - 6px) 13px;
+  }
+  .app.polished .record-date {
+    min-height: 42px;
+    gap: 2px;
+    padding-block: 5px;
+  }
+  .record-date b {
+    font-size: 15px;
+  }
+  .record-date-picker {
+    min-height: 32px;
+  }
+  .records-workspace .match-players {
+    padding-block: 5px;
+  }
+  .records-workspace .record-team {
+    font-size: 10px;
+  }
+}
+.app.polished .records-heading h1,
+.records-workspace .match-points b {
+  letter-spacing: 0;
+}
+.app.polished .records-workspace .match-card {
+  border-radius: 8px;
+}

@@ -202,6 +202,24 @@ it.each([1, 2])("补杠收原供碰者10分，花杠每家10分，均乘当前�
   expect(flowered.roundTransfers?.filter(t => t.reason === "花杠"))
     .toEqual([0, 2, 3].map(from => ({ from, to: 1, amount: 10 * multiplier, reason: "花杠" })));
 });
+it.each(["暗杠","花杠"])("%s导致两家归零，杠牌者不足100同样保米", type=>{
+  if(type==="暗杠") {
+    const g=game(player([0,0,0,0,3,4,5,9,10,11,18,19,20,22]),[8,0,5,347]);
+    const ended=act(g,0,{type:"selfKong",tile:0},1000);
+    expect(ended.phase).toBe("finished");
+    expect(ended.players.map(p=>p!.score)).toEqual([100,0,0,260]);
+    expect(ended.result!.transfers).toContainEqual({from:3,to:0,amount:82,reason:"保米"});
+    expect(ended.wall).toEqual(g.wall);
+  }else{
+    const g=game(player([8],0),[5,8,0,347]);
+    g.players[1]!.flowers=[124,125,126];g.wall=[127,...g.wall.filter(t=>t<124)];
+    const ended=act(g,0,{type:"discard",tile:32},1000);
+    expect(ended.phase).toBe("finished");
+    expect(ended.players.map(p=>p!.score)).toEqual([0,100,0,260]);
+    expect(ended.result!.transfers).toContainEqual({from:3,to:1,amount:77,reason:"保米"});
+    expect(ended.wall).toHaveLength(g.wall.length-1);
+  }
+});
 it("B档直杠与暗杠保留门清，碰后补杠不恢复门清", () => {
   const p = player([3, 4, 5, 9, 10, 11, 18, 19, 20, 22, 22], 4, [0]);
   p.melds[0] = { type: "kong", tiles: [0, 1, 2, 3], from: 1, concealed: false };
@@ -371,9 +389,16 @@ describe("B档风牌固定5分，不随花砸2或本把倍率增加", () => {
     expect(g.players.map(p => p!.score)).toEqual([355, 0, 0, 5]);
     expect(g.result!.externalDeltas).toEqual([0, 0, 0, 0]);
   });
-  it("单人四次打同一张牌仍沿用原6花罚分与倍率", () => {
+  it("单人四次打同种牌，比下胡向其他三家各付10分", () => {
     const kinds = [8, 8, 8, 8];
     const g = discardWindSequence(windGame([kinds, [0, 1, 2], [0, 1, 2], [0, 1, 2]]), kinds);
-    expect(g.roundTransfers).toEqual([1, 2, 3].map(to => ({ from: 0, to, amount: 24, reason: "四张同牌" })));
+    expect(g.roundTransfers).toEqual([1, 2, 3].map(to => ({ from: 0, to, amount: 10, reason: "四张同牌" })));
+  });
+  it("单人四张同牌普通局每家5分，不乘花砸2",()=>{
+    const kinds=[8,8,8,8];
+    const source=windGame([kinds,[0,1,2],[0,1,2],[0,1,2]]);
+    source.ruleState!.multiplier=1;
+    const g=discardWindSequence(source,kinds);
+    expect(g.roundTransfers).toEqual([1,2,3].map(to=>({from:0,to,amount:5,reason:"四张同牌"})));
   });
 });

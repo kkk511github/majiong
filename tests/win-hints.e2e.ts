@@ -1,6 +1,6 @@
 import { test, expect } from "./browser-fixtures";
 for (const width of [568, 844, 1280])
-  test(`长条听牌面板：全部听口与汇总、可胡状态和照直确认 ${width}`, async ({
+  test(`长条听牌面板：全部听口与汇总、可胡状态且没有照直入口 ${width}`, async ({
     page,
   }) => {
     await page.setViewportSize({
@@ -65,14 +65,8 @@ for (const width of [568, 844, 1280])
     const box = (await panel.boundingBox())!;
     expect(box.x + box.width).toBeLessThan(width);
     await expect(panel.getByRole("listitem").last()).toBeInViewport();
-    await page.getByRole("button", { name: "报照直", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "确认照直" })).toContainText(
-      "不可撤销",
-    );
-    await page.getByRole("button", { name: "确认照直", exact: true }).click();
-    expect(
-      await page.evaluate(() => (window as any).__hintQA.commands),
-    ).toEqual([{ type: "action", action: "zhaozhi" }]);
+    await expect(page.getByRole("button", { name: "报照直", exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__hintQA.commands)).toEqual([]);
     await page.evaluate(() => {
       const q = (window as any).__hintQA;
       q.state.hintKinds = [0];

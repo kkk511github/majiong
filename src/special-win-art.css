@@ -1,0 +1,164 @@
+.special-win-stage {
+  position: absolute;
+  inset: 20% 21% 22%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.special-win-art {
+  --win-ink: #d6fbff;
+  --win-shadow: #073f70;
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  aspect-ratio: 3/2;
+  isolation: isolate;
+  container-type: inline-size;
+  animation: special-win-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.special-win-art.theme-jade {
+  --win-ink: #e4ffcc;
+  --win-shadow: #13552d;
+}
+.special-win-art.theme-bloom {
+  --win-ink: #fff0cf;
+  --win-shadow: #901b43;
+}
+.special-win-art.theme-celestial {
+  --win-ink: #f7e3ff;
+  --win-shadow: #593183;
+}
+.special-win-ornament {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 6px #001d29aa);
+  animation: special-win-breathe 2.8s ease-in-out 0.6s both;
+}
+.special-win-copy {
+  position: absolute;
+  inset: 31% 13% 29%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+  color: var(--win-ink);
+  background: #072f2bd9;
+  border-radius: 50%;
+  box-shadow: 0 0 20px 9px #072f2bb0;
+  text-shadow:
+    0 2px 3px var(--win-shadow),
+    0 0 14px #001a1e;
+}
+.special-win-caption {
+  font-size: clamp(9px, 3.5cqw, 14px);
+  letter-spacing: 0.32em;
+  color: #fff5d9;
+  animation: special-win-text 0.45s 0.2s both;
+}
+.special-win-title {
+  font-family: "Mahjong Win Brush", var(--serif);
+  font-size: clamp(19px, calc(80cqw / var(--title-length)), 64px);
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: nowrap;
+  filter: drop-shadow(0 2px 0 var(--win-shadow));
+  animation: special-win-text 0.55s 0.12s both;
+}
+.special-win-player {
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(10px, 4cqw, 17px);
+  color: #fff9e8;
+  letter-spacing: 0.08em;
+  animation: special-win-text 0.5s 0.3s both;
+}
+.special-win-stage[data-count="2"],
+.special-win-stage[data-count="3"] {
+  inset-inline: 13%;
+}
+.special-win-stage[data-count="3"] .special-win-caption {
+  display: none;
+}
+@keyframes special-win-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.65) translateY(12px);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.035);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes special-win-text {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes special-win-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+@media (max-height: 400px) {
+  .special-win-stage {
+    inset: 21% 26% 24%;
+  }
+  .special-win-copy {
+    gap: 2px;
+  }
+  .special-win-caption {
+    font-size: 9px;
+  }
+  .special-win-player {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .special-win-art,
+  .special-win-ornament,
+  .special-win-copy > * {
+    animation: none;
+  }
+}
+.special-win-copy {
+  inset: 27% 12% 24%;
+}
+.special-win-title {
+  font-size: clamp(12px, calc(70cqw / var(--title-length)), 60px);
+  flex-shrink: 0;
+}
+.special-win-player {
+  flex-shrink: 0;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+/* Open luminous lettering replaces the opaque central plaque. */
+.special-win-copy{background:none;box-shadow:none;border-radius:0;text-shadow:0 3px 2px var(--win-shadow),0 0 5px #002e29,0 0 12px #002e29}
+.special-win-art.theme-gold{--win-ink:#ffe5a2;--win-shadow:#79501b}
+.theme-gold .special-win-title{font-size:clamp(32px,22cqw,84px)}
+.special-win-title{paint-order:stroke fill;-webkit-text-stroke:1px var(--win-shadow)}
+.special-win-player{background:#063d35d9;padding:2px 10px;border-radius:3px}

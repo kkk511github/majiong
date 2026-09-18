@@ -329,7 +329,7 @@ export function TableSetup({
             </Setting>
             <Setting
               label="保米"
-              help="两家归零结束时，从大赢家补最后胡牌者至固定 100 分"
+              help="胡牌或杠牌导致两家归零结束时，从大赢家补本次胡牌者或杠牌者至100分"
             >
               <Toggle
                 label="保米"

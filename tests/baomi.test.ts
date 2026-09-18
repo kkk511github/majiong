@@ -9,6 +9,7 @@ import {
 import { normalizeTableSettings } from "../shared/table-settings";
 import { settlementRows } from "../shared/settlement";
 import type { Game } from "../shared/types";
+import { ruleDefaults } from "../shared/nanjing-rules";
 function ending(protectWinner = true): Game {
   const g = createGame("123456", "baomi", {
     rounds: 8,
@@ -107,7 +108,7 @@ it("多人同炮余额不足按应收比例分配，总扣款不超过放炮者�
   );
   expect(b.players.reduce((n, p) => n + p!.score, 0)).toBe(360);
 });
-it("杠分使第二家归零时立即结束，不继续摸牌或触发胡牌保米", () => {
+it("杠分使第二家归零时立即结束，杠牌者已有100分无需保米", () => {
   const g = ending();
   g.phase = "playing";
   g.pending = undefined;
@@ -123,6 +124,39 @@ it("杠分使第二家归零时立即结束，不继续摸牌或触发胡牌保�
   expect(ended.wall).toHaveLength(25);
   expect(ended.result!.transfers!.some((t) => t.reason === "保米")).toBe(false);
   expect(ended.players.reduce((n, p) => n + p!.score, 0)).toBe(360);
+});
+it.each([1, 2])("直杠终局保米：倍率%s，按实收后余额补至100且不再补摸", multiplier => {
+  const g=ending();
+  g.rules=ruleDefaults("nj-garden-b-v3");
+  g.ruleState={multiplier,nextMultiplier:1,nextReasons:[],keepDealer:false,heavenlyEligible:false,heavenlyWaits:{},discards:[],ownDiscards:[[],[],[],[]],kongOccurred:false};
+  const payer=multiplier===1?10:16;
+  g.players[0]!.score=payer;g.players[3]!.score=352-payer;
+  g.roundStartScores=g.players.map(p=>p!.score);
+  g.players[2]!.hand=[0,1,2,8,12,16,20,24,28,32,36,40,44];
+  g.wall=Array.from({length:30},(_,i)=>80+i);
+  g.pending={openedAtRevision:0,tile:3,from:0,kind:"discard",offers:{2:["kong","pass"]},replies:{}};
+  const ended=act(g,2,{type:"kong"},1000);
+  expect(ended.phase).toBe("finished");
+  expect(ended.players.map(p=>p!.score)).toEqual([0,0,100,260]);
+  expect(ended.wall).toEqual(g.wall);
+  expect(ended.result!.winners).toEqual([]);
+  expect(ended.result!.transfers).toEqual([{from:0,to:2,amount:payer,reason:"直杠"},{from:3,to:2,amount:92-payer,reason:"保米"}]);
+  expect(ended.history[0].scores).toEqual([0,0,100,260]);
+});
+it("补杠终局保米遵循开关且不会凭空补分",()=>{
+  for(const enabled of [true,false]) {
+    const g=ending(enabled);g.rules=ruleDefaults("nj-garden-b-v3");g.rules.protectWinner=enabled;
+    g.players[0]!.score=5;g.players[3]!.score=20;g.roundStartScores=[5,0,8,20];
+    g.phase="playing";g.pending=undefined;g.turn=2;g.wall=Array.from({length:30},(_,i)=>80+i);
+    g.players[2]!.hand=[3,8,12,16,20,24,28,32,36,40,44];
+    g.players[2]!.melds=[{type:"pung",tiles:[0,1,2],from:0,concealed:false}];
+    g.players[0]!.hand=[];g.players[1]!.hand=[];g.players[3]!.hand=[];
+    const ended=act(g,2,{type:"selfKong",tile:3},1000);
+    expect(ended.phase).toBe("finished");
+    expect(ended.players.map(p=>p!.score)).toEqual(enabled?[0,0,33,0]:[0,0,13,20]);
+    expect(ended.wall).toEqual(g.wall);
+    expect(ended.players.reduce((n,p)=>n+p!.score,0)).toBe(33);
+  }
 });
 it.each([0.2, 0.5, 1])(
   "桌费与记分倍率 %s：每人本金100入桌90，记录桌费差额",

@@ -93,6 +93,7 @@ export function OnlineHome({
 }) {
   const canOpen = mayCreateTables(state.account);
   const [setup, setSetup] = useState(false);
+  const [onlyVacant, setOnlyVacant] = useState(false);
   const initialCreated = useRef(state.createdTables);
   useEffect(() => {
     if (state.account) client.browseTables(name);
@@ -119,7 +120,7 @@ export function OnlineHome({
   const waiting = active.filter(
     (t) => t.phase === "waiting" && t.seats.some((p) => !p),
   );
-  const visibleTables = [...active].sort((a, b) => {
+  const visibleTables = [...(onlyVacant ? waiting : active)].sort((a, b) => {
     const rank = (t: TableSummary) =>
       t.phase === "waiting" && t.seats.some((p) => !p)
         ? 0
@@ -144,6 +145,7 @@ export function OnlineHome({
         )}
 
         <div className="home-intro">
+          <span className="home-eyebrow">金陵有好牌 · 相聚正当时</span>
           <h1>南京麻将</h1>
           <p>
             碰杠不吃<span>·</span>二十张花<span>·</span>四人约局
@@ -251,6 +253,17 @@ export function OnlineHome({
             </button>
           </div>
         </div>
+        <div className="home-table-filters" aria-label="首页牌桌筛选">
+          <button
+            aria-pressed={!onlyVacant}
+            onClick={() => setOnlyVacant(false)}
+          >
+            全部牌桌 <span>{active.length}</span>
+          </button>
+          <button aria-pressed={onlyVacant} onClick={() => setOnlyVacant(true)}>
+            有空位 <span>{waiting.length}</span>
+          </button>
+        </div>
         <div
           className="home-live-body"
           role="region"
@@ -300,7 +313,9 @@ export function OnlineHome({
                     ? state.connecting || state.tablesLoading
                       ? "正在连接牌桌"
                       : "暂时连接不上牌桌"
-                    : "好牌局，等你来相聚"}
+                    : onlyVacant
+                      ? "暂时没有空位"
+                      : "好牌局，等你来相聚"}
               </strong>
               <p>
                 {refreshing

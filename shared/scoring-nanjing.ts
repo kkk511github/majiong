@@ -79,8 +79,6 @@ function scoreNanjingBase(
   }
   let best: WinScore | null = null;
   for (const shape of candidates) {
-    if (p.zhaozhi && !shape.seven && shape.groups.every((g) => g[0] === g[1]))
-      continue;
     const items: WinScore["items"] = [];
     const add = (label: string, value: number) => {
       if (value) items.push({ label, value });
@@ -173,7 +171,6 @@ function scoreNanjingBase(
 
 export function threeMouths(p: Player, seat: Seat): Seat | undefined {
   // Reference rules: the first three mouths, never a later run of three.
-  if (p.zhaozhi) return undefined;
   const first = p.melds.slice(0, 3);
   if (first.length < 3) return undefined;
   return ([0, 1, 2, 3] as Seat[]).find(
@@ -192,7 +189,6 @@ export function scoreNanjingHand(
   const { seat, tile, robbed } = ctx;
   let best = scoreNanjingBase(p, rules, ctx);
   if (
-    p.zhaozhi ||
     seat === undefined ||
     tile === undefined ||
     p.melds.length !== 3 ||

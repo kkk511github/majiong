@@ -37,8 +37,8 @@ export function cocosState(
   }));
   return {
     hintUnseen: unseenHintCounts(view, ui.hintKinds),
-    zhaozhiAvailable: view.canZhaozhi,
-    zhaozhi: view.players[view.me]?.zhaozhi,
+    zhaozhiAvailable: false,
+    zhaozhi: false,
     key: view.id,
     revision: view.revision,
     me: view.me,

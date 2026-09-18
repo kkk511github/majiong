@@ -16,7 +16,6 @@ export function WinHintPanel({
   readyDiscards?: number[];
   onCommand: (c: TableSceneCommand) => void;
 }) {
-  const [confirm, setConfirm] = useState(false);
   const hostRef=useRef<HTMLDivElement>(null);
   const [position,setPosition]=useState<CSSProperties>({visibility:"hidden"});
   useEffect(()=>{
@@ -48,7 +47,6 @@ export function WinHintPanel({
     const controls=host.querySelector(".table-claim-actions");if(controls)observer.observe(controls);
     resize();return ()=>observer.disconnect();
   },[s.hintKinds.length,s.actions,s.selected,s.drawn,s.players,s.hintDiscard,s.safeArea,readyDiscards]);
-  useEffect(() => setConfirm(false), [s.key, s.turn, s.phase, s.zhaozhi]);
   const active =
     s.presentation !== "replay" && ["playing", "claiming"].includes(s.phase);
   const hu = s.actions.some((a) => a.id === "hu") && (!!s.pending || s.hintDiscard === undefined);
@@ -65,40 +63,7 @@ export function WinHintPanel({
       : "已经听牌";
   return (
     <div ref={hostRef} className="mahjong-hint-layer">
-      {active && (s.zhaozhiAvailable || s.zhaozhi) && (
-        <div className="zhaozhi-control">
-          {s.zhaozhi ? (
-            <span>已照直</span>
-          ) : (
-            <button disabled={s.disabled} onClick={() => setConfirm(!confirm)}>
-              报照直
-            </button>
-          )}
-          {confirm && (
-            <div
-              className="zhaozhi-confirm"
-              role="dialog"
-              aria-label="确认照直"
-            >
-              <strong>本局声明照直</strong>
-              <p>
-                不参与外包，不可胡对对胡；三嘴后不能杠。声明后本局不可撤销。
-              </p>
-              <button onClick={() => setConfirm(false)}>取消</button>
-              <button
-                disabled={s.disabled}
-                onClick={() => {
-                  onCommand({ type: "action", action: "zhaozhi" });
-                  setConfirm(false);
-                }}
-              >
-                确认照直
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {show && !confirm && (
+      {show && (
         <section
           className={`win-hint-panel${hu ? " can-win" : ""}`}
           style={position}

@@ -43,6 +43,14 @@ export function CocosTable({
     "loading",
   );
   const latest = useRef({ state:viewState, onCommand });
+  useEffect(() => {
+    // Decode before a win occurs so the short reveal never starts with empty art.
+    for (const theme of ["sea", "jade", "bloom", "celestial", "gold"]) {
+      const image = new Image();
+      image.src = `/art/win-v2/${theme}.webp`;
+      void image.decode().catch(() => {});
+    }
+  }, []);
   latest.current = { state:viewState, onCommand };
   useEffect(()=>{
     const probe=safeProbe.current,iframe=frame.current;

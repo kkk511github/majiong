@@ -3,15 +3,8 @@ import { kind } from "./tiles";
 import { isNanjingV2 } from "./nanjing-rules";
 
 export function canDeclareZhaozhi(g: Game, seat: Seat): boolean {
-  const p = g.players[seat];
-  return (
-    isNanjingV2(g.rules) &&
-    g.phase === "playing" &&
-    g.turn === seat &&
-    !!p &&
-    !p.zhaozhi &&
-    p.melds.length < 4
-  );
+  // Retained protocol field for old clients; mobile rules do not support this declaration.
+  return false;
 }
 /** Server-only wait tracking; changing the pair wait permanently ends this liability. */
 export function recordGlobalAnchor(g: Game, seat: Seat, discarded: Tile) {
@@ -29,7 +22,7 @@ export function recordGlobalAnchor(g: Game, seat: Seat, discarded: Tile) {
 }
 export function globalLiability(g: Game, seat: Seat, tile: Tile): boolean {
   const anchor = g.ruleState?.globalAnchors?.[seat];
-  if (!anchor || anchor.changed || g.players[seat]?.zhaozhi) return false;
+  if (!anchor || anchor.changed) return false;
   const k = kind(tile),
     a = anchor.discardKind;
   return a >= 27

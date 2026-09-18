@@ -122,6 +122,12 @@ export function makeServer(
     );
     return code;
   }
+  function reserveTableNumber(used: Set<number>) {
+    let number = 1;
+    while (used.has(number)) number++;
+    used.add(number);
+    return number;
+  }
   for (const row of db
     .prepare(
       "SELECT state FROM rooms WHERE updated_at > ? OR CASE WHEN json_valid(state) THEN json_type(state, '$.table') = 'object' ELSE 0 END",
@@ -174,6 +180,37 @@ export function makeServer(
     games.delete(oldCode);
     games.set(renewed.code, renewed);
   }
+  // Older batches each started at 1. Reserve every existing distinct number
+  // before repairing duplicates, so a repair never displaces another table.
+  const numberedTables = [...games.values()]
+    .filter((g) => g.table)
+    .sort((a, b) => a.table!.createdAt - b.table!.createdAt || a.id.localeCompare(b.id));
+  const usedTableNumbers = new Set(numberedTables.map((g) => g.table!.number)
+    .filter((number) => Number.isSafeInteger(number) && number > 0));
+  const seenTableNumbers = new Set<number>();
+  const repairedTables: Game[] = [];
+  for (const g of numberedTables) {
+    const number = g.table!.number;
+    if (Number.isSafeInteger(number) && number > 0 && !seenTableNumbers.has(number)) {
+      seenTableNumbers.add(number);
+      continue;
+    }
+    const repaired = structuredClone(g);
+    repaired.table!.number = reserveTableNumber(usedTableNumbers);
+    repaired.revision++;
+    repairedTables.push(repaired);
+  }
+  if (repairedTables.length) {
+    try {
+      db.exec("BEGIN");
+      for (const g of repairedTables) save.run(g.id, JSON.stringify(g), Date.now());
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw new StorageError(error);
+    }
+    for (const g of repairedTables) games.set(g.code, g);
+  }
   const send = (ws: WebSocket, message: ServerMessage) => {
     if (ws.readyState === WebSocket.OPEN)
       ws.send(JSON.stringify({ ...message, serverNow: Date.now() }));
@@ -222,8 +259,8 @@ export function makeServer(
         (a, b) =>
           Number(b.table!.creatorId === id) -
             Number(a.table!.creatorId === id) ||
-          a.table!.createdAt - b.table!.createdAt ||
-          a.table!.number - b.table!.number,
+          a.table!.number - b.table!.number ||
+          a.table!.createdAt - b.table!.createdAt,
       )
       .map((g) => tableSummary(g, id));
     const signature = JSON.stringify(tables);
@@ -898,6 +935,9 @@ export function makeServer(
             groupId = randomUUID(),
             now = Date.now();
           const created: Game[] = [];
+          const usedNumbers = new Set([...games.values()]
+            .filter((g) => g.table)
+            .map((g) => g.table!.number));
           for (let i = 0; i < msg.count; i++) {
             let code: string;
             do {
@@ -915,7 +955,7 @@ export function makeServer(
             room.table = {
               creatorId: session.id,
               groupId,
-              number: i + 1,
+              number: reserveTableNumber(usedNumbers),
               createdAt: now,
               settings,
             };

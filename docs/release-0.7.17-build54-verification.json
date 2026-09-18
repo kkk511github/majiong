@@ -1,0 +1,231 @@
+{
+  "version": "0.7.17",
+  "build": 54,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "sameWebAssetsBothPlatforms": true,
+  "includedExistingFeatures": [
+    "cumulativeTableOvertime",
+    "selectedTileUpwardDrag",
+    "tapOrDragDiscard"
+  ],
+  "priorOpeningValidation": {
+    "openingCoversTableLoading": true,
+    "firstRoundOnlyOpening": true,
+    "browserTestsPassed": 14,
+    "validatedBuild": 53,
+    "slowLoadRechecksPassed": 2,
+    "slowLoadDelayMs": 6500
+  },
+  "realDeviceInstallationTested": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.17-build54.apk",
+      "bytes": 120421738,
+      "sha256": "47ee52470d12709bd0ffb10c2d82094b85d10ecf22a0c00fdbd5fb2fad63c8da",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.17-build54-AdHoc.ipa",
+      "bytes": 120834986,
+      "sha256": "4ef62805831ab76d77029f88af293d75c0ad1b0f317f3fba94c195c741bfa071",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 563,
+  "iconValidation": {
+    "version": "0.7.17",
+    "build": 54,
+    "source": "IMAGE 2026-09-18 21:05:38.jpg",
+    "backgroundRemoval": "Only edge-connected near-white pixels; internal white tile and blossoms retained",
+    "iosOpaque": true,
+    "masterSize": 1024,
+    "opaqueWhiteOuterBorder": false,
+    "androidSafeCircleDp": 66,
+    "checks": [
+      {
+        "density": "mdpi",
+        "canvasPixels": 108,
+        "maxVisibleRadiusDp": 32.9013677527242,
+        "legacyPixels": 48
+      },
+      {
+        "density": "hdpi",
+        "canvasPixels": 162,
+        "maxVisibleRadiusDp": 32.86673427984932,
+        "legacyPixels": 72
+      },
+      {
+        "density": "xhdpi",
+        "canvasPixels": 216,
+        "maxVisibleRadiusDp": 32.9488239547332,
+        "legacyPixels": 96
+      },
+      {
+        "density": "xxhdpi",
+        "canvasPixels": 324,
+        "maxVisibleRadiusDp": 32.99915823842246,
+        "legacyPixels": 144
+      },
+      {
+        "density": "xxxhdpi",
+        "canvasPixels": 432,
+        "maxVisibleRadiusDp": 32.734251938909495,
+        "legacyPixels": 192
+      }
+    ],
+    "previewMasks": [
+      "ios-rounded",
+      "android-circle",
+      "android-rounded"
+    ],
+    "visualReview": true,
+    "physicalDeviceTested": false,
+    "compiledAndroidResources": [
+      {
+        "name": "ic_launcher",
+        "density": "mdpi",
+        "width": 48,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "hdpi",
+        "width": 72,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xhdpi",
+        "width": 96,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xxhdpi",
+        "width": 144,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xxxhdpi",
+        "width": 192,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "mdpi",
+        "width": 108,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "hdpi",
+        "width": 162,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xhdpi",
+        "width": 216,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xxhdpi",
+        "width": 324,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xxxhdpi",
+        "width": 432,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "mdpi",
+        "width": 48,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "hdpi",
+        "width": 72,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xhdpi",
+        "width": 96,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xxhdpi",
+        "width": 144,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xxxhdpi",
+        "width": 192,
+        "visibleSourcePixelsAndAlphaMatch": true
+      }
+    ],
+    "androidAdaptiveApi26And33Verified": true,
+    "iosCompiledIcons": [
+      {
+        "file": "AppIcon60x60@2x.png",
+        "width": 120,
+        "height": 120,
+        "opaque": true
+      },
+      {
+        "file": "AppIcon76x76@2x~ipad.png",
+        "width": 152,
+        "height": 152,
+        "opaque": true
+      }
+    ]
+  },
+  "deployment": {
+    "release": "0.7.17-icon-tables-20260918",
+    "url": "https://212.189.31.46/play/",
+    "verifiedAt": "2026-09-18T13:21:50.166Z",
+    "health": {
+      "ok": true,
+      "service": "jinling-mahjong",
+      "version": "0.7.17"
+    },
+    "websocket": true,
+    "sourceFilesVerified": 640,
+    "changedContainerFilesVerified": 8,
+    "publicResourcesVerified": 8,
+    "publishedIconSHA256": "fd09a3ac1210d690bb02e4f7f510ae8eb62ff1a107d9f1397bd3837bbb911266"
+  },
+  "tableNumberValidation": {
+    "tables": 5,
+    "numbers": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "changes": [
+      {
+        "code": "165743",
+        "before": 2,
+        "after": 5
+      }
+    ],
+    "roomCodesAndEffectiveSettingsPreserved": true,
+    "scoresPreserved": true,
+    "note": "Comparison normalizes the legacy overtimePerTurn flag to the cumulative behavior already used by the previous release."
+  }
+}

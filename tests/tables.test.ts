@@ -295,6 +295,95 @@ describe("建桌大厅真实联机", () => {
       db.close();
     }
   });
+  it("大厅桌序号跨批次和创建者唯一，重试不占号，收桌后复用最小空号", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "桌序号管理员"),
+      other = await peer(port, "另一位开桌人");
+    const granted = await fetch(`http://127.0.0.1:${port}/api/admin/table-permissions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${host.session.token}`,
+      },
+      body: JSON.stringify({ accountId: other.session.id, canCreateTables: true }),
+    });
+    expect(granted.status).toBe(200);
+    const numbers = (codes: string[]) => codes.map((code) => s.games.get(code)!.table!.number);
+    const first = await createTables(host, {}, 2, "number-first");
+    expect(numbers(first)).toEqual([1, 2]);
+    const second = await createTables(host, {}, 1, "number-second");
+    expect(numbers(second)).toEqual([3]);
+    expect(await createTables(host, {}, 2, "number-first")).toEqual(first);
+    expect(s.games.size).toBe(3);
+    const anotherOwner = await createTables(other, {}, 2, "number-other");
+    expect(numbers(anotherOwner)).toEqual([4, 5]);
+    host.send({ type: "closeTable", code: first[1], requestId: "free-number-two" });
+    await host.read("ack", (m) => m.requestId === "free-number-two");
+    expect(s.games.has(first[1])).toBe(false);
+    const replacements = await createTables(host, {}, 2, "number-reuse");
+    expect(numbers(replacements)).toEqual([2, 6]);
+    expect(await createTables(other, {}, 2, "number-other")).toEqual(anotherOwner);
+    expect(s.games.size).toBe(6);
+    expect([...s.games.values()].map((g) => g.table!.number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+    host.send({ type: "tables" });
+    const listing = await host.read("tables", (m) => m.tables.length === 6);
+    expect(listing.tables.map((t) => t.number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+    s.games.get(replacements[0])!.table!.createdAt = Date.now() + 60_000;
+    const visitor = await peer(port, "按序看桌的牌友");
+    visitor.send({ type: "tables" });
+    const ordered = await visitor.read("tables", (m) => m.tables.length === 6);
+    expect(ordered.tables.map((t) => t.number)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+  it.each([
+    { label: "重复桌序号", numbers: [1, 2, 3, 4, 2], expected: [1, 5, 3, 4, 2] },
+    { label: "非法桌序号", numbers: [1, 0, 3, 4, -2], expected: [1, 5, 3, 4, 2] },
+  ])("重启修复$label保留合法序号、房号、设置和玩家积分，再重启稳定", async ({ numbers, expected }) => {
+    const file = databasePath(),
+      original = await boot(file),
+      host = await peer(original.port, "旧桌序号管理员");
+    const codes = await createTables(
+      host,
+      { readyMode: "manual", name: "保留原设置", autoRenew: false, scoreMultiplier: 0.2 },
+      5,
+      "legacy-numbers",
+    );
+    await fill(original.port, codes[1]);
+    await stop(original.s);
+    const db = new DatabaseSync(file);
+    const seeded = codes.map((code, index) => {
+      const game = JSON.parse(String(db.prepare("SELECT state FROM rooms WHERE json_extract(state, '$.code')=?").get(code)!.state)) as Game;
+      game.table!.number = numbers[index];
+      // The last-created DB row owns the earlier legitimate number 2. Fixing
+      // a duplicate must not renumber already unique tables 3 and 4.
+      game.table!.createdAt = [100, 500, 300, 400, 200][index];
+      game.players.forEach((p, seat) => { if (p) p.score = [16, 8, 150, 186][seat]; });
+      db.prepare("UPDATE rooms SET state=? WHERE id=?").run(JSON.stringify(game), game.id);
+      return game;
+    });
+    db.close();
+    const repaired = await boot(file);
+    expect([...repaired.s.games.keys()].sort()).toEqual([...codes].sort());
+    for (let index = 0; index < codes.length; index++) {
+      const game = repaired.s.games.get(codes[index])!;
+      expect(game.id).toBe(seeded[index].id);
+      expect(game.table).toEqual({ ...seeded[index].table, number: expected[index] });
+      expect(game.rules).toEqual(seeded[index].rules);
+      expect(game.players.map((p) => p && { id: p.id, score: p.score })).toEqual(
+        seeded[index].players.map((p) => p && { id: p.id, score: p.score }),
+      );
+    }
+    const persisted = new DatabaseSync(file);
+    for (const game of seeded) {
+      const stored = JSON.parse(String(persisted.prepare("SELECT state FROM rooms WHERE id=?").get(game.id)!.state)) as Game;
+      expect(stored.table!.number).toBe(repaired.s.games.get(game.code)!.table!.number);
+      expect(stored.code).toBe(game.code);
+    }
+    persisted.close();
+    await stop(repaired.s);
+    const stable = await boot(file);
+    expect(codes.map((code) => stable.s.games.get(code)!.table!.number)).toEqual(expected);
+    expect(codes.map((code) => stable.s.games.get(code)!.id)).toEqual(seeded.map((g) => g.id));
+  });
   it("大厅只列公开桌和自己的房号桌，昵称隐藏不泄露手牌", async () => {
     const { s, port } = await boot(),
       host = await peer(port, "开桌人"),

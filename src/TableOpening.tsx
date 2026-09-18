@@ -4,8 +4,8 @@ import type { TableSceneState } from "../shared/table-scene";
 import "./table-opening.css";
 
 export interface OpeningCue { key: string; game: string; round: number; at: number }
-export const OPENING_DURATION = 1800;
-export const OPENING_ENTER_DURATION = 600;
+export const OPENING_DURATION = 2200;
+export const OPENING_ENTER_DURATION = 900;
 export const openingScene = `${import.meta.env.BASE_URL}art/opening/table-arrival-v1.webp`;
 export const openingTitle = `${import.meta.env.BASE_URL}art/opening/start-gold-v1.webp`;
 
@@ -51,7 +51,10 @@ export function TableOpening({ state, done, tableReady = true }: { state: TableS
     return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", visibility); };
   }, [exiting, done, reduced]);
   return <section className={`table-opening${ready ? " opening-entered" : ""}${exiting ? " opening-exiting" : ""}${reduced ? " opening-reduced" : ""}`} aria-label={`第${state.round}把开局`}>
-    <img className="opening-scene" src={openingScene} alt="" draggable={false} />
+    <div className="opening-camera" aria-hidden="true">
+      <img className="opening-scene" src={openingScene} alt="" draggable={false} />
+      <div className="opening-light" />
+    </div>
     <div className="opening-call" role="status">
       <img src={openingTitle} alt="开局" draggable={false} />
       <p>四位就座 · 好戏开场</p>

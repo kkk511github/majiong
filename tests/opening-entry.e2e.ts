@@ -5,6 +5,8 @@ import { newGameRules } from "../shared/nanjing-rules";
 import { seededRandom } from "../shared/tiles";
 import type { Game, View } from "../shared/types";
 
+test.use({ video: "on" });
+
 const opening = (page: Page) => page.getByRole("region", { name: "第1把开局", exact: true });
 const frame = (page: Page) => page.frames().find(f => f.url().includes("/cocos-table/index.html"));
 
@@ -49,6 +51,36 @@ async function observeEntry(page: Page) {
 
 async function audit(page: Page) {
   return page.evaluate(() => (window as any).__openingEntryAudit as { openings: number; returnOnlyScreens: number });
+}
+
+async function captureOpeningMotion(page: Page, milliseconds: number, waitFor?: "entry" | "exit") {
+  return page.evaluate(async ({ duration, waitFor }) => {
+    const samples: { at: number; scale: number; x: number; y: number; opacity: number; sceneAnimation: string; overlayAnimation: string }[] = [];
+    if (waitFor) {
+      const limit = performance.now() + 20000;
+      const selector = waitFor === "exit" ? ".table-opening.opening-exiting" : ".table-opening";
+      while (!document.querySelector(selector) && performance.now() < limit)
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    }
+    const started = performance.now();
+    while (performance.now() - started < duration) {
+      const overlay = document.querySelector<HTMLElement>(".table-opening");
+      const scene = document.querySelector<HTMLElement>(".opening-scene");
+      if (!overlay || !scene) break;
+      const sceneStyle = getComputedStyle(scene), overlayStyle = getComputedStyle(overlay);
+      let matrix = new DOMMatrixReadOnly(sceneStyle.transform);
+      for (let parent = scene.parentElement; parent && parent !== overlay; parent = parent.parentElement)
+        matrix = new DOMMatrixReadOnly(getComputedStyle(parent).transform).multiply(matrix);
+      samples.push({ at: performance.now() - started, scale: matrix.a, x: matrix.e, y: matrix.f,
+        opacity: Number(overlayStyle.opacity), sceneAnimation: sceneStyle.animationName, overlayAnimation: overlayStyle.animationName });
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    }
+    return samples;
+  }, { duration: milliseconds, waitFor });
+}
+
+function range(samples: Awaited<ReturnType<typeof captureOpeningMotion>>, field: "scale" | "x" | "y" | "opacity") {
+  return Math.max(...samples.map(sample => sample[field])) - Math.min(...samples.map(sample => sample[field]));
 }
 
 async function practiceFromHome(page: Page) {
@@ -201,4 +233,64 @@ test("资源失败展示可操作的重试和返回，重新加载仍是同一�
   await page.getByRole("button", { name: "重新加载", exact: true }).click();
   await expectPlayable(page);
   expect((await scene(page)).state.key).toBe(key);
+});
+
+test("正常动效：慢加载时镜头持续运动，牌桌就绪后明显推进并淡出", async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/cocos-table/index.html?*", async route => { await held; await route.continue(); });
+  let exitMotion: ReturnType<typeof captureOpeningMotion> | undefined;
+  try {
+    await practiceFromHome(page);
+    await expect(opening(page)).toBeVisible();
+    expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(false);
+    await page.waitForTimeout(1200);
+    const duringLoad = await captureOpeningMotion(page, 900);
+    await testInfo.attach("loading-motion.json", { body: JSON.stringify(duringLoad, null, 2), contentType: "application/json" });
+    expect(duringLoad.length).toBeGreaterThan(5);
+    expect(range(duringLoad, "scale") + range(duringLoad, "x") / 844 + range(duringLoad, "y") / 390).toBeGreaterThan(.002);
+    exitMotion = captureOpeningMotion(page, 1500, "exit");
+  } finally {
+    release();
+  }
+  const transition = await exitMotion!;
+  await testInfo.attach("entry-transition.json", { body: JSON.stringify(transition, null, 2), contentType: "application/json" });
+  expect(transition.length).toBeGreaterThan(5);
+  expect(range(transition, "scale")).toBeGreaterThan(.12);
+  expect(range(transition, "opacity")).toBeGreaterThan(.35);
+  await expectPlayable(page);
+});
+
+test("减少动态效果：慢加载不缩放，牌桌就绪后只做短淡出", async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/cocos-table/index.html?*", async route => { await held; await route.continue(); });
+  let exitMotion: ReturnType<typeof captureOpeningMotion> | undefined;
+  try {
+    await page.goto("/");
+    const enterMotion = captureOpeningMotion(page, 450, "entry");
+    await page.getByRole("button", { name: "单人练习，快速开始", exact: true }).click();
+    await expect(opening(page)).toBeVisible();
+    const entry = await enterMotion;
+    await testInfo.attach("reduced-entry-fade-in.json", { body: JSON.stringify(entry, null, 2), contentType: "application/json" });
+    expect(range(entry, "opacity")).toBeGreaterThan(.3);
+    expect(range(entry, "scale")).toBeLessThan(.001);
+    await page.waitForTimeout(500);
+    const duringLoad = await captureOpeningMotion(page, 500);
+    expect(duringLoad.length).toBeGreaterThan(5);
+    expect(range(duringLoad, "scale")).toBeLessThan(.001);
+    expect(range(duringLoad, "x") + range(duringLoad, "y")).toBeLessThan(.1);
+    exitMotion = captureOpeningMotion(page, 650, "exit");
+  } finally {
+    release();
+  }
+  const transition = await exitMotion!;
+  await testInfo.attach("reduced-entry-transition.json", { body: JSON.stringify(transition, null, 2), contentType: "application/json" });
+  expect(transition.length).toBeGreaterThan(2);
+  expect(range(transition, "scale")).toBeLessThan(.001);
+  expect(range(transition, "opacity")).toBeGreaterThan(.3);
+  expect(transition.at(-1)!.at).toBeLessThan(550);
+  await expectPlayable(page);
 });

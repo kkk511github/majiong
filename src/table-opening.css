@@ -1,23 +1,37 @@
 .table-opening { position: absolute; inset: 0; z-index: 25; overflow: hidden; background: #103f33; }
-.opening-scene { width: 100%; height: 100%; object-fit: cover; object-position: center 58%; will-change: transform, opacity; }
+.opening-camera { position: absolute; inset: 0; transform-origin: center 64%; will-change: transform; }
+.opening-scene { width: 100%; height: 100%; object-fit: cover; object-position: center 58%; will-change: transform; }
+.opening-light { position: absolute; inset: -50%; pointer-events: none; background: linear-gradient(110deg, transparent 42%, #ffe49b26 49%, #fff6cf38 50%, transparent 58%); opacity: 0; mix-blend-mode: screen; }
 .opening-call { position: absolute; width: min(48vw, 620px); left: 50%; top: 48%; transform: translate(-50%,-50%) scale(.72); opacity: 0; text-align: center; color: #fff0b2; pointer-events: none; }
-.opening-entered .opening-scene { animation: opening-camera-in .6s ease-out both; }
-.opening-entered .opening-call { animation: opening-call-in .6s ease-out both; }
-.table-opening.opening-exiting { animation: opening-reveal 1.2s ease both; }
-.opening-exiting .opening-scene { animation: opening-camera-out 1.2s cubic-bezier(.22,.65,.3,1) both; }
-.opening-exiting .opening-call { animation: opening-call-out 1.2s ease both; }
+.opening-entered .opening-camera { animation: opening-camera-in .9s ease-out both; }
+.opening-entered .opening-scene { animation: opening-camera-drift 3.2s ease-in-out infinite alternate; }
+.opening-entered .opening-light { animation: opening-light-sweep 2.4s ease-in-out infinite; }
+.opening-entered .opening-call { animation: opening-call-in .9s ease-out both; }
+.opening-entered .opening-call > img { animation: opening-gold-glow 1.8s ease-in-out infinite alternate; }
+.table-opening.opening-exiting { animation: opening-reveal 1.3s ease both; }
+.opening-exiting .opening-camera { animation: opening-camera-out 1.3s cubic-bezier(.22,.65,.3,1) both; }
+.opening-exiting .opening-call { animation: opening-call-out 1.3s ease both; }
 .opening-call > img { display: block; width: 100%; height: auto; filter: drop-shadow(0 5px 18px #251c17a0); }
 .opening-call p { margin: -1% 0 10px; font-family: var(--display-font, serif); font-size: 27px; letter-spacing: 0; text-shadow: 0 2px 8px #00180a, 0 1px 3px #00180a; }
 .opening-call small { font-size: 15px; letter-spacing: 0; color: #f1e6bc; text-shadow: 0 2px 4px #072d22; }
 .app.polished .opening-skip { position: absolute; top: max(16px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1px solid #e6d19880; border-radius: 24px; background: #103c30d9; color: #f8edcb; font-size: 13px; }
-@keyframes opening-camera-in { from { transform: scale(1) translateY(0); } to { transform: scale(1.04) translateY(-.6%); } }
-@keyframes opening-camera-out { from { transform: scale(1.04) translateY(-.6%); } to { transform: scale(1.65) translateY(-9%); } }
+@keyframes opening-camera-in { from { transform: scale(1) translateY(0); } to { transform: scale(1.1) translateY(-1%); } }
+@keyframes opening-camera-drift { from { transform: scale(1) translateY(0); } to { transform: scale(1.09) translateY(-1.2%); } }
+@keyframes opening-camera-out { from { transform: perspective(1200px) scale(1.1) translateY(-1%) rotateX(0); } to { transform: perspective(1200px) scale(1.65) translateY(-9%) rotateX(8deg); } }
+@keyframes opening-light-sweep { 0% { opacity: 0; transform: translateX(-24%); } 25%,60% { opacity: .8; } 100% { opacity: 0; transform: translateX(24%); } }
+@keyframes opening-gold-glow { from { filter: drop-shadow(0 5px 18px #251c17a0) brightness(1); } to { filter: drop-shadow(0 3px 22px #ffdf8670) brightness(1.16); } }
 @keyframes opening-call-in { from { opacity: 0; transform: translate(-50%,-50%) scale(.72); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
 @keyframes opening-call-out { 0%,20% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 75%,100% { opacity: 0; transform: translate(-50%,-56%) scale(1.1); } }
 @keyframes opening-reveal { 0%,30% { opacity: 1; } 100% { opacity: 0; } }
-.table-opening.opening-reduced { animation: none; }
-.opening-reduced .opening-scene { animation: none; }
-.opening-reduced .opening-call { animation: none; opacity: 1; transform: translate(-50%,-50%); }
+/* Keep only a short opacity transition when the system reduces motion. The
+   scoped important rules override classic.css's global animation reset. */
+.table-opening.opening-reduced { animation: opening-soft-in .25s ease both !important; }
+.table-opening.opening-reduced.opening-exiting { animation: opening-soft-out .35s ease both !important; }
+.opening-reduced .opening-camera, .opening-reduced .opening-scene,
+.opening-reduced .opening-light, .opening-reduced .opening-call > img { animation: none !important; }
+.opening-reduced .opening-light { display: none; }
+.opening-reduced .opening-call { animation: none !important; opacity: 1; transform: translate(-50%,-50%); }
 .opening-reduced .opening-skip { display: none; }
-@media (prefers-reduced-motion: reduce) { .table-opening, .opening-scene, .opening-call { animation: none; } }
+@keyframes opening-soft-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes opening-soft-out { from { opacity: 1; } to { opacity: 0; } }
 @media (max-width: 760px) { .opening-call p { font-size: 16px; } .opening-call small { font-size: 11px; } }

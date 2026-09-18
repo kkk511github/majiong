@@ -1,7 +1,8 @@
 import sharp from "sharp";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 
-const source = process.argv[2];
+const source = process.argv.slice(2).find((argument) => !argument.startsWith("--"));
+const androidOnly = process.argv.includes("--android-only");
 const iconBackground = "#0A442E";
 
 // An optional source is cut out with an edge-connected flood fill. Never make
@@ -55,12 +56,9 @@ if (source) {
 }
 
 const brand = await readFile("public/brand-icon.png");
-await sharp(brand).resize(1024, 1024).flatten({ background: iconBackground })
+if (!androidOnly) await sharp(brand).resize(1024, 1024).flatten({ background: iconBackground })
   .removeAlpha().png()
   .toFile("ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png");
-const cutout = await sharp("public/android-icon-foreground.png").png().toBuffer();
-const metadata = await sharp(cutout).metadata();
-if (!metadata.hasAlpha) throw new Error("Adaptive icon foreground must have transparency");
 const res = "android/app/src/main/res";
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 const bg = `<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle"><solid android:color="#0A442E"/></shape>`;
@@ -79,10 +77,6 @@ await writeFile(
 );
 const wrap = (inside) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 108 108">${inside}</svg>`;
-const svgBg = `<path fill="${iconBackground}" d="M0 0H108V108H0Z"/>`;
-const previewBg = await sharp(Buffer.from(wrap(svgBg)))
-  .png()
-  .toBuffer();
 let previewComposite;
 for (const [density, scale] of Object.entries({
   mdpi: 1,
@@ -94,41 +88,17 @@ for (const [density, scale] of Object.entries({
   const dir = `${res}/mipmap-${density}`;
   await mkdir(dir, { recursive: true });
   const canvas = 108 * scale;
-  // Keep the complete gold frame inside the 66 dp safe circle. Its rounded
-  // transparent corners permit a larger 53 dp square than a solid rectangle.
-  const tile = await sharp(cutout)
-    .resize(Math.round(53 * scale), Math.round(53 * scale), { fit: "inside" })
-    .png()
-    .toBuffer();
-  const foregroundPixels = await sharp({
-    create: {
-      width: canvas,
-      height: canvas,
-      channels: 4,
-      background: "#00000000",
-    },
-  })
-    .composite([{ input: tile, gravity: "centre" }])
-    .raw().toBuffer({ resolveWithObject: true });
-  // Lanczos can produce very faint rings beyond the artwork when downsampling.
-  // Remove only that exterior fringe so every density stays in the safe circle.
-  for (let y = 0; y < canvas; y++) for (let x = 0; x < canvas; x++) {
-    if (Math.hypot((x + .5) / scale - 54, (y + .5) / scale - 54) > 33)
-      foregroundPixels.data[(y * canvas + x) * 4 + 3] = 0;
-  }
-  const foreground = await sharp(foregroundPixels.data, {
-    raw: { width: canvas, height: canvas, channels: 4 },
-  }).png().toBuffer();
+  // Android masks the central 72 dp of its 108 dp adaptive layers. Fill that
+  // entire viewport with the artwork, then extend edge pixels into the 18 dp
+  // motion area. Do not shrink the framed image onto a solid-color backdrop.
+  const viewportPixels = await sharp(brand)
+    .resize(72 * scale, 72 * scale, { fit: "cover" })
+    .flatten({ background: iconBackground }).removeAlpha().png().toBuffer();
+  const foreground = await sharp(viewportPixels)
+    .extend({ top: 18 * scale, bottom: 18 * scale, left: 18 * scale, right: 18 * scale, extendWith: "copy" })
+    .png().toBuffer();
   await writeFile(`${dir}/ic_launcher_foreground.png`, foreground);
-  const background = await sharp(previewBg)
-    .resize(canvas, canvas)
-    .png()
-    .toBuffer();
-  const composited = await sharp(background)
-    .composite([{ input: foreground }])
-    .png()
-    .toBuffer();
-  const viewport = await sharp(composited)
+  const viewport = await sharp(foreground)
     .extract({
       left: 18 * scale,
       top: 18 * scale,
@@ -184,7 +154,7 @@ for (const [name, mask] of Object.entries({
     .composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">${mask}</svg>`), blend: "dest-in" }])
     .png().toFile(`public/icon-preview/${name}.png`);
 }
-await sharp(brand).resize(512, 512)
+if (!androidOnly) await sharp(brand).resize(512, 512)
   .composite([{ input: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" rx="114" fill="white"/></svg>'), blend: "dest-in" }])
   .png().toFile("public/icon-preview/ios.png");
 await sharp(
@@ -195,6 +165,7 @@ await sharp(
   .extract({ left: 72, top: 72, width: 288, height: 288 })
   .png()
   .toFile("public/icon-preview/monochrome.png");
+if (!androidOnly) {
 const mark = await sharp(brand).resize(330, 330).png().toBuffer();
 const splash = await sharp({
   create: { width: 2732, height: 2732, channels: 4, background: iconBackground },
@@ -211,6 +182,7 @@ for (const name of [
     `ios/App/App/Assets.xcassets/Splash.imageset/${name}`,
     splash,
   );
+}
 console.log(
-  "Generated iOS icon, Android 108 dp adaptive icons, legacy masks and Android 13 monochrome icon.",
+  androidOnly ? "Generated full-viewport Android adaptive/legacy icons and previews." : "Generated iOS icon, full-viewport Android adaptive/legacy icons and previews.",
 );

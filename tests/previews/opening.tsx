@@ -42,7 +42,7 @@ function Preview() {
       <button onClick={() => {setCue(null);setStill(false);setSelected(null);setCurrent(structuredClone(initialGame));}}>重试上拖出牌</button>
       <a href="./records.html" style={{color:"#fff4cc",background:"#123f36",padding:8,borderRadius:8}}>战绩预览</a>
     </nav>
-    <style>{`.opening-keyframe .table-opening,.opening-keyframe .opening-scene,.opening-keyframe .opening-call{animation-play-state:paused;animation-delay:-.6s}.app.polished .opening-keyframe .opening-skip{display:none}.app.polished nav[aria-label="开桌预览控制"] button{background:#164c3f;color:#fff0c4;border:1px solid #b6a16a;border-radius:7px;padding:8px 12px;min-height:44px}`}</style>
+    <style>{`.opening-keyframe .table-opening,.opening-keyframe .opening-camera,.opening-keyframe .opening-scene,.opening-keyframe .opening-light,.opening-keyframe .opening-call,.opening-keyframe .opening-call>img{animation-play-state:paused;animation-delay:-.6s}.app.polished .opening-keyframe .opening-skip{display:none}.app.polished nav[aria-label="开桌预览控制"] button{background:#164c3f;color:#fff0c4;border:1px solid #b6a16a;border-radius:7px;padding:8px 12px;min-height:44px}`}</style>
   </div>;
 }
 const root = createRoot(document.getElementById("root")!);

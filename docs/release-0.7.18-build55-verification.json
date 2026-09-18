@@ -1,0 +1,215 @@
+{
+  "version": "0.7.18",
+  "build": 55,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "sameWebAssetsBothPlatforms": true,
+  "includedExistingFeatures": [
+    "cumulativeTableOvertime",
+    "selectedTileUpwardDrag",
+    "tapOrDragDiscard"
+  ],
+  "openingCoversTableLoading": true,
+  "firstRoundOnlyOpening": true,
+  "openingMotionDuringLoading": true,
+  "realDeviceInstallationTested": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.18-build55.apk",
+      "bytes": 121073326,
+      "sha256": "e71a458f6148deb2e2af305347db7a84340b21040a1cca6870ceb4c6c419cec9",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.18-build55-AdHoc.ipa",
+      "bytes": 121301200,
+      "sha256": "8ea79ebc8b071128df2db08141037f5cab9dd5503f3afc79abe2129bf61b7010",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 563,
+  "browserTestsPassed": 18,
+  "browserValidation": "Chromium and WebKit: 18 current-build scenarios passed, covering continuous animation while loading, camera transition into the table, first-hand-only playback, dismissal, and a short fade for reduced motion. No physical-device installation or touch testing was performed.",
+  "iconValidation": {
+    "canvasDp": 108,
+    "visibleViewportDp": 72,
+    "fullViewportArtwork": true,
+    "compiledAndroid13Monochrome": true,
+    "checks": [
+      {
+        "density": "mdpi",
+        "foregroundPixels": 108,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 48
+      },
+      {
+        "density": "hdpi",
+        "foregroundPixels": 162,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 72
+      },
+      {
+        "density": "xhdpi",
+        "foregroundPixels": 216,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 96
+      },
+      {
+        "density": "xxhdpi",
+        "foregroundPixels": 324,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 144
+      },
+      {
+        "density": "xxxhdpi",
+        "foregroundPixels": 432,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 192
+      }
+    ],
+    "compiledAndroidResources": [
+      {
+        "name": "ic_launcher",
+        "density": "mdpi",
+        "width": 48,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "hdpi",
+        "width": 72,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xhdpi",
+        "width": 96,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xxhdpi",
+        "width": 144,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xxxhdpi",
+        "width": 192,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "mdpi",
+        "width": 108,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "hdpi",
+        "width": 162,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xhdpi",
+        "width": 216,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xxhdpi",
+        "width": 324,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xxxhdpi",
+        "width": 432,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "mdpi",
+        "width": 48,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "hdpi",
+        "width": 72,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xhdpi",
+        "width": 96,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xxhdpi",
+        "width": 144,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xxxhdpi",
+        "width": 192,
+        "visibleSourcePixelsAndAlphaMatch": true
+      }
+    ],
+    "androidAdaptiveApi26And33Verified": true,
+    "iosCompiledIcons": [
+      {
+        "file": "AppIcon60x60@2x.png",
+        "width": 120,
+        "height": 120,
+        "opaque": true
+      },
+      {
+        "file": "AppIcon76x76@2x~ipad.png",
+        "width": 152,
+        "height": 152,
+        "opaque": true
+      }
+    ],
+    "visualReview": {
+      "circleAndRoundedMasks": true,
+      "addedSolidGreenRing": false,
+      "mainTextIntact": true,
+      "iosMasterUnchanged": true
+    },
+    "physicalDeviceTested": false
+  },
+  "deployment": {
+    "release": "0.7.18-icon-motion-20260918",
+    "url": "https://212.189.31.46/play/",
+    "verifiedAt": "2026-09-18T14:19:11.680Z",
+    "health": {
+      "ok": true,
+      "service": "jinling-mahjong",
+      "version": "0.7.18"
+    },
+    "websocket": true,
+    "sourceFilesVerified": 640,
+    "changedContainerFilesVerified": 6,
+    "publicResourcesVerified": 8
+  },
+  "additionalReducedEntryRechecksPassed": 2,
+  "motionPreview": "output/opening-motion-20260918/opening-motion-preview.gif"
+}

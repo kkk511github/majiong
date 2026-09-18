@@ -405,19 +405,6 @@ export function App() {
     storage.set("name", value);
     return true;
   }
-  function practice(resume = false) {
-    if (!saveName()) return;
-    setPage("home");
-    setSelected(null);
-    submittedRevision.current = null;
-    setDismissedResult("");
-    setTableEntryBusy(true);
-    client.practice(name.trim(), { rounds, turnSeconds: seconds }, resume);
-    client.pauseLocal(true);
-    const fresh = client.snapshot().view;
-    if (!resume && fresh) setOpening({ key: `${fresh.id}:${fresh.round}:practice`, game: fresh.id, round: fresh.round, at: Date.now() });
-    if (!resume) gameAudio.play("deal");
-  }
   async function beginOnline(type: "create" | "join") {
     if (!name.trim() || name.trim().length > 12) {
       setRoomError({
@@ -459,9 +446,6 @@ export function App() {
       setToast(`房间号：${v.code}`);
     }
   }
-  const saved = storage.get<Game | null>("practice", null);
-  const resumable =
-    !!saved && ["playing", "claiming", "ended"].includes(saved.phase);
   const commandsDisabled = !state.connected || !!state.submitting;
   const resultKey = v?.result ? `${v.id}-${v.round}-${v.result.reason}` : "";
   useEffect(() => {
@@ -566,7 +550,7 @@ export function App() {
       state.account.mustChangePassword) &&
     state.mode !== "local"
   )
-    return <AuthScreen state={state} practice={() => practice(resumable)} />;
+    return <AuthScreen state={state} />;
   return (
     <div
       className={`app classic polished ${v ? "in-room" : ""}`}
@@ -636,11 +620,8 @@ export function App() {
             <OnlineHome
               name={name}
               state={state}
-              resumable={resumable}
               openTables={() => setPage("tables")}
               joinByCode={() => setModal("join")}
-              practice={() => practice(resumable)}
-              newPractice={() => setModal("newPractice")}
               rules={() => setPage("rules")}
             />
           )}
@@ -857,7 +838,7 @@ export function App() {
             }
             if (commandsDisabled || paused) return;
             if (command.type === "select" && ["playing", "claiming"].includes(v.phase) && !mine.trustee && mine.hand.includes(command.tile)) selectTile(command.tile);
-            if (command.type === "discard" && command.tile === selected) discardTile(command.tile);
+            if (command.type === "discard") discardTile(command.tile);
             if (command.type === "trustee" && (mine.trustee || v.table?.settings.trusteeMode !== "disabled")) client.trustee(command.enabled);
             if (command.type === "action") {
               if (command.action === "zhaozhi" && v.canZhaozhi) client.action({ type: "zhaozhi" });
@@ -1016,33 +997,6 @@ export function App() {
           )}
         </Dialog>
       )}
-      {modal === "newPractice" && (
-        <Dialog
-          title="开始新的练习"
-          close={() => setModal(null)}
-          footer={
-            <div className="dialog-actions">
-              <button className="secondary" onClick={() => setModal(null)}>
-                保留原局
-              </button>
-              <button
-                className="primary"
-                onClick={() => {
-                  setModal(null);
-                  practice();
-                }}
-              >
-                开始新局
-              </button>
-            </div>
-          }
-        >
-          <p className="modal-intro">
-            当前练习会被替换，已经完成的战绩仍会保留。新一桌将重新发牌、每人从
-            90 分开始。
-          </p>
-        </Dialog>
-      )}
       {modal === "events" && v && (
         <Dialog title="牌局记录" close={() => setModal(null)}>
           <ol className="event-log">
@@ -1168,8 +1122,8 @@ export function App() {
               : v && ["waiting", "finished"].includes(v.phase)
                 ? "你可以返回大厅，重新约一桌。"
                 : v?.table
-                  ? `本桌正在进行中。${v.table.settings.allowDissolve ? "可以申请全桌同意后解散。" : "本桌未开启协商解散。"}${v.table.settings.trusteeMode !== "disabled" ? "也可以开启托管。" : "请继续完成对局。"}`
-                  : "进行中的好友局需要全桌同意解散。你也可以开启托管，让牌局继续。"}
+                  ? `本桌正在进行中。仅管理员可以解散牌桌。${v.table.settings.trusteeMode !== "disabled" ? "也可以开启托管。" : "请继续完成对局。"}`
+                  : "进行中的牌桌仅管理员可以解散。你可以开启托管，让牌局继续。"}
           </p>
           <div className="dialog-actions">
             {state.mode === "local" ||
@@ -1197,7 +1151,7 @@ export function App() {
                     开启托管
                   </button>
                 )}
-                {(!v?.table || v.table.settings.allowDissolve) && (
+                {state.account?.role === "admin" && (
                   <button
                     className="primary"
                     disabled={commandsDisabled}
@@ -1206,7 +1160,7 @@ export function App() {
                       setModal(null);
                     }}
                   >
-                    申请解散
+                    管理员解散
                   </button>
                 )}
                 {v?.table &&

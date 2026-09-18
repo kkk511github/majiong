@@ -53,7 +53,9 @@ for (const [width,height] of [[568,320],[844,390],[1280,590]]) {
     return n?{name,text:n.getComponent(cc.Label).string,visible:n.activeInHierarchy,...bounds(n)}:null;
    });
    const prompt=c.hud.getChildByName('claim-prompt');
-   return {counters,prompt:prompt?bounds(prompt):null,tiles:(window as any).__JINLING_TABLE_LAYOUT__};
+   const center=c.hud.getChildByName('center');
+   const compass=center?.getChildByName('compass');
+   return {compass:compass?{visible:compass.activeInHierarchy,...bounds(compass)}:null,counters,prompt:prompt?bounds(prompt):null,tiles:(window as any).__JINLING_TABLE_LAYOUT__};
   },{action,answered,dense});
   const initial=await draw('');
   const expected=['余牌 42','余花 12','把数','4 / 8'];
@@ -62,7 +64,10 @@ for (const [width,height] of [[568,320],[844,390],[1280,590]]) {
    expect(result.counters.map((c:any)=>c?.text)).toEqual(expected);
    expect(result.counters.every((c:any)=>c.visible)).toBe(true);
    expect(result.prompt).not.toBeNull();
+   expect(result.compass?.visible).toBe(true);
    const separated=(a:any,b:any)=>Math.abs(a.x-b.x)>=(a.w+b.w)/2 || Math.abs(a.y-b.y)>=(a.h+b.h)/2;
+   expect(separated(result.compass,result.prompt),'compass overlaps claim prompt').toBe(true);
+   expect(result.tiles.every((tile:any)=>separated(result.prompt,tile)),'claim prompt overlaps tile').toBe(true);
    for(const counter of result.counters) {
     expect(separated(counter,result.prompt),`${action}: counter overlaps prompt`).toBe(true);
     expect(result.tiles.every((tile:any)=>separated(counter,tile)),`${action}: counter overlaps a table tile`).toBe(true);
@@ -78,6 +83,8 @@ for (const [width,height] of [[568,320],[844,390],[1280,590]]) {
    expect(answered.counters.map((c:any)=>c?.text)).toEqual(expected);
    expect(answered.prompt).toBeNull();
    const dense=await draw(action,false,true);
+   expect(dense.compass?.visible).toBe(true);
+   expect(dense.tiles.every((tile:any)=>separated(dense.prompt,tile)),'claim prompt overlaps dense river').toBe(true);
    for(const counter of dense.counters)
     expect(dense.tiles.every((tile:any)=>separated(counter,tile)),`${action}: dense river overlaps counter`).toBe(true);
   }

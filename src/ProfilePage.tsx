@@ -64,7 +64,7 @@ export function ProfilePage({ account, name, audio, changeAudio, password, legal
             <span className="profile-role">{admin && <ShieldCheck size={13} />}{admin ? "管理员" : "牌友"}</span>
           </div>
           <div className="profile-number"><span>ID</span><strong>{account?.memberId ?? "—"}</strong><button aria-label="复制会员 ID" onClick={() => void copyId()} disabled={!account?.memberId}><Copy size={18} /></button></div>
-          <p className="profile-account" title={account?.username}>账号：{account?.username ?? "单人练习"}</p>
+          <p className="profile-account" title={account?.username}>账号：{account?.username ?? "未登录"}</p>
         </div>
         <div className="profile-edit-actions">
           <button onClick={() => open("avatar")} disabled={!account}><Camera size={20} />更换头像</button>

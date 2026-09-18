@@ -204,6 +204,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile,seat:p.seat,pose:tile===undefined?'cover-bottom':'bottom',area:'meld',x:x+(ti===3?1:ti)*46,y:556-(ti===3?22:0),w:46,h:46*163/116,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
     x+=146;
    });
+   if(p.melds.length)x+=22;
    p.hand.filter(t=>t!==s.drawn).forEach((tile,i)=>add({id:`hand-${tile}`,tile,seat:p.seat,pose:'own',area:'hand',x:x+i*65,y:540-(s.selected===tile?selectedLift:0),w:65,h:98,z:1000+i,selected:s.selected===tile,clickable:selectable}));
    // A constant rack capacity, not the current hand length, reserves the draw slot.
    if(s.drawn!==undefined)add({id:`draw-${s.drawn}`,tile:s.drawn,seat:p.seat,pose:'own',area:'hand',x:x+Math.max(0,13-3*p.melds.length)*65+15,y:540-(s.selected===s.drawn?selectedLift:0),w:65,h:98,z:1050,selected:s.selected===s.drawn,clickable:selectable});
@@ -212,13 +213,13 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
    for(let i=0;i<p.handCount;i++){
     const back=o===2?'back-top':o===1?'back-right':'back-left';
     const capacity=13-3*p.melds.length;
-    const extra=!revealed&&o%2&&i>=capacity;
+    const extra=i>=capacity;
     const slot=i;
-    const y=o===2?38:extra?(o===1?393:442):105+slot*(revealed?29:24);
+    const y=o===2?38:extra?(o===1?66:442):105+slot*(revealed?29:24);
     // The row and flower groove have the same vertical axis; every tile stands upright.
     // Its baked camera supplies depth; never shear the vertical tile body.
     const sideX=revealed?slotMetrics(o,y).x+(o===3?-104:104):slotEdgeMetrics(o,y,'outer').x+(o===3?-82:82);
-    const x=o===2?437+i*33:sideX;
+    const x=o===2?(extra?389:437+i*33):sideX-(o===1&&extra?5:0);
     add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?pose:back,area:'hand',x,y,w:o===2?33:revealed?tileAspect(pose)*36:tileAspect(back)*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
    }
    p.melds.forEach((m,mi)=>{
@@ -227,7 +228,7 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
      const stack=ti===3;
      // Opposite melds replace the removed concealed tiles in the same rack.
      const baseY=o===3?110+mi*96+(ti===3?1:ti)*29:408-mi*87-(ti===3?1:ti)*29;
-     const x=o===2?437+p.handCount*33+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-52:52);
+     const x=o===2?437+Math.max(0,13-3*p.melds.length)*33+20+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-52:52);
      const y=o===2?38-(stack?14:0):baseY-(stack?12:0);
      const sidePose=tile===undefined?'cover-'+pose:pose;
      add({id:`meld-${p.seat}-${mi}-${ti}`,tile,seat:p.seat,pose:sidePose,area:'meld',x,y,w:o===2?33:tileAspect(sidePose)*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});

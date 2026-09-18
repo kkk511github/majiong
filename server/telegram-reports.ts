@@ -104,6 +104,7 @@ export function participationRows(db: DatabaseSync, teamIds: string | string[], 
     WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND m.at>=? AND m.at<?
       AND m.code<>'练习桌' AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
+      AND COALESCE(json_extract(r.record,'$.experience'),0)=0
     GROUP BY p.account_id, n.member_id, a.username, t.name
     ORDER BY t.name, n.member_id
   `).all(to, to, ...teams, from, to);
@@ -141,6 +142,7 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
         JOIN round_records original ON original.id=first.record_id
         WHERE first.game_id=p.game_id AND first.account_id=p.account_id
           AND original.code<>'练习桌'
+          AND COALESCE(json_extract(original.record,'$.experience'),0)=0
           AND json_extract(original.record,'$.result.reason')<>'dissolved'
         ORDER BY first.at,first.record_id LIMIT 1
       ) THEN ${initial}-${baseline} ELSE 0 END),6) AS score
@@ -153,6 +155,7 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
     WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND p.at>=? AND p.at<?
       AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
+      AND COALESCE(json_extract(r.record,'$.experience'),0)=0
     GROUP BY p.account_id,n.member_id,a.username,t.name
     ORDER BY t.name,n.member_id
   `).all(to, to, ...teams, from, to);

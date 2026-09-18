@@ -49,6 +49,18 @@ function source() {
   }
   return { db, table };
 }
+it("三机器人体验桌即使存在旧积分流水也不进入日结和周结", () => {
+  const { db, table } = source();
+  table("experience", end - 1, 8);
+  db.exec(`UPDATE round_records SET record=json_set(record,'$.experience',json('true'),'$.initialScore',90,'$.settlementBase',100);
+    UPDATE point_records SET points=100;`);
+  expect(participationRows(db, "team-3", end - DAY_MS, end)).toEqual([]);
+  expect(dailyScoreRows(db, "team-3", end - DAY_MS, end)).toEqual([]);
+  table("real", end - 1, 1);
+  db.exec("UPDATE point_records SET points=20 WHERE game_id='real'");
+  expect(participationRows(db, "team-3", end - DAY_MS, end).map(r => r.rounds)).toEqual([1, 1]);
+  expect(dailyScoreRows(db, "team-3", end - DAY_MS, end).map(r => r.score)).toEqual([20, 20]);
+});
 it("333069 finishes after five hands: each member receives one table and three points", () => {
   const { db, table } = source(); table("333069", end - 1000, 5);
   expect(participationRows(db, "team-3", end - DAY_MS, end)).toEqual([

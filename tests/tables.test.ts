@@ -794,41 +794,33 @@ describe("建桌大厅真实联机", () => {
       });
     },
   );
-  it("只有创建人可收桌，禁止收进行中的桌或绕过关闭解散设置", async () => {
-    const { s, port } = await boot(),
-      host = await peer(port, "开桌人"),
-      [empty, code] = await createTables(
-        host,
-        { allowDissolve: false, autoRenew: false },
-        2,
-      ),
-      visitor = await peer(port, "访客");
-    visitor.send({ type: "closeTable", code: empty });
+  it("成员不能申请解散，管理员可从大厅收起进行中的桌并禁止续桌", async () => {
+    const { s, port } = await boot();
+    const host = await peer(port, "管理员");
+    const [empty, code] = await createTables(host, {allowDissolve:true,autoRenew:true}, 2);
+    const visitor = await peer(port,"访客");
+    visitor.send({type:"closeTable",code:empty});
     expect((await visitor.read("error")).message).toContain("管理员");
-    host.send({ type: "closeTable", code: empty, requestId: "close" });
-    await host.read("ack", (m) => m.requestId === "close");
+    host.send({type:"closeTable",code:empty,requestId:"empty-close"});
+    await host.read("ack",m=>m.requestId==="empty-close");
     expect(s.games.has(empty)).toBe(false);
-    const ps = await fill(port, code);
-    host.send({ type: "closeTable", code });
-    expect((await host.read("error")).message).toContain("进行中");
-    ps[0].send({ type: "dissolve", agree: true });
-    expect((await ps[0].read("error")).message).toContain("未开启");
-    s.games.get(code)!.rules.rounds = 1;
-    await win(s, code, ps[0]);
-    s.games.get(code)!.table!.finishedAt = Date.now() - 20000;
-    await new Promise((r) => setTimeout(r, 75));
-    expect(s.games.get(code)!.phase).toBe("finished");
-    host.send({ type: "closeTable", code, requestId: "done" });
-    await host.read("ack", (m) => m.requestId === "done");
-    expect((await ps[0].read("left")).lobby).toBe(true);
+    const ps=await fill(port,code);
+    ps[0].send({type:"dissolve",agree:true});
+    expect((await ps[0].read("error")).message).toContain("只有管理员");
+    expect(s.games.get(code)!.dissolve).toBeUndefined();
+    expect(s.games.get(code)!.phase).toBe("playing");
+    host.send({type:"closeTable",code,requestId:"active-close"});
+    await host.read("ack",m=>m.requestId==="active-close");
+    for(const p of ps) expect((await p.read("left")).lobby).toBe(true);
     expect(s.games.has(code)).toBe(false);
   });
+
 });
 
 describe("新版计时服务端执行", () => {
   for (const claim of [false, true])
     for (const expired of [false, true])
-      it(`${expired ? "超时进入" : "手动开启"}托管后放过${claim ? "点炮" : "自摸"}胡牌，只摸切`, async () => {
+      it(`${expired ? "超时进入" : "手动开启"}托管后自动${claim ? "点炮胡" : "自摸胡牌"}`, async () => {
         const { s, port } = await boot(),
           host = await peer(port, "托管胡牌管理员");
         const [code] = await createTables(host, {
@@ -867,8 +859,9 @@ describe("新版计时服务端执行", () => {
         const updated = (
           await ps[0].read("state", (m) => m.state.revision > g.revision)
         ).state;
-        expect(updated.result).toBeUndefined();
-        expect(updated.players[0]!.discards).toEqual(claim ? [] : [113]);
+        expect(updated.result!.winners).toEqual([0]);
+        expect(updated.result!.reason).toBe("hu");
+        expect(updated.players[0]!.discards).toEqual([]);
         expect(updated.players[0]!.trustee).toBe(true);
         if (claim) expect(updated.players[0]!.hand).toHaveLength(13);
         if (expired) {
@@ -1015,4 +1008,65 @@ it("同桌语音只转发当前同桌，鉴权、格式和速率均受限制，�
   expect((await send(ps[2].session.token, new Uint8Array(500000))).status).toBe(
     413,
   );
+});
+
+describe('正式服务器机器人体验桌',()=>{
+  it('体验桌按原设置续桌并保留三名已准备机器人，等待真人再开局',async()=>{
+    const {s,port}=await boot(), host=await peer(port,'管理员');
+    const [source]=await createTables(host,{autoRenew:true,readyMode:'manual',resultSeconds:5});
+    host.send({type:'createExperienceTable',sourceCode:source});
+    const code=(await host.read('tablesCreated')).codes[0];
+    host.send({type:'join',code});
+    await host.read('state',m=>m.state.code===code);
+    host.send({type:'ready'});
+    await host.read('state',m=>m.state.phase==='playing');
+    const original=s.games.get(code)!;
+    original.phase='finished';
+    original.table!.finishedAt=Date.now()-11000;
+    await host.read('left');
+    expect(s.games.has(code)).toBe(false);
+    const renewed=[...s.games.values()].find(g=>g.table?.experience)!;
+    expect(renewed.code).not.toBe(code);
+    expect(renewed.phase).toBe('waiting');
+    expect(renewed.players[0]).toBeNull();
+    expect(renewed.players.slice(1).every(p=>p?.bot&&p.ready&&p.score===90)).toBe(true);
+    expect(renewed.table!.settings).toEqual(original.table!.settings);
+    expect(renewed.rules).toEqual(original.rules);
+    expect(renewed.table!.experience).toEqual({sourceCode:source});
+  });
+  it('只允许管理员创建，复制正式桌配置，三机器人和真人走同一开局流程，可重启恢复和收桌',async()=>{
+    const database=databasePath();
+    let {s,port}=await boot(database);
+    const host=await peer(port,'管理员');
+    const [source]=await createTables(host,{autoRenew:true,readyMode:'manual',overtimeSeconds:87,resultSeconds:5,scoreMultiplier:0.2});
+    const member=await peer(port,'体验成员');
+    member.send({type:'createExperienceTable',sourceCode:source});
+    expect((await member.read('error')).message).toContain('只有管理员');
+    host.send({type:'createExperienceTable',sourceCode:source,requestId:'experience'});
+    const code=(await host.read('tablesCreated')).codes[0];
+    await host.read('ack',m=>m.requestId==='experience');
+    const original=s.games.get(source)!, room=s.games.get(code)!;
+    expect(room.rules).toEqual(original.rules);
+    expect(room.table!.settings).toEqual(original.table!.settings);
+    expect(room.players[0]).toBeNull();
+    expect(room.players.slice(1).every(p=>p?.bot&&p.ready)).toBe(true);
+    expect(room.phase).toBe('waiting');
+    host.send({type:'createExperienceTable',sourceCode:source});
+    expect((await host.read('tablesCreated')).codes).toEqual([code]);
+    member.send({type:'join',code});
+    await member.read('state',m=>m.state.players[0]?.id===member.session.id);
+    expect(s.games.get(code)!.phase).toBe('waiting');
+    member.send({type:'ready'});
+    await member.read('state',m=>m.state.phase==='playing');
+    expect(s.games.get(code)!.players.filter(p=>p?.bot)).toHaveLength(3);
+    await stop(s);
+    ({s,port}=await boot(database));
+    expect(s.games.get(code)!.table!.experience).toEqual({sourceCode:source});
+    expect(s.games.get(code)!.players.filter(p=>p?.bot)).toHaveLength(3);
+    const admin=await peer(port,'管理员');
+    admin.send({type:'closeTable',code,requestId:'remove-experience'});
+    await admin.read('ack',m=>m.requestId==='remove-experience');
+    expect(s.games.has(code)).toBe(false);
+    expect(s.games.has(source)).toBe(true);
+  });
 });

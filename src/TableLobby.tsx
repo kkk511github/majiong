@@ -531,13 +531,7 @@ export function TableSetup({
                 />
               </Setting>
             )}
-            <Setting label="协商解散">
-              <Toggle
-                label="允许全桌同意后解散"
-                checked={settings.allowDissolve}
-                change={(allowDissolve) => update({ allowDissolve })}
-              />
-            </Setting>
+            <Setting label="解散权限"><span>仅管理员可以解散牌桌</span></Setting>
             <Setting label="牌友信息">
               <Choices
                 label="牌友信息"
@@ -850,8 +844,7 @@ export function TableLobby({
                   </small>
                 </span>
               )}
-              {(admin || (canOpen && t.managed)) &&
-                ["waiting", "finished"].includes(t.phase) && (
+              {(admin || (canOpen && t.managed && ["waiting", "finished"].includes(t.phase))) && (
                   <button
                     className="table-close"
                     disabled={busy}
@@ -997,8 +990,8 @@ export function TableSettingsSummary({
           </dd>
         </div>
         <div>
-          <dt>协商解散</dt>
-          <dd>{s.allowDissolve ? "四人同意后解散" : "关闭"}</dd>
+          <dt>解散权限</dt>
+          <dd>仅管理员</dd>
         </div>
         <div>
           <dt>加入方式</dt>

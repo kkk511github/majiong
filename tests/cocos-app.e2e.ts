@@ -108,7 +108,7 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     expect(hintBox.x+hintBox.width).toBeLessThanOrEqual(width);
     await page.screenshot({path:`test-results/screenshots/win-hint-${width}.png`});
     expect(commands).toHaveLength(0);
-    await dragTile(page,4,0,-90);
+    await dragTile(page,4,0,-30);
     await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
     expect(commands).toHaveLength(0);
     const choose=async(tile:number)=>{const t=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===tile);await clickTable(page,t.x,t.y);await expect.poll(async()=>(await scene(page)).state.selected).toBe(tile);};
@@ -311,7 +311,7 @@ for (const [width, height] of [[844,390],[1280,590]]) {
 
 test.describe('真实触屏拖牌',()=>{
   test.use({hasTouch:true});
-  test('点选后慢拖到桌面松手、斜拖和终点更新可出牌，取消与拖回不误出',async({page,browserName})=>{
+  test('直接慢拖到桌面松手、斜拖和终点更新可出牌，取消与拖回不误出',async({page,browserName})=>{
     await page.setViewportSize({width:844,height:390});
     const v=viewFor(structuredClone(late) as unknown as Game,0);
     Object.assign(v,{phase:'playing',turn:0,canDiscard:true,actions:[],selfKongs:[],pending:undefined,result:undefined,lastDraw:8,deadline:Date.now()+600000});
@@ -392,7 +392,9 @@ test.describe('真实触屏拖牌',()=>{
     await touch('touchend',t.x-250,t.y-140);
     await ack(1);
 
-    await select();t=await tile();
+    // Second discard starts directly on an unselected tile.
+    t=await tile();
+    await expect.poll(async()=>(await scene(page)).state.selected).toBe(null);
     if(browserName==='chromium'){
       const cdp=await page.context().newCDPSession(page);
       const start=await tablePoint(page,t.x,t.y);

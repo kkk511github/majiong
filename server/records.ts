@@ -80,6 +80,7 @@ export function createRecords(db: DatabaseSync) {
     for (const original of g.history) {
       const record: RoundRecord = {
         ...original,
+        experience: original.experience || !!g.table?.experience,
         initialScore: original.initialScore ?? g.initialScore ?? 0,
         settlementBase: original.settlementBase ?? g.settlementBase,
         scoreDivisor: original.scoreDivisor ?? g.scoreDivisor ?? 1,
@@ -97,7 +98,7 @@ export function createRecords(db: DatabaseSync) {
         JSON.stringify(record),
       );
       // Only completed online hands count; practice remains viewable history.
-      if (g.code !== "练习桌" && record.result.reason !== "dissolved") {
+      if (g.code !== "练习桌" && !record.experience && record.result.reason !== "dissolved") {
         record.playerIds!.forEach((id, seat) => {
           if (!id || !db.prepare("SELECT 1 FROM accounts WHERE id=?").get(id))
             return;
@@ -213,7 +214,7 @@ export function createRecords(db: DatabaseSync) {
       } catch {
         continue;
       }
-      if (record.result.reason === "dissolved") continue;
+      if (record.experience || record.result.reason === "dissolved") continue;
       ids.forEach((id, seat) => {
         const delta = roundNet(record.result, seat);
         if (
@@ -423,6 +424,7 @@ export function createRecords(db: DatabaseSync) {
     // dissolved hands even when an older import already wrote their points.
     const where: string[] = [
       "COALESCE(r.code,'')<>'练习桌'",
+      "COALESCE(json_extract(r.record,'$.experience'),0)=0",
       "COALESCE(json_extract(r.record,'$.result.reason'),'')<>'dissolved'",
     ],
       args: (string | number)[] = [];
@@ -481,6 +483,7 @@ export function createRecords(db: DatabaseSync) {
       LEFT JOIN round_records original ON original.id=first.record_id
       WHERE first.game_id=p.game_id AND first.account_id=p.account_id
         AND COALESCE(original.code,'')<>'练习桌'
+        AND COALESCE(json_extract(original.record,'$.experience'),0)=0
         AND COALESCE(json_extract(original.record,'$.result.reason'),'')<>'dissolved'
       ORDER BY first.at,first.record_id LIMIT 1
     ) THEN ${initial}-${baseline} ELSE 0 END) / (1.0 * ${divisor})`;

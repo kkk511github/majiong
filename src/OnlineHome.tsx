@@ -75,20 +75,14 @@ function HomeTable({
 export function OnlineHome({
   name,
   state,
-  resumable,
   openTables,
   joinByCode,
-  practice,
-  newPractice,
   rules,
 }: {
   name: string;
   state: ClientState;
-  resumable: boolean;
   openTables: () => void;
   joinByCode: () => void;
-  practice: () => void;
-  newPractice: () => void;
   rules: () => void;
 }) {
   const canOpen = mayCreateTables(state.account);
@@ -195,27 +189,7 @@ export function OnlineHome({
             玩法说明
             <ChevronRight size={13} />
           </button>
-          <i />
-          <button
-            aria-label={
-              resumable ? "继续打，恢复上次练习" : "单人练习，快速开始"
-            }
-            onClick={practice}
-          >
-            <GraduationCap size={18} />
-            {resumable ? "继续练习" : "单人练习"}
-            <ChevronRight size={13} />
-          </button>
-          {resumable && (
-            <button
-              className="home-new-practice"
-              aria-label="新开练习"
-              title="新开练习"
-              onClick={newPractice}
-            >
-              <RefreshCw size={14} />
-            </button>
-          )}
+
         </div>
       </div>
       <aside className="home-live-panel" aria-label="实时牌桌">

@@ -652,87 +652,9 @@ export class GameClient {
     }
     storage.set(key, records.slice(0, 100));
   }
-  practice(name: string, rules: Partial<Rules>, resume = false) {
-    this.disconnect();
-    this.name = name;
-    this.localPaused = false;
-    this.pausedAt = undefined;
-    const candidate = resume
-      ? storage.get<Game | null>("practice", null)
-      : null;
-    const saved =
-      candidate?.version === 1 && candidate.players?.every(Boolean)
-        ? candidate
-        : null;
-    this.local =
-      saved ??
-      createGame(
-        "练习桌",
-        crypto.randomUUID?.() ??
-          Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
-            b.toString(16).padStart(2, "0"),
-          ).join(""),
-        newGameRules(rules),
-      );
-    if (!saved) {
-      this.local.players = [
-        newPlayer("me", name),
-        newPlayer("bot-1", "秦淮", true),
-        newPlayer("bot-2", "钟山", true),
-        newPlayer("bot-3", "莫愁", true),
-      ];
-      this.local.players[0]!.ready = true;
-      this.local.ownerId = "me";
-      this.local = startRound(this.local);
-    } else {
-      this.local.players[0]!.name = name;
-      // A resumed result should still give the player a full ten seconds to read it.
-      this.local.deadline =
-        this.local.phase === "ended"
-          ? Date.now() + 10_000
-          : this.local.rules.turnSeconds
-            ? Date.now() + this.local.rules.turnSeconds * 1000
-            : 0;
-    }
-    this.emit({
-      mode: "local",
-      connected: true,
-      connecting: false,
-      error: "",
-      notice: "",
-    });
-    this.updateLocal();
-    this.tick = setInterval(() => {
-      if (this.local?.phase === "ended" && !this.localPaused) {
-        if (Date.now() >= this.local.deadline) this.ready();
-        return;
-      }
-      if (
-        !this.local ||
-        this.localPaused ||
-        !["playing", "claiming"].includes(this.local.phase)
-      )
-        return;
-      for (const seat of seats) {
-        const human = seat === 0 && !this.local.players[0]!.trustee;
-        if (
-          human &&
-          (!decisionDeadline(this.local, seat) ||
-            decisionDeadline(this.local, seat) > Date.now())
-        )
-          continue;
-        if (human && this.local.phase === "playing" && this.local.turn === seat)
-          this.local.players[0]!.trustee = true;
-        const action = this.local.players[seat]!.bot
-          ? botAction(this.local, seat)
-          : trusteeAction(this.local, seat);
-        if (action) {
-          this.local = act(this.local, seat, action);
-          this.updateLocal();
-          break;
-        }
-      }
-    }, 950);
+  /** Retired entry point: stale clients must not start a local practice game. */
+  practice(_name: string, _rules: Partial<Rules>, _resume = false) {
+    this.emit({error: "单人练习已关闭，请在大厅进入牌桌"});
   }
   pauseLocal(paused: boolean) {
     if (paused === this.localPaused) return;
@@ -757,7 +679,7 @@ export class GameClient {
     }
     if (!onlineAvailable) {
       this.emit({
-        error: "此安装包尚未配置好友约局服务，单人练习可以离线使用。",
+        error: "此安装包尚未配置牌桌服务，请安装最新版本。",
       });
       return;
     }
@@ -1062,7 +984,7 @@ export class GameClient {
       if (!this.state.view)
         this.emit({
           error:
-            "暂时连接不上牌桌服务，正在重试。你也可以返回大厅，开始单人练习。",
+            "暂时连接不上牌桌服务，正在重试。请检查网络后重试。",
         });
     };
   }

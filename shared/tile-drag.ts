@@ -45,7 +45,7 @@ export function shouldDiscardDraggedTile(
   deltaY: number,
   release: { x: number; y: number },
 ) {
-  return canContinueTileDrag(state, origin) && origin.selected === origin.tile &&
+  return canContinueTileDrag(state, origin) &&
     origin.canDiscard && state.canDiscard && state.phase === 'playing' &&
     state.turn === state.me && Number.isFinite(deltaX) && Number.isFinite(deltaY) &&
     // Release above the standing hand, inside the 1280 × 590 design surface.

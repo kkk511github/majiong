@@ -15,6 +15,7 @@ export class TableScene extends Component {
  private avatarLoads=new Set<string>();
  private ready=false; private channel=''; private lastEffect='';
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
+ private lastHandTap?:{tile:number;key:string;round:number;turn:number;phase:string;canDiscard:boolean;at:number};
  private pointer?:Node; private pointerKey=''; private pointerAt='';
  private cancelHandTouch=()=>{if(!this.handTouch)return;this.handTouch=undefined;if(this.ready&&this.state)this.draw();};
  private onVisibility=()=>{if(document.hidden)this.cancelHandTouch();};
@@ -191,14 +192,21 @@ export class TableScene extends Component {
    const discard=shouldDiscardDraggedTile(state,touch.origin,point.x-touch.startX,point.y-touch.startY,point);
    // An unsuccessful drag keeps the selection; taps preserve the existing click flow.
    const tapped=!touch.moved&&Math.hypot(point.x-touch.startX,point.y-touch.startY)<10;
-   if(discard)this.emit({type:'discard',tile:touch.origin.tile});
-   else if(tapped)this.emit({type:'select',tile:touch.origin.tile});
+   const previous=this.lastHandTap;
+   const doubleTap=tapped&&touch.origin.canDiscard&&previous?.tile===touch.origin.tile&&
+    previous.key===state.key&&previous.round===state.round&&previous.turn===state.turn&&
+    previous.phase===state.phase&&previous.canDiscard&&performance.now()-previous.at<=400;
+   if(discard||doubleTap){this.lastHandTap=undefined;this.emit({type:'discard',tile:touch.origin.tile});}
+   else if(tapped){
+    this.lastHandTap={tile:touch.origin.tile,key:state.key,round:state.round,turn:state.turn,phase:state.phase,canDiscard:touch.origin.canDiscard,at:performance.now()};
+    this.emit({type:'select',tile:touch.origin.tile});
+   }else this.lastHandTap=undefined;
   }
   if(this.ready&&this.state)this.draw();
  }
  private positionDraggedTile(){
   const touch=this.handTouch;
-  if(!touch||touch.origin.selected!==touch.origin.tile||!touch.origin.canDiscard)return;
+  if(!touch||!touch.origin.canDiscard)return;
   const node=this.nodes.get(touch.id);if(!node?.isValid)return;
   // getUILocation uses upward-positive design coordinates, matching node space.
   node.setPosition(touch.base.x+touch.x-touch.startX,touch.base.y+touch.y-touch.startY,0);
@@ -231,24 +239,23 @@ export class TableScene extends Component {
   }
   const prompt=claimPrompt(s);
   if(prompt){
-   // During a claim, the enlarged public target occupies only the compass's
-   // clear space. The counters stay visible beside it throughout the response.
-   const card=this.plate(h,640,280,162,96,'#123c33f5','#f0cf70',12);card.name='claim-prompt';
-   this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,619,244,109,20,15);
-   this.text(h,s.disabled?'提交中':`${s.countdown}秒`,695,244,40,20,14,GOLD);
-   this.image('own-'+tileKind(prompt.tile),606,287,43,64,h).name='claim-prompt-tile';
-   this.text(h,prompt.name,677,268,70,26,23,GOLD);
-   this.text(h,'可'+prompt.labels.join(' / '),677,301,70,38,17);
-  }else{
+   // Keep the compass and counters untouched; the left lower rail is clear
+   // of hand tiles, all three river columns, flowers and action controls.
+   const card=this.plate(h,112,393,180,86,'#123c33f5','#f0cf70',12);card.name='claim-prompt';
+   this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,99,363,144,20,15);
+   this.image('own-'+tileKind(prompt.tile),59,402,35,52,h).name='claim-prompt-tile';
+   this.text(h,prompt.name,136,390,100,25,22,GOLD);
+   this.text(h,'可'+prompt.labels.join(' / '),136,417,106,24,17);
+  }
+  {
   const center=this.make('center',640,295,1280,590,h);
   const g=this.make('compass',640,278,116,92,center).addComponent(Graphics);g.fillColor=new Color('#092724');g.roundRect(-61,-46,122,92,14);g.fill();g.fillColor=new Color('#283633');g.moveTo(-45,-41);g.lineTo(45,-41);g.lineTo(58,-25);g.lineTo(58,25);g.lineTo(42,41);g.lineTo(-42,41);g.lineTo(-58,25);g.lineTo(-58,-25);g.close();g.fill();g.strokeColor=new Color('#697264');g.lineWidth=2;g.stroke();g.fillColor=new Color('#09201e');g.roundRect(-30,-19,60,38,13);g.fill();
   const positions=[[640,311],[684,278],[640,245],[596,278]];for(let o=0;o<4;o++){const seat=(s.me+o)%4;this.text(center,['东','南','西','北'][seat],positions[o][0],positions[o][1],28,23,19,s.turn===seat?GOLD:'#c3ccc0');}
   this.text(center,s.countdown,640,278,57,36,s.countdown.length>=3?25:33,'#26ddf5');
   }
   const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));
-  // The claim card is wider than the compass. Use its side gutters so neither
-  // the public counters nor the neighbouring discard columns are covered.
-  const countX=prompt?527:548,roundX=prompt?753:732,countWidth=prompt?54:60;
+  // Counter positions remain fixed during claims.
+  const countX=548,roundX=732,countWidth=60;
   this.text(h,`余牌 ${s.remaining}`,countX,265,countWidth,27,15,'#deebd9').name='table-remaining-count';
   this.text(h,`余花 ${flowers}`,countX,294,countWidth,27,15,'#deebd9').name='table-flowers-count';
   this.text(h,'把数',roundX,262,countWidth,23,16,'#a4c4b2').name='table-round-label';

@@ -1,3 +1,4 @@
+import { createExperienceTable, fillExperienceBots } from "./experience-table";
 import { readVoice } from "./room-voice";
 import { createClub } from "./club";
 import { createServer } from "node:http";
@@ -159,7 +160,7 @@ export function makeServer(
       });
       if (g.deadline && !g.table?.settings.overtimeSeconds)
         g.deadline = Date.now() + g.rules.turnSeconds * 1000;
-      if (g.dissolve) g.dissolve.expires = Date.now() + 60000;
+      g.dissolve = undefined; // Retire legacy member votes; only admins may close.
       games.set(g.code, g);
     } catch {
       /* Keep corrupt records for diagnosis, never start a partial game. */
@@ -280,11 +281,10 @@ export function makeServer(
   }
   function persist(g: Game) {
     const hasHumans = g.players.some((p) => p && !p.bot);
-    const keep =
+    const keep = !g.table?.closed && (
       hasHumans ||
-      (g.table &&
-        !g.table.closed &&
-        (g.phase !== "finished" || g.table.settings.autoRenew));
+      (g.table && (g.phase !== "finished" || g.table.settings.autoRenew))
+    );
     try {
       db.exec("BEGIN");
       records.capture(g);
@@ -345,6 +345,7 @@ export function makeServer(
       g.table.finishedAt = Date.now();
     persist(g);
     broadcast(g);
+    if (g.table?.closed) sendLeft(g, "管理员已解散这张牌桌");
     broadcastTables();
   }
   function startIfReady(g: Game): Game {
@@ -891,6 +892,23 @@ export function makeServer(
           sendTables(session.id, true);
           return;
         }
+        if (msg.type === "createExperienceTable") {
+          if(session.account.role !== "admin") throw Error("只有管理员可以建立体验桌");
+          const source=games.get(msg.sourceCode);
+          if(!source?.table || source.table.closed || source.table.experience)
+            throw Error("请选择一张现有正式桌");
+          let room=[...games.values()].find(r=>r.table?.experience?.sourceCode===source.code&&!r.table.closed);
+          if(!room) {
+            const used=new Set([...games.values()].filter(r=>r.table).map(r=>r.table!.number));
+            room=createExperienceTable(source,freshTableCode(),randomUUID(),reserveTableNumber(used),Date.now());
+            persist(room);
+          }
+          lobbySubscribers.add(session.id);
+          send(ws,{type:"tablesCreated",codes:[room.code]});
+          broadcastTables();
+          if(requestId) send(ws,{type:"ack",requestId});
+          return;
+        }
         if (msg.type === "createTables") {
           if (g) throw Error("请先离开当前牌桌");
           if (
@@ -993,11 +1011,12 @@ export function makeServer(
             source.table.creatorId !== session.id
           )
             throw Error("只能收起自己开的桌子");
-          if (!["waiting", "finished"].includes(source.phase))
-            throw Error("牌局进行中，请通过牌桌内协商解散");
-          const closing = structuredClone(source);
+          if (!["waiting", "finished"].includes(source.phase) && session.account.role !== "admin")
+            throw Error("只有管理员可以解散进行中的牌桌");
+          const closing = ["playing", "claiming", "ended"].includes(source.phase)
+            ? dissolveGame(source) : structuredClone(source);
           closing.table!.closed = true;
-          closing.players = [null, null, null, null];
+          closing.table!.endReason = "管理员收桌";
           closing.revision++;
           persist(closing);
           sendLeft(source, "开桌人已收起这张桌子");
@@ -1128,35 +1147,22 @@ export function makeServer(
             break;
           case "leave":
             if (!["waiting", "finished"].includes(g.phase))
-              throw Error("牌局进行中，请先申请解散");
+              throw Error("牌局进行中，可开启托管；仅管理员可以解散");
             g.players[seat] = null;
             if (!g.table && g.ownerId === session.id)
               g.ownerId = g.players.find((p) => p && !p.bot)?.id ?? null;
             g.revision++;
             break;
           case "dissolve": {
-            if (g.table && !g.table.settings.allowDissolve)
-              throw Error("本桌未开启协商解散");
-            if (typeof msg.agree !== "boolean") throw Error("投票格式不正确");
+            if (session.account.role !== "admin")
+              throw Error("只有管理员可以解散牌桌");
+            if (msg.agree !== true) throw Error("解散操作无效");
             if (!["playing", "claiming", "ended"].includes(g.phase))
               throw Error("当前无需解散");
-            if (!msg.agree) g.dissolve = undefined;
-            else {
-              if (!g.dissolve)
-                g.dissolve = {
-                  proposer: seat,
-                  yes: g.players.flatMap((p, i) =>
-                    p?.bot ||
-                    (p &&
-                      !p.online &&
-                      (p.disconnectedAt ?? Date.now()) < Date.now() - 60000)
-                      ? [i as Seat]
-                      : [],
-                  ),
-                  expires: Date.now() + 60000,
-                };
-              if (!g.dissolve.yes.includes(seat)) g.dissolve.yes.push(seat);
-              if (g.dissolve.yes.length === 4) g = dissolveGame(g);
+            g = dissolveGame(g);
+            if (g.table) {
+              g.table.closed = true;
+              g.table.endReason = "管理员解散牌桌";
             }
             g.revision++;
             break;
@@ -1278,6 +1284,7 @@ export function makeServer(
             endReason: undefined,
             finishedAt: undefined,
           };
+          fillExperienceBots(renewed);
           try {
             db.exec("BEGIN");
             records.capture(g);
@@ -1305,29 +1312,9 @@ export function makeServer(
           publish(g);
         }
         if (g.dissolve) {
-          const previousVotes = g.dissolve.yes.length;
-          for (const seat of seats) {
-            const p = g.players[seat]!;
-            if (
-              !p.online &&
-              (p.disconnectedAt ?? now) < now - 60000 &&
-              !g.dissolve.yes.includes(seat)
-            )
-              g.dissolve.yes.push(seat);
-          }
-          if (g.dissolve.yes.length === 4) {
-            g = dissolveGame(g, now);
-            g.revision++;
-            publish(g);
-          } else if (g.dissolve.expires <= now) {
-            g.dissolve = undefined;
-            g.revision++;
-            publish(g);
-          } else if (g.dissolve.yes.length !== previousVotes) {
-            g.revision++;
-            publish(g);
-          }
-          g = structuredClone(g);
+          g.dissolve = undefined;
+          g.revision++;
+          publish(g);
         }
         if (
           !["playing", "claiming"].includes(g.phase) ||

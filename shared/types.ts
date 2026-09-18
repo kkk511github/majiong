@@ -45,6 +45,7 @@ export interface TableSettings {
   privacy: "open" | "lobby" | "all";
 }
 export interface TableConfig {
+  experience?: { sourceCode: string };
   creatorId: string;
   groupId: string;
   number: number;
@@ -167,6 +168,7 @@ export interface Result {
   transfers?: ScoreTransfer[];
 }
 export interface RoundRecord {
+  experience?: boolean;
   rules?: Rules;
   multiplier?: number;
   replayAvailable?: boolean;
@@ -422,6 +424,7 @@ export type ClientMessage = (
       count: number;
       creationId: string;
     }
+  | { type: "createExperienceTable"; sourceCode: string }
   | { type: "tables" }
   | { type: "closeTable"; code: string }
   | { type: "join"; code: string; seat?: Seat }

@@ -5,7 +5,9 @@
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>zh_CN</string>
+	<key>CFBundleLocalizations</key>
+	<array><string>zh_CN</string></array>
 	<key>CFBundleDisplayName</key>
         <string>金陵麻将</string>
 	<key>CFBundleExecutable</key>

@@ -36,7 +36,7 @@ export const DEFAULT_TABLE_SETTINGS: TableSettings = {
   overtimeSeconds: 90,
   overtimePerTurn: false,
   continuousRounds: true,
-  allowDissolve: true,
+  allowDissolve: false,
   privacy: "open",
 };
 
@@ -80,7 +80,7 @@ export function normalizeTableSettings(
       if (typeof input[key] !== "boolean") throw Error("牌桌设置无效");
       // Older clients still send overtimePerTurn=true; all tables now share
       // one personal overtime balance across decisions.
-      s[key] = key === "overtimePerTurn" ? false : input[key];
+      s[key] = key === "overtimePerTurn" || key === "allowDissolve" ? false : input[key];
     }
   }
   for (const [key, min, max] of [

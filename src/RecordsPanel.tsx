@@ -51,7 +51,7 @@ export function RecordsPanel({
   const saved = useRef(workspaceMemory.get(memoryKey)).current;
   const showTeams = account?.role === "admin";
   const [tab, setTab] = useState<"admin" | "online" | "practice">(
-    saved?.tab === "admin" && !showTeams
+    saved?.tab === "practice" || (saved?.tab === "admin" && !showTeams)
       ? "online"
       : (saved?.tab ?? (showTeams ? "admin" : "online")),
   );
@@ -202,7 +202,6 @@ export function RecordsPanel({
   const tabs = [
     ...(account?.role === "admin" ? [{ id: "admin", name: "牌桌总战绩" }] : []),
     { id: "online", name: "我的对局" },
-    { id: "practice", name: "单人练习" },
   ] as const;
   return (
     <section className="records-panel records-workspace" aria-label="战绩中心">

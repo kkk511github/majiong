@@ -12,10 +12,8 @@ import { client, type ClientState } from "./game-client";
 
 export function AuthScreen({
   state,
-  practice,
 }: {
   state: ClientState;
-  practice: () => void;
 }) {
   const forced = !!state.account?.mustChangePassword;
   const formId = useId();
@@ -243,15 +241,7 @@ export function AuthScreen({
                     ? "初始密码仅用于首次登录"
                     : "账号跨设备使用，战绩随账号保存"}
                 </span>
-                {!forced ? (
-                  <button
-                    type="button"
-                    onClick={practice}
-                    disabled={state.authBusy}
-                  >
-                    先去单人练习 →
-                  </button>
-                ) : (
+                {forced && (
                   <button
                     type="button"
                     disabled={state.authBusy}

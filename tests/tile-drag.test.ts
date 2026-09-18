@@ -19,14 +19,14 @@ function table(overrides: Partial<TableSceneState> = {}): TableSceneState {
   };
 }
 
-describe('selected hand tile drag', () => {
-  it('requires a selected tile and a deliberate upward release', () => {
+describe('direct hand tile drag', () => {
+  it('allows direct dragging without preselection and requires a deliberate upward release', () => {
     const state = table(), origin = beginTileDrag(state, 8)!;
     expect(shouldDiscardDraggedTile(state, origin, 8, 60, tabletop)).toBe(true);
     for (const [x, y] of [[0, 0], [0, 51], [0, -90], [Infinity, 70], [0, NaN]])
       expect(shouldDiscardDraggedTile(state, origin, x, y, tabletop)).toBe(false);
     const unselected = beginTileDrag(state, 4)!;
-    expect(shouldDiscardDraggedTile(state, unselected, 0, 90, tabletop)).toBe(false);
+    expect(shouldDiscardDraggedTile(state, unselected, 0, 90, tabletop)).toBe(true);
   });
 
   it('allows diagonal movement to the table but not release outside it or in the hand row', () => {

@@ -105,3 +105,17 @@ it("未关联战绩的旧积分仍按原值统计，不因新增练习过滤丢�
   ledger(hand("orphan-ledger", 10, 18), "old-room");
   expect(records.points(new URLSearchParams())).toMatchObject({ completedRounds: 1, playerRounds: 1, tables: 1, points: 18 });
 });
+
+it('正式服务器体验桌保留战绩，但机器人体验不进入会员积分、CSV或重启迁移',()=>{
+  const {db,records,hand}=source();
+  const g=createGame('876543','experience');
+  g.players=seats.map(seat=>newPlayer(seat===0?'member':`bot-${seat}`,String(seat),seat>0));
+  g.table={creatorId:'member',groupId:'experience',number:1,createdAt:0,settings:{} as any,experience:{sourceCode:'123456'}};
+  g.phase='finished';g.history=[hand('experience-round',10,999)];
+  records.capture(g,false);
+  const stored=JSON.parse(String(db.prepare('SELECT record FROM round_records').get()!.record));
+  expect(stored.experience).toBe(true);
+  expect(db.prepare('SELECT COUNT(*) AS n FROM point_records').get()!.n).toBe(0);
+  expect(createRecords(db).points(new URLSearchParams()).points).toBe(0);
+  expect(records.exportPoints(new URLSearchParams())).not.toContain('999');
+});

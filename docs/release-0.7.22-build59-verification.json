@@ -1,0 +1,51 @@
+{
+  "version": "0.7.22",
+  "build": 59,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "sameWebAssetsBothPlatforms": true,
+  "includedExistingFeatures": [
+    "cumulativeTableOvertime",
+    "directTileUpwardDrag",
+    "tapOrDragDiscard"
+  ],
+  "keyboardFocusFallback": true,
+  "keyboardOverlayAndResizeLayouts": true,
+  "realDeviceInstallationTested": false,
+  "initialFlowerKongBankruptcyAndBaomiFixed": true,
+  "windPaymentsFollowCurrentRoundMultiplier": true,
+  "windBasePayment": 5,
+  "windBixiahuPayment": 10,
+  "historicalRecordsRewritten": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.22-build59.apk",
+      "bytes": 121069090,
+      "sha256": "b7923b4c8936833dc78d373adcff838dfd7a100d863a3ab88684d74205653b2c",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.22-build59-AdHoc.ipa",
+      "bytes": 121296976,
+      "sha256": "cf67fe3a202ee40979e380e1a849bdeb4d5f4a53b2546f533bbc48e3ab8a84c8",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 609,
+  "tableExperienceValidation": {
+    "unitTestsPassed": 609,
+    "cocosBrowserTestsPassed": 22,
+    "rapidDoubleTapRepeatedTestsPassed": 6,
+    "avatarNativeMenuChinese": true,
+    "comparisonBaseline": "3a7b2d2",
+    "experienceTableCode": "127548",
+    "sourceTableCode": "192809",
+    "administratorOnlyDissolution": true,
+    "reportExclusion": true,
+    "deployment": "0.7.22-experience-20260919"
+  }
+}

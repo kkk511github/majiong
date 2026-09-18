@@ -1225,24 +1225,10 @@ export function viewFor(g: Game, me: Seat): View {
     lastDraw: g.turn === me ? lastDraw : undefined,
   });
 }
-/** Human auto-play never chooses a hand strategy or accepts a claim. */
+/** Trustee uses the same legal decision strategy as computer players. */
 export function trusteeAction(g: Game, seat: Seat): Action | null {
-  const p = g.players[seat];
-  if (!p) return null;
-  if (
-    g.phase === "claiming" &&
-    g.pending?.offers[seat] &&
-    g.pending.replies[seat] === undefined
-  )
-    return { type: "pass" };
-  if (g.phase !== "playing" || g.turn !== seat || !p.hand.length) return null;
-  // A timeout immediately after a manual pung has no drawn tile. Only then
-  // discard the rightmost legal tile; never inspect or optimise the hand.
-  const tile =
-    g.lastDraw !== undefined && p.hand.includes(g.lastDraw)
-      ? g.lastDraw
-      : p.hand[p.hand.length - 1];
-  return { type: "discard", tile };
+  if (!g.players[seat]) return null;
+  return botAction(g, seat);
 }
 
 export function botAction(g: Game, seat: Seat): Action | null {

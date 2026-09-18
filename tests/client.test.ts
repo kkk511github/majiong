@@ -6,67 +6,17 @@ afterEach(() => {
   client?.disconnect();
   vi.useRealTimers();
 });
-describe("练习桌倒计时", () => {
-  it("旧练习存档亮牌十秒再续局，保存真实结算时间且只前进一把", () => {
+describe("练习入口已关闭",()=>{
+  it.each([false,true])("旧入口不能启动或恢复练习，resume=%s",resume=>{
     vi.useFakeTimers();
-    const saved = completedRound();
-    const at = saved.history.at(-1)!.at;
-    vi.setSystemTime(at + 60_000);
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) =>
-        key === "jinling:practice" ? JSON.stringify(saved) : null,
-      setItem: vi.fn(),
-    });
-    client = new GameClient();
-    client.practice("测试", {}, true);
-    expect(client.state.view!.history.at(-1)!.at).toBe(at);
-    expect(client.state.view!.players.every((p) => p!.hand.length > 0)).toBe(
-      true,
-    );
-    vi.advanceTimersByTime(9999);
-    expect(client.state.view!.phase).toBe("ended");
-    vi.advanceTimersByTime(501);
-    expect(client.state.view!.phase).toBe("playing");
-    expect(client.state.view!.round).toBe(saved.round + 1);
-    client.ready();
-    expect(client.state.view!.round).toBe(saved.round + 1);
-  });
-  it("亮牌时可提前继续，最终结束不会被计时器再开一把", () => {
-    vi.useFakeTimers();
-    let saved = completedRound();
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) =>
-        key === "jinling:practice" ? JSON.stringify(saved) : null,
-      setItem: vi.fn(),
-    });
-    client = new GameClient();
-    client.practice("测试", {}, true);
-    client.ready();
-    expect(client.state.view!.round).toBe(saved.round + 1);
-    saved = { ...saved, phase: "finished" };
-    client.practice("测试", {}, true);
-    vi.advanceTimersByTime(30_000);
-    client.ready();
-    expect(client.state.view!.phase).toBe("finished");
-    expect(client.state.view!.round).toBe(saved.round);
-  });
-  it("打开设置暂停计时，返回后继续剩余时间，超时才托管", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-13T10:00:00Z"));
-    client = new GameClient();
-    client.practice("测试", { turnSeconds: 15 });
-    const before = client.state.view!;
-    vi.advanceTimersByTime(4000);
-    client.pauseLocal(true);
+    const saved=completedRound();
+    vi.stubGlobal("localStorage",{getItem:(key:string)=>key==="jinling:practice"?JSON.stringify(saved):null,setItem:vi.fn()});
+    client=new GameClient();
+    client.practice("测试",{},resume);
     vi.advanceTimersByTime(60000);
-    expect(client.state.view!.players[0]!.discards).toHaveLength(0);
-    client.pauseLocal(false);
-    expect(client.state.view!.deadline).toBe(before.deadline + 60000);
-    vi.advanceTimersByTime(9000);
-    expect(client.state.view!.players[0]!.trustee).toBe(false);
-    vi.advanceTimersByTime(3000);
-    expect(client.state.view!.players[0]!.trustee).toBe(true);
-    expect(client.state.view!.revision).toBeGreaterThan(before.revision);
+    expect(client.state.view).toBeNull();
+    expect(client.state.mode).not.toBe("local");
+    expect(client.state.error).toContain("单人练习已关闭");
   });
 });
 
@@ -180,7 +130,7 @@ describe("联机校时与操作隔离", () => {
     mono += 1000;
     expect(client.now()).toBe(1_001_040);
   });
-  it("断线后停止旧校时，重连换用新时间，进入练习后旧pong无效", () => {
+  it("断线后停止旧校时，重连换用新时间，主动断开后旧pong无效", () => {
     vi.useFakeTimers();
     const { ws, g } = online();
     ws.receive({
@@ -209,13 +159,13 @@ describe("联机校时与操作隔离", () => {
     expect(client.now()).toBe(1_030_000);
     ws.receive({ type: "pong", sentAt: 0, serverNow: 5_000_000 });
     expect(client.now()).toBe(1_030_000);
-    client.practice("练习", { turnSeconds: 0 });
+    client.disconnect();
     vi.advanceTimersByTime(31_000);
     expect(ws.sent).toHaveLength(before);
     expect(next.sent.filter((m) => m.type === "ping")).toHaveLength(1);
     next.receive({ type: "pong", sentAt: 0, serverNow: 7_000_000 });
     expect(client.now()).toBe(Date.now());
-    expect(client.state.mode).toBe("local");
+    expect(client.state.connected).toBe(false);
   });
 });
 afterEach(() => vi.restoreAllMocks());
@@ -278,15 +228,14 @@ describe("慢网操作确认", () => {
     expect(next.sent.map((m) => m.type)).toEqual(["hello"]);
     expect(ws.sent.filter((m) => m.type === "ready")).toHaveLength(1);
   });
-  it("离开网络桌后旧连接消息不会覆盖新的练习", () => {
-    const { ws, g } = online();
-    client.practice("新的名字", {});
-    const id = client.state.view!.id;
-    ws.receive({ type: "state", state: viewFor(g, 0) });
-    ws.receive({ type: "left" });
-    expect(client.state.mode).toBe("local");
-    expect(client.state.view!.id).toBe(id);
-    expect(client.state.view!.players[0]!.name).toBe("新的名字");
+  it("已在正式桌时旧练习入口不会断开连接或覆盖牌局", () => {
+    const {ws,g}=online();
+    client.practice("新的名字",{});
+    expect(client.state.error).toContain("单人练习已关闭");
+    expect(client.state.connected).toBe(true);
+    expect(client.state.mode).toBe("online");
+    expect(client.state.view!.id).toBe(g.id);
+    expect(ws.readyState).toBe(TestSocket.OPEN);
   });
   it("连接旧版服务器时仍可在状态返回后继续操作", () => {
     const { ws, g } = online(false);
@@ -455,15 +404,15 @@ describe("牌桌刷新与连接恢复", () => {
     next.receive({ type: "tables", tables: [] });
     expect(client.state.tablesLoading).toBe(false);
   });
-  it("离开网络后旧 socket 的迟到打开和报错不影响练习", () => {
+  it("主动断开后旧 socket 的迟到打开和报错无效", () => {
     const ws = lobby();
-    client.practice("练习", {});
+    client.disconnect();
     const count = ws.sent.length;
     ws.onopen?.();
     ws.onerror?.();
     expect(ws.sent).toHaveLength(count);
     expect(client.state.error).toBe("");
-    expect(client.state.mode).toBe("local");
+    expect(client.state.connected).toBe(false);
   });
 });
 
@@ -653,36 +602,5 @@ describe("后台保留连接、前台快速同步", () => {
     old.receive({ type: "session", id: "old", token: "old", name: "旧连接" });
     expect(client.state.connected).toBe(false);
     expect(next.sent).toEqual([]);
-  });
-});
-
-describe("练习真人托管", () => {
-  it("超时之后只打刚摸的牌，一次取消就保留新一轮手动时间", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(10000);
-    let g = createGame("123456", "trustee", { turnSeconds: 10 });
-    g.players = [0, 1, 2, 3].map((i) => ({
-      ...newPlayer(String(i), String(i), i !== 0),
-      ready: true,
-    }));
-    g = startRound(g, 10000, () => 0.51);
-    g.turn = 0;
-    g.players[0]!.hand = [
-      0, 4, 8, 36, 40, 44, 72, 76, 80, 108, 109, 110, 112, 113,
-    ];
-    g.lastDraw = 113;
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) =>
-        key === "jinling:practice" ? JSON.stringify(g) : null,
-      setItem: vi.fn(),
-    });
-    client = new GameClient();
-    client.practice("测试", {}, true);
-    vi.advanceTimersByTime(10450);
-    expect(client.state.view!.players[0]!.discards).toEqual([113]);
-    expect(client.state.view!.players[0]!.trustee).toBe(true);
-    client.trustee(false);
-    expect(client.state.view!.players[0]!.trustee).toBe(false);
-    expect(client.state.view!.players[0]!.hand).toHaveLength(13);
   });
 });

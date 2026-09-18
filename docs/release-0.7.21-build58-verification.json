@@ -1,0 +1,385 @@
+{
+  "version": "0.7.21",
+  "build": 58,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "sameWebAssetsBothPlatforms": true,
+  "includedExistingFeatures": [
+    "cumulativeTableOvertime",
+    "selectedTileUpwardDrag",
+    "tapOrDragDiscard"
+  ],
+  "keyboardFocusFallback": true,
+  "keyboardOverlayAndResizeLayouts": true,
+  "realDeviceInstallationTested": false,
+  "initialFlowerKongBankruptcyAndBaomiFixed": true,
+  "windPaymentsFollowCurrentRoundMultiplier": true,
+  "windBasePayment": 5,
+  "windBixiahuPayment": 10,
+  "historicalRecordsRewritten": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.21-build58.apk",
+      "bytes": 121073058,
+      "sha256": "37fd133c2497cf54fa8a6346dd3a28e3bf3175f08d8b1aa293ff6b0f072ad00e",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.21-build58-AdHoc.ipa",
+      "bytes": 121300932,
+      "sha256": "024cd279323e1be0566978b2fbcfb02263bf9994a3953079165819d5ddf96b74",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 598,
+  "iconValidation": {
+    "canvasDp": 108,
+    "visibleViewportDp": 72,
+    "fullViewportArtwork": true,
+    "compiledAndroid13Monochrome": true,
+    "checks": [
+      {
+        "density": "mdpi",
+        "foregroundPixels": 108,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 48
+      },
+      {
+        "density": "hdpi",
+        "foregroundPixels": 162,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 72
+      },
+      {
+        "density": "xhdpi",
+        "foregroundPixels": 216,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 96
+      },
+      {
+        "density": "xxhdpi",
+        "foregroundPixels": 324,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 144
+      },
+      {
+        "density": "xxxhdpi",
+        "foregroundPixels": 432,
+        "visibleViewportDp": 72,
+        "opaqueForeground": true,
+        "viewportArtworkPixelsMatch": true,
+        "legacyPixels": 192
+      }
+    ],
+    "compiledAndroidResources": [
+      {
+        "name": "ic_launcher",
+        "density": "mdpi",
+        "width": 48,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "hdpi",
+        "width": 72,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xhdpi",
+        "width": 96,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xxhdpi",
+        "width": 144,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher",
+        "density": "xxxhdpi",
+        "width": 192,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "mdpi",
+        "width": 108,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "hdpi",
+        "width": 162,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xhdpi",
+        "width": 216,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xxhdpi",
+        "width": 324,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_foreground",
+        "density": "xxxhdpi",
+        "width": 432,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "mdpi",
+        "width": 48,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "hdpi",
+        "width": 72,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xhdpi",
+        "width": 96,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xxhdpi",
+        "width": 144,
+        "visibleSourcePixelsAndAlphaMatch": true
+      },
+      {
+        "name": "ic_launcher_round",
+        "density": "xxxhdpi",
+        "width": 192,
+        "visibleSourcePixelsAndAlphaMatch": true
+      }
+    ],
+    "androidAdaptiveApi26And33Verified": true,
+    "iosCompiledIcons": [
+      {
+        "file": "AppIcon60x60@2x.png",
+        "width": 120,
+        "height": 120,
+        "opaque": true
+      },
+      {
+        "file": "AppIcon76x76@2x~ipad.png",
+        "width": 152,
+        "height": 152,
+        "opaque": true
+      }
+    ],
+    "visualReview": {
+      "circleAndRoundedMasks": true,
+      "addedSolidGreenRing": false,
+      "mainTextIntact": true,
+      "iosMasterUnchanged": true
+    },
+    "physicalDeviceTested": false
+  },
+  "inheritedUiValidation": {
+    "fromRelease": "0.7.19/build56",
+    "rerunForThisRelease": false,
+    "nativeIme": {
+      "environment": {
+        "androidApi": 30,
+        "emulator": "Jinling_AOSP30",
+        "webView": "83.0.4103.120",
+        "keyboard": "com.android.inputmethod.latin/.LatinIME",
+        "buildVariant": "debug",
+        "physicalDevice": false
+      },
+      "baseline": {
+        "build": 55,
+        "standardImeOcclusionReproduced": false,
+        "webViewHeightBeforePx": 1080,
+        "webViewHeightWithImePx": 592
+      },
+      "candidate": {
+        "version": "0.7.19",
+        "build": 56,
+        "initialCssIsSelectorCompatibilityFailureFound": true,
+        "expandedSelectorsFixVerified": true
+      },
+      "nativeInsetsChanged": false,
+      "checks": [
+        {
+          "scenario": "login-password",
+          "imeTopPx": 592,
+          "allControlsAboveIme": true,
+          "controls": [
+            {
+              "kind": "EditText",
+              "bounds": [
+                104,
+                121,
+                844,
+                242
+              ],
+              "password": false
+            },
+            {
+              "kind": "EditText",
+              "bounds": [
+                849,
+                121,
+                1589,
+                242
+              ],
+              "password": true
+            },
+            {
+              "kind": "Button",
+              "bounds": [
+                1465,
+                121,
+                1584,
+                225
+              ],
+              "password": false
+            },
+            {
+              "kind": "Button",
+              "bounds": [
+                1617,
+                121,
+                2051,
+                242
+              ],
+              "password": false
+            }
+          ],
+          "screenshot": "build56-fixed-password-ime.png"
+        },
+        {
+          "scenario": "register-confirm-password",
+          "imeTopPx": 592,
+          "allControlsAboveIme": true,
+          "controls": [
+            {
+              "kind": "EditText",
+              "bounds": [
+                104,
+                55,
+                844,
+                176
+              ],
+              "password": false
+            },
+            {
+              "kind": "EditText",
+              "bounds": [
+                849,
+                55,
+                1589,
+                176
+              ],
+              "password": false
+            },
+            {
+              "kind": "EditText",
+              "bounds": [
+                104,
+                187,
+                844,
+                308
+              ],
+              "password": true
+            },
+            {
+              "kind": "Button",
+              "bounds": [
+                720,
+                187,
+                841,
+                291
+              ],
+              "password": false
+            },
+            {
+              "kind": "EditText",
+              "bounds": [
+                849,
+                187,
+                1589,
+                308
+              ],
+              "password": true
+            },
+            {
+              "kind": "Button",
+              "bounds": [
+                1617,
+                121,
+                2051,
+                242
+              ],
+              "password": false
+            }
+          ],
+          "screenshot": "build56-fixed-register-ime.png"
+        }
+      ],
+      "registeredAccount": false,
+      "keyboardDismissRestoresLoginLayout": true
+    },
+    "browserSuites": {
+      "keyboardChromiumAndWebKit": 26,
+      "cocosClaimHudChromiumAndWebKit": 8
+    }
+  },
+  "claimHudCountsRemainVisible": true,
+  "unitTestFilesPassed": 46,
+  "unitTestDurationSeconds": 41.59,
+  "typeScriptNoEmitPassed": true,
+  "focusedBProfileTests": {
+    "passed": 113,
+    "includedInUnitTotal": true
+  },
+  "unitTestLog": "output/deploy-wind-double-20260918/unit-tests.log",
+  "windPaymentsFollowInstantSidePaymentSetting": true,
+  "windPaymentsTypes": [
+    "四连风",
+    "首轮四家跟同风"
+  ],
+  "sourceManifest": "output/native-release-build58-sources.json",
+  "practiceExcludedFromAdminPointsAndCsv": true,
+  "physicalDeviceTestedForThisRelease": false,
+  "deployment": {
+    "release": "0.7.21-wind-double-20260918",
+    "url": "https://212.189.31.46/play/",
+    "verifiedAt": "2026-09-18T15:55:47.925Z",
+    "health": {
+      "ok": true,
+      "service": "jinling-mahjong",
+      "version": "0.7.21"
+    },
+    "websocket": true,
+    "sourceFilesVerified": 643,
+    "changedContainerFilesVerified": 5,
+    "publicResourcesVerified": 11,
+    "backup": "/opt/jinling-mahjong/database-backups/wind-double-20260918/mahjong.sqlite",
+    "activeHandsAtActivation": 0
+  }
+}

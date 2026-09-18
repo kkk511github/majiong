@@ -350,7 +350,7 @@ function payBills(g: Game, bills: Bill[]) {
 function sideAmount(g: Game, flowers: number) {
   return sidePoints(g, flowers * flowerFactor(g.rules));
 }
-/** Immediate kong points are separate from flowers in a winning hand. */
+/** Immediate payments are separate from flowers in a winning hand. */
 function sidePoints(g: Game, points: number) {
   const amount =
     points *
@@ -534,7 +534,7 @@ function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
     )
       payOthers(
         chain[0].seat,
-        bProfile ? 5 : sideAmount(g, nanjingValues(g.rules).penaltyFlowers),
+        bProfile ? sidePoints(g, 5) : sideAmount(g, nanjingValues(g.rules).penaltyFlowers),
         "四家跟牌",
       );
   }
@@ -549,7 +549,7 @@ function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
         bills.push({
           from,
           to: seat,
-          amount: bProfile ? 5 : sideAmount(g, nanjingValues(g.rules).fourWindsFlowers),
+          amount: bProfile ? sidePoints(g, 5) : sideAmount(g, nanjingValues(g.rules).fourWindsFlowers),
           reason: "四连风",
         });
     flagNext(g, "四连风");

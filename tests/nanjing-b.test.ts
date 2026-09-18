@@ -305,23 +305,61 @@ function discardWindSequence(g: Game, kinds: number[]): Game {
 function windOrders(kinds: number[]): number[][] {
   return kinds.length === 0 ? [[]] : kinds.flatMap(k => windOrders(kinds.filter(other => other !== k)).map(rest => [k, ...rest]));
 }
-describe("B档风牌固定5分，不随花砸2或本把倍率增加", () => {
+describe("B档风牌按本把倍率收付，不额外乘花砸2", () => {
   it.each(seats.flatMap(dealer => [27, 28, 29, 30].map(k => ({ dealer, k }))))(
-    "庄位$dealer首张风$k，三家各自首张按座序跟牌，庄家各付5分",
+    "庄位$dealer首张风$k，三家各自首张按座序跟牌，比下胡庄家各付10分",
     ({ dealer, k }) => {
       let g = windGame(seats.map(() => [k]), dealer);
       for (let offset = 0; offset < 4; offset++) g = discardKind(g, ((dealer + offset) % 4) as Seat, k);
       expect(g.roundTransfers).toHaveLength(3);
-      expect(g.roundTransfers).toEqual(expect.arrayContaining(seats.filter(s => s !== dealer).map(to => ({ from: dealer, to, amount: 5, reason: "四家跟牌" }))));
-      expect(g.players.map(p => p!.score)).toEqual(seats.map(s => s === dealer ? 75 : 95));
+      expect(g.roundTransfers).toEqual(expect.arrayContaining(seats.filter(s => s !== dealer).map(to => ({ from: dealer, to, amount: 10, reason: "四家跟牌" }))));
+      expect(g.players.map(p => p!.score)).toEqual(seats.map(s => s === dealer ? 60 : 100));
+      expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
     },
   );
   it.each(windOrders([27, 28, 29, 30]).map(order => ({ order })))(
-    "自己前四张为四种风$order，其余三家各付5分",
+    "自己前四张为四种风$order，比下胡其余三家各付10分",
     ({ order }) => {
       const g = discardWindSequence(windGame([order, [0, 1, 2], [0, 1, 2], [0, 1, 2]]), order);
-      expect(g.roundTransfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 5, reason: "四连风" })));
-      expect(g.players.map(p => p!.score)).toEqual([105, 85, 85, 85]);
+      expect(g.roundTransfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 10, reason: "四连风" })));
+      expect(g.players.map(p => p!.score)).toEqual([120, 80, 80, 80]);
+      expect(g.ruleState!.nextReasons).toEqual(["四连风"]);
+    },
+  );
+  const paymentCases = [
+    { multiplier: 1, doubleSidePayments: true, amount: 5 },
+    { multiplier: 2, doubleSidePayments: true, amount: 10 },
+    { multiplier: 4, doubleSidePayments: true, amount: 20 },
+    { multiplier: 2, doubleSidePayments: false, amount: 5 },
+    { multiplier: 4, doubleSidePayments: false, amount: 5 },
+  ].flatMap(testCase => [true, false].map(flowerDouble => ({ ...testCase, flowerDouble })));
+  it.each(paymentCases)(
+    "首轮跟风：倍率$multiplier、即时跟倍$doubleSidePayments、花砸2$flowerDouble，庄家各付$amount分",
+    ({ multiplier, doubleSidePayments, flowerDouble, amount }) => {
+      let g = windGame(seats.map(() => [27]));
+      g.ruleState!.multiplier = multiplier;
+      g.rules.doubleSidePayments = doubleSidePayments;
+      g.rules.flowerDouble = flowerDouble;
+      if (multiplier > 2) g.rules.biXiaHu = "cumulative";
+      for (const s of seats) g = discardKind(g, s, 27);
+      expect(g.roundTransfers).toEqual([1, 2, 3].map(to => ({ from: 0, to, amount, reason: "四家跟牌" })));
+      expect(g.players.map(p => p!.score)).toEqual([90 - 3 * amount, 90 + amount, 90 + amount, 90 + amount]);
+      expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
+    },
+  );
+  it.each(paymentCases)(
+    "四连风：倍率$multiplier、即时跟倍$doubleSidePayments、花砸2$flowerDouble，其余三家各付$amount分",
+    ({ multiplier, doubleSidePayments, flowerDouble, amount }) => {
+      const kinds = [27, 28, 29, 30];
+      const source = windGame([kinds, [0, 1, 2], [0, 1, 2], [0, 1, 2]]);
+      source.ruleState!.multiplier = multiplier;
+      source.rules.doubleSidePayments = doubleSidePayments;
+      source.rules.flowerDouble = flowerDouble;
+      if (multiplier > 2) source.rules.biXiaHu = "cumulative";
+      const g = discardWindSequence(source, kinds);
+      expect(g.roundTransfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount, reason: "四连风" })));
+      expect(g.players.map(p => p!.score)).toEqual([90 + 3 * amount, 90 - amount, 90 - amount, 90 - amount]);
+      expect(g.ruleState!.nextReasons).toEqual(["四连风"]);
     },
   );
   it("第二轮四家跟同风不罚", () => {
@@ -380,14 +418,65 @@ describe("B档风牌固定5分，不随花砸2或本把倍率增加", () => {
     g.rules.fourWinds = false;
     expect(discardWindSequence(g, kinds).roundTransfers).toEqual([]);
   });
-  it("四风固定5分使两家桌内归零，立即终桌", () => {
+  it("四连风比下胡每家10分，使两家桌内归零，立即终桌", () => {
     const kinds = [27, 28, 29, 30];
-    const g = discardWindSequence(windGame([kinds, [0, 1, 2], [0, 1, 2], [0, 1, 2]], 0, [340, 5, 5, 10]), kinds);
+    const g = discardWindSequence(windGame([kinds, [0, 1, 2], [0, 1, 2], [0, 1, 2]], 0, [330, 10, 10, 10]), kinds);
     expect(g.phase).toBe("finished");
     expect(g.result!.reason).toBe("bankrupt");
-    expect(g.result!.transfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 5, reason: "四连风" })));
-    expect(g.players.map(p => p!.score)).toEqual([355, 0, 0, 5]);
+    expect(g.result!.transfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 10, reason: "四连风" })));
+    expect(g.players.map(p => p!.score)).toEqual([360, 0, 0, 0]);
     expect(g.result!.externalDeltas).toEqual([0, 0, 0, 0]);
+  });
+  it.each([
+    { mode: "next" as const, multiplier: 2, nextMultiplier: 2 },
+    { mode: "cumulative" as const, multiplier: 4, nextMultiplier: 8 },
+  ])("四连风小余额封顶、立即终桌且不保米，$mode模式下一把倍率为$nextMultiplier", ({ mode, multiplier, nextMultiplier }) => {
+    const kinds = [27, 28, 29, 30];
+    const source = windGame([kinds, [0, 1, 2], [0, 1, 2], [0, 1, 2]], 0, [20, 3, 7, 330]);
+    source.rules.biXiaHu = mode;
+    source.ruleState!.multiplier = multiplier;
+    const g = discardWindSequence(source, kinds);
+    expect(g.phase).toBe("finished");
+    expect(g.result!.reason).toBe("bankrupt");
+    expect(g.result!.transfers).toEqual([
+      { from: 1, to: 0, amount: 3, reason: "四连风" },
+      { from: 2, to: 0, amount: 7, reason: "四连风" },
+      { from: 3, to: 0, amount: 5 * multiplier, reason: "四连风" },
+    ]);
+    expect(g.players.map(p => p!.score)).toEqual([30 + 5 * multiplier, 0, 0, 330 - 5 * multiplier]);
+    expect(g.players.reduce((sum, p) => sum + p!.score, 0)).toBe(360);
+    expect(g.result!.externalDeltas).toEqual([0, 0, 0, 0]);
+    expect(g.ruleState!.nextReasons).toEqual(["四连风"]);
+    expect(g.ruleState!.nextMultiplier).toBe(nextMultiplier);
+  });
+  it("比下胡首轮跟风庄家仅剩8分，按三笔10分债务比例分摊，不扣成负数", () => {
+    let g = windGame(seats.map(() => [27]), 0, [8, 100, 100, 152]);
+    for (const s of seats) g = discardKind(g, s, 27);
+    expect(g.roundTransfers).toEqual([
+      { from: 0, to: 1, amount: 3, reason: "四家跟牌" },
+      { from: 0, to: 2, amount: 3, reason: "四家跟牌" },
+      { from: 0, to: 3, amount: 2, reason: "四家跟牌" },
+    ]);
+    expect(g.players.map(p => p!.score)).toEqual([0, 103, 103, 154]);
+    expect(g.phase).toBe("playing");
+    expect(g.players.reduce((sum, p) => sum + p!.score, 0)).toBe(360);
+  });
+  it.each([
+    { mode: "next" as const, multiplier: 2, nextMultiplier: 2 },
+    { mode: "cumulative" as const, multiplier: 4, nextMultiplier: 8 },
+  ])("首轮跟风小余额分摊后两家归零立即终桌且不保米，$mode模式下一把倍率为$nextMultiplier", ({ mode, multiplier, nextMultiplier }) => {
+    let g = windGame(seats.map(() => [27]), 0, [1, 10, 0, 349]);
+    g.rules.biXiaHu = mode;
+    g.ruleState!.multiplier = multiplier;
+    for (const s of seats) g = discardKind(g, s, 27);
+    expect(g.phase).toBe("finished");
+    expect(g.result!.reason).toBe("bankrupt");
+    expect(g.result!.transfers).toEqual([{ from: 0, to: 1, amount: 1, reason: "四家跟牌" }]);
+    expect(g.players.map(p => p!.score)).toEqual([0, 11, 0, 349]);
+    expect(g.players.reduce((sum, p) => sum + p!.score, 0)).toBe(360);
+    expect(g.result!.externalDeltas).toEqual([0, 0, 0, 0]);
+    expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
+    expect(g.ruleState!.nextMultiplier).toBe(nextMultiplier);
   });
   it("单人四次打同种牌，比下胡向其他三家各付10分", () => {
     const kinds = [8, 8, 8, 8];

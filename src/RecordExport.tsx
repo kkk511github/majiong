@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useRef, useState } from "react";
 import type { MatchDetails } from "../shared/types";
 import { Dialog } from "./Dialog";
@@ -98,7 +99,7 @@ export function RecordExport({ data }: { data: MatchDetails }) {
               className="primary"
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(content);
+                  await copyText(content);
                   setStatus("已复制，可自行粘贴发送");
                 } catch {
                   preview.current?.focus();

@@ -15,7 +15,9 @@ export class VoiceRecorder {
   private previousSession?: string;
   async start(onLimit: () => void) {
     if (!navigator.mediaDevices?.getUserMedia)
-      throw Error("当前设备不支持录音，请使用手机 App");
+      throw Error(globalThis.isSecureContext === false
+        ? "请通过 HTTPS 打开网页版后使用语音"
+        : "当前浏览器不支持录音，请使用新版 Safari、Chrome 或手机 App");
     try {
       // WebKit refuses capture while the game owns a playback-only session.
       // Switch before requesting permission, then restore on every exit path.

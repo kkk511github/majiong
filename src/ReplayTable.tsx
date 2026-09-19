@@ -18,6 +18,7 @@ export function ReplayTable({data,step,perspective,setPerspective,reveal,animate
   const drawn=event?.type==='draw'&&event.tile!==undefined&&frame.players[perspective].hand.includes(event.tile)?event.tile:undefined;
   const effectType=frame.type==='pung'?'pung':['kong','concealedKong','addedKong'].includes(frame.type)?'kong':undefined;
   return {
+   globalAnchorDiscards:frame.globalAnchorDiscards??[],
    key:data.id,revision:step,presentation:'replay',me:perspective,turn:frame.turn,dealer:data.frames[0].turn,
    phase:frame.result?'ended':'playing',code:data.code,round:data.round,rounds:data.rules?.rounds,remaining:frame.remaining,
    rulesName:ruleDisplayName(data.rules),roundMultiplier:data.multiplier,

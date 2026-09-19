@@ -21,6 +21,7 @@ export function scenePlayerStatus(s: TableSceneState, p: ScenePlayer) {
   return {active:false,label:'',tone:'normal' as const};
 }
 export interface TableSceneState {
+  globalAnchorDiscards?:{seat:number;tile:number}[];
   externalControls?:boolean;
   /** Local viewport cutouts, in 1280×590 design coordinates. */
   safeArea?:TableSafeArea;
@@ -61,6 +62,7 @@ export type TableSceneCommand =
   | {type:'menu';menu:'leave'|'settings'|'events'|'table'|'result';seat?:number};
 
 export interface SceneTile {
+  globalAnchor?:boolean;
   id:string; tile?:number; seat:number; pose:string;
   x:number; y:number; w:number; h:number; z:number;
   area:'hand'|'meld'|'flower'|'river'; selected?:boolean; highlight?:boolean;
@@ -189,7 +191,11 @@ export function layoutActions(s:TableSceneState,_tiles:SceneTile[]){
  * with the viewport; tile count never changes a tile's size. */
 export function layoutTable(s:TableSceneState):SceneTile[] {
  const result:SceneTile[]=[];
- const add=(t:SceneTile)=>result.push(t);
+ const anchors=new Set((s.globalAnchorDiscards??[]).map(a=>a.tile));
+ // A claimed anchor moves from the river to an exposed set. The original
+ // physical tile remains yellow there until its owner's wait changes.
+ const add=(t:SceneTile)=>result.push({...t,globalAnchor:
+  (t.area==='river'||t.area==='meld')&&t.tile!==undefined&&anchors.has(t.tile)});
  for(const p of s.players) {
   const o=sceneOffset(p.seat,s.me), pose=poses[o];
   if(o===0) {
@@ -201,8 +207,8 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     const ts=meldDisplayTiles(m);
     // Exposed sets lie on the felt: use the baked ivory wall/green-base camera,
     // not the front-facing standing hand sprite. Their feet share the hand line.
-    ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile,seat:p.seat,pose:tile===undefined?'cover-bottom':'bottom',area:'meld',x:x+(ti===3?1:ti)*46,y:556-(ti===3?22:0),w:46,h:46*163/116,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
-    x+=146;
+    ts.forEach((tile,ti)=>add({id:`meld-${p.seat}-${mi}-${ti}`,tile,seat:p.seat,pose:tile===undefined?'cover-bottom':'bottom',area:'meld',x:x+4+(ti===3?1:ti)*46,y:548-(ti===3?22:0),w:46,h:46*163/116,z:900+(ti===3?40:ti),source:ti===1&&!m.concealed?m.from:undefined,stack:ti===3}));
+    x+=154;
    });
    if(p.melds.length)x+=22;
    p.hand.filter(t=>t!==s.drawn).forEach((tile,i)=>add({id:`hand-${tile}`,tile,seat:p.seat,pose:'own',area:'hand',x:x+i*65,y:540-(s.selected===tile?selectedLift:0),w:65,h:98,z:1000+i,selected:s.selected===tile,clickable:selectable}));
@@ -210,12 +216,20 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
    if(s.drawn!==undefined)add({id:`draw-${s.drawn}`,tile:s.drawn,seat:p.seat,pose:'own',area:'hand',x:x+Math.max(0,13-3*p.melds.length)*65+15,y:540-(s.selected===s.drawn?selectedLift:0),w:65,h:98,z:1050,selected:s.selected===s.drawn,clickable:selectable});
   } else {
    const revealed=p.hand.length>0;
+   const capacity=Math.max(0,13-3*p.melds.length),regularCount=Math.min(capacity,p.handCount);
+   const pitch=revealed?29:24,drawDistance=39;
+   // Reserve the new tile beside the shortened row. The previous player's
+   // revealed thirteen-tile hand also needs room below it before a draw arrives.
+   const start=o===3?Math.min(105,442-Math.max(0,capacity-1)*pitch-drawDistance):105;
    for(let i=0;i<p.handCount;i++){
     const back=o===2?'back-top':o===1?'back-right':'back-left';
-    const capacity=13-3*p.melds.length;
     const extra=i>=capacity;
     const slot=i;
-    const y=o===2?38:extra?(o===1?66:442):105+slot*(revealed?29:24);
+    // Next player's draw stays above their hand; previous player's draw follows
+    // its last tile below, rather than an empty slot reserved for thirteen tiles.
+    const y=o===2?38:!extra?start+slot*pitch:o===1
+     ?start-drawDistance-(slot-capacity)*pitch
+     :start+Math.max(0,regularCount-1)*pitch+drawDistance+(slot-capacity)*pitch;
     // The row and flower groove have the same vertical axis; every tile stands upright.
     // Its baked camera supplies depth; never shear the vertical tile body.
     const sideX=revealed?slotMetrics(o,y).x+(o===3?-104:104):slotEdgeMetrics(o,y,'outer').x+(o===3?-82:82);
@@ -227,8 +241,8 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     ts.forEach((tile,ti)=>{
      const stack=ti===3;
      // Opposite melds replace the removed concealed tiles in the same rack.
-     const baseY=o===3?110+mi*96+(ti===3?1:ti)*29:408-mi*87-(ti===3?1:ti)*29;
-     const x=o===2?437+Math.max(0,13-3*p.melds.length)*33+20+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-52:52);
+     const baseY=o===3?110+mi*99+(ti===3?1:ti)*29:408-mi*90-(ti===3?1:ti)*29;
+     const x=o===2?437+Math.max(0,13-3*p.melds.length)*33+20+mi*102+(ti===3?1:ti)*33:slotMetrics(o,baseY).x+(o===3?-43:43);
      const y=o===2?38-(stack?14:0):baseY-(stack?12:0);
      const sidePose=tile===undefined?'cover-'+pose:pose;
      add({id:`meld-${p.seat}-${mi}-${ti}`,tile,seat:p.seat,pose:sidePose,area:'meld',x,y,w:o===2?33:tileAspect(sidePose)*36,h:o===2?46:36,shear:o%2?slotMetrics(o,baseY).shear:0,z:300+y+(stack?80:0),source:ti===1&&!m.concealed?m.from:undefined,stack});

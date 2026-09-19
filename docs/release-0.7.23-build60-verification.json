@@ -1,0 +1,91 @@
+{
+  "version": "0.7.23",
+  "build": 60,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "sameWebAssetsBothPlatforms": true,
+  "includedExistingFeatures": [
+    "cumulativeTableOvertime",
+    "directTileUpwardDrag",
+    "tapOrDragDiscard",
+    "yellowGlobalAnchor",
+    "webParityFixes",
+    "scoreDebitReminders"
+  ],
+  "keyboardFocusFallback": true,
+  "keyboardOverlayAndResizeLayouts": true,
+  "realDeviceInstallationTested": false,
+  "initialFlowerKongBankruptcyAndBaomiFixed": true,
+  "windPaymentsFollowCurrentRoundMultiplier": true,
+  "windBasePayment": 5,
+  "windBixiahuPayment": 10,
+  "historicalRecordsRewritten": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.23-build60.apk",
+      "bytes": 121081918,
+      "sha256": "d56109f04902812d8e18df0cdfb3b2d922c9be928416bb5ce6a07e300577aa84",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.23-build60-AdHoc.ipa",
+      "bytes": 121309828,
+      "sha256": "839c8d64614277712bfe55096dfa4d7ca7758c76017a64845c5d553a0820ee2e",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 652,
+  "browserTestsPassed": 40,
+  "browserValidation": {
+    "webParity": 22,
+    "globalAnchor": 6,
+    "scoreDebits": 10,
+    "packagedNativeAnchor": 2
+  },
+  "yellowAnchor": {
+    "creation": "fourth-pung-followed-by-discard",
+    "serverAndVisualClearTogether": true,
+    "concealedKongExcluded": true,
+    "externalNormal": 50,
+    "externalDouble": 100
+  },
+  "deployment": {
+    "release": "0.7.23-anchor-20260919",
+    "at": "2026-09-19T08:59:24.707Z",
+    "serverVersion": "0.7.23",
+    "websocketVerified": {
+      "connected": true,
+      "authenticationRequired": true
+    },
+    "publicPackages": [
+      {
+        "platform": "android",
+        "share": "https://212.189.31.46/app/274a36f0ce9c607445a15603",
+        "download": "https://212.189.31.46/download/274a36f0ce9c607445a15603.apk",
+        "bytes": 121081918,
+        "sha256": "d56109f04902812d8e18df0cdfb3b2d922c9be928416bb5ce6a07e300577aa84",
+        "headStatus": 200,
+        "rangeStatus": 206
+      },
+      {
+        "platform": "ios",
+        "share": "https://212.189.31.46/app/856c6d2ea04a63507648d102",
+        "download": "https://212.189.31.46/download/856c6d2ea04a63507648d102.ipa",
+        "bytes": 121309828,
+        "sha256": "839c8d64614277712bfe55096dfa4d7ca7758c76017a64845c5d553a0820ee2e",
+        "headStatus": 200,
+        "rangeStatus": 206
+      }
+    ],
+    "serverRulesTestsPassed": 111,
+    "sourceFilesVerified": 612,
+    "databaseBackup": "/opt/jinling-mahjong/database-backups/before-0.7.23-build60.sqlite",
+    "switchedAtRoundBoundary": true,
+    "preservedTable": "882513",
+    "resumedRound": 4
+  }
+}

@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
@@ -674,7 +675,7 @@ export function TableLobby({
     !!state.submitting;
   async function copy(code: string) {
     try {
-      await navigator.clipboard.writeText(code);
+      await copyText(code);
       setNotice(`已复制房号 ${code}`);
     } catch {
       setNotice(`房间号 ${code}，可告知朋友输入加入`);

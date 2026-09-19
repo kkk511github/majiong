@@ -49,3 +49,6 @@ __pycache__/
 public/cocos-table/
 
 android/.kotlin/
+
+# Local release artifacts, diagnostics and generated preview captures
+output/

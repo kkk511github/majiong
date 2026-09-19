@@ -5,6 +5,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { auditNativeWeb, protectClientCode, protectNativeTable } from "./scripts/native-security";
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
+  // The browser release shares the gateway's origin; moving servers must not
+  // leave accounts, avatars or WebSockets pointing at the previous machine.
+  const webRelease = mode === "web";
   if (command === "build") {
     if (mode === "native" && !env.VITE_GAME_SERVER_URL)
       throw new Error("Native builds require an HTTPS game service.");
@@ -23,6 +26,8 @@ export default defineConfig(({ command, mode }) => {
     }
   }
   return {
+    base: webRelease ? "/play/" : "/",
+    define: webRelease ? { "import.meta.env.VITE_GAME_SERVER_URL": JSON.stringify("/mahjong") } : {},
     plugins: [react(), {
       name: "protect-native-code",
       apply: "build",

@@ -8,6 +8,7 @@ import {
 import { voiceDuration, type RoomVoiceMessage } from "../shared/room-voice";
 import { newGameRules } from "../shared/nanjing-rules";
 import { ServerClock } from "./server-clock";
+import type { OpeningCue } from "./TableOpening";
 import { decisionDeadline, setTrustee } from "../shared/timing";
 import { Capacitor } from "@capacitor/core";
 import { isAvatarPath } from "../shared/account-profile";
@@ -63,6 +64,7 @@ export interface ClientState {
   authBusy: boolean;
   authError: string;
   view: View | null;
+  openingCue: OpeningCue | null;
   connected: boolean;
   connecting: boolean;
   mode: "local" | "online" | null;
@@ -88,6 +90,7 @@ export class GameClient {
     authBusy: false,
     authError: "",
     view: null,
+    openingCue: null,
     connected: false,
     connecting: false,
     mode: null,
@@ -319,6 +322,7 @@ export class GameClient {
   };
   snapshot = () => this.state;
   private emit(patch: Partial<ClientState>) {
+    if (patch.connected === false || patch.view === null) patch.openingCue = null;
     if (patch.view && (patch.mode ?? this.state.mode) === "local") {
       const me = patch.view.players[patch.view.me];
       if (me) me.avatar = this.state.account?.avatar;
@@ -751,9 +755,9 @@ export class GameClient {
       rttMs: null,
       reconnects: this.state.network.reconnects + (this.openedAt ? 1 : 0),
     });
-    const url = base
-      ? base.replace(/^http/, "ws").replace(/\/$/, "") + "/ws"
-      : `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`;
+    const endpoint = new URL((base?.replace(/\/$/, "") ?? "") + "/ws", `${location.protocol}//${location.host}/`);
+    endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
+    const url = endpoint.href;
     const ws = new WebSocket(url);
     this.socket = ws;
     this.openedAt = Date.now();
@@ -901,6 +905,15 @@ export class GameClient {
           if (!this.commandAck) this.finishCommand();
           const restored = this.awaitingRoom !== undefined;
           if (restored && msg.state.code !== this.awaitingRoom) return;
+          const before = this.state.view, next = msg.state;
+          // Detect the live start at the packet boundary. React may batch the
+          // waiting and playing packets, and the final auto-ready entrant may
+          // receive only the first playing snapshot. Restores never replay it.
+          const starting = !restored && !this.resumePending && this.state.connected &&
+            this.networkVisible && next.round === 1 && next.phase === "playing" &&
+            !next.result && !next.lastDiscard &&
+            next.players.every(p => p && !p.discards.length && !p.melds.length) &&
+            (!before || before.id !== next.id || before.round === 0);
           this.resumeViewSeen = this.resumePending;
           this.updateNetwork({
             lastSnapshotAt: Date.now(),
@@ -914,6 +927,10 @@ export class GameClient {
           }
           this.emit({
             view: msg.state,
+            ...(starting ? { openingCue: {
+              key: `${next.id}:${next.round}:${next.revision}:opening`,
+              game: next.id, round: next.round, at: Date.now(),
+            } } : {}),
             ...(restored
               ? { connected: true, connecting: false, notice: "" }
               : {}),

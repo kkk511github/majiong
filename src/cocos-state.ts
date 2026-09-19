@@ -36,6 +36,7 @@ export function cocosState(
               : "自摸",
   }));
   return {
+    globalAnchorDiscards: view.globalAnchorDiscards ?? [],
     hintUnseen: unseenHintCounts(view, ui.hintKinds),
     zhaozhiAvailable: false,
     zhaozhi: false,

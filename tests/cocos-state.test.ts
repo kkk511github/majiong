@@ -270,7 +270,9 @@ it('keeps four side meld groups inside the table with a separate parallel lane a
  const ts=layoutTable(s);
  for(const t of ts.filter(t=>t.area==='meld'&&t.seat%2)){
   for(const [x,y] of tileFootprint(t)){
-   expect(y).toBeGreaterThan(70);expect(y).toBeLessThan(480);
+   // Expanded fourth groups remain between the opposite HUD (ends at 60)
+   // and our standing hand (starts at 491), outside the flower trough itself.
+   expect(y).toBeGreaterThan(60);expect(y).toBeLessThan(491);
    expect(x).toBeGreaterThan(240-.326*y+20);
    expect(x).toBeLessThan(1040+.326*y-20);
   }

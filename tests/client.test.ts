@@ -604,3 +604,40 @@ describe("后台保留连接、前台快速同步", () => {
     expect(next.sent).toEqual([]);
   });
 });
+
+
+describe("首把开局提示",()=>{
+  function dealt(){
+    const g=createGame("123456","opening-web");
+    g.players=[0,1,2,3].map(s=>({...newPlayer(s===0?"me":`seat-${s}`,`牌友${s}`),ready:true}));
+    return startRound(g);
+  }
+  it("新入座只收到开局状态也有提示，后续快照保留同一个提示",()=>{
+    const {ws}=online();
+    ws.receive({type:"session",id:"me",token:"test-token",name:"测试"});
+    const g=dealt();ws.receive({type:"state",state:viewFor(g,0)});
+    const cue=client.state.openingCue;
+    expect(cue).toMatchObject({game:g.id,round:1});
+    g.revision++;ws.receive({type:"state",state:viewFor(g,0)});
+    expect(client.state.openingCue).toBe(cue);
+  });
+  it("等待和开局连续到达不依赖渲染间隔，下一把不产生提示",()=>{
+    const {ws,g}=online();
+    g.players=[0,1,2,3].map(s=>({...newPlayer(s===0?"me":`seat-${s}`,`牌友${s}`),ready:true}));
+    ws.receive({type:"state",state:viewFor(g,0)});
+    const started=startRound(g);ws.receive({type:"state",state:viewFor(started,0)});
+    const cue=client.state.openingCue;expect(cue?.round).toBe(1);
+    started.round=2;started.revision++;ws.receive({type:"state",state:viewFor(started,0)});
+    expect(client.state.openingCue).toBe(cue);
+  });
+  it("刷新或断线恢复首把不重播，已经出牌的局不补播",()=>{
+    const {ws}=online();const g=dealt();
+    ws.receive({type:"session",id:"me",token:"test-token",name:"测试",roomCode:g.code});
+    ws.receive({type:"state",state:viewFor(g,0)});
+    expect(client.state.openingCue).toBeNull();
+    ws.receive({type:"session",id:"me",token:"test-token",name:"测试"});
+    g.players[0]!.discards.push(g.players[0]!.hand.pop()!);
+    ws.receive({type:"state",state:viewFor(g,0)});
+    expect(client.state.openingCue).toBeNull();
+  });
+});

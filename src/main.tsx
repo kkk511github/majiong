@@ -18,6 +18,10 @@ import "./hand-controls.css";
 import "./table-redesign.css";
 import "./profile-page.css";
 import { androidTable } from "./table-platform";
+import { Capacitor } from "@capacitor/core";
+import "./web-browser.css";
+
+document.documentElement.dataset.runtime = Capacitor.isNativePlatform() ? "native" : "web";
 
 document.documentElement.dataset.tablePlatform = androidTable
   ? "android"

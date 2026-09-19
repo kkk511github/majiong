@@ -24,8 +24,17 @@ async function clickTable(page: Page, x: number, y: number) {
   const point=await tablePoint(page,x,y);
   await page.mouse.click(point.x,point.y);
 }
+async function visibleHandTile(page: Page, tile: number) {
+  return frame(page).evaluate(async tile => {
+    const cc = await (window as any).System.import('cc');
+    const c = cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+    const target = (window as any).__JINLING_TABLE_LAYOUT__.find((t:any) => t.area === 'hand' && t.tile === tile);
+    const node = target && c.nodes.get(target.id);
+    return node ? { ...target, x: node.position.x + 640, y: 295 - node.position.y } : undefined;
+  }, tile);
+}
 async function dragTile(page: Page, tile: number, dx: number, dy: number, duringDrag?:()=>Promise<void>) {
-  const t=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===tile);
+  const t=await visibleHandTile(page,tile);
   expect(t).toBeDefined();
   const start=await tablePoint(page,t.x,t.y),middle=await tablePoint(page,t.x+dx/2,t.y+dy/2),end=await tablePoint(page,t.x+dx,t.y+dy);
   await page.mouse.move(start.x,start.y);
@@ -136,16 +145,21 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     await dragTile(page,8,0,35);
     await expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
     expect(commands).toHaveLength(0);
-    const dragStart=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
     await dragTile(page,8,0,-90,async()=>{
       const held=await frame(page).evaluate(async()=>{
         const cc=await (window as any).System.import('cc');
         const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
         const node=c.nodes.get(c.handTouch.id);
-        return {id:c.handTouch.id,x:node.position.x,y:node.position.y};
+        return {id:c.handTouch.id,x:node.position.x,y:node.position.y,
+          baseX:c.handTouch.base.x,baseY:c.handTouch.base.y,
+          dx:c.handTouch.x-c.handTouch.startX,dy:c.handTouch.y-c.handTouch.startY,
+          flying:c.tileFlights.has(c.handTouch.id)};
       });
       expect(held.id).toBe('draw-8');
-      expect(Math.abs(held.y-(295-dragStart.y+45))).toBeLessThan(2);
+      expect(held.flying).toBe(false);
+      expect(Math.abs(held.dy-45)).toBeLessThan(2);
+      expect(Math.abs(held.x-held.baseX-held.dx)).toBeLessThan(.2);
+      expect(Math.abs(held.y-held.baseY-held.dy)).toBeLessThan(.2);
       v.deadline=Date.now()+9000;v.revision++;push();
       await expect.poll(async()=>(await scene(page)).state.revision).toBe(v.revision);
       await expect.poll(async()=>(await scene(page)).state.countdown).not.toBe(initial.state.countdown);
@@ -153,7 +167,10 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
         const cc=await (window as any).System.import('cc');
         const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
         const node=c.nodes.get(c.handTouch.id);
-        return {id:c.handTouch.id,x:node.position.x,y:node.position.y};
+        return {id:c.handTouch.id,x:node.position.x,y:node.position.y,
+          baseX:c.handTouch.base.x,baseY:c.handTouch.base.y,
+          dx:c.handTouch.x-c.handTouch.startX,dy:c.handTouch.y-c.handTouch.startY,
+          flying:c.tileFlights.has(c.handTouch.id)};
       });
       expect(updated).toEqual(held);
       expect(commands).toHaveLength(0);
@@ -240,7 +257,9 @@ for (const [width, height] of [[844,390],[1280,590]]) {
     await expect.poll(async()=>frame(page)?.evaluate(()=>!!(window as any).__JINLING_TABLE_READY__)).toBe(true);
     await expect.poll(async()=>(await scene(page)).state?.key).not.toBe('demo');
     const tap=async(tile:number)=>{
-      const t=(await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===tile);
+      // A card can still be closing the gap left by a confirmed discard. Hit
+      // the actual visible card, rather than another card at its future slot.
+      const t=await visibleHandTile(page,tile);
       expect(t).toBeDefined();
       await clickTable(page,t.x,t.y);
     };

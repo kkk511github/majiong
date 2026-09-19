@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useState, type CSSProperties } from "react";
 import { Copy, Trophy } from "lucide-react";
 import type { RoundRecord, Seat, View, PublicPlayer } from "../shared/types";
@@ -57,7 +58,7 @@ export function RoundReveal({
           title={`牌局 ID ${record.id}`}
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(record.id);
+              await copyText(record.id);
               setIdCopied(true);
             } catch {
               setIdCopied(false);
@@ -216,7 +217,7 @@ export function RoundReveal({
           <button
             onClick={async () => {
               try {
-                await navigator.clipboard.writeText(
+                await copyText(
                   [
                     `金陵麻将 房间号 ${view.code}`,
                     settlementTime(record.at),

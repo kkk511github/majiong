@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useState, type ComponentType } from "react";
 import { BookOpen, Camera, ChevronRight, Copy, FileText, LayoutGrid, LogOut, MessageSquare, Pencil, ShieldCheck, Users, Volume2 } from "lucide-react";
 import type { Account } from "../shared/types";
@@ -42,7 +43,7 @@ export function ProfilePage({ account, name, audio, changeAudio, password, legal
   }
   async function copyId() {
     if (!account?.memberId) return;
-    try { await navigator.clipboard.writeText(account.memberId); notice("会员 ID 已复制"); }
+    try { await copyText(account.memberId); notice("会员 ID 已复制"); }
     catch { notice(`会员 ID：${account.memberId}，可长按编号复制。`); }
   }
   const entries: { title: string; detail: string; icon: ComponentType<{size?: number}>; run: () => void }[] = [

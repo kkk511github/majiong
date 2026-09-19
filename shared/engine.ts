@@ -1,6 +1,8 @@
 import {
   canDeclareZhaozhi,
   recordGlobalAnchor,
+  armGlobalAnchor,
+  globalAnchorDiscards,
   globalLiability,
 } from "./reference-rules";
 import {
@@ -870,6 +872,7 @@ function settle(
     else if (
       isNanjingV2(g.rules) &&
       from !== undefined &&
+      !robbed &&
       p.melds.length === 4 &&
       globalLiability(g, seat, g.pending!.tile)
     )
@@ -1019,6 +1022,7 @@ function resolveClaims(g: Game, now: number) {
     from: pending.from,
     concealed: false,
   });
+  if (!isKong) armGlobalAnchor(g, chosen);
   g.players[pending.from]!.discards.pop();
   g.turn = chosen;
   g.canSelfWin = false;
@@ -1176,6 +1180,7 @@ export function viewFor(g: Game, me: Seat): View {
   const reveal = ["ended", "finished"].includes(g.phase);
   return clone({
     ...rest,
+    globalAnchorDiscards: globalAnchorDiscards(g),
     me,
     ...(g.ruleState
       ? {

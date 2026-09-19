@@ -2318,10 +2318,12 @@
     padding: 0;
     overflow: hidden;
   }
-  .classic > * {
+  :root:not([data-runtime="web"]) .classic > *,
+  .classic.in-room > * {
     display: none !important;
   }
-  .classic > .orientation-guide {
+  :root:not([data-runtime="web"]) .classic > .orientation-guide,
+  .classic.in-room > .orientation-guide {
     display: flex !important;
     height: 100%;
     padding: 28px;

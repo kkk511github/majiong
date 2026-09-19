@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { version } from "../package.json";
 import { useEffect, useState } from "react";
 import { networkLabel, type NetworkHealth } from "./network-health";
@@ -76,7 +77,7 @@ export function NetworkDiagnostics({
           type="button"
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(
+              await copyText(
                 JSON.stringify(
                   {
                     appVersion: version,

@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { DeferredFeature } from "./DeferredFeature";
 import { ruleDisplayName } from "../shared/nanjing-rules";
 import { AudioRecovery } from "./AudioRecovery";
@@ -6,6 +7,7 @@ import { networkLabel } from "./network-health";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
 import { CocosTable } from "./CocosTable";
+import { useScoreDebits } from "./useScoreDebits";
 import { openingScene, openingTitle, type OpeningCue } from "./TableOpening";
 import { cocosState } from "./cocos-state";
 import { referenceRiverSlot } from "./table-camera";
@@ -220,10 +222,10 @@ export function App() {
   const motion = useGameMotion(v, motionLive);
   const [opening, setOpening] = useState<OpeningCue | null>(null);
   const [tableEntryBusy, setTableEntryBusy] = useState(false);
-  const dealKey = motion.find(event => event.type === "deal")?.key;
+  const debitEvents = useScoreDebits(v, motionLive, !tableEntryBusy);
   useEffect(() => {
-    if (dealKey && v?.round === 1) setOpening({ key: dealKey, game: v.id, round: v.round, at: Date.now() });
-  }, [dealKey]);
+    if (state.openingCue) setOpening(state.openingCue);
+  }, [state.openingCue]);
   useEffect(() => {
     if (!motionLive || !v || v.result) setOpening(null);
   }, [motionLive, v?.id, v?.result]);
@@ -234,6 +236,7 @@ export function App() {
   const readyDiscards = useMemo(()=>v ? readyDiscardTiles(v) : [],[v]);
   const handRef = useHandMotion(v, motionLive);
   const previousAudioView = useRef<View | null>(null);
+  const openingAudioKey = useRef("");
   const previousRoom = useRef<View | null>(null);
   useEffect(() => {
     if (previousRoom.current?.table && !v) {
@@ -301,6 +304,9 @@ export function App() {
     document.addEventListener("pointerdown", gameAudio.unlock, {
       capture: true,
     });
+    // Touch activation is granted on release in mobile Safari/WeChat.
+    document.addEventListener("pointerup", gameAudio.unlock, { capture: true });
+    document.addEventListener("touchend", gameAudio.unlock, { capture: true, passive: true });
     document.addEventListener("keydown", gameAudio.unlock, { capture: true });
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("pageshow", visibility);
@@ -327,6 +333,8 @@ export function App() {
       document.removeEventListener("keydown", gameAudio.unlock, {
         capture: true,
       });
+      document.removeEventListener("pointerup", gameAudio.unlock, { capture: true });
+      document.removeEventListener("touchend", gameAudio.unlock, { capture: true });
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("pageshow", visibility);
       window.removeEventListener("focus", visibility);
@@ -343,7 +351,14 @@ export function App() {
       gameAudio.stopVoice();
       return;
     }
-    gameCues(previousAudioView.current, v).forEach((cue, i) =>
+    const cues = gameCues(previousAudioView.current, v);
+    const start = state.openingCue;
+    if (start && start.game === v?.id && start.round === v.round &&
+        Date.now() - start.at < 6000 && start.key !== openingAudioKey.current) {
+      openingAudioKey.current = start.key;
+      if (!cues.includes("deal")) cues.unshift("deal");
+    }
+    cues.forEach((cue, i) =>
       gameAudio.play(cue, i * 0.12),
     );
     const spoken = discardedVoice(previousAudioView.current, v);
@@ -440,7 +455,7 @@ export function App() {
   async function copyCode() {
     if (!v) return;
     try {
-      await navigator.clipboard.writeText(v.code);
+      await copyText(v.code);
       setToast("房间号已复制");
     } catch {
       setToast(`房间号：${v.code}`);
@@ -818,6 +833,7 @@ export function App() {
           onEntryBusyChange={setTableEntryBusy}
           readyDiscards={readyDiscards}
           winResult={showingWinEffect ? v.result : undefined}
+          scoreDebits={debitEvents}
           connectionQuality={state.mode === "online" && state.connected && (state.network.consecutiveTimeouts > 0 || (state.network.smoothedRttMs ?? 0) >= 600) ? networkLabel(state.network) : undefined}
           state={cocosState(v, {
             connected: state.connected, disabled: commandsDisabled || paused,
@@ -1202,7 +1218,7 @@ export function App() {
           </div>
         </Dialog>
       )}
-      {v?.result && !showingWinEffect && dismissedResult !== resultKey && (
+      {v?.result && !showingWinEffect && !debitEvents.length && dismissedResult !== resultKey && (
         <Dialog
           title={
             v.result.reason === "dissolved"

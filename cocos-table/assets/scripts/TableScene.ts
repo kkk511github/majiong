@@ -4,6 +4,10 @@ import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type Tile
 const { ccclass } = _decorator;
 const GOLD='#e4c573', INK='#fcf1d0', GREEN='#093f37';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
+type VisualTile=Pick<SceneTile,'x'|'y'|'w'|'h'>;
+type MotionSnapshot=Pick<TableSceneState,'key'|'round'|'me'|'revision'|'connected'|'phase'|'presentation'>&{renderedAt:number};
+type TileFlight={tile:SceneTile;identity?:number;progress:{t:number};animation:Tween<{t:number}>;endsAt:number};
+type ReleasedTile={tile:number;id:string;visual:VisualTile;key:string;round:number;me:number;revision:number;sawDisabled:boolean;timer:ReturnType<typeof setTimeout>;rejectionTimer?:ReturnType<typeof setTimeout>};
 const load=<T>(path:string,kind:any)=>new Promise<T>((resolve,reject)=>resources.load(path,kind,(e,r)=>e?reject(e):resolve(r as unknown as T)));
 @ccclass('TableScene')
 export class TableScene extends Component {
@@ -11,14 +15,21 @@ export class TableScene extends Component {
  private effectData=new Map<string,sp.SkeletonData>();
  private frames=new Map<string,SpriteFrame>(); private nodes=new Map<string,Node>(); private shadows=new Map<string,Node>();
  private tileLayout=new Map<string,SceneTile>();
+ private previousTiles=new Map<string,SceneTile>(); private previousPhysical=new Map<string,number>(); private byPhysical=new Map<number,SceneTile>();
+ private renderedTiles=new Map<string,VisualTile>(); private renderedShadows=new Map<string,{position:Vec3;scale:Vec3}>();
+ private tileFlights=new Map<string,TileFlight>(); private motionSnapshot?:MotionSnapshot; private animateTiles=false; private animateEffects=false; private skipNextTransition=false;
+ // Local visual studies can slow this class without adding transport fields.
+ private motionScale=1;
+ private releasedTile?:ReleasedTile; private motionEffects=new Set<Node>(); private seenEffects=new Set<string>();
  private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3;released?:boolean;moved:boolean};
  private avatarLoads=new Set<string>();
- private ready=false; private channel=''; private lastEffect='';
+ private ready=false; private channel='';
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
  private lastHandTap?:{tile:number;key:string;round:number;turn:number;phase:string;canDiscard:boolean;at:number};
  private pointer?:Node; private pointerKey=''; private pointerAt='';
  private cancelHandTouch=()=>{if(!this.handTouch)return;this.handTouch=undefined;if(this.ready&&this.state)this.draw();};
- private onVisibility=()=>{if(document.hidden)this.cancelHandTouch();};
+ private onBlur=()=>{this.handTouch=undefined;this.lastHandTap=undefined;this.clearReleasedTile();this.skipNextTransition=true;if(this.ready&&this.state)this.draw();};
+ private onVisibility=()=>{this.skipNextTransition=true;if(document.hidden){this.handTouch=undefined;this.clearReleasedTile();}if(this.ready&&this.state)this.draw();};
  // Creator converts an actual touchend outside the last rendered tile bounds to
  // TOUCH_CANCEL. Remember the browser event before Creator dispatches it, so an
  // updated release position still discards, while a real system cancel never does.
@@ -39,7 +50,7 @@ export class TableScene extends Component {
   this.racks=this.make('Flower racks',640,295,1280,590);
   this.effectsRoot=this.make('Effects',640,295,1280,590);
   window.addEventListener('message',this.onMessage);
-  window.addEventListener('blur',this.cancelHandTouch);document.addEventListener('visibilitychange',this.onVisibility);
+  window.addEventListener('blur',this.onBlur);document.addEventListener('visibilitychange',this.onVisibility);
   window.addEventListener('touchend',this.onTouchRelease,true);window.addEventListener('touchcancel',this.onTouchCancel,true);window.addEventListener('mouseup',this.onMouseRelease,true);window.addEventListener('resize',this.cancelHandTouch);
   try{
    const catalog=(await load<JsonAsset>('tile-atlas',JsonAsset)).json as Atlas;
@@ -67,7 +78,7 @@ export class TableScene extends Component {
    if(this.state)this.draw();
   }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error'},location.origin==='null'?'*':location.origin);}
  }
- onDestroy(){window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.cancelHandTouch);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;}
+ onDestroy(){window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}
  private text(parent:Node,str:string,x:number,y:number,w:number,h:number,size=20,color=INK){const n=this.make(str,x,y,w,h,parent),l=n.addComponent(Label);l.string=str;l.fontSize=size;l.lineHeight=size+4;l.color=new Color(color);l.isBold=true;l.overflow=Label.Overflow.SHRINK;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;return n;}
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
@@ -85,11 +96,12 @@ export class TableScene extends Component {
  private plate(parent:Node,x:number,y:number,w:number,h:number,color=GREEN,border=GOLD,r=8){const n=this.make('panel',x,y,w,h,parent),g=n.addComponent(Graphics);g.fillColor=new Color(color);g.roundRect(-w/2,-h/2,w,h,r);g.fill();g.strokeColor=new Color(border);g.lineWidth=1.3;g.stroke();return n;}
  private button(parent:Node,label:string,x:number,y:number,w:number,h:number,command:TableSceneCommand,gold=false){
   const n=this.make('button-'+label,x,y,w,h,parent),g=n.addComponent(Graphics);
-  g.fillColor=new Color(gold?'#91621c':'#092b28');g.roundRect(-w/2,-h/2-3,w,h,gold?h/2:9);g.fill();
-  const colors=gold?['#bc862a','#e6ac3f','#f0bb56','#f7d477','#ffe6a4']:['#244039','#264e45','#2b584a','#315f51','#356652'];
-  for(let i=0;i<5;i++){g.fillColor=new Color(colors[i]);g.roundRect(-w/2+i,-h/2+i,w-2*i,h-2*i,gold?h/2:8);g.fill();}
-  g.strokeColor=new Color(GOLD);g.lineWidth=1.5;g.stroke();
-  const t=this.make(label,640,295,w-8,h-5,n),l=t.addComponent(Label);l.string=label;l.fontSize=gold?(label.length>1?27:39):20;l.color=new Color(gold?'#5b260d':INK);l.isBold=true;l.lineHeight=44;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;
+  const pass=command.type==='action'&&command.action==='pass';
+  g.fillColor=new Color('#092b28');g.roundRect(-w/2,-h/2-3,w,h,10);g.fill();
+  const colors=gold?(pass?['#123528','#153a2d','#183d30','#1a4032','#1c4334']:['#214433','#264d3a','#2b5540','#305e47','#35664d']):['#244039','#264e45','#2b584a','#315f51','#356652'];
+  for(let i=0;i<5;i++){g.fillColor=new Color(colors[i]);g.roundRect(-w/2+i,-h/2+i,w-2*i,h-2*i,gold?10:8);g.fill();}
+  g.strokeColor=new Color(gold?(pass?'#83957788':'#c4b783'):GOLD);g.lineWidth=1.3;g.stroke();
+  const t=this.make(label,640,295,w-8,h-5,n),l=t.addComponent(Label);l.string=label;l.fontSize=gold?(label.length>1?25:35):20;l.color=new Color(gold?(pass?'#b9c4a9':'#e6d5a3'):INK);l.isBold=true;l.lineHeight=44;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;
   const blocked=command.type==='action'?this.state?.disabled:command.type==='trustee'?this.state?.trusteeDisabled:false;
   if(blocked)n.addComponent(UIOpacity).opacity=130;
   n.on(Node.EventType.TOUCH_END,()=>{if(!blocked)this.emit(command);});return n;
@@ -99,7 +111,136 @@ export class TableScene extends Component {
    if(command.type==='select'){this.state.selected=command.tile;this.state.inspectedKind=tileKind(command.tile);this.draw();}
    if(command.type==='trustee'){this.state.players.find(p=>p.seat===this.state!.me)!.trustee=command.enabled;this.draw();}
   }return;}
+  if(command.type==='discard'){
+   if(this.releasedTile)return;
+   this.holdReleasedTile(command.tile);
+  }
   window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'command',command},location.origin==='null'?'*':location.origin);
+ }
+ private animationScale(){return Math.max(.5,Math.min(4,this.motionScale||1));}
+ private physicalTile(t:SceneTile,s:TableSceneState):number|undefined{
+  if(t.area==='meld'){
+   const parts=t.id.split('-'),slot=Number(parts[3]),meld=s.players.find(p=>p.seat===t.seat)?.melds[Number(parts[2])];
+   // Opponents expose only copy 0. Unknown backs retain their scene-slot
+   // identity; never invent three copies of the one public physical tile.
+   if(meld?.concealed)return slot===3?meld.tiles[0]:meld.tiles.length===4?meld.tiles[slot+1]:undefined;
+  }
+  return t.tile;
+ }
+ private visualTile(t:SceneTile):VisualTile{
+  const node=this.nodes.get(t.id);if(!node?.isValid)return t;
+  const size=node.getComponent(UITransform)!;
+  return{x:node.position.x+640,y:295-node.position.y,w:size.width*node.scale.x,h:size.height*node.scale.y};
+ }
+ private placeTile(node:Node,at:VisualTile,t:SceneTile){node.setPosition(at.x-640,295-at.y,0);node.setScale(at.w/t.w,at.h/t.h,1);}
+ private stopFlight(id:string){this.tileFlights.get(id)?.animation.stop();this.tileFlights.delete(id);}
+ private clearMotion(){
+  for(const id of this.tileFlights.keys())this.stopFlight(id);
+  for(const node of this.motionEffects){Tween.stopAllByTarget(node);const opacity=node.getComponent(UIOpacity);if(opacity)Tween.stopAllByTarget(opacity);if(node.isValid)node.destroy();}
+  this.motionEffects.clear();
+ }
+ private clearReleasedTile(){
+  if(this.releasedTile){clearTimeout(this.releasedTile.timer);if(this.releasedTile.rejectionTimer)clearTimeout(this.releasedTile.rejectionTimer);}
+  this.releasedTile=undefined;
+ }
+ private holdReleasedTile(tile:number){
+  const s=this.state,t=Array.from(this.tileLayout.values()).find(t=>t.seat===s?.me&&t.area==='hand'&&t.tile===tile);
+  if(!s?.connected||!s.canDiscard||!t)return;
+  this.stopFlight(t.id);
+  let released:ReleasedTile;
+  const timer=setTimeout(()=>{if(this.releasedTile!==released)return;this.clearReleasedTile();if(this.isValid&&this.ready&&this.state)this.draw();},3500);
+  released={tile,id:t.id,visual:this.visualTile(t),key:s.key,round:s.round,me:s.me,revision:s.revision,sawDisabled:s.disabled,timer};
+  this.releasedTile=released;
+ }
+ private reconcileRelease(s:TableSceneState,reset:boolean){
+  const held=this.releasedTile;if(!held)return;
+  if(reset||!s.connected||held.key!==s.key||held.round!==s.round||held.me!==s.me){this.clearReleasedTile();return;}
+  const stillInHand=s.players.find(p=>p.seat===s.me)?.hand.includes(held.tile);
+  // An accepted tile stays available as a motion origin until drawTile consumes
+  // its new river/meld destination. A rejected action returns it to its rack.
+  if(!stillInHand)return;
+  if(s.revision>held.revision||!s.canDiscard||!['playing','claiming'].includes(s.phase)){this.clearReleasedTile();return;}
+  if(held.sawDisabled&&!s.disabled&&!held.rejectionTimer){
+   held.rejectionTimer=setTimeout(()=>{
+    const current=this.state;
+    if(this.releasedTile===held&&current&&!current.disabled&&current.revision===held.revision&&current.players.find(p=>p.seat===current.me)?.hand.includes(held.tile)){
+     this.clearReleasedTile();if(this.ready&&this.isValid)this.draw();
+    }
+   },180);
+  }
+  held.sawDisabled ||= s.disabled;
+ }
+ private prepareMotion(s:TableSceneState){
+  const last=this.motionSnapshot,active=(phase:string)=>['playing','claiming'].includes(phase);
+  const advance=last?s.revision-last.revision:Infinity;
+  // React may coalesce a claim and its replacement draw into one update.
+  // Animate small, recent forward skips, but never backfill a restored game.
+  const continuous=advance>=0&&(advance<=1||advance<=3&&performance.now()-(last?.renderedAt??0)<1800);
+  const replayContext=!!last&&!this.skipNextTransition&&!document.hidden&&s.connected&&last.connected&&s.key===last.key&&s.round===last.round&&s.me===last.me&&s.presentation==='replay'&&last.presentation==='replay';
+  const replayStep=replayContext&&advance===1,replayRedraw=replayContext&&advance===0;
+  this.animateTiles=!!last&&!this.skipNextTransition&&!document.hidden&&s.connected&&last.connected&&
+   s.key===last.key&&s.round===last.round&&s.me===last.me&&s.presentation!=='replay'&&last.presentation!=='replay'&&
+   active(s.phase)&&active(last.phase)&&continuous;
+  this.animateEffects=this.animateTiles||replayStep;
+  this.skipNextTransition=false;
+  if(!this.animateTiles){
+   if(replayStep||replayRedraw){for(const id of this.tileFlights.keys())this.stopFlight(id);}
+   else{this.clearMotion();this.seenEffects.clear();}
+   this.handTouch=undefined;
+  }
+  this.reconcileRelease(s,!this.animateTiles);
+  this.renderedTiles=new Map(Array.from(this.previousTiles).map(([id,t])=>[id,this.visualTile(t)]));
+  this.renderedShadows=new Map(Array.from(this.shadows).filter(([,node])=>node.isValid).map(([id,node])=>[id,{position:node.position.clone(),scale:node.scale.clone()}]));
+ }
+ private startFlight(node:Node,from:VisualTile,t:SceneTile,ms:number,arc:boolean,arrival:boolean){
+  this.stopFlight(t.id);
+  const progress={t:0},shadow=this.shadows.get(t.id),scale=this.animationScale();
+  const lift=arc?Math.min(14,Math.hypot(from.x-t.x,from.y-t.y)*.045):0;
+  const paint=()=>{
+   if(!this.isValid||!node.isValid)return;
+   const k=progress.t,x=from.x+(t.x-from.x)*k,groundY=from.y+(t.y-from.y)*k,w=from.w+(t.w-from.w)*k,h=from.h+(t.h-from.h)*k;
+   this.placeTile(node,{x,y:groundY-4*lift*k*(1-k),w,h},t);
+   if(shadow?.isValid){shadow.setPosition(x-640,295-groundY-2,0);shadow.setScale(w/t.w,h/t.h,1);}
+  };
+  const animation=tween(progress).to(ms/1000*scale,{t:1},{easing:'sineInOut',onUpdate:paint}).call(()=>{
+   this.tileFlights.delete(t.id);
+   if(this.isValid&&node.isValid){this.placeTile(node,t,t);if(shadow?.isValid){shadow.setPosition(t.x-640,295-t.y-2,0);shadow.setScale(1,1,1);}if(arrival)this.flowerArrival(t);}
+  });
+  this.tileFlights.set(t.id,{tile:t,identity:this.physicalTile(t,this.state!),progress,animation,endsAt:performance.now()+ms*scale});
+  paint();animation.start();
+ }
+ private applyTileMotion(t:SceneTile,node:Node){
+  const shadow=this.shadows.get(t.id),current=this.renderedTiles.get(t.id);
+  if(!this.animateTiles){node.setScale(1,1,1);shadow?.setScale(1,1,1);return;}
+  if(this.handTouch?.id===t.id){this.stopFlight(t.id);if(current)this.placeTile(node,current,t);return;}
+  const physical=this.physicalTile(t,this.state!),release=physical!==undefined&&this.releasedTile?.tile===physical?this.releasedTile.visual:undefined;
+  if(release&&t.area==='hand'){this.stopFlight(t.id);this.placeTile(node,release,t);return;}
+  const active=this.tileFlights.get(t.id),target=active?.tile;
+  if(target&&current&&active?.identity===physical&&target.x===t.x&&target.y===t.y&&target.w===t.w&&target.h===t.h){
+   this.placeTile(node,current,t);const oldShadow=this.renderedShadows.get(t.id);if(shadow&&oldShadow){shadow.setPosition(oldShadow.position);shadow.setScale(oldShadow.scale);}return;
+  }
+  const sameSlot=this.previousTiles.get(t.id),stable=sameSlot&&this.previousPhysical.get(t.id)===physical;
+  const old=stable?sameSlot:physical!==undefined?this.byPhysical.get(physical):undefined;
+  let from:VisualTile|undefined=release||(old?(this.renderedTiles.get(old.id)||old):undefined);
+  if(release)this.clearReleasedTile();
+  const crossing=old?.area!==t.area;
+  if(!old&&t.area==='hand'){
+   const o=sceneOffset(t.seat,this.state!.me),at=[{x:980,y:457},{x:985,y:75},{x:385,y:72},{x:255,y:452}][o];
+   from={...t,...at,w:t.w*.86,h:t.h*.86};
+  }else if(!old&&['river','meld','flower'].includes(t.area)){
+   const hands=Array.from(this.previousTiles.values()).filter(v=>v.seat===t.seat&&v.area==='hand'),hand=hands[hands.length-1];
+   from=release||(hand?(this.renderedTiles.get(hand.id)||hand):undefined);
+  }
+  this.stopFlight(t.id);
+  if(!from||Math.hypot(from.x-t.x,from.y-t.y)<.5&&Math.abs(from.w-t.w)<.5&&Math.abs(from.h-t.h)<.5){node.setScale(1,1,1);shadow?.setScale(1,1,1);return;}
+  const ms=t.area==='river'?320:t.area==='flower'?360:t.area==='meld'?400:crossing?300:240;
+  this.startFlight(node,from,t,ms,crossing||t.area==='river',t.area==='flower'&&crossing);
+ }
+ private flowerArrival(t:SceneTile){
+  const node=this.make('flower-arrival-'+t.tile,t.x,t.y,t.w+8,t.h+8,this.effectsRoot);this.motionEffects.add(node);
+  const g=node.addComponent(Graphics);g.strokeColor=new Color('#d8d4aa');g.lineWidth=1.5;g.roundRect(-t.w/2-3,-t.h/2-3,t.w+6,t.h+6,5);g.stroke();
+  const opacity=node.addComponent(UIOpacity);opacity.opacity=135;
+  tween(opacity).to(.55*this.animationScale(),{opacity:0},{easing:'sineOut'}).call(()=>{this.motionEffects.delete(node);if(node.isValid)node.destroy();}).start();
  }
  private staticTable(){
   this.image('table',640,295,1280,590).setSiblingIndex(0);
@@ -107,10 +248,11 @@ export class TableScene extends Component {
 
  }
  private draw(){
-  const s=this.state!,tiles=layoutTable(s),ids=new Set(tiles.map(t=>t.id));
+  const s=this.state!;this.prepareMotion(s);
+  const tiles=layoutTable(s),ids=new Set(tiles.map(t=>t.id));
   this.tileLayout=new Map(tiles.map(tile=>[tile.id,tile]));
   if(this.handTouch&&(!ids.has(this.handTouch.id)||!canContinueTileDrag(s,this.handTouch.origin)))this.handTouch=undefined;
-  for(const [id,n]of this.nodes)if(!ids.has(id)){n.destroy();this.nodes.delete(id);this.shadows.get(id)?.destroy();this.shadows.delete(id);}
+  for(const [id,n]of this.nodes)if(!ids.has(id)){this.stopFlight(id);n.destroy();this.nodes.delete(id);this.shadows.get(id)?.destroy();this.shadows.delete(id);}
   this.hud.destroy();this.hud=this.make('HUD',640,295,1280,590);
   this.drawRacks(s,tiles);
   for(const t of tiles)this.drawTile(t);
@@ -122,15 +264,23 @@ export class TableScene extends Component {
   for(const marker of layoutMeldSources(tiles,s.me)){
    const n=this.image('meld-source-dart',marker.x,marker.y,marker.size*867/902,marker.size,this.hud);
    n.name=marker.id;n.setRotationFromEuler(0,0,marker.rotation);
+   const flight=this.tileFlights.get(marker.tileId);
+   if(flight){n.active=false;tween(n).delay(Math.max(0,(flight.endsAt-performance.now())/1000)).call(()=>{if(n.isValid)n.active=true;}).start();}
   }
   this.drawHud(s);
   const last=tiles.find(t=>t.last);
   if(last){
    const positionKey=`${last.x},${last.y},${last.h}`;
    if(this.pointerKey!==last.id||this.pointerAt!==positionKey){if(this.pointer){Tween.stopAllByTarget(this.pointer);this.pointer.destroy();}this.pointer=this.image('pointer',last.x,last.y-last.h/2-17,24,30,this.effectsRoot);const at=this.pointer.position.clone();tween(this.pointer).repeatForever(tween().to(.65,{position:new Vec3(at.x,at.y+5,0)},{easing:'sineInOut'}).to(.65,{position:at},{easing:'sineInOut'})).start();this.pointerKey=last.id;this.pointerAt=positionKey;}
+   const flight=this.tileFlights.get(last.id),pointer=this.pointer;
+   if(pointer&&flight){pointer.active=false;tween(pointer).delay(Math.max(0,(flight.endsAt-performance.now())/1000)).call(()=>{if(pointer.isValid)pointer.active=true;}).start();}
+   else if(pointer)pointer.active=true;
    this.pointer?.setSiblingIndex(this.root.children.length-1);
   }else{this.pointer?.destroy();this.pointer=undefined;this.pointerKey='';}
   this.drawEffect(s);this.positionDraggedTile();this.effectsRoot.setSiblingIndex(this.root.children.length-1);(window as any).__JINLING_TABLE_LAYOUT__=tiles;
+  this.previousTiles=new Map(this.tileLayout);this.previousPhysical=new Map();this.byPhysical=new Map();
+  for(const tile of tiles){const physical=this.physicalTile(tile,s);if(physical!==undefined){this.previousPhysical.set(tile.id,physical);this.byPhysical.set(physical,tile);}}
+  this.motionSnapshot={key:s.key,round:s.round,me:s.me,revision:s.revision,connected:s.connected,phase:s.phase,presentation:s.presentation,renderedAt:performance.now()};
  }
  private drawRacks(s:TableSceneState,tiles:SceneTile[]){
   this.racks.destroy();this.racks=this.make('Flower racks',640,295,1280,590);
@@ -158,17 +308,24 @@ export class TableScene extends Component {
   n.getComponent(UITransform)!.setContentSize(t.w,t.h);n.setPosition(t.x-640,295-t.y,0);
   n.setRotationFromEuler(0,0,t.rotation||0);
   let pose=t.pose;
-  const sp=n.getComponent(Sprite)!;sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(pose+'-'+(t.tile===undefined?0:tileKind(t.tile)))||null;n.getComponent(UITransform)!.setContentSize(t.w,t.h);sp.color=new Color(t.selected||t.highlight?'#fff7b1':'#ffffff');
+  const sp=n.getComponent(Sprite)!;sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(pose+'-'+(t.tile===undefined?0:tileKind(t.tile)))||null;n.getComponent(UITransform)!.setContentSize(t.w,t.h);sp.color=new Color(t.globalAnchor?'#ffe16a':t.selected||t.highlight?'#fff7b1':'#ffffff');
   n.setSiblingIndex(this.root.children.length-1);
+  this.applyTileMotion(t,n);
  }
  private bindTileTouch(node:Node,id:string){
   // Bind once: one-second countdown pushes must not replace an in-flight touch.
   // Resolve the latest layout by physical tile ID, never by the sorted hand index.
   node.on(Node.EventType.TOUCH_START,(event:EventTouch)=>{
    const tile=this.tileLayout.get(id),state=this.state;
-   if(this.handTouch||!state||!tile?.clickable||tile.tile===undefined)return;
+   if(this.handTouch||this.releasedTile||!state||!tile?.clickable||tile.tile===undefined)return;
    const origin=beginTileDrag(state,tile.tile);if(!origin)return;
    const point=event.getUILocation();
+   // A second grab can begin before selection/return motion has settled.
+   // Freeze the painted geometry, not the future rack target, before the
+   // pointer takes ownership of position updates.
+   const frozen=this.visualTile(tile);
+   this.stopFlight(id);
+   this.placeTile(node,frozen,tile);
    this.handTouch={id,pointer:event.getID(),origin,startX:point.x,startY:point.y,x:point.x,y:point.y,base:node.position.clone(),moved:false};
   });
   node.on(Node.EventType.TOUCH_MOVE,(event:EventTouch)=>{
@@ -187,6 +344,7 @@ export class TableScene extends Component {
  private finishHandTouch(event:EventTouch){
   const touch=this.handTouch;if(!touch||touch.pointer!==event.getID())return;
   const point=event.getUILocation(),state=this.state;
+  touch.x=point.x;touch.y=point.y;this.positionDraggedTile();
   this.handTouch=undefined;
   if(state&&canContinueTileDrag(state,touch.origin)){
    const discard=shouldDiscardDraggedTile(state,touch.origin,point.x-touch.startX,point.y-touch.startY,point);
@@ -238,10 +396,10 @@ export class TableScene extends Component {
    this.plate(h,x,y+25,100,126,'#0b332ed9',border).name=`player-panel-${p.seat}`;if(status.active)this.plate(h,x,y,58,58,'#154b45',border,5);marker(x,y-37,100);const avatar=this.avatar(p.avatar,p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
   }
   const prompt=claimPrompt(s);
-  if(prompt){
+  if(prompt&&!s.externalControls){
    // Keep the compass and counters untouched; the left lower rail is clear
    // of hand tiles, all three river columns, flowers and action controls.
-   const card=this.plate(h,112,393,180,86,'#123c33f5','#f0cf70',12);card.name='claim-prompt';
+   const card=this.plate(h,112,393,180,86,'#123c33f5','#adac79',10);card.name='claim-prompt';
    this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,99,363,144,20,15);
    this.image('own-'+tileKind(prompt.tile),59,402,35,52,h).name='claim-prompt-tile';
    this.text(h,prompt.name,136,390,100,25,22,GOLD);
@@ -283,12 +441,55 @@ export class TableScene extends Component {
   h.setSiblingIndex(this.root.children.length-1);
  }
  private drawEffect(s:TableSceneState){
-  const e=s.effects.find(e=>['pung','kong','hu'].includes(e.type));if(!e||e.key===this.lastEffect)return;this.lastEffect=e.key;
-  const key=e.type==='kong'?(e.concealed?'concealed-kong':e.upgraded?'upgrade-kong':'kong'):e.type==='hu'&&e.selfDraw?'self-draw':e.type;
-  const data=this.effectData.get(key);if(!data)return;
-  const n=this.make('spine-'+key,640,300,280,280,this.effectsRoot),effect=n.addComponent(sp.Skeleton);
-  effect.skeletonData=data;effect.premultipliedAlpha=false;effect.setCompleteListener(()=>n.destroy());effect.setAnimation(0,'activate',false);
-
+  for(const e of s.effects){
+   if(this.seenEffects.has(e.key))continue;
+   this.seenEffects.add(e.key);
+   // Entering, restoring and replay seeks consume historical feedback instead
+   // of presenting all of it as if the player had just performed the actions.
+   if(!this.animateEffects)continue;
+   const label=e.type==='pung'?'碰':e.type==='flower'?'补花':e.type==='kong'?(e.concealed?'暗杠':e.upgraded?'补杠':'明杠'):'';
+   if(label){this.actionWord(s,e.seat,label);continue;}
+   // The React bridge normally owns wins. Keep the standalone canvas fallback
+   // without changing the installed app's TableWinEffect behavior.
+   if(e.type==='hu'){
+    const key=e.selfDraw?'self-draw':'hu',data=this.effectData.get(key);if(!data)continue;
+    const node=this.make('spine-'+key,640,300,280,280,this.effectsRoot),effect=node.addComponent(sp.Skeleton);this.motionEffects.add(node);
+    effect.skeletonData=data;effect.premultipliedAlpha=false;effect.setCompleteListener(()=>{this.motionEffects.delete(node);if(node.isValid)node.destroy();});effect.setAnimation(0,'activate',false);
+   }
+  }
+ }
+ private actionPosition(s:TableSceneState,seat:number){
+  const o=sceneOffset(seat,s.me),preferred=[{x:650,y:435},{x:935,y:260},{x:650,y:125},{x:385,y:265}][o];
+  const obstacles=Array.from(this.tileLayout.values()).map(t=>({x:t.x,y:t.y,w:t.w,h:t.h}));
+  for(let index=0;index<4;index++){const p=layoutPlayerHud(index,s.safeArea);obstacles.push({x:p.x,y:p.plateY,w:p.w,h:p.h});}
+  obstacles.push({x:640,y:278,w:124,h:96},{x:548,y:280,w:66,h:66},{x:732,y:280,w:66,h:66});
+  const fits=(x:number,y:number)=>obstacles.every(b=>Math.abs(x-b.x)>=(144+b.w)/2+4||Math.abs(y-5-b.y)>=(76+b.h)/2+4);
+  if(fits(preferred.x,preferred.y))return preferred;
+  const zone=[{left:230,right:1110,top:395,bottom:446},{left:918,right:1120,top:150,bottom:420},{left:360,right:915,top:95,bottom:154},{left:164,right:400,top:160,bottom:415}][o];
+  let best:{x:number;y:number;distance:number}|undefined;
+  for(let y=zone.top;y<=zone.bottom;y+=6)for(let x=zone.left;x<=zone.right;x+=6){
+   if(!fits(x,y))continue;
+   const distance=(x-preferred.x)**2+(y-preferred.y)**2;if(!best||distance<best.distance)best={x,y,distance};
+  }
+  return best||[{x:940,y:432},{x:1060,y:328},{x:640,y:126},{x:210,y:328}][o];
+ }
+ private actionWord(s:TableSceneState,seat:number,value:string){
+  const o=sceneOffset(seat,s.me);
+  let at=this.actionPosition(s,seat);
+  if(o===0&&['碰','明杠','暗杠','补杠'].includes(value)){
+   const hand=Array.from(this.tileLayout.values()).filter(t=>t.seat===seat&&t.area==='hand');
+   if(hand.length)at={x:(Math.min(...hand.map(t=>t.x-t.w/2))+Math.max(...hand.map(t=>t.x+t.w/2)))/2,y:526};
+  }
+  const node=this.make('motion-action-'+seat,at.x,at.y,144,76,this.effectsRoot);this.motionEffects.add(node);
+  const g=node.addComponent(Graphics);g.fillColor=new Color('#153f35dd');g.roundRect(-65,-22,130,55,12);g.fill();
+  g.strokeColor=new Color('#cbbb83c7');g.lineWidth=1.3;g.roundRect(-65,-22,130,55,12);g.stroke();
+  g.strokeColor=new Color('#e5d6a480');g.lineWidth=1;g.moveTo(-48,-14);g.lineTo(-18,-14);g.moveTo(18,-14);g.lineTo(48,-14);g.stroke();
+  g.fillColor=new Color('#ded0a0');g.moveTo(0,-11);g.lineTo(3,-14);g.lineTo(0,-17);g.lineTo(-3,-14);g.close();g.fill();
+  this.text(node,value,640,287,142,52,value==='补花'?36:43,'#e8d6aa').name='table-action-value';
+  const opacity=node.addComponent(UIOpacity),start=node.position.clone(),scale=this.animationScale();opacity.opacity=0;node.setScale(.92,.92,1);
+  tween(node).to(.18*scale,{scale:new Vec3(1,1,1)},{easing:'sineOut'}).start();
+  tween(opacity).to(.14*scale,{opacity:255},{easing:'sineOut'}).delay(.58*scale).to(.36*scale,{opacity:0},{easing:'sineIn'}).start();
+  tween(node).to(1.08*scale,{position:new Vec3(start.x,start.y+10,0)},{easing:'sineOut'}).call(()=>{this.motionEffects.delete(node);if(node.isValid)node.destroy();}).start();
  }
  private demo():TableSceneState{
   const hand=[20,21,22,24,25,28,32,33,84,85,56,57,60,64];

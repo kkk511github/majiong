@@ -76,13 +76,16 @@ export class TileVoice {
       const abort = (this.abort = new AbortController());
       const timeout = setTimeout(() => abort.abort(), 8000);
       try {
-        const response = await fetch(pack.file!, {
+        const file = pack.file!.startsWith("/") && !pack.file!.startsWith("//")
+          ? `${import.meta.env.BASE_URL}${pack.file!.slice(1)}`
+          : pack.file!;
+        const response = await fetch(file, {
           signal: abort.signal,
         });
         // WKWebView reports status 0 for some bundled media scheme responses.
         // This exception is only for our local app origin, never an API request.
         const page = globalThis.location;
-        const asset = page && new URL(pack.file!, page.href);
+        const asset = page && new URL(file, page.href);
         const bundledMedia =
           page?.protocol === "capacitor:" &&
           page.host === "localhost" &&

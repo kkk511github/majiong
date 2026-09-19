@@ -66,7 +66,7 @@
 .table-claim-actions {
   position: absolute;
   display: flex;
-  gap: 8px;
+  gap: clamp(5px, calc(8px * var(--claim-scale, 1)), 8px);
   align-items: end;
   pointer-events: auto;
   overflow-x: auto;
@@ -75,41 +75,115 @@
 }
 .table-claim-actions button {
   flex: none;
-  min-width: 48px;
+  width: clamp(56px, calc(80px * var(--claim-scale, 1)), 92px);
+  min-width: 56px;
   min-height: 48px;
+  height: clamp(48px, calc(62px * var(--claim-scale, 1)), 67px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px solid #ffe3a0;
-  border-radius: 50%;
-  padding: 7px;
-  background: linear-gradient(#ffe7a5, #dfad48);
-  color: #582e11;
-  box-shadow:
-    0 3px 0 #825b24,
-    0 4px 10px #001f2280;
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.1;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid #c4b782b0;
+  border-radius: 9px;
+  background: linear-gradient(145deg, #35684f, #214c3b);
+  color: #e6d5a3;
+  box-shadow: inset 0 1px 0 #d8d4a426, 0 3px 6px #051d1633;
+  touch-action: manipulation;
+  transition: background .12s, box-shadow .12s, transform .1s;
+}
+.table-claim-actions button > strong {
+  font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+  font-size: clamp(24px, calc(30px * var(--claim-scale, 1)), 30px);
+  font-weight: 600;
+  line-height: 1.05;
+}
+.table-claim-actions button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .table-claim-actions small {
-  font-size: 11px;
+  color: #b4c5aa;
+  font-size: 9px;
   line-height: 1.2;
+  white-space: nowrap;
 }
 .table-claim-actions .claim-pass {
-  background: #efe8d0;
-  color: #596656;
-  border-color: #b8c7b1;
+  background: #163c2eee;
+  color: #b6c0aa;
+  border-color: #85987a55;
+  box-shadow: inset 0 1px 0 #b7c49a08;
 }
 .table-claim-actions .claim-hu {
-  box-shadow:
-    0 0 0 3px #f8d05b55,
-    0 3px 0 #825b24;
+  border-color: #dbcb92;
+  color: #ffedbd;
+  box-shadow: inset 0 0 0 1px #cfbc7720, 0 3px 6px #051d1633;
 }
 .table-claim-actions button:disabled {
-  opacity: 0.6;
-  filter: saturate(0.3);
+  opacity: .42;
+  box-shadow: none;
+}
+.table-claim-actions button.is-chosen {
+  opacity: .95;
+  border-color: #d9c68b;
+}
+.table-claim-actions button.is-chosen small {
+  color: #e2d9b4;
+}
+.table-claim-source {
+  position: absolute;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 6px;
+  padding: clamp(4px, calc(7px * var(--claim-scale, 1)), 7px);
+  box-sizing: border-box;
+  border: 1px solid #adac7959;
+  border-radius: 8px;
+  background: linear-gradient(130deg, #123c31ed, #10382ced);
+  box-shadow: 0 4px 12px #08271c40;
+  color: #e5e3c8;
+  overflow: hidden;
+  pointer-events: none;
+}
+.table-claim-source-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.table-claim-source-copy > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #b2c2ac;
+  font-size: clamp(8px, calc(11px * var(--claim-scale, 1)), 11px);
+  line-height: 1.25;
+}
+.table-claim-source-copy > strong {
+  font-size: clamp(12px, calc(18px * var(--claim-scale, 1)), 18px);
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.table-claim-tile {
+  display: block;
+  width: clamp(16px, calc(26px * var(--claim-scale, 1)), 26px);
+  height: clamp(24px, calc(38px * var(--claim-scale, 1)), 38px);
+  border-radius: 2px;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 2px 2px #071f1860);
+}
+.table-claim-source-status {
+  grid-column: 1 / -1;
+  min-width: 0;
+  color: #b4c2a9;
+  font-size: clamp(8px, calc(10px * var(--claim-scale, 1)), 10px);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .table-controls button:focus-visible {
   outline: 3px solid #53ddff;
@@ -149,9 +223,9 @@
 .table-portrait-notice {
   display: none;
 }
-@media (max-width: 700px) {
-  .table-claim-actions {
-    gap: 6px;
+@media (hover: hover) {
+  .table-claim-actions .claim-main:hover:not(:disabled) {
+    background: linear-gradient(145deg, #3d7559, #285a43);
   }
 }
 @media (orientation: portrait) and (max-width: 700px) {

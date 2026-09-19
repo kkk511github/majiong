@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useState, useSyncExternalStore } from "react";
 import { gameAudio } from "./audio";
 import "./audio-recovery.css";
@@ -49,7 +50,7 @@ export function AudioRecovery({
       <button
         onClick={async () => {
           try {
-            await navigator.clipboard.writeText(
+            await copyText(
               JSON.stringify(
                 {
                   audio: health,

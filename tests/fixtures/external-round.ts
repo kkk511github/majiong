@@ -70,7 +70,7 @@ export function externalRound(
   if (mode === "global") {
     g.players[2]!.discards = [20];
     g.ruleState.globalAnchors = {
-      2: { discardKind: 5, waitKind: 6, changed: false },
+      2: { source: "fourth-pung", discardTile: 20, discardKind: 5, waitKind: 6, changed: false },
     };
   }
   const winning = mode === "global" ? 25 : 12;

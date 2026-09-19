@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -117,7 +118,7 @@ export function MatchRecordDetails({
   }, [data, showTeams, selected.game, selected.practice, onRead, readRetry]);
   async function copy(id: string) {
     try {
-      await navigator.clipboard.writeText(id);
+      await copyText(id);
       setCopied(id);
     } catch {
       setCopied("复制未成功，请长按 ID 复制");

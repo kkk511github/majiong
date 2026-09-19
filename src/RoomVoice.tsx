@@ -140,8 +140,14 @@ export function RoomVoice({
       setPhase("idle");
       setError(
         e instanceof DOMException && e.name === "NotAllowedError"
-          ? "麦克风权限未开启，请在系统设置中允许后再试"
-          : "麦克风暂时无法使用，请重试",
+          ? Capacitor.isNativePlatform()
+            ? "麦克风权限未开启，请在系统设置中允许后再试"
+            : "麦克风权限未开启，请在浏览器的网站设置中允许后再试"
+          : e instanceof DOMException && e.name === "NotFoundError"
+            ? "未检测到麦克风，请连接麦克风后重试"
+            : e instanceof Error && !(e instanceof DOMException)
+              ? e.message
+              : "麦克风暂时无法使用，请检查是否被其他应用占用",
       );
     }
   }

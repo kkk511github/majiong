@@ -331,6 +331,8 @@ export interface View extends Omit<
   | "replay"
   | "ruleState"
 > {
+  /** Public physical discards only; the retained single wait is never exposed. */
+  globalAnchorDiscards?: GlobalAnchorDiscard[];
   roundMultiplier?: number;
   nextRoundMultiplier?: number;
   /** Only this viewer's original heavenly listening waits; other seats remain private. */
@@ -353,6 +355,7 @@ export interface View extends Omit<
 }
 
 export interface ReplayFrame {
+  globalAnchorDiscards?: GlobalAnchorDiscard[];
   at: number;
   type:
     | "start"
@@ -395,6 +398,7 @@ export interface RoundReplay {
   summaryOnly?: boolean;
 }
 
+export interface GlobalAnchorDiscard { seat: Seat; tile: Tile }
 export interface NanjingRuleState {
   multiplier: number;
   nextMultiplier: number;
@@ -410,8 +414,14 @@ export interface NanjingRuleState {
   kongOccurred: boolean;
   /** Never send this private wait information in a public view. */
   deferredConcealed?: ScoreTransfer[];
+  /** Armed only by a resolved fourth pung following three exposed pungs. */
+  pendingGlobalPung?: Partial<Record<Seat, true>>;
   globalAnchors?: Partial<
-    Record<Seat, { discardKind: number; waitKind: number; changed: boolean }>
+    Record<Seat, {
+      discardKind: number; waitKind: number; changed: boolean;
+      /** Absent in old snapshots whose formation route was never recorded. */
+      source?: "fourth-pung"; discardTile?: Tile;
+    }>
   >;
 }
 export type ClientMessage = (

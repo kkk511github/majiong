@@ -1,0 +1,119 @@
+/* A browser does not lock orientation like the native shell. Account and
+ * directory screens stay usable in portrait; the full table keeps its layout. */
+@media (max-width: 700px) and (orientation: portrait) {
+  :root[data-runtime="web"] .classic:not(.in-room) > .orientation-guide,
+  :root[data-runtime="web"] .classic:not(.in-room) > [hidden],
+  :root[data-runtime="web"] .classic[data-page="history"] > .site-header {
+    display: none !important;
+  }
+  :root[data-runtime="web"] .classic:not(.in-room):not([data-page="history"]) > .site-header {
+    display: flex !important;
+    height: 62px;
+    flex: 0 0 62px;
+    padding-inline: 16px;
+  }
+  :root[data-runtime="web"] .classic:not(.in-room) > .bottom-nav {
+    display: grid !important;
+    min-height: 56px;
+    flex-shrink: 0;
+    padding-inline: 8px;
+  }
+  :root[data-runtime="web"] .classic:not(.in-room) > .bottom-nav button {
+    flex-direction: column;
+    gap: 2px;
+    padding: 5px 2px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  :root[data-runtime="web"] .classic:not(.in-room) > dialog[open] {
+    display: flex !important;
+  }
+  :root[data-runtime="web"] .polished.account-shell > .account-screen {
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+    padding: max(20px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom));
+  }
+  :root[data-runtime="web"] .account-welcome { max-width: 510px; }
+  :root[data-runtime="web"] .account-invitation { display: none; }
+  :root[data-runtime="web"] .account-card { padding: 22px; flex-shrink: 0; }
+  :root[data-runtime="web"] .account-form { grid-template-columns: 1fr; }
+  :root[data-runtime="web"] .account-form input { font-size: 16px; }
+  :root[data-runtime="web"][data-account-editing] .account-screen,
+  :root[data-runtime="web"][data-keyboard-open] .account-screen {
+    justify-content: flex-start !important;
+    overflow: auto;
+    padding: 8px 12px !important;
+  }
+  :root[data-runtime="web"][data-account-editing] .account-card,
+  :root[data-runtime="web"][data-keyboard-open] .account-card {
+    display: flex;
+    flex-direction: column;
+    max-height: none;
+    height: auto;
+    padding: 10px;
+    gap: 8px;
+  }
+  :root[data-runtime="web"][data-account-editing] .account-form,
+  :root[data-runtime="web"][data-keyboard-open] .account-form {
+    width: 100%;
+    max-height: max(88px, calc(var(--input-viewport-height) - 90px));
+  }
+  :root[data-runtime="web"] .classic[data-page="home"] > .lobby {
+    overflow: auto;
+    padding: 12px 18px 20px;
+  }
+  :root[data-runtime="web"] .online-home { display: flex; flex-direction: column; align-items: stretch; height: auto; gap: 22px; }
+  :root[data-runtime="web"] .home-welcome { max-width: none; }
+  :root[data-runtime="web"] .home-intro h1 { font-size: 52px; }
+  :root[data-runtime="web"] .home-intro p { font-size: 13px; }
+  :root[data-runtime="web"] .home-live-panel { height: 330px; flex-shrink: 0; }
+  :root[data-runtime="web"] .home-table { grid-template-columns: 58px minmax(0, 1fr) 64px; }
+  :root[data-runtime="web"] .home-table-image { width: 58px; }
+  :root[data-runtime="web"] .home-table-status { display: none; }
+  :root[data-runtime="web"] .header-note { display: none; }
+  :root[data-runtime="web"] .classic[data-page="profile"] > .lobby { padding-inline: 12px; }
+  :root[data-runtime="web"] .profile-workspace { grid-template-columns: minmax(0, 1fr); height: auto; gap: 14px; padding-bottom: 14px; }
+  :root[data-runtime="web"] .profile-personal { padding: 16px; min-width: 0; }
+  :root[data-runtime="web"] .profile-portrait { width: 88px; height: 88px; }
+  :root[data-runtime="web"] .profile-labels h2 { font-size: 24px; }
+  :root[data-runtime="web"] .profile-options { min-height: 280px; }
+  :root[data-runtime="web"] .profile-option-copy strong { font-size: 20px; }
+  :root[data-runtime="web"] .profile-option-copy small { font-size: 13px; }
+  :root[data-runtime="web"] .profile-admin button { font-size: 15px; }
+  :root[data-runtime="web"] .app.polished .records-workspace .records-heading {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    grid-template-areas: "back title replay" "scope scope scope" "search search search";
+    gap: 6px;
+    padding: 8px 12px;
+  }
+  :root[data-runtime="web"] .records-heading .records-back { grid-area: back; }
+  :root[data-runtime="web"] .records-heading h1 { grid-area: title; }
+  :root[data-runtime="web"] .records-heading nav { grid-area: scope; }
+  :root[data-runtime="web"] .records-heading .record-search { grid-area: search; width: 100%; }
+  :root[data-runtime="web"] .records-heading .replay-open { grid-area: replay; }
+  :root[data-runtime="web"] .record-dates { position: relative; flex-wrap: wrap; gap: 6px; }
+  :root[data-runtime="web"] .record-admin-filters { margin-left: 0; }
+  :root[data-runtime="web"] .app.polished .records-workspace .match-card { padding: 0 0 55px; }
+  :root[data-runtime="web"] .app.polished .records-workspace .match-detail-link { top: auto; bottom: 8px; min-height: 40px; transform: none; }
+  :root[data-runtime="web"] .polished[data-page="tables"] { display: flex; flex-direction: column; }
+  :root[data-runtime="web"] .polished[data-page="tables"] .lobby { flex: 1; min-height: 0; padding: 12px; }
+  :root[data-runtime="web"] .table-lobby-header,
+  :root[data-runtime="web"] .table-lobby-tools { flex-wrap: wrap; }
+  :root[data-runtime="web"] .table-list { grid-template-columns: 1fr; }
+  :root[data-runtime="web"] .polished .club-dialog .modal-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  :root[data-runtime="web"] .club-tabs { flex-direction: row; overflow-x: auto; border: 0; padding: 0; flex-shrink: 0; }
+  :root[data-runtime="web"] .club-tabs button { width: auto; flex-shrink: 0; padding-inline: 12px; }
+  :root[data-runtime="web"] .club-help { display: none; }
+  :root[data-runtime="web"] .club-filters { flex-direction: column; align-items: stretch; }
+  :root[data-runtime="web"] .club-filter-main { display: grid; grid-template-columns: 1fr 1fr; flex: none; }
+  :root[data-runtime="web"] .club-filter-main > input,
+  :root[data-runtime="web"] .club-filter-main > select { width: 100%; max-width: none; height: 40px; }
+  :root[data-runtime="web"] .club-filter-main > button { min-height: 40px; }
+  :root[data-runtime="web"] .club-filter-dates { display: grid; grid-template-columns: 1fr 1fr; }
+  :root[data-runtime="web"] .club-filter-dates label { min-width: 0; }
+  :root[data-runtime="web"] .club-filter-dates input[type="date"] { flex: 1; width: 0; height: 40px; font-size: 14px; }
+  :root[data-runtime="web"] .club-member { grid-template-columns: minmax(0, 1fr) 140px; }
+  :root[data-runtime="web"] .club-member-actions { grid-column: 1 / -1; }
+}

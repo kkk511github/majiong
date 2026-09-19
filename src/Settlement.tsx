@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useState } from "react";
 import { ArrowRight, ChevronRight, Copy, Trophy } from "lucide-react";
 import type { RoundRecord, Seat } from "../shared/types";
@@ -43,7 +44,7 @@ export function Settlement({
       `本金 ${baseline} 分 · 桌费 ${tableFee} 分/人 · 入桌 ${initial} 分 · 记分 = (桌上分 - ${baseline}${hasExternal ? " + 桌外记分" : ""}) × ${1 / (record.scoreDivisor ?? 1)}`,
     ].join("\n");
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setCopied("战绩已复制");
     } catch {
       setCopied("复制未成功，请使用系统截图保存");

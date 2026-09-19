@@ -1,3 +1,4 @@
+import { copyText } from "./clipboard";
 import { useEffect, useRef, useState } from "react";
 import {
   Copy,
@@ -166,7 +167,7 @@ export function ReplayPanel({
             <button
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(data.id);
+                  await copyText(data.id);
                   setCopied(true);
                 } catch {
                   setSearchOpen(true);

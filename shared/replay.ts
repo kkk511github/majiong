@@ -1,4 +1,5 @@
 import type { Game, ReplayFrame, Seat, Tile } from "./types";
+import { globalAnchorDiscards } from "./reference-rules";
 
 export function captureReplay(
   g: Game,
@@ -10,6 +11,7 @@ export function captureReplay(
   if (!g.replay || g.replay.id !== `${g.id}-${g.round}` || g.replay.endedAt)
     return;
   g.replay.frames.push({
+    globalAnchorDiscards: globalAnchorDiscards(g),
     at: now,
     type,
     seat,

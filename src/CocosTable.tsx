@@ -1,4 +1,6 @@
 import { ReadyDiscardArrows } from "./ReadyDiscardArrows";
+import { ScoreDebitOverlay } from "./ScoreDebitOverlay";
+import type { ScoreDebit } from "./score-debits";
 import { TableWinEffect } from "./TableWinEffect";
 import type { Result } from "../shared/types";
 import { TableControls } from "./TableControls";
@@ -20,6 +22,7 @@ export function CocosTable({
   embedded = false,
   connectionQuality,
   readyDiscards = [],
+  scoreDebits = [],
   winResult,
   onSurfaceInteraction,
   opening,
@@ -31,6 +34,7 @@ export function CocosTable({
   embedded?: boolean;
   connectionQuality?: string;
   readyDiscards?: number[];
+  scoreDebits?: ScoreDebit[];
   winResult?: Result;
   onSurfaceInteraction?: () => void;
   opening?: OpeningCue | null;
@@ -46,7 +50,8 @@ export function CocosTable({
   const [safeArea,setSafeArea] = useState<TableSafeArea>({left:0,right:0,top:0,bottom:0});
   const viewState=useMemo(()=>({...state,safeArea}),[state,safeArea]);
   const [channel,setChannel] = useState(createTableChannel);
-  const [failure,setFailure] = useState<"timeout"|"page"|"resources">("resources");
+  const [failure,setFailure] = useState<"timeout"|"page"|"resources"|"graphics">("resources");
+  const lastGraphicsRecovery = useRef(-Infinity);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -143,11 +148,34 @@ export function CocosTable({
     return () => clearTimeout(timeout);
   }, [status]);
   useEffect(() => {
+    const canvas = status === "ready" ? frame.current?.contentDocument?.querySelector("canvas") : null;
+    if (!canvas) return;
+    // Cocos' bundled WebGL renderer only logs context loss. Its state keeps
+    // advancing while no new cards can be painted. Recreate only the canvas
+    // page, then the ready handshake restores our latest authoritative view.
+    const lost = (event: Event) => {
+      event.preventDefault();
+      setDismissedOpening(opening?.key ?? "");
+      setFailure("graphics");
+      if (Date.now() - lastGraphicsRecovery.current < 30000) {
+        setStatus("error");
+        return;
+      }
+      lastGraphicsRecovery.current = Date.now();
+      setStatus("loading");
+      setChannel(createTableChannel());
+    };
+    canvas.addEventListener("webglcontextlost", lost);
+    return () => canvas.removeEventListener("webglcontextlost", lost);
+  }, [status, channel, opening?.key]);
+  useEffect(() => {
     // Pointer events in the canvas iframe do not bubble to App's document.
     // Resume synchronously within this trusted gesture (postMessage is too late).
     const doc = status === "ready" ? frame.current?.contentDocument : null;
     if (!doc) return;
     doc.addEventListener("pointerdown", gameAudio.unlock, { capture: true });
+    doc.addEventListener("pointerup", gameAudio.unlock, { capture: true });
+    doc.addEventListener("touchend", gameAudio.unlock, { capture: true, passive: true });
     const interact=()=>surfaceInteraction.current?.();
     doc.addEventListener("pointerup",interact);
     doc.addEventListener("keydown", gameAudio.unlock, { capture: true });
@@ -156,6 +184,8 @@ export function CocosTable({
         capture: true,
       });
       doc.removeEventListener("keydown", gameAudio.unlock, { capture: true });
+      doc.removeEventListener("pointerup", gameAudio.unlock, { capture: true });
+      doc.removeEventListener("touchend", gameAudio.unlock, { capture: true });
       doc.removeEventListener("pointerup",interact);
     };
   }, [status]);
@@ -181,12 +211,13 @@ export function CocosTable({
         <div className={`cocos-loading${status === "loading" ? " cocos-loading-pending" : ""}`} role="status" aria-label={status === "loading" ? "正在进入牌桌" : undefined}>
           {status === "loading" && <img src={openingScene} alt="" draggable={false} />}
           {status === "error" && <strong>
-            {{timeout:"牌桌加载超时",page:"牌桌页面未能打开",resources:"牌桌资源加载失败"}[failure]}
+            {{timeout:"牌桌加载超时",page:"牌桌页面未能打开",resources:"牌桌资源加载失败",graphics:"牌桌画面暂时中断"}[failure]}
           </strong>}
           {status === "error" && <p>可以重新加载牌桌，当前对局进度会保留。</p>}
           {status === "error" && (
             <button
               onClick={() => {
+                lastGraphicsRecovery.current = -Infinity;
                 setStatus("loading");
                 setChannel(createTableChannel());
               }}
@@ -208,6 +239,7 @@ export function CocosTable({
         <WinHintPanel state={viewState} onCommand={onCommand} readyDiscards={readyDiscards} />
       )}
       {status === "ready" && !embedded && <ReadyDiscardArrows state={state} tiles={readyDiscards} />}
+      {status === "ready" && !showingOpening && !embedded && <ScoreDebitOverlay state={viewState} events={scoreDebits} />}
       {status === "ready" && winResult && <TableWinEffect state={viewState} result={winResult} />}
       {children && <div className="cocos-voice">{children}</div>}
       {showingOpening && opening && <TableOpening key={opening.key} state={state} done={dismissOpening} tableReady={status === "ready"} />}

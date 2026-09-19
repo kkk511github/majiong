@@ -1,4 +1,4 @@
-import { globalLiability, recordGlobalAnchor } from "../shared/reference-rules";
+import { armGlobalAnchor, globalLiability, recordGlobalAnchor } from "../shared/reference-rules";
 import { describe, expect, it } from "vitest";
 import {
   act,
@@ -1149,6 +1149,8 @@ describe("规则图架牌、改支与照直", () => {
       from: ([1, 2, 3, 1] as Seat[])[i],
       concealed: false,
     }));
+    const retained=g.players[0]!.hand[0];
+    g.players[0]!.hand.push(92);armGlobalAnchor(g,0);g.players[0]!.hand=[retained];
     return g;
   }
   it("同花色前后两张才外包，不越过花色边界", () => {
@@ -1232,8 +1234,11 @@ it.each([
     from: ([1, 2, 3, 1] as Seat[])[i],
     concealed: false,
   }));
+  armGlobalAnchor(g, 0);
   g = act(g, 0, { type: "discard", tile: anchor * 4 });
   expect(g.ruleState!.globalAnchors![0]).toEqual({
+    source: "fourth-pung",
+    discardTile: anchor * 4,
     discardKind: anchor,
     waitKind: wait,
     changed: false,

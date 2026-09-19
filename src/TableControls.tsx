@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Home, Bot, Layers3, ScrollText, Settings, Check } from "lucide-react";
 import {
+  claimPrompt,
   sceneTileName,
   scenePlayerStatus,
+  tileKind,
   type TableSceneState,
   type TableSceneCommand,
 } from "../shared/table-scene";
 import "./table-controls.css";
 import { tableOverlayLayout } from "./table-overlay-layout";
+import { frameStyle, TILE_FRAMES } from "./tile-art";
+
+const actionHint = (id: string, robKong: boolean) =>
+  id === "pass" ? "暂不响应" : id === "pung" ? "收成一组" :
+  id === "kong" ? "四张成杠" : id === "hu" ? (robKong ? "抢杠胡" : "确认胡牌") : "选择杠牌";
 
 export function TableControls({
   state: s,
@@ -22,6 +29,12 @@ export function TableControls({
   const [actionsStyle, setActionsStyle] = useState<CSSProperties>({
     visibility: "hidden",
   });
+  const [sourceStyle, setSourceStyle] = useState<CSSProperties>({ visibility: "hidden" });
+  const [submittedAction, setSubmittedAction] = useState<string | null>(null);
+  // This is only button feedback. Legal choices and submission locking continue
+  // to come from the authoritative scene and the existing game-client request.
+  const actionContext = `${s.key}:${s.round}:${s.phase}:${s.pending?.from}:${s.pending?.tile}:${s.pending?.kind}:${s.pending?.answered}:${s.actions.map(a => `${a.id}-${a.tile ?? ""}`).join(",")}`;
+  useEffect(() => { if (!s.disabled) setSubmittedAction(null); }, [s.disabled, actionContext]);
   useEffect(() => {
     const parent = host.current?.parentElement,
       frame = parent?.querySelector("iframe");
@@ -34,7 +47,15 @@ export function TableControls({
         bottom: layout.actionBottom,
         right: layout.actionRight,
         maxWidth: layout.actionMaxWidth,
-      });
+        "--claim-scale": layout.scale,
+      } as CSSProperties);
+      setSourceStyle({
+        top: layout.sourceTop,
+        left: layout.sourceLeft,
+        width: layout.sourceWidth,
+        height: layout.sourceHeight,
+        "--claim-scale": layout.scale,
+      } as CSSProperties);
     };
     const observer = new ResizeObserver(resize);
     observer.observe(parent);
@@ -45,10 +66,12 @@ export function TableControls({
   const me = s.players.find((p) => p.seat === s.me),
     turn = s.players.find((p) => p.seat === s.turn);
   const source = s.pending && s.players.find((p) => p.seat === s.pending!.from);
+  const prompt = claimPrompt(s);
   const claimContext = s.pending
     ? `${source?.name ?? "牌友"}${s.pending.kind === "robKong" ? "补杠" : "打出"}${sceneTileName(s.pending.tile)}`
     : "";
   const ended = ["ended", "finished"].includes(s.phase);
+  const actions = [...s.actions.filter(a => a.id !== "pass"), ...s.actions.filter(a => a.id === "pass")];
   const activity = !s.connected
     ? "正在同步牌桌"
     : ended
@@ -128,6 +151,19 @@ export function TableControls({
           </button>
         </div>
       </nav>
+      {prompt && (
+        <aside className="table-claim-source" style={sourceStyle} aria-label="待响应牌" title={claimContext}>
+          <div className="table-claim-source-copy">
+            <span>{prompt.source}{prompt.kind === "robKong" ? "补杠" : "打出"}</span>
+            <strong>{prompt.name}</strong>
+          </div>
+          <span className="table-claim-tile" role="img" aria-label={prompt.name}
+            style={frameStyle(TILE_FRAMES[tileKind(prompt.tile)])} />
+          <small className="table-claim-source-status">
+            {!s.connected ? "等待连接恢复" : s.disabled ? "正在提交操作…" : "请选择操作"}
+          </small>
+        </aside>
+      )}
       {!!s.actions.length && (
         <div
           className="table-claim-actions"
@@ -136,26 +172,29 @@ export function TableControls({
           aria-label="碰杠胡操作"
           aria-busy={s.disabled}
         >
-          {s.actions.map((a, i) => (
+          {actions.map((a, i) => {
+            const actionKey = `${a.id}-${a.tile ?? i}`;
+            const chosen = s.disabled && submittedAction === `${actionContext}:${actionKey}`;
+            return (
             <button
-              key={`${a.id}-${a.tile ?? i}`}
-              className={
-                a.id === "pass" ? "claim-pass" : a.id === "hu" ? "claim-hu" : ""
-              }
+              key={actionKey}
+              className={`${a.id === "pass" ? "claim-pass" : a.id === "hu" ? "claim-main claim-hu" : "claim-main"}${chosen ? " is-chosen" : ""}`}
+              data-action={a.id}
               disabled={s.disabled || !s.connected}
               aria-label={
                 a.tile === undefined
                   ? a.label
                   : `${a.label} ${sceneTileName(a.tile)}`
               }
-              onClick={() =>
-                onCommand({ type: "action", action: a.id, tile: a.tile })
-              }
+              onClick={() => {
+                setSubmittedAction(`${actionContext}:${actionKey}`);
+                onCommand({ type: "action", action: a.id, tile: a.tile });
+              }}
             >
-              <span>{a.label}</span>
-              {a.tile !== undefined && <small>{sceneTileName(a.tile)}</small>}
+              <strong>{a.label}</strong>
+              <small>{chosen ? "提交中…" : a.tile !== undefined ? sceneTileName(a.tile) : actionHint(a.id, s.pending?.kind === "robKong")}</small>
             </button>
-          ))}
+          );})}
         </div>
       )}
       <div className="table-portrait-notice">

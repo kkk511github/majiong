@@ -83,10 +83,11 @@ function scoreNanjingBase(
     const add = (label: string, value: number) => {
       if (value) items.push({ label, value });
     };
-    let major = false;
-    const big = (label: string, value: number) => {
+    let major = false, flowerExempt = false;
+    const big = (label: string, value: number, exemptsFlowers = true) => {
       add(label, value);
       major = true;
+      flowerExempt ||= exemptsFlowers;
     };
     add("成牌", values.base);
     if (shape.seven && !windOnlyB)
@@ -134,14 +135,20 @@ function scoreNanjingBase(
               ((g[0] % 9 === 0 && g[2] === winKind) ||
                 (g[0] % 9 === 6 && g[0] === winKind)),
           );
-        if ((bProfile || middle || edge) && ctx.visiblePungs?.includes(winKind))
-          big("压绝", values.absolute);
+        // B-profile 压绝 is the sole middle wait on the fourth tile of another
+        // player's exposed pung. It remains a major result for the next round,
+        // but does not by itself waive this hand's hard-flower requirement.
+        const absolute = bProfile
+          ? middle && !p.melds.some((meld) => meld.type === "pung" && kind(meld.tiles[0]) === winKind)
+          : middle || edge;
+        if (absolute && ctx.visiblePungs?.includes(winKind))
+          big("压绝", values.absolute, !bProfile);
         else if (middle || edge) add(middle ? "压档" : "边枝", flower);
         else if (oneWait && shape.pair === winKind) add("独占", flower);
       }
     }
     if (!p.flowers.length && (bProfile || closed || major)) big("无花果", values.noFlower);
-    if (!closed && !major && p.flowers.length < rules.minimumFlowers) continue;
+    if (!closed && !flowerExempt && p.flowers.length < rules.minimumFlowers) continue;
     add(`硬花 ${p.flowers.length} × ${flower}`, p.flowers.length * flower);
     add(`软花 ${soft} × ${flower}`, soft * flower);
     let total = items.reduce((n, i) => n + i.value, 0);

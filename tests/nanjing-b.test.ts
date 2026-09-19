@@ -43,7 +43,7 @@ describe("用户提供的 B 档牌例：五花为软花与硬花的合计", () =
     ["混一色", () => player([0, 1, 2, 3, 4, 5, 6, 7, 8, 4, 4], 4, [27]), {}, 50],
     ["地胡", plain, { earthly: true }, 50],
     ["无花果", () => ({ ...plain(), flowers: [] }), {}, 40],
-    ["压绝", () => player([0, 2, 18, 19, 20, 21, 22, 23, 8, 8], 5, [9]), { tile: 4, visiblePungs: [1] }, 50],
+    ["压绝", () => player([0, 1, 2, 18, 19, 20, 21, 22, 23, 8, 8], 5, [9]), { winTile: 4, visiblePungs: [1] }, 50],
     ["清一色", () => player([1, 2, 3, 2, 3, 4, 5, 6, 7, 8, 8], 5, [0]), {}, 60],
     ["全球独钓", () => player([5, 5], 5, [0, 9, 18, 20]), {}, 100],
     ["七对", () => player([0, 0, 1, 1, 9, 9, 10, 10, 18, 18, 19, 19, 20, 20]), {}, 70],
@@ -229,11 +229,14 @@ it("B档直杠与暗杠保留门清，碰后补杠不恢复门清", () => {
   p.melds[0].concealed = true; p.melds[0].added = false;
   expect(scoreHand(p, rules)!.items).toContainEqual({ label: "门清", value: 10 });
 });
-it("明牌已碰的第四张即压绝，不限边张卡张；三种花色不多加缺门花", () => {
+it("两面听口胡到公开碰牌的第四张也不算压绝；三种花色不多加缺门花", () => {
   const p = player([3, 4, 5, 9, 10, 11, 19, 20, 22, 22], 5, [0]);
   const score = scoreHand(p, rules, { tile: 72, visiblePungs: [18] })!;
-  expect(score.total).toBe(50);
-  expect(score.items).toContainEqual({ label: "压绝", value: 30 });
+  expect(score.total).toBe(20);
+  expect(score.items.some(item => item.label === "压绝")).toBe(false);
+  expect(score.major).toBe(false);
+  const selfDraw = scoreHand({ ...p, hand: [...p.hand, 72] }, rules, { winTile: 72, visiblePungs: [18] })!;
+  expect(selfDraw).toEqual(score);
 });
 it("第二家桌内归零立即终桌，结算减本金100已包含桌费", () => {
   const ended = act(game(plain(), [330, 10, 0, 20]), 0, { type: "hu" }, 1000);

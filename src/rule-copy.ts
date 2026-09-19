@@ -49,6 +49,10 @@ export function ruleSections(
     "至少需要 4 个硬花",
     `至少需要 ${rules.minimumFlowers} 个硬花`,
   );
+  if (b) sections[1][1] = sections[1][1].replace(
+    "门清与大胡不受此限制",
+    "门清与压绝以外的大胡不受此限制。压绝本身不免硬花；同时满足其他大胡时可叠加计分并免硬花，零硬花仍按无花果规则",
+  );
   sections[2][1] = sections[2][1].replace("硬花每张 2", `硬花每张 ${factor}`);
   sections[3][1] = sections[3][1]
     .replace("每个 2 分", `每个 ${factor} 分`)
@@ -81,7 +85,7 @@ export function ruleSections(
     ];
     sections[3] = [
       "软花与补牌",
-      `缺一门、风刻、风对各 1 个软花；数字明杠 1、暗杠 2，风牌再加 1。独占、边枝、压档须唯一听口；${b ? "胡到公开碰牌的第四张，压绝" : "边枝、压档胡到公开碰牌的第四张，压绝"} ${v.absolute}，不另加该听口软花。直杠仍算门清，碰后补杠不算。小杠开花加 ${v.smallReplacement}；大杠开花${v.largeReplacementMultiplier === 2 ? "按整份胡牌分 ×2" : `加 ${v.largeReplacement}`}。${rules.seaBottom ? `牌墙最后不超过 4 张时自摸，海底捞月加 ${v.seaBottom}。` : "剩余 16 张流局。"}`,
+      `缺一门、风刻、风对各 1 个软花；数字明杠 1、暗杠 2，风牌再加 1。独占、边枝、压档须唯一听口；${b ? `只有唯一卡张，胡到其他玩家明碰的第四张才算压绝 ${v.absolute}，自摸、点炮均可，替代压档 ${factor}。两面、边张及自己已碰的牌不算压绝。压绝本身不免${rules.minimumFlowers}硬花；门清或其他大胡的免花资格仍有效，其他大胡及零硬花无花果可与合法压绝叠加` : `边枝、压档胡到公开碰牌的第四张，压绝 ${v.absolute}，不另加该听口软花`}。直杠仍算门清，碰后补杠不算。小杠开花加 ${v.smallReplacement}；大杠开花${v.largeReplacementMultiplier === 2 ? "按整份胡牌分 ×2" : `加 ${v.largeReplacement}`}。${rules.seaBottom ? `牌墙最后不超过 4 张时自摸，海底捞月加 ${v.seaBottom}。` : "剩余 16 张流局。"}`,
     ];
     sections[4] = [
       "杠与承包",

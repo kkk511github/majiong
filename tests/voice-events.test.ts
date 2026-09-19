@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { actionVoices, winPhrases } from "../src/voice-events";
+import { gameFeedback } from "../src/game-feedback";
 import { createGame, newPlayer, startRound, viewFor } from "../shared/engine";
 import { seededRandom } from "../shared/tiles";
 import type { Result } from "../shared/types";
@@ -69,17 +70,34 @@ describe("动作与胡牌语音", () => {
     c.revision++;
     expect(actionVoices(b, c)).toEqual([]);
   });
-  it("开局补花一次报补花，四家花牌都可展示；流局只报一次", () => {
+  it.each([1, 2])("第%i把初始补花不报语音，四家花牌仍可展示", (round) => {
     const a = fixture(),
       b = structuredClone(a);
-    a.round = 0;
+    a.round = round - 1;
+    b.round = round;
     b.revision++;
     b.players[0]!.flowers = [136];
     b.players[1]!.flowers = [140];
-    expect(actionVoices(a, b).filter((p) => p.phrase === "补花")).toHaveLength(
-      1,
+    expect(actionVoices(a, b)).toEqual([]);
+    expect(gameFeedback(a, b).filter((event) => event.type === "flower")).toHaveLength(
+      b.players.filter((player) => player?.flowers.length).length,
     );
-    a.round = b.round;
+  });
+  it("首把真正摸花正常报一次，重连恢复和重复快照不重报", () => {
+    const a = fixture();
+    a.players[0]!.flowers = [];
+    const b = structuredClone(a);
+    b.revision++;
+    b.players[0]!.flowers = [136, 140];
+    expect(actionVoices(a, b).map((event) => event.phrase)).toEqual(["补花"]);
+    expect(actionVoices(null, b)).toEqual([]);
+    expect(actionVoices(b, b)).toEqual([]);
+    expect(actionVoices(b, { ...b, revision: b.revision + 1 })).toEqual([]);
+  });
+  it("流局只报一次", () => {
+    const a = fixture(),
+      b = structuredClone(a);
+    b.revision++;
     b.result = {
       reason: "draw",
       winners: [],

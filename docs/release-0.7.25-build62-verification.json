@@ -1,0 +1,102 @@
+{
+  "version": "0.7.25",
+  "build": 62,
+  "iosSigning": "Ad Hoc export for user enterprise re-signing",
+  "iosPublishAllowed": false,
+  "iosPublishRule": "Only upload the IPA returned by the user after signing. Keep existing live iOS release meanwhile.",
+  "realDeviceInstallationTested": false,
+  "sameWebAssetsBothPlatforms": true,
+  "packages": {
+    "android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.25-build62.apk",
+      "bytes": 121524128,
+      "sha256": "9668a4fdfb8e9d94360f95e848541142aff4831337566c3203c6b7ca090c10ef",
+      "matchedWebFiles": 232,
+      "signatureVerified": true
+    },
+    "ios": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.25-build62-待企业签名.ipa",
+      "bytes": 121750743,
+      "sha256": "56871b04702aecdda94b5fe853ea69b50a9022936c68258fbb328eb2369a2044",
+      "matchedWebFiles": 232,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 757,
+  "browserChecks": {
+    "tableMotion": 18,
+    "appUpdateUi": 22,
+    "homeProfile": 19,
+    "distributionMock": 40,
+    "distributionLive": 8
+  },
+  "productionVerification": {
+    "checks": [
+      {
+        "engine": "chromium",
+        "platform": "android",
+        "embedded": false,
+        "passed": true
+      },
+      {
+        "engine": "chromium",
+        "platform": "ios",
+        "embedded": false,
+        "passed": true
+      },
+      {
+        "engine": "chromium",
+        "platform": "android",
+        "embedded": true,
+        "passed": true
+      },
+      {
+        "engine": "chromium",
+        "platform": "ios",
+        "embedded": true,
+        "passed": true
+      },
+      {
+        "engine": "webkit",
+        "platform": "android",
+        "embedded": false,
+        "passed": true
+      },
+      {
+        "engine": "webkit",
+        "platform": "ios",
+        "embedded": false,
+        "passed": true
+      },
+      {
+        "engine": "webkit",
+        "platform": "android",
+        "embedded": true,
+        "passed": true
+      },
+      {
+        "engine": "webkit",
+        "platform": "ios",
+        "embedded": true,
+        "passed": true
+      }
+    ],
+    "webAssetsMatch": true,
+    "corsVerified": true,
+    "androidDownloadedAndVerified": {
+      "id": "247db54dd42a67ad48643ed5",
+      "version": "0.7.25",
+      "build": "62",
+      "bytes": 121524128,
+      "sha256": "9668a4fdfb8e9d94360f95e848541142aff4831337566c3203c6b7ca090c10ef"
+    },
+    "iosUnchanged": {
+      "id": "a95d20346de845814fd68845",
+      "version": "0.7.24",
+      "build": "61",
+      "sha256": "26bcea1d07286cb69fabaf385d22c708e69a9abc590f487d217399f4248d1c21"
+    },
+    "nativeInstallationPerformed": false
+  },
+  "nativeInstallFlow": "Compiled and mock-bridge tested, no real device installation performed."
+}

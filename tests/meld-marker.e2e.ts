@@ -11,7 +11,7 @@ test('牌面金色来源箭头：四家、回放换位、补杠与暗杠',async(
    s.players.forEach((p:any)=>{p.handCount=1;p.hand=p.seat===me?[108]:[];p.flowers=[];
     p.melds=Array.from({length:3},(_,i)=>({type:'pung',tiles:[i*4,i*4+1,i*4+2],from:(p.seat+i+1)%4,concealed:false}));});
    c.state=s;c.draw();
-   return c.hud.children.filter((n:any)=>n.name.startsWith('source-meld-')).map((n:any)=>({id:n.name,rotation:n.eulerAngles.z,hasArrow:!!n.getComponent(cc.Sprite)?.spriteFrame?.texture,width:n.getComponent(cc.UITransform).width,x:n.position.x+640,y:295-n.position.y,middle:(window as any).__JINLING_TABLE_LAYOUT__.find((t:any)=>t.id===n.name.replace('source-',''))}));
+   return c.marks.children.filter((n:any)=>n.name.startsWith('source-meld-')).map((n:any)=>({id:n.name,rotation:n.eulerAngles.z,hasArrow:!!n.getComponent(cc.Sprite)?.spriteFrame?.texture,width:n.getComponent(cc.UITransform).width,x:n.position.x+640,y:295-n.position.y,middle:(window as any).__JINLING_TABLE_LAYOUT__.find((t:any)=>t.id===n.name.replace('source-',''))}));
   },me);
   expect(result).toHaveLength(12);
   for(const marker of result){
@@ -28,7 +28,7 @@ test('牌面金色来源箭头：四家、回放换位、补杠与暗杠',async(
   c.state.players[1].melds[0]={type:'kong',tiles:[0,1,2,3],from:2,concealed:false};
   c.state.players[1].melds[1]={type:'kong',tiles:[],from:1,concealed:true};c.draw();
  });
- const count=await page.evaluate(async()=>{const cc=await(window as any).System.import('cc'),c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');return c.hud.children.filter((n:any)=>n.name.startsWith('source-meld-')).length;});
+ const count=await page.evaluate(async()=>{const cc=await(window as any).System.import('cc'),c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');return c.marks.children.filter((n:any)=>n.name.startsWith('source-meld-')).length;});
  expect(count).toBe(11);
  // A normal table with a visible up/right/down/left supplier, for visual review.
  await page.evaluate(async()=>{

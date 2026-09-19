@@ -114,6 +114,29 @@ class UnifiedReleaseTests(unittest.TestCase):
         self.addCleanup(self.apk_patch.stop)
         self.addCleanup(self.ipa_patch.stop)
 
+    def test_public_update_api_cors_is_exact_and_management_stays_private(self):
+        app = self.install(version="0.7.25", version_code="62")
+        self.publish(app)
+        path = "/api/products/" + SLUG
+        for origin in ("capacitor://localhost", "https://localhost", "http://localhost", "https://212.189.31.46"):
+            status, headers, body = self.request("GET", path, headers={"Origin": origin})
+            self.assertEqual(status, 200)
+            self.assertEqual(headers.get("Access-Control-Allow-Origin"), origin)
+            self.assertNotIn("Access-Control-Allow-Credentials", headers)
+            variant = json.loads(body)["variants"][0]
+            self.assertEqual(variant["version_code"], "62")
+            self.assertEqual(variant["sha256"], app["sha256"])
+            self.assertEqual(variant["size"], app["size"])
+        for path_to_test, origin in ((path, "https://evil.example"), ("/api/admin/apps", "https://localhost"), ("/api/session", "capacitor://localhost")):
+            _, headers, _ = self.request("GET", path_to_test, headers={"Origin": origin})
+            self.assertNotIn("Access-Control-Allow-Origin", headers)
+        status, headers, _ = self.request("OPTIONS", path, headers={"Origin": "capacitor://localhost", "Access-Control-Request-Method": "GET"})
+        self.assertEqual(status, 204)
+        self.assertEqual(headers["Access-Control-Allow-Methods"], "GET, OPTIONS")
+        for method, route in (("POST", path), ("GET", "/api/admin/apps")):
+            status, _, _ = self.request("OPTIONS", route, headers={"Origin": "https://localhost", "Access-Control-Request-Method": method})
+            self.assertEqual(status, 403)
+
     def parse_fixture(self, source, icon):
         with zipfile.ZipFile(source) as archive:
             metadata = json.loads(archive.read("metadata.json"))

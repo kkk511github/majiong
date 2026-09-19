@@ -1,0 +1,33 @@
+.polished .app-update-dialog{width:min(540px,calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(var(--app-height) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));background:#fbf8ed;color:#254c3e;border:1px solid #d2bd82;border-radius:18px}
+.app-update-dialog .modal-head h2{font-size:22px;color:#234a3d}
+.app-update-dialog .modal-head .icon-button{color:#345b49;background:#e8ecdf}
+.polished .app-update-dialog .modal-body{overflow:auto;min-height:0;padding:18px 24px}
+.polished .app-update-dialog .modal-footer{padding:12px 24px 18px;border-top:1px solid #e2deca;flex:none;background:#fbf8ed}
+.polished .app-update-dialog .app-update-actions{margin-top:0}
+.polished .app-update-dialog .app-update-progress{padding:0 0 8px}
+.app-update-heading{display:flex;align-items:center;gap:15px;margin-bottom:18px}
+.app-update-heading img{width:62px;height:62px;object-fit:contain;border-radius:15px}
+.app-update-heading h3{margin:0 0 6px;font-size:23px;color:#234b3d}
+.app-update-heading p,.app-update-copy{margin:0;color:#6b786d;font-size:13px;line-height:1.7}
+.app-update-checking,.app-update-current{display:flex;align-items:center;gap:9px;color:#387352;font-size:15px;min-height:42px}
+.app-update-checking svg{animation:update-check-spin 1s linear infinite}
+.app-update-release{padding:17px 18px;border:1px solid #e1ddc9;background:#f2f3e7;border-radius:11px;margin-bottom:14px}
+.app-update-release>div{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.app-update-release strong{font-size:22px;color:#24513d}
+.app-update-release span{font-size:12px;color:#708073;font-variant-numeric:tabular-nums}
+.app-update-release p{margin:12px 0;white-space:pre-wrap;font-size:14px;line-height:1.65;color:#3d5b4b;max-height:130px;overflow:auto}
+.app-update-release small{display:block;margin-top:12px;font-size:12px;line-height:1.7;color:#718070}
+.app-update-progress{padding-top:13px;color:#315b45;font-size:14px}
+.app-update-progress progress{display:block;width:100%;height:9px;border:0;border-radius:9px;overflow:hidden;accent-color:#438469;margin:13px 0 8px;background:#e2e7d9}
+.app-update-progress progress::-webkit-progress-bar{background:#e2e7d9}
+.app-update-progress progress::-webkit-progress-value{background:#438469}
+.app-update-progress p{margin:8px 0;font-size:12px;line-height:1.7;color:#718070}
+.app-update-progress p span{float:right;font-variant-numeric:tabular-nums}
+.app-update-error{font-size:13px;line-height:1.7;color:#9c4b37;background:#f6e9dd;border-radius:8px;padding:10px 12px;overflow-wrap:anywhere}
+.app-update-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;flex-wrap:wrap}
+.app-update-actions button{min-height:44px;padding:9px 18px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:7px}
+.polished .app-update-actions .primary{box-shadow:none;background:#285c46;border-color:#3d7859;color:#fff4d0;text-shadow:none}
+.profile-update-entry{display:flex;align-items:center;gap:7px;margin-left:auto;min-height:44px;padding:8px 14px;border:1px solid #a1b49c60;border-radius:8px;background:#193d329c;color:#f8efd0;font-size:13px;white-space:nowrap}
+@keyframes update-check-spin{to{transform:rotate(360deg)}}
+@media(max-height:420px){.polished .app-update-dialog .modal-head{padding:8px 18px}.polished .app-update-dialog .modal-body{padding:12px 18px}.polished .app-update-dialog .modal-footer{padding:10px 18px}.app-update-heading{margin-bottom:10px}.app-update-heading img{width:45px;height:45px}.app-update-heading h3{font-size:20px}.app-update-release{padding:12px}.app-update-actions{margin-top:12px}}
+@media(prefers-reduced-motion:reduce){.app-update-checking svg{animation:none}}

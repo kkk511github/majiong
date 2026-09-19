@@ -35,6 +35,10 @@ async function table(page: Page) {
   const frame = page.frames().find(f => f !== page.mainFrame())!;
   await frame.waitForFunction(() => (window as any).__JINLING_TABLE_READY__ === true, undefined, { timeout: 30_000 });
   expect(await frame.evaluate(() => (window as any).__JINLING_MOTION_PREVIEW__)).toBeUndefined();
+  await frame.evaluate(async () => {
+    const win = window as any, cc = await win.System.import("cc");
+    win.__motionScene = cc.director.getScene()?.getChildByName("Canvas")?.getComponent("TableScene");
+  });
   await page.evaluate(({ channel }) => {
     (window as any).__motionCommands = [];
     window.addEventListener("message", event => {
@@ -43,9 +47,9 @@ async function table(page: Page) {
   }, { channel });
   const send = async (state: TableSceneState) => {
     await page.evaluate(({ channel, state }) => document.querySelector("iframe")!.contentWindow!.postMessage({ scope: "jinling-table-v1", channel, type: "state", state }, location.origin), { channel, state });
-    await frame.waitForFunction(async ({ key, revision, connected, disabled, selected }) => {
-      const win = window as any, cc = await win.System.import("cc"), scene = cc.director.getScene()?.getChildByName("Canvas")?.getComponent("TableScene");
-      return scene?.state?.key === key && scene.state.revision === revision && scene.state.connected === connected && scene.state.disabled === disabled && scene.state.selected === selected;
+    await frame.waitForFunction(({ key, revision, connected, disabled, selected }) => {
+      const scene = (window as any).__motionScene;
+      return scene?.state?.key === key && scene.state.revision === revision && scene.state.connected === connected && scene.state.disabled === disabled && scene.state.selected === selected && scene.motionSnapshot?.key === key && scene.motionSnapshot?.revision === revision && !scene.stateFrame;
     }, { key: state.key, revision: state.revision, connected: state.connected, disabled: state.disabled, selected: state.selected });
   };
   return { frame, send };
@@ -165,4 +169,59 @@ test("continuous replay retains its current action cue without animating seeks o
   await send({ ...step, selected: null }); expect((await inspect(frame)).effects).toBe(0);
   const seek = { ...step, revision: 30, effects: [{ key: "jumped-replay-pung", type: "pung", seat: 0 }] };
   await send(seek); expect((await inspect(frame)).effects).toBe(0); expect((await inspect(frame)).moving).toEqual([]);
+});
+
+test("clock updates retain the HUD, flower troughs, markers and contact shadows while a tile is flying", async ({ page }) => {
+  const { frame, send } = await table(page), before = fixture("retained-scene");
+  await send(before);
+  const identity = () => frame.evaluate(async () => {
+    const cc = await (window as any).System.import("cc"), scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
+    return { hud: scene.hud.uuid, racks: scene.racks.uuid, marks: scene.marks.uuid,
+      shadows: [...scene.shadows.values()].map((node: any) => node.uuid), clock: scene.countdownLabel.string,
+      tiles: [...scene.nodes.values()].map((node: any) => node.uuid) };
+  });
+  const first = await identity();
+  for (const countdown of ["9", "8", "7"]) {
+    await send({ ...before, countdown });
+    const current = await identity();
+    expect(current.clock).toBe(countdown);
+    expect({ ...current, clock: "10" }).toEqual(first);
+  }
+  const after = concealed(before); await send(after);
+  const flying = await identity(); expect((await inspect(frame)).moving.length).toBeGreaterThan(0);
+  await send({ ...after, countdown: "6" });
+  const during = await identity();
+  expect({ ...during, clock: flying.clock }).toEqual(flying);
+  await page.waitForTimeout(350); await settledMelds(frame);
+});
+
+test("same-frame snapshots paint once, retain confirmed cues and never stack a seat's action words", async ({ page }) => {
+  const { frame, send } = await table(page), before = fixture("batched-scene"); await send(before);
+  await frame.evaluate(async () => {
+    const cc = await (window as any).System.import("cc"), scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
+    const draw = scene.draw; (window as any).__drawCalls = 0;
+    scene.draw = function () { (window as any).__drawCalls++; return draw.call(this); };
+  });
+  const kong = concealed(before), replacement = structuredClone(kong);
+  replacement.revision++; replacement.drawn = 68; replacement.players[0].hand.push(68); replacement.players[0].handCount++;
+  replacement.effects = [{ key: "other-seat-flower", type: "flower", seat: 1 }];
+  await page.evaluate(({ channel, states }) => {
+    for (const state of states) document.querySelector("iframe")!.contentWindow!.postMessage({ scope: "jinling-table-v1", channel, type: "state", state }, location.origin);
+  }, { channel, states: [kong, replacement] });
+  await frame.waitForFunction(revision => {
+    const scene = (window as any).__motionScene;
+    return scene.motionSnapshot?.revision === revision && !scene.stateFrame;
+  }, replacement.revision);
+  const cues = () => frame.evaluate(async () => {
+    const cc = await (window as any).System.import("cc"), scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
+    return { draws: (window as any).__drawCalls, cues: [...scene.motionEffects].filter((node: any) => node.name.startsWith("motion-action-")).map((node: any) => ({
+      name: node.name, scale: node.scale.x, text: node.children[0]?.getComponent(cc.Label)?.string,
+    })) };
+  });
+  const batch = await cues(); expect(batch.draws).toBe(1);
+  expect(batch.cues.map(cue => cue.name).sort()).toEqual(["motion-action-0", "motion-action-1"]);
+  expect(batch.cues.every(cue => cue.scale === 1)).toBe(true);
+  await send({ ...replacement, effects: [{ key: "next-seat-flower", type: "flower", seat: 0 }] });
+  const fresh = (await cues()).cues.filter(cue => cue.name === "motion-action-0");
+  expect(fresh).toEqual([{ name: "motion-action-0", scale: 1, text: "补花" }]);
 });

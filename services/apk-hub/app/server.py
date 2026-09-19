@@ -137,6 +137,25 @@ def manifest_bytes(app):
     return plistlib.dumps(manifest, fmt=plistlib.FMT_XML, sort_keys=False)
 
 class Handler(BaseHTTPRequestHandler):
+    def update_cors(self):
+        # Only the public product read endpoint is callable from installed apps.
+        # Admin, upload, session and publishing endpoints retain same-origin access.
+        if urlparse(self.path).path != '/api/products/' + JINLING_SLUG:
+            return {}
+        origin = self.headers.get('Origin', '')
+        allowed = {'capacitor://localhost', 'https://localhost', 'http://localhost', 'https://212.189.31.46'}
+        if origin not in allowed:
+            return {}
+        return {'Access-Control-Allow-Origin': origin, 'Vary': 'Origin'}
+
+    def do_OPTIONS(self):
+        cors = self.update_cors()
+        method = self.headers.get('Access-Control-Request-Method', '')
+        headers = {h.strip().lower() for h in self.headers.get('Access-Control-Request-Headers', '').split(',') if h.strip()}
+        if not cors or method != 'GET' or not headers.issubset({'accept'}):
+            return self.send(403, {'error': '此来源或方法不允许跨域访问'})
+        return self.send(204, b'', extra={'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Accept', 'Access-Control-Max-Age': '600'})
+
     def send(self, code, body, mime='application/json', extra=None):
         if isinstance(body, (dict,list)): body=json.dumps(body,ensure_ascii=False).encode()
         if isinstance(body,str): body=body.encode()
@@ -148,7 +167,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Frame-Options','DENY')
         self.send_header('Cache-Control','no-store')
         self.send_header('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
-        for k,v in (extra or {}).items(): self.send_header(k,v)
+        for k,v in {**self.update_cors(), **(extra or {})}.items(): self.send_header(k,v)
         self.end_headers()
         if self.command != 'HEAD': self.wfile.write(body)
 

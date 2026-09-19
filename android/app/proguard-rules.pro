@@ -19,3 +19,6 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Local Capacitor bridge methods are discovered reflectively.
+-keep class com.jinling.mahjong.AppUpdatePlugin { *; }

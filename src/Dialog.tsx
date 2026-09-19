@@ -28,7 +28,7 @@ export function Dialog({
       ref={ref}
       className={`modal ${variant}`}
       aria-labelledby={titleId}
-      onCancel={close}
+      onCancel={(event) => { event.preventDefault(); close(); }}
       onClick={(e) => {
         if (e.target !== e.currentTarget) return;
         const bounds = e.currentTarget.getBoundingClientRect();

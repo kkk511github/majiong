@@ -40,6 +40,10 @@ export function winPhrases(result: Result, seat: Seat): string[] {
 
 export function actionVoices(before: View | null, after: View | null) {
   const events = gameFeedback(before, after);
+  // The initial flower racks are part of the deal, not live replacements.
+  // Do not enqueue them: decoding can otherwise finish after the entrance and
+  // announce a stale "补花" even though no player has just drawn a flower.
+  const dealing = events.some((event) => event.type === "deal");
   const phrases: { key: string; phrase: string }[] = [];
   for (const e of events) {
     const add = (phrase: string) =>
@@ -47,7 +51,7 @@ export function actionVoices(before: View | null, after: View | null) {
     if (e.type === "pung") add("碰");
     if (e.type === "kong")
       add(e.concealed ? "暗杠" : e.upgraded ? "补杠" : "杠");
-    if (e.type === "flower") add("补花");
+    if (e.type === "flower" && !dealing) add("补花");
     if (e.type === "hu" && after?.result)
       add("胡了");
   }

@@ -6,6 +6,7 @@ import { NetworkDiagnostics } from "./NetworkDiagnostics";
 import { networkLabel } from "./network-health";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
+import { AppUpdate } from "./AppUpdate";
 import { CocosTable } from "./CocosTable";
 import { useScoreDebits } from "./useScoreDebits";
 import { openingScene, openingTitle, type OpeningCue } from "./TableOpening";
@@ -47,6 +48,7 @@ import {
   Plus,
   Play,
   RotateCw,
+  RefreshCw,
   Settings,
   ShieldCheck,
   Users,
@@ -148,6 +150,7 @@ function Avatar({
 }
 
 export function App() {
+  const [updateRequest, setUpdateRequest] = useState(0);
   const [scoreDetailsKey, setScoreDetailsKey] = useState("");
   const state = useSyncExternalStore(client.subscribe, client.snapshot);
   const [page, setPage] = useState<Page>("home"),
@@ -600,6 +603,7 @@ export function App() {
           </span>
         </button>
         {!v && page === "profile" && <h1 className="profile-header-title">我的</h1>}
+        {!v && page === "profile" && <button className="profile-update-entry" onClick={() => setUpdateRequest(n => n + 1)}><RefreshCw size={16} />检查更新</button>}
         <div className="header-right">
           <span className="header-note">{name}</span>
           <button
@@ -870,6 +874,7 @@ export function App() {
         </CocosTable>
       )}
       <AudioRecovery />
+      <AppUpdate canPrompt={!v && modal === null} request={updateRequest} />
       {!v && (
         <nav className="bottom-nav" aria-label="主导航">
           {(
@@ -1122,6 +1127,7 @@ export function App() {
             <ChevronRight size={18} />
           </button>
           <AudioSettings value={audioPreferences} change={changeAudio} />
+          {!v && <button className="setting-row" onClick={() => { setModal(null); setUpdateRequest(n => n + 1); }}><span><RefreshCw size={20} />检查应用更新</span><ChevronRight size={18} /></button>}
           <AudioRecovery diagnostics />
           <NetworkDiagnostics health={state.network} online={state.mode==="online"} retry={client.retryNetwork}/>
           <p className="muted">设置会保存在当前设备。</p>

@@ -11,8 +11,11 @@
   overflow: hidden;
 }
 .polished[data-page="home"]:not(.in-room)::before {
-  background: url("/lobby-scene.png") center 56% / cover no-repeat;
-  filter: brightness(0.9);
+  inset: 0;
+  background:
+    linear-gradient(90deg, #052d246b, #052d2424 58%, #052d2440),
+    url("/art/lobby-panorama-v2.webp") center center / cover no-repeat;
+  filter: none;
 }
 .polished[data-page="home"] > .site-header {
   flex: 0 0 auto;
@@ -67,10 +70,10 @@
   height: calc(var(--home-nav) + env(safe-area-inset-bottom));
   padding: 0 max(24px, env(safe-area-inset-right)) env(safe-area-inset-bottom)
     max(24px, env(safe-area-inset-left));
-  background: #163e37eb;
+  background: linear-gradient(#123c32c9, #10362edf);
   border-top: 1px solid #e2e8d87a;
   box-shadow: none;
-  backdrop-filter: blur(12px);
+  backdrop-filter: none;
 }
 .polished[data-page="home"] .bottom-nav button {
   flex-direction: row;

@@ -11,6 +11,7 @@ import {
 import { createGame, newPlayer, startRound, viewFor } from "../shared/engine";
 import { seededRandom } from "../shared/tiles";
 import type { Seat } from "../shared/types";
+import { actionVoices } from "../src/voice-events";
 
 function before() {
   const g = createGame("voice", "voice-session");
@@ -265,6 +266,50 @@ describe("四家报牌", () => {
     expect(sources[0].start).toHaveBeenCalledWith(0, 2, 0.8);
     player.dispose();
     vi.restoreAllMocks();
+  });
+  it("初始补花不会在开局动画后的慢解码恢复时补播，真实补花与断线恢复保持正确", async () => {
+    vi.useFakeTimers();
+    const { player, context, sources } = fixture();
+    player.setPack(voicePacks.male);
+    let decode!: (buffer: any) => void;
+    context.decodeAudioData.mockImplementation(
+      () => new Promise((resolve) => { decode = resolve; }),
+    );
+    player.setEnabled(true);
+    const started = before();
+    started.players[0]!.flowers = [136];
+    const waiting = structuredClone(started);
+    waiting.round = 0;
+    waiting.revision--;
+    const dispatch = (prior: typeof started | null, next: typeof started) =>
+      actionVoices(prior, next).forEach(({ key, phrase }) => player.say(key, phrase));
+    dispatch(waiting, started);
+    // Decode after the 2.2s opening, but before the old 5.5s voice expiry.
+    await vi.advanceTimersByTimeAsync(3000);
+    decode({ duration: 100 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sources).toHaveLength(0);
+
+    const drawn = structuredClone(started);
+    drawn.revision++;
+    drawn.players[0]!.flowers.push(140);
+    dispatch(started, drawn);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sources).toHaveLength(1);
+    expect(sources[0].start).toHaveBeenCalledWith(0, ...voicePacks.male.actions["补花"]);
+
+    const next = structuredClone(drawn);
+    next.revision++;
+    next.players[0]!.flowers.push(141);
+    dispatch(drawn, next);
+    // App's disconnect/visibility path calls stopVoice; the restored snapshot
+    // establishes a new baseline and must neither resume nor re-enqueue it.
+    player.stop();
+    expect(sources[0].stop).toHaveBeenCalledOnce();
+    dispatch(null, next);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(sources).toHaveLength(1);
+    player.dispose();
   });
 });
 

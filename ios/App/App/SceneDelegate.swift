@@ -40,6 +40,7 @@ final class MahjongTrustPlugin: CAPPlugin, CAPBridgedPlugin {
 final class MahjongBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(MahjongTrustPlugin())
+        bridge?.registerPluginInstance(AppUpdatePlugin())
     }
 }
 

@@ -89,3 +89,69 @@ dialog .upload-update-help{font-size:12px;line-height:1.8;color:#6f819d;backgrou
 .install-copy-url{width:100%;border:1px solid #d8e5df;border-radius:7px;background:#fafcfb;color:#586c63;padding:12px 10px;margin-top:8px;font-size:12px;user-select:all;-webkit-user-select:all}
 @media(max-height:650px){.embedded-install-content{padding-top:138px}.embedded-install-content>.app-icon{width:88px;height:88px;border-radius:21px}.embedded-install-content h1{margin-top:18px}.embedded-release{margin-top:20px;padding-top:17px}.embedded-limit{margin:20px 0 16px}}
 @media(min-width:700px){.embedded-install-content{max-width:360px}.open-browser-tip{right:24px}.install-ribbon{width:95px;height:325px}}
+
+/* The permanent Mahjong link has its own identity; the app directory and
+   embedded-browser guide keep their existing styles. */
+.mahjong-install{--ink:#243c35;--muted:#7d887d;--blue:#235b48;--line:#e7e7db;min-height:100vh;min-height:100svh;overflow:hidden;position:relative;isolation:isolate;color:#f5f1df;background:radial-gradient(ellipse at 15% 24%,#285e4e 0,transparent 49%),radial-gradient(ellipse at 100% 100%,#254d3b 0,transparent 42%),#102d25}
+.mahjong-install:before,.mahjong-install:after{content:"";position:absolute;pointer-events:none;z-index:-1;border:1px solid #bba66c18;border-radius:50%;width:730px;height:730px;left:-420px;top:40px}
+.mahjong-install:after{width:800px;height:800px;left:auto;right:-510px;top:auto;bottom:-500px;border-width:60px;border-color:#bba66c08}
+.mahjong-install-header{background:transparent;border:0;display:flex;align-items:center;justify-content:space-between;max-width:1120px;padding:30px 38px;margin:auto}
+.mahjong-wordmark{display:flex;align-items:center;gap:12px;font-weight:600;font-size:17px;letter-spacing:2px;color:#f5edcf}
+.mahjong-wordmark>span{display:grid;place-items:center;width:37px;height:37px;border:1px solid #c9b47880;border-radius:8px;color:#d7c28b;font-family:"Songti SC",SimSun,serif;font-size:24px;line-height:1}
+.mahjong-wordmark small{display:block;font-size:8px;letter-spacing:2.1px;color:#8b9d86;font-weight:400;line-height:1.4;margin-top:3px}
+.mahjong-install-label{font-size:12px;color:#a3b09a;letter-spacing:2px}
+.mahjong-install-main{max-width:1040px;margin:28px auto 48px;padding:0 30px;display:grid;grid-template-columns:1fr 460px;gap:80px;align-items:start}
+.mahjong-install-hero{padding:49px 0 35px}
+.mahjong-icon-frame{display:inline-flex;border-radius:28px;padding:7px;background:#d9c69117;border:1px solid #d9c69124;box-shadow:0 18px 45px #071c2230;margin-bottom:32px}
+.mahjong-icon-frame>.app-icon{width:100px;height:100px;border-radius:21px;font-size:48px}
+.mahjong-icon-fallback{background:linear-gradient(145deg,#416a4b,#1d392c);color:#efe1ae}
+.mahjong-install-eyebrow{font-size:12px;color:#bba979;letter-spacing:4px}
+.mahjong-install-hero h1{color:#f3ead2;font-family:"Songti SC","STSong","Noto Serif CJK SC",SimSun,serif;font-size:54px;font-weight:700;line-height:1.2;letter-spacing:6px;margin:15px 0 22px}
+.mahjong-install-intro{font-size:15px;line-height:2;color:#b6c1ae;letter-spacing:1px}
+.mahjong-device-pills{display:flex;gap:10px;margin-top:28px}
+.mahjong-device-pills span{display:inline-flex;align-items:center;gap:6px;border:1px solid #b5c19b24;border-radius:99px;padding:6px 12px;color:#aebb9f;font-size:11px}
+.mahjong-hero-note{font-size:11px;color:#778f7a;margin-top:46px;letter-spacing:1px}
+.mahjong-install-panels{min-width:0}
+.mahjong-install-card{background:#fbfaf2;border:1px solid #ecdeba40;border-radius:24px;padding:29px 30px 26px;box-shadow:0 22px 80px #061e2330;color:var(--ink)}
+.mahjong-card-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.mahjong-card-heading h2{font-size:20px;font-weight:600;letter-spacing:1px}
+.mahjong-card-heading>span{border:1px solid #d8dec7;background:#f0f2e6;color:#65805b;border-radius:5px;padding:2px 7px;font-size:10px;letter-spacing:1px}
+.mahjong-install .product-platforms{background:#eeeee3;border:1px solid #e5e7db;border-radius:12px;padding:4px;gap:5px}
+.mahjong-install .product-platform{min-height:45px;font-size:13px;color:#879184;padding:9px 5px}
+.mahjong-install .product-platform.selected{background:#fffef7;border-color:#daddc8;color:#2a5642;box-shadow:0 2px 5px #41513509}
+.mahjong-install .device-detected{font-size:11px;color:#84907f;margin:10px 0 21px}
+.mahjong-release-facts{display:grid;grid-template-columns:1fr .7fr 1fr;margin:0;padding:18px 0;border-top:1px solid #e7e7dc;border-bottom:1px solid #e7e7dc;gap:6px}
+.mahjong-release-facts>div+div{border-left:1px solid #e7e7dc;padding-left:18px}
+.mahjong-release-facts dt{color:#90998a;font-size:10px;letter-spacing:.5px;margin-bottom:7px}
+.mahjong-release-facts dd{font-size:14px;font-weight:600;color:#435c49;margin:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.mahjong-release-date{font-size:10px;color:#8b967f;display:flex;align-items:center;gap:5px;margin:12px 0 0;font-variant-numeric:tabular-nums}
+.mahjong-device-requirement{font-size:11px;color:#7b886f;margin-top:5px}
+.mahjong-install .product-version .detail-actions{margin-top:23px}
+.mahjong-install .primary{background:linear-gradient(110deg,#30674f,#235340);color:#fffae6;box-shadow:0 7px 20px #235b481a;border:1px solid #37654b;font-size:14px;min-height:49px;border-radius:11px;letter-spacing:.5px}
+.mahjong-install .primary:hover{background:#214b38}
+.mahjong-install .install-unavailable:disabled{background:#e8eadd;border-color:#e0e3d5;color:#8a9480;box-shadow:none}
+.mahjong-install .installation-note{font-size:11px;color:#8b9382;line-height:1.85;margin-top:12px}
+.mahjong-install .installation-warning{font-size:11px;background:#f8eed9;border-color:#ecddba;color:#97763c;line-height:1.8;margin-top:12px}
+.mahjong-install .source-download{font-size:10px;color:#7b886e;margin-top:10px;min-height:26px}
+.mahjong-install .download-status{background:#eaf0e4;color:#55754a;font-size:11px}
+.mahjong-install .product-unavailable{background:#eff1e6;color:#768365;border:1px solid #e1e6d2;margin:22px 0 5px;line-height:1.9}
+.mahjong-release-notes{margin-top:18px;padding-top:16px;border-top:1px solid #e7e7dc}
+.mahjong-release-notes summary{cursor:pointer;font-size:12px;color:#596f4e;list-style:none;display:flex;align-items:center;justify-content:space-between;min-height:28px}
+.mahjong-release-notes summary::-webkit-details-marker{display:none}
+.mahjong-release-notes summary span{font-size:18px;color:#89997a;font-weight:300}
+.mahjong-release-notes[open] summary span{transform:rotate(45deg)}
+.mahjong-release-notes p{font-size:11px;line-height:1.9;color:#8b947f;margin-top:10px;overflow-wrap:anywhere}
+.mahjong-install-share{border:1px solid #bacaa11c;background:#c8d4ad08;margin:15px 0 0;border-radius:17px;padding:19px 24px}
+.mahjong-install-share h3{font-size:12px;font-weight:500;color:#bdc5af;letter-spacing:1px}
+.mahjong-install-share p{font-size:10px;color:#80987c;margin-top:5px}
+.mahjong-install-share .share-controls{gap:8px;margin-top:11px;flex-wrap:nowrap}
+.mahjong-install-share .share-controls input{min-width:0;flex-basis:auto;background:#0d281f60;border-color:#8eac801f;border-radius:7px;color:#869e7e;padding:9px 8px;font-size:10px}
+.mahjong-install-share .share-controls button{width:auto;min-height:36px;padding:7px 11px;border-color:#a9b17a47;border-radius:7px;background:#d8c38f11;color:#c1b98e;font-size:10px}
+.mahjong-install a:focus-visible,.mahjong-install button:focus-visible,.mahjong-release-notes summary:focus-visible{outline-color:#c4ab71}
+.mahjong-install-footer{border-top:1px solid #aabc9114;margin:0 auto;padding:23px 38px 28px;max-width:1040px;color:#617c68;font-size:10px;display:flex;flex-direction:row;justify-content:space-between;letter-spacing:1px}
+.mahjong-install-error{max-width:600px;min-height:calc(100svh - 210px);margin:auto;padding:100px 25px;text-align:center}
+.mahjong-install-error h1{font-size:25px;letter-spacing:1px}
+.mahjong-install-error p{color:#aabd9f;font-size:13px;margin:15px 0 27px}
+@media(max-width:850px){.mahjong-install-main{grid-template-columns:1fr 410px;gap:30px;padding:0 25px}.mahjong-install-hero h1{font-size:42px;letter-spacing:4px}.mahjong-install-card{padding:27px 26px}.mahjong-install-header{padding:26px 26px}}
+@media(max-width:700px){.mahjong-install-header{padding:22px 24px 16px}.mahjong-wordmark{font-size:14px;gap:9px}.mahjong-wordmark>span{width:31px;height:31px;font-size:20px}.mahjong-wordmark small{font-size:7px;letter-spacing:1.6px}.mahjong-install-label{font-size:10px}.mahjong-install-main{display:block;max-width:500px;padding:0 22px;margin:0 auto 29px}.mahjong-install-hero{text-align:center;padding:25px 0 29px}.mahjong-icon-frame{padding:5px;border-radius:24px;margin-bottom:19px}.mahjong-icon-frame>.app-icon{width:84px;height:84px;border-radius:18px}.mahjong-install-eyebrow{font-size:10px;letter-spacing:3px}.mahjong-install-hero h1{font-size:37px;letter-spacing:4px;margin:10px 0 12px}.mahjong-install-intro{font-size:12px;line-height:1.7;color:#9eb096}.mahjong-install-intro br{display:none}.mahjong-device-pills,.mahjong-hero-note{display:none}.mahjong-install-card{padding:23px 23px 22px;border-radius:20px}.mahjong-card-heading{margin-bottom:19px}.mahjong-card-heading h2{font-size:17px}.mahjong-release-facts dd{font-size:13px}.mahjong-release-facts>div+div{padding-left:11px}.mahjong-install-share{padding:17px 20px;border-radius:15px}.mahjong-install-footer{margin:0 22px;padding:19px 0 23px;font-size:9px}.mahjong-install:before{width:600px;height:600px;left:-400px;top:0}}
+@media(max-width:350px){.mahjong-install-main{padding:0 15px}.mahjong-install-card{padding:21px 18px}.mahjong-install-hero{padding-top:19px}.mahjong-icon-frame>.app-icon{width:72px;height:72px}.mahjong-install-hero h1{font-size:32px}.mahjong-install-intro{font-size:11px}.mahjong-install .product-platform{font-size:11px;gap:5px}.mahjong-install-share{padding:16px}.mahjong-release-facts dd{font-size:11px}}

@@ -50,29 +50,37 @@ function standalonePage(a){
 }
 function deviceInfo(){
  const ua=navigator.userAgent||'',ios=/iPad|iPhone|iPod/i.test(ua)||(/Mac/i.test(navigator.platform||ua)&&navigator.maxTouchPoints>1);
- return {platform:ios?'ios':/Android/i.test(ua)?'android':'desktop',embedded:/MicroMessenger|\bQQ\//i.test(ua)};
+ const host=/MicroMessenger/i.test(ua)?'微信':/\bQQ\//i.test(ua)?'QQ':'';
+ return {platform:ios?'ios':/Android/i.test(ua)?'android':'desktop',embedded:!!host,host};
 }
-function safariLaunchURL(value){
- try{
-  const url=new URL(value,location.origin);
-  if(url.protocol!=='https:'||url.origin!==location.origin||url.pathname!=='/app/jinling-mahjong'||url.username||url.password||url.search||url.hash)return '';
-  return url.href.replace(/^https:/,'x-safari-https:');
- }catch{return ''}
+function embeddedInstallPage({name,chosen,display,requested,device}){
+ const url=location.origin+'/app/jinling-mahjong',browser=requested==='ios'?'Safari':'手机浏览器';
+ const updated=chosen&&Number(chosen.created)>0?new Date(chosen.created*1000):null;
+ const date=updated&&!Number.isNaN(updated.getTime())?updated.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(/\//g,'-'):'';
+ const ribbon=`<svg viewBox="0 0 76 260" fill="none" aria-hidden="true"><path d="m-20-22 80 64-80 64 80 64-80 64" stroke="#53b6a7" stroke-width="16"/><path d="m-42-10 80 64-80 64 80 64-80 64" stroke="#edd097" stroke-width="14"/></svg>`;
+ $('#app').innerHTML=`<main class="embedded-install-page"><div class="install-ribbon install-ribbon-left">${ribbon}</div><div class="install-ribbon install-ribbon-right">${ribbon}</div><aside class="open-browser-tip" aria-label="在浏览器中打开指引"><span>请点击右上角</span><strong>选择“浏览器中打开”</strong></aside><section class="embedded-install-content" aria-label="${esc(name)}安装引导">${display?badge(display):'<div class="app-icon blue">麻</div>'}<h1>${esc(name)}</h1><p class="embedded-platform">${icon('phone',16)} ${requested==='ios'?'iOS · iPhone / iPad':'Android · 安卓手机'}</p><div class="embedded-release">${chosen?`<p>V${esc(chosen.version)}${chosen.version_code?' (Build '+esc(chosen.version_code)+')':''} <span>·</span> ${mb(chosen.size)}</p>${date?`<p>更新于 ${esc(date)}</p>`:''}`:`<p>${requested==='ios'?'iOS':'Android'} 安装包暂未提供</p>`}</div><p class="embedded-limit">${esc(device.host)}内无法下载安装应用</p><div class="embedded-copy"><button type="button" data-copy-install>复制安装链接 ${icon('arrow',16)}</button><p class="embedded-copy-help">也可复制链接，到${browser}中粘贴打开</p><p id="install-copy-status" role="status" aria-live="polite" aria-atomic="true"></p><input class="install-copy-url" aria-label="安装链接，可长按复制" readonly value="${esc(url)}" hidden></div></section></main>`;
+ const button=$('[data-copy-install]'),status=$('#install-copy-status'),input=$('.install-copy-url');
+ button.onclick=async()=>{
+  button.disabled=true;status.textContent='正在复制…';
+  try{
+   await navigator.clipboard.writeText(url);
+   input.hidden=true;status.textContent='链接已复制，请到'+browser+'中粘贴打开。';
+  }catch{
+   input.hidden=false;input.focus();input.select();input.setSelectionRange(0,input.value.length);
+   status.textContent='请长按下方链接，选择“复制”，再到'+browser+'中打开。';
+  }finally{button.disabled=false}
+ };
 }
 function productPage(product,selected){
  const device=deviceInfo(),variants=Array.isArray(product.variants)?product.variants.filter(a=>a&&['android','ios'].includes(a.platform)&&a.published&&downloadURL(a)):[];
  const requested=selected||(device.platform==='desktop'?(variants.some(a=>a.platform==='android')?'android':'ios'):device.platform);
  const chosen=variants.find(a=>a.platform===requested),display=chosen||variants[0];
  const url=publicLink(product.share_url,'/app/jinling-mahjong')||location.origin+'/app/jinling-mahjong',name=String(product.name||'金陵麻将');
- const browserName=requested==='ios'?'Safari':'系统浏览器';
  const detected=selected?'当前查看 '+(requested==='ios'?'iPhone / iPad':'Android')+' 版本。':device.platform==='desktop'?'请选择需要安装的平台。':'已识别'+(device.platform==='ios'?' iPhone / iPad':' Android 手机')+'，已为你选择对应平台。';
  document.title=name+' · 手机安装';
+ if(device.embedded){embeddedInstallPage({name,chosen,display,requested,device});return}
  let actions='';
  if(!chosen){actions=`<div class="product-unavailable" role="status">${requested==='ios'?'iOS':'Android'} 安装包暂未提供，请稍后再试。</div>`}
- else if(device.embedded){
-  const safari=device.platform==='ios'&&requested==='ios'?safariLaunchURL(location.origin+'/app/jinling-mahjong'):'';
-  actions=`${safari?`<div class="detail-actions safari-launch"><a class="primary full" data-open-safari href="${esc(safari)}">${icon('arrow',20)} 尝试用 Safari 打开</a></div><p id="safari-launch-status" class="safari-launch-status" role="status" aria-live="polite" hidden></p>`:''}<section class="browser-guide" role="status">${icon('phone',24)}<div><strong>请在${browserName}中打开安装</strong><p>${safari?'如果点击按钮后未跳转，':''}点击右上角菜单，选择“${requested==='ios'?'在 Safari 中打开':'在浏览器中打开'}”。也可以复制下方链接，在${browserName}中粘贴打开。</p></div></section>${requested==='ios'?`<p class="installation-note">${esc(iosNote(chosen))}</p>`:''}`;
- }
  else{
   actions=appActions(chosen,true);
   if(requested==='android')actions+=`<p class="installation-note">下载完成后，点击浏览器的下载通知或下载列表中的 APK，按系统提示安装。</p><p class="download-status" id="product-download-status" role="status" hidden></p>`;
@@ -80,13 +88,6 @@ function productPage(product,selected){
  }
  shell(`<main class="standalone-page product-page"><article class="standalone-card product-card"><div class="product-heading">${display?badge(display):'<div class="app-icon blue">麻</div>'}<div><span class="product-eyebrow">手机安装</span><h1>${esc(name)}</h1></div></div><p class="product-intro">Android 与 iOS 共用一个链接，始终提供已发布的最新安装包。</p><div class="product-platforms" role="group" aria-label="选择安装平台">${[['android','Android'],['ios','iPhone / iPad']].map(([value,label])=>`<button type="button" data-product-platform="${value}" class="product-platform ${requested===value?'selected':''}" aria-pressed="${requested===value}">${icon('phone',19)} ${label}</button>`).join('')}</div><p class="device-detected">${detected}</p><section class="product-version" aria-label="当前平台版本">${chosen?`<div class="detail-meta"><span class="product-platform-label">${platformName(chosen)}</span> v${esc(chosen.version)} <span>·</span> ${mb(chosen.size)}${requested==='ios'&&chosen.minimum_os_version?' <span>·</span> iOS '+esc(chosen.minimum_os_version)+' 及以上':''}</div>${chosen.description?`<p class="standalone-description">${esc(chosen.description)}</p>`:''}`:''}${actions}</section><section class="share-section product-share"><h3>固定安装链接</h3><p>分享给朋友或收藏此页，更新后无需更换链接。</p><div class="share-controls"><input aria-label="固定安装链接" readonly value="${esc(url)}"><button type="button" class="secondary" data-copy-share>复制链接</button></div></section>${chosen&&chosen.notes?`<section class="standalone-notes"><h2>版本说明</h2><p class="pre">${esc(chosen.notes)}</p></section>`:''}</article></main>`);
  wireShare($('#app'));
- const safariButton=$('[data-open-safari]');
- if(safariButton)safariButton.onclick=()=>{
-  // Leave the anchor's native navigation synchronous with this user gesture.
-  // The host app can refuse it; visibility changes cannot prove success.
-  const status=$('#safari-launch-status');status.hidden=false;
-  status.textContent='如果 Safari 没有打开，请点右上角菜单，或复制下方链接到 Safari。';
- };
  document.querySelectorAll('[data-product-platform]').forEach(button=>button.onclick=()=>{productPage(product,button.dataset.productPlatform);document.querySelector(`[data-product-platform="${button.dataset.productPlatform}"]`).focus()});
  if(chosen&&requested==='android'&&!device.embedded){const link=$('.product-version .detail-actions a');if(link)link.onclick=()=>{const message=$('#product-download-status');message.hidden=false;message.textContent='下载已交给浏览器。下载完成后请打开 APK；安装仍需你在系统界面确认。'}}
 }

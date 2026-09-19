@@ -59,14 +59,33 @@ dialog h2{overflow-wrap:anywhere}
 .product-share{margin-bottom:0;margin-top:28px}
 .product-share h3{font-size:14px}
 .product-share .share-controls{margin-top:12px}
-.browser-guide{display:flex;gap:12px;background:#edf3ff;border:1px solid #dce7fc;border-radius:11px;padding:17px;margin-top:20px;color:#4972b4}
-.browser-guide>svg{flex-shrink:0;margin-top:2px}
-.browser-guide strong{font-size:15px}
-.browser-guide p{font-size:13px;line-height:1.9;margin-top:7px;color:#6b80a2}
-.safari-launch-status{font-size:12px;line-height:1.8;color:#6b80a2;margin:12px 0}
-.safari-launch .primary{min-height:50px}
 .download-status{background:#f1f7ff;border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.8;color:#637fa8;margin-top:12px}
 .product-unavailable{font-size:14px;color:#8290a4;background:#f5f7fb;border-radius:9px;padding:18px}
 dialog .upload-update-help{font-size:12px;line-height:1.8;color:#6f819d;background:#f2f6ff;border-radius:8px;padding:12px 14px;margin-top:-6px}
 #upload-share .share-section{margin-top:12px}
-@media(max-width:650px){.product-heading{gap:16px}.product-heading>.app-icon{width:68px;height:68px;border-radius:17px}.product-heading h1{font-size:25px}.product-platform{font-size:13px;gap:6px}.product-platform svg{width:17px}.product-intro{font-size:13px}.product-share .share-controls button{min-height:42px}.browser-guide{padding:14px;gap:9px}.product-version .detail-meta{gap:5px}}
+@media(max-width:650px){.product-heading{gap:16px}.product-heading>.app-icon{width:68px;height:68px;border-radius:17px}.product-heading h1{font-size:25px}.product-platform{font-size:13px;gap:6px}.product-platform svg{width:17px}.product-intro{font-size:13px}.product-share .share-controls button{min-height:42px}.product-version .detail-meta{gap:5px}}
+
+/* Embedded browsers show menu instructions instead of a native-app launcher. */
+.embedded-install-page{position:relative;isolation:isolate;overflow:hidden;min-height:100vh;min-height:100svh;background:#fff;color:#515b59;padding:0 24px 36px}
+.open-browser-tip{position:fixed;z-index:2;top:max(18px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));display:block;width:auto;margin:0;padding:11px 17px;background:#349f92;border:0;border-radius:8px;color:#fff;text-align:center;font-size:14px;line-height:1.65;box-shadow:0 4px 15px #349f9214}
+.open-browser-tip:after{content:"";position:absolute;top:-10px;right:16px;border:6px solid transparent;border-right-color:#349f92;border-bottom-color:#349f92}
+.open-browser-tip span,.open-browser-tip strong{display:block;font-weight:400}
+.install-ribbon{position:absolute;top:-12px;width:76px;height:260px;opacity:.55;pointer-events:none;z-index:-1}
+.install-ribbon svg{display:block;width:100%;height:100%}
+.install-ribbon-left{left:-22px}
+.install-ribbon-right{right:-22px;transform:scaleX(-1)}
+.embedded-install-content{width:100%;max-width:330px;margin:0 auto;padding-top:clamp(170px,27vh,280px);padding-top:clamp(170px,27svh,280px);text-align:center}
+.embedded-install-content>.app-icon{display:flex;width:112px;height:112px;align-items:center;justify-content:center;margin:0 auto;border-radius:25px;font-size:48px}
+.embedded-install-content h1{font-size:27px;font-weight:500;line-height:1.4;letter-spacing:0;margin:25px 0 7px}
+.embedded-platform{display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;color:#77837f}
+.embedded-release{border-top:1px solid #e3e8e6;margin:27px 0 0;padding:23px 0 0;font-size:12px;line-height:1.9;color:#818b88;font-variant-numeric:tabular-nums}
+.embedded-release span{margin:0 4px}
+.embedded-limit{font-size:14px;color:#77837f;margin:28px 0 20px}
+.embedded-copy button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 22px;background:#eef7f4;border:1px solid #dbede5;border-radius:8px;color:#357f6a;font-size:13px;font-weight:500}
+.embedded-copy button:hover{background:#e5f2ed}
+.embedded-copy button:focus-visible{outline-color:#349f92}
+.embedded-copy-help{font-size:11px;color:#8c9592;margin-top:10px}
+#install-copy-status{font-size:12px;line-height:1.8;color:#357f6a;margin-top:14px;min-height:22px;overflow-wrap:anywhere}
+.install-copy-url{width:100%;border:1px solid #d8e5df;border-radius:7px;background:#fafcfb;color:#586c63;padding:12px 10px;margin-top:8px;font-size:12px;user-select:all;-webkit-user-select:all}
+@media(max-height:650px){.embedded-install-content{padding-top:138px}.embedded-install-content>.app-icon{width:88px;height:88px;border-radius:21px}.embedded-install-content h1{margin-top:18px}.embedded-release{margin-top:20px;padding-top:17px}.embedded-limit{margin:20px 0 16px}}
+@media(min-width:700px){.embedded-install-content{max-width:360px}.open-browser-tip{right:24px}.install-ribbon{width:95px;height:325px}}

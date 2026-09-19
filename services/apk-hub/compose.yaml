@@ -1,7 +1,7 @@
 services:
   apkhub:
     build: .
-    image: apk-hub:unified-20260919
+    image: apk-hub:safari-button-20260919
     restart: unless-stopped
     init: true
     env_file: service.env

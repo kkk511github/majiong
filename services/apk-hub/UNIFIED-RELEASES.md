@@ -27,3 +27,9 @@ python3 services/apk-hub/tests/test_delete.py
 ```
 
 需要Python3.11/3.12和Pillow，与容器依赖一致。测试使用临时数据和本地随机端口，覆盖替换、并发、失败回滚、删除、旧链接、续传和正在下载时更新。
+
+## 点击尝试打开 Safari
+
+iPhone/iPad在微信或QQ中打开固定链接时，会显示“尝试用 Safari 打开”。点击通过系统注册的 `x-safari-https` URL scheme尝试打开当前站点的固定页面，不在加载时自动触发，不接受外部跳转地址。普通Safari和安卓不显示此按钮。
+
+微信/QQ和不同iOS版本仍可能拒绝该跳转，因此始终保留右上角菜单与复制链接指引。按钮显示备用提示，不声称已经成功唤起Safari。已核对本机iOS26.5 Safari注册该scheme；浏览器检查验证触发与备用流程，不等同于微信真机放行验收。

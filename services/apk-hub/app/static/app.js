@@ -52,6 +52,13 @@ function deviceInfo(){
  const ua=navigator.userAgent||'',ios=/iPad|iPhone|iPod/i.test(ua)||(/Mac/i.test(navigator.platform||ua)&&navigator.maxTouchPoints>1);
  return {platform:ios?'ios':/Android/i.test(ua)?'android':'desktop',embedded:/MicroMessenger|\bQQ\//i.test(ua)};
 }
+function safariLaunchURL(value){
+ try{
+  const url=new URL(value,location.origin);
+  if(url.protocol!=='https:'||url.origin!==location.origin||url.pathname!=='/app/jinling-mahjong'||url.username||url.password||url.search||url.hash)return '';
+  return url.href.replace(/^https:/,'x-safari-https:');
+ }catch{return ''}
+}
 function productPage(product,selected){
  const device=deviceInfo(),variants=Array.isArray(product.variants)?product.variants.filter(a=>a&&['android','ios'].includes(a.platform)&&a.published&&downloadURL(a)):[];
  const requested=selected||(device.platform==='desktop'?(variants.some(a=>a.platform==='android')?'android':'ios'):device.platform);
@@ -62,7 +69,10 @@ function productPage(product,selected){
  document.title=name+' · 手机安装';
  let actions='';
  if(!chosen){actions=`<div class="product-unavailable" role="status">${requested==='ios'?'iOS':'Android'} 安装包暂未提供，请稍后再试。</div>`}
- else if(device.embedded){actions=`<section class="browser-guide" role="status">${icon('phone',24)}<div><strong>请在${browserName}中打开安装</strong><p>点击右上角菜单，选择“${requested==='ios'?'在 Safari 中打开':'在浏览器中打开'}”。也可以复制下方链接，在${browserName}中粘贴打开。</p></div></section>${requested==='ios'?`<p class="installation-note">${esc(iosNote(chosen))}</p>`:''}`}
+ else if(device.embedded){
+  const safari=device.platform==='ios'&&requested==='ios'?safariLaunchURL(location.origin+'/app/jinling-mahjong'):'';
+  actions=`${safari?`<div class="detail-actions safari-launch"><a class="primary full" data-open-safari href="${esc(safari)}">${icon('arrow',20)} 尝试用 Safari 打开</a></div><p id="safari-launch-status" class="safari-launch-status" role="status" aria-live="polite" hidden></p>`:''}<section class="browser-guide" role="status">${icon('phone',24)}<div><strong>请在${browserName}中打开安装</strong><p>${safari?'如果点击按钮后未跳转，':''}点击右上角菜单，选择“${requested==='ios'?'在 Safari 中打开':'在浏览器中打开'}”。也可以复制下方链接，在${browserName}中粘贴打开。</p></div></section>${requested==='ios'?`<p class="installation-note">${esc(iosNote(chosen))}</p>`:''}`;
+ }
  else{
   actions=appActions(chosen,true);
   if(requested==='android')actions+=`<p class="installation-note">下载完成后，点击浏览器的下载通知或下载列表中的 APK，按系统提示安装。</p><p class="download-status" id="product-download-status" role="status" hidden></p>`;
@@ -70,6 +80,13 @@ function productPage(product,selected){
  }
  shell(`<main class="standalone-page product-page"><article class="standalone-card product-card"><div class="product-heading">${display?badge(display):'<div class="app-icon blue">麻</div>'}<div><span class="product-eyebrow">手机安装</span><h1>${esc(name)}</h1></div></div><p class="product-intro">Android 与 iOS 共用一个链接，始终提供已发布的最新安装包。</p><div class="product-platforms" role="group" aria-label="选择安装平台">${[['android','Android'],['ios','iPhone / iPad']].map(([value,label])=>`<button type="button" data-product-platform="${value}" class="product-platform ${requested===value?'selected':''}" aria-pressed="${requested===value}">${icon('phone',19)} ${label}</button>`).join('')}</div><p class="device-detected">${detected}</p><section class="product-version" aria-label="当前平台版本">${chosen?`<div class="detail-meta"><span class="product-platform-label">${platformName(chosen)}</span> v${esc(chosen.version)} <span>·</span> ${mb(chosen.size)}${requested==='ios'&&chosen.minimum_os_version?' <span>·</span> iOS '+esc(chosen.minimum_os_version)+' 及以上':''}</div>${chosen.description?`<p class="standalone-description">${esc(chosen.description)}</p>`:''}`:''}${actions}</section><section class="share-section product-share"><h3>固定安装链接</h3><p>分享给朋友或收藏此页，更新后无需更换链接。</p><div class="share-controls"><input aria-label="固定安装链接" readonly value="${esc(url)}"><button type="button" class="secondary" data-copy-share>复制链接</button></div></section>${chosen&&chosen.notes?`<section class="standalone-notes"><h2>版本说明</h2><p class="pre">${esc(chosen.notes)}</p></section>`:''}</article></main>`);
  wireShare($('#app'));
+ const safariButton=$('[data-open-safari]');
+ if(safariButton)safariButton.onclick=()=>{
+  // Leave the anchor's native navigation synchronous with this user gesture.
+  // The host app can refuse it; visibility changes cannot prove success.
+  const status=$('#safari-launch-status');status.hidden=false;
+  status.textContent='如果 Safari 没有打开，请点右上角菜单，或复制下方链接到 Safari。';
+ };
  document.querySelectorAll('[data-product-platform]').forEach(button=>button.onclick=()=>{productPage(product,button.dataset.productPlatform);document.querySelector(`[data-product-platform="${button.dataset.productPlatform}"]`).focus()});
  if(chosen&&requested==='android'&&!device.embedded){const link=$('.product-version .detail-actions a');if(link)link.onclick=()=>{const message=$('#product-download-status');message.hidden=false;message.textContent='下载已交给浏览器。下载完成后请打开 APK；安装仍需你在系统界面确认。'}}
 }

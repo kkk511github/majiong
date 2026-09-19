@@ -157,7 +157,11 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
       });
       expect(held.id).toBe('draw-8');
       expect(held.flying).toBe(false);
-      expect(Math.abs(held.dy-45)).toBeLessThan(2);
+      const dragFrame=(await page.locator('#cocos-table-board iframe').boundingBox())!;
+      const dragScale=Math.min(dragFrame.width/1280,dragFrame.height/590);
+      // WebKit rounds pointer coordinates to CSS pixels. Keep the tolerance
+      // in that unit, while node-to-pointer tracking below stays subpixel exact.
+      expect(Math.abs(held.dy-45)*dragScale).toBeLessThanOrEqual(1.1);
       expect(Math.abs(held.x-held.baseX-held.dx)).toBeLessThan(.2);
       expect(Math.abs(held.y-held.baseY-held.dy)).toBeLessThan(.2);
       v.deadline=Date.now()+9000;v.revision++;push();
@@ -351,7 +355,7 @@ test.describe('真实触屏拖牌',()=>{
     await expect.poll(async()=>frame(page)?.evaluate(()=>!!(window as any).__JINLING_TABLE_READY__)).toBe(true);
     await expect.poll(async()=>(await scene(page)).state?.key).not.toBe('demo');
     const flush=()=>page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
-    const tile=async()=> (await scene(page)).tiles.find((t:any)=>t.area==='hand'&&t.tile===8);
+    const tile=async()=> visibleHandTile(page,8);
     const selected=()=>expect.poll(async()=>(await scene(page)).state.selected).toBe(8);
     const select=async()=>{const t=await tile(),p=await tablePoint(page,t.x,t.y);await page.touchscreen.tap(p.x,p.y);await selected();};
     const touch=async(type:'touchstart'|'touchmove'|'touchend'|'touchcancel',x:number,y:number)=>{
@@ -388,6 +392,16 @@ test.describe('真实触屏拖牌',()=>{
       v.revision++;push();
       await expect.poll(async()=>(await scene(page)).state.disabled).toBe(false);
       await expect.poll(async()=>(await scene(page)).state.selected).toBe(null);
+      // This fixture deliberately keeps the same card for the next gesture.
+      // Its returned rack position must settle before starting a fresh native
+      // touch sequence; a real accepted discard would remove it from the hand.
+      await expect.poll(()=>frame(page).evaluate(async()=>{
+        const cc=await (window as any).System.import('cc');
+        const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+        const t=Array.from(c.tileLayout.values()).find((t:any)=>t.area==='hand'&&t.tile===8) as any;
+        const n=t&&c.nodes.get(t.id);
+        return n?Math.hypot(n.position.x+640-t.x,295-n.position.y-t.y):Infinity;
+      })).toBeLessThanOrEqual(.2);
     };
 
     await select();
@@ -399,6 +413,9 @@ test.describe('真实触屏拖牌',()=>{
     await touch('touchend',t.x,t.y);
     await selected();expect(commands).toHaveLength(0);
 
+    // Retake the card at its current visible position while its return-to-hand
+    // animation may still be running after the preceding cancelled gesture.
+    t=await tile();
     await touch('touchstart',t.x,t.y);
     await touch('touchmove',t.x,t.y-140);
     await touch('touchcancel',t.x,t.y-140);
@@ -406,6 +423,7 @@ test.describe('真实触屏拖牌',()=>{
 
     // A release coordinate can be newer than the final move. Creator reports
     // TOUCH_CANCEL because its old sprite bounds no longer contain the finger.
+    t=await tile();
     await touch('touchstart',t.x,t.y);
     await touch('touchmove',t.x,t.y-20);
     await touch('touchend',t.x-250,t.y-140);

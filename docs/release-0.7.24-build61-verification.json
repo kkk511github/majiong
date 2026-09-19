@@ -1,0 +1,87 @@
+{
+  "version": "0.7.24",
+  "build": 61,
+  "endpoint": "https://212.189.31.46/mahjong",
+  "iosSigning": "Ad Hoc",
+  "iosRegisteredDevices": 4,
+  "iosProfileExpires": "2027-05-13T14:36:41Z",
+  "sameWebAssetsBothPlatforms": true,
+  "includedExistingFeatures": [
+    "cumulativeTableOvertime",
+    "directTileUpwardDrag",
+    "tapOrDragDiscard",
+    "yellowGlobalAnchor",
+    "webParityFixes",
+    "scoreDebitReminders",
+    "continuousTileMotion",
+    "stableConcealedKong",
+    "sideDrawFollowsHand",
+    "jadeClaimControls"
+  ],
+  "keyboardFocusFallback": true,
+  "keyboardOverlayAndResizeLayouts": true,
+  "realDeviceInstallationTested": false,
+  "initialFlowerKongBankruptcyAndBaomiFixed": true,
+  "windPaymentsFollowCurrentRoundMultiplier": true,
+  "windBasePayment": 5,
+  "windBixiahuPayment": 10,
+  "historicalRecordsRewritten": false,
+  "packages": {
+    "Android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.24-build61.apk",
+      "bytes": 121097630,
+      "sha256": "310a0eec999233c645802a8c02be7ca4e344381a3f0a45ea4e80c5e01a76bd2a",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    },
+    "iOS": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.24-build61-AdHoc.ipa",
+      "bytes": 121325536,
+      "sha256": "182e984553ec94700d153412a72f38c0d86968208150cacb8199af91c7f4c876",
+      "matchedWebFiles": 231,
+      "signatureVerified": true
+    }
+  },
+  "unitTestsPassed": 742,
+  "sourceCommit": "87a97938607add17c09210a615005eecdbdcc0a9",
+  "browserTestsPassed": 80,
+  "browserValidation": {
+    "productionTable": 50,
+    "webParity": 22,
+    "globalAnchorScenarios": 6,
+    "packagedNativeAnchor": 2,
+    "note": "Production table checks completed across focused reruns; gestures target visible animated tiles and retain strict pointer-tracking assertions."
+  },
+  "openingDurationMs": 2200,
+  "gameServerRedeployed": false,
+  "runtime": {
+    "sha256": "b2182605ee0539cc7ebbaef6c789c2679fc265c3fe536fa35d4a81259153cc77",
+    "files": 96,
+    "bytes": 39009977
+  },
+  "distribution": {
+    "at": "2026-09-19T10:54:17.495Z",
+    "version": "0.7.24",
+    "build": 61,
+    "checks": [
+      {
+        "platform": "android",
+        "share": "https://212.189.31.46/app/247db54dd42a67ad48643ed5",
+        "download": "https://212.189.31.46/download/247db54dd42a67ad48643ed5.apk",
+        "bytes": 121097630,
+        "sha256": "310a0eec999233c645802a8c02be7ca4e344381a3f0a45ea4e80c5e01a76bd2a",
+        "headStatus": 200,
+        "rangeStatus": 206
+      },
+      {
+        "platform": "ios",
+        "share": "https://212.189.31.46/app/a95d20346de845814fd68845",
+        "download": "https://212.189.31.46/download/a95d20346de845814fd68845.ipa",
+        "bytes": 121325536,
+        "sha256": "182e984553ec94700d153412a72f38c0d86968208150cacb8199af91c7f4c876",
+        "headStatus": 200,
+        "rangeStatus": 206
+      }
+    ]
+  }
+}

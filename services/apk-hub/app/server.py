@@ -3,8 +3,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, quote
+from email.utils import formatdate
 from apk_metadata import parse_apk
 from ipa_metadata import parse_ipa
+from release_store import ReleaseStore, JINLING_PACKAGE, JINLING_SLUG
 
 ROOT = Path(__file__).parent
 DATA = Path(os.environ.get('DATA_DIR', '/var/lib/apk-hub'))
@@ -37,6 +39,17 @@ with db() as c:
             c.execute('ALTER TABLE apps ADD COLUMN '+column+' '+definition)
 
 ATTEMPTS = {}
+releases = ReleaseStore(DATA, db)
+releases.cleanup()
+
+
+def consolidate_jinling():
+    return releases.consolidate_jinling()
+
+
+def install_release(metadata, package_file, icon_file=None, values=None):
+    row, status = releases.install_release(metadata, package_file, icon_file, values)
+    return {**app_response(row), **status}
 
 
 def public_base_url():
@@ -86,6 +99,10 @@ def app_response(row):
     app['unlisted'] = bool(app.get('unlisted'))
     base = public_base_url() if app.get('published') else ''
     app['share_url'] = base+'/app/'+app['id'] if base else ''
+    if app.get('package') == JINLING_PACKAGE:
+        app['product_slug'] = JINLING_SLUG
+        app['product_url'] = public_base_url() + '/app/' + JINLING_SLUG if public_base_url() else ''
+        app['share_url'] = app['product_url'] if app.get('published') else ''
     extension = '.ipa' if app['platform'] == 'ios' else '.apk'
     app['download_url'] = base+'/download/'+app['id']+extension if base else ''
     app['install_url'] = ''
@@ -102,7 +119,7 @@ def app_response(row):
 def package_path(row):
     platform = row['platform'] or 'android'
     suffix = '.ipa' if platform == 'ios' else '.apk'
-    if row['filename'] != row['id'] + suffix:
+    if not re.fullmatch(re.escape(row['id']) + r'(?:-[a-f0-9]{64})?' + re.escape(suffix), row['filename'] or ''):
         return None
     path = DATA/'packages'/row['filename']
     return path if path.is_file() else None
@@ -111,7 +128,7 @@ def package_path(row):
 def manifest_bytes(app):
     base = public_base_url()
     assets = [{'kind': 'software-package', 'url': base+'/download/'+app['id']+'.ipa'}]
-    if app.get('icon_url') and re.fullmatch(r'/icons/[a-f0-9]{24}\.png', app['icon_url']):
+    if app.get('icon_url') and re.fullmatch(r'/icons/[a-f0-9]{24}(?:-[a-f0-9]{64})?\.png', app['icon_url']):
         assets.append({'kind': 'display-image', 'needs-shine': False, 'url': base+app['icon_url']})
     manifest = {'items': [{'assets': assets, 'metadata': {
         'bundle-identifier': app['package'], 'bundle-version': app['version_code'],
@@ -144,6 +161,13 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/health': return self.send(200,{'ok':True})
         if path=='/api/session':
             s=self.session(); return self.send(200,{'authenticated':bool(s),'csrf':s['csrf'] if s else None})
+        if path in ('/app/'+JINLING_SLUG, '/api/products/'+JINLING_SLUG):
+            variants = [app_response(r) for r in releases.variants() if package_path(r)]
+            if not variants: return self.send(404, {'error':'金陵麻将暂未开放下载'})
+            if path.startswith('/api/'):
+                return self.send(200, {'slug':JINLING_SLUG, 'name':'金陵麻将',
+                    'share_url':public_base_url()+'/app/'+JINLING_SLUG, 'variants':variants})
+            return self.send(200,(ROOT/'static/index.html').read_bytes(),'text/html; charset=utf-8',extra={'X-Robots-Tag':'noindex, nofollow'})
         if path in ['/api/apps','/api/admin/apps']:
             if path=='/api/admin/apps' and not self.session(): return self.send(401,{'error':'请先登录管理后台'})
             with db() as c:
@@ -153,83 +177,109 @@ class Handler(BaseHTTPRequestHandler):
             match = re.fullmatch(r'/(app|api/apps)/([a-f0-9]{24})', path)
             if not match: return self.send(404, {'error': '分发链接不存在或已停用'})
             with db() as c:
-                row = c.execute('SELECT * FROM apps WHERE id=? AND published=1', (match.group(2),)).fetchone()
-            if not row or not package_path(row):
+                row = releases.resolve(c, match.group(2))
+            if not row or not row['published'] or not package_path(row):
                 return self.send(404, {'error': '分发链接不存在或已停用'})
             headers = {'X-Robots-Tag': 'noindex, nofollow'}
             if match.group(1) == 'api/apps':
                 return self.send(200, app_response(row), extra=headers)
+            if row['package'] == JINLING_PACKAGE:
+                return self.send(302, b'', extra={'Location':'/app/'+JINLING_SLUG, **headers})
             return self.send(200, (ROOT/'static/index.html').read_bytes(), 'text/html; charset=utf-8', extra=headers)
         if path.startswith('/manifest/'):
             match = re.fullmatch(r'/manifest/([a-f0-9]{24})\.plist', path)
             if not match: return self.send(404, {'error': '安装清单不存在'})
             with db() as c:
-                row = c.execute('SELECT * FROM apps WHERE id=? AND published=1 AND platform=?', (match.group(1), 'ios')).fetchone()
-            if not row or not package_path(row): return self.send(404, {'error': '安装包不存在或已下架'})
+                row = releases.resolve(c, match.group(1))
+            if not row or not row['published'] or row['platform'] != 'ios' or not package_path(row): return self.send(404, {'error': '安装包不存在或已下架'})
             app = dict(row)
             ready, note = ios_install_status(app)
             if not ready: return self.send(409, {'error': note})
             return self.send(200, manifest_bytes(app), 'text/xml; charset=utf-8')
         if path.startswith('/icons/') and path.endswith('.png'):
-            ident = path.split('/')[-1][:-4]
-            with db() as c:
-                row = c.execute('SELECT published FROM apps WHERE id=?', (ident,)).fetchone()
-            if not row or (not row['published'] and not self.session()):
-                return self.send(404, {'error':'图标不存在'})
-            image = DATA/'icons'/(ident+'.png')
-            if not image.is_file(): return self.send(404, {'error':'图标不存在'})
-            return self.send(200, image.read_bytes(), 'image/png')
+            match=re.fullmatch(r'/icons/([a-f0-9]{24})(?:-([a-f0-9]{64}))?\.png',path)
+            if not match:return self.send(404, {'error':'图标不存在'})
+            for attempt in range(2):
+                with releases.lock, db() as c:
+                    row=releases.resolve(c,match.group(1))
+                    if not row or (not row['published'] and not self.session()):return self.send(404, {'error':'图标不存在'})
+                    current=row['icon_url'] or '/icons/'+row['id']+'.png'
+                    if not re.fullmatch(r'/icons/[a-f0-9]{24}(?:-[a-f0-9]{64})?\.png',current):return self.send(404, {'error':'图标不存在'})
+                    if match.group(2) and path!=current:return self.send(404, {'error':'图标不存在'})
+                    try:image=(DATA/current.lstrip('/')).read_bytes()
+                    except FileNotFoundError:continue
+                    return self.send(200,image,'image/png')
+            return self.send(404, {'error':'图标不存在'})
         if path.startswith('/download/'):
-            match=re.fullmatch(r'/download/([a-f0-9]{24})(?:\.(apk|ipa))?', path)
-            if not match: return self.send(404, {'error': '安装包不存在'})
-            with db() as c:
-                r=c.execute('SELECT * FROM apps WHERE id=? AND published=1',(match.group(1),)).fetchone()
-                if not r: return self.send(404,{'error':'安装包不存在或已下架'})
-                expected_extension='ipa' if r['platform']=='ios' else 'apk'
-                if match.group(2) and match.group(2)!=expected_extension: return self.send(404, {'error':'安装包不存在'})
-                p=package_path(r)
-                if not p: return self.send(404,{'error':'文件不存在'})
-            total=p.stat().st_size
-            start, end, code = 0, total-1, 200
-            requested=self.headers.get('Range') if self.command != 'HEAD' else None
-            if requested:
-                match=re.fullmatch(r'bytes=(\d*)-(\d*)', requested.strip())
-                try:
-                    if not match or not any(match.groups()): raise ValueError('range')
-                    first,last=match.groups()
-                    if first:
-                        start=int(first); end=min(int(last),total-1) if last else total-1
-                    else:
-                        if int(last)<=0: raise ValueError('range')
-                        start=max(0,total-int(last))
-                    if start>=total or start>end: raise ValueError('range')
-                except ValueError:
-                    return self.send(416, {'error':'下载范围无效'}, extra={'Content-Range':f'bytes */{total}'})
-                code=206
-            if self.command != 'HEAD':
-                with db() as c: c.execute('UPDATE apps SET downloads=downloads+1 WHERE id=?',(r['id'],))
-            self.send_response(code)
-            is_ios=r['platform']=='ios'
-            self.send_header('Content-Type','application/octet-stream' if is_ios else 'application/vnd.android.package-archive')
-            self.send_header('Content-Length',str(end-start+1))
-            self.send_header('Content-Disposition','attachment; filename="'+r['id']+('.ipa' if is_ios else '.apk')+'"')
-            self.send_header('Accept-Ranges','bytes')
-            if code==206: self.send_header('Content-Range',f'bytes {start}-{end}/{total}')
-            self.send_header('X-Content-Type-Options','nosniff')
-            self.send_header('Cache-Control','no-store'); self.end_headers()
-            if self.command == 'HEAD': return
-            with p.open('rb') as f:
-                f.seek(start); remaining=end-start+1
-                try:
-                    while remaining:
-                        chunk=f.read(min(1024*1024,remaining))
-                        if not chunk: break
-                        self.wfile.write(chunk); remaining-=len(chunk)
-                except (BrokenPipeError, ConnectionResetError): pass
-            return
+            match=re.fullmatch(r'/download/([a-f0-9]{24})(?:\.(apk|ipa))?',path)
+            if not match:return self.send(404, {'error':'安装包不存在'})
+            return self.serve_package(match.group(1),match.group(2))
         if path in ['/','/admin','/admin/']: return self.send(200,(ROOT/'static/index.html').read_bytes(),'text/html; charset=utf-8')
         if path in ['/style.css','/app.js','/upload.js']: return self.send(200,(ROOT/'static'/path[1:]).read_bytes(),'text/css' if path.endswith('css') else 'text/javascript; charset=utf-8')
         self.send(404,{'error':'页面不存在'})
+
+    def serve_package(self, ident, extension):
+        # An opened immutable version survives unlink, so an in-flight download
+        # completes coherently while later requests see the new release.
+        stream=None
+        for attempt in range(2):
+            with releases.lock, db() as c:
+                row=releases.resolve(c,ident)
+                if not row or not row['published']:return self.send(404, {'error':'安装包不存在或已下架'})
+                suffix='ipa' if row['platform']=='ios' else 'apk'
+                if extension and extension!=suffix:return self.send(404, {'error':'安装包不存在'})
+                path=package_path(row)
+                try:
+                    if path:stream=path.open('rb')
+                except FileNotFoundError:
+                    pass
+            if stream:break
+        if not stream:return self.send(404, {'error':'文件不存在'})
+        with stream:
+            total=os.fstat(stream.fileno()).st_size
+            etag='"'+str(row['sha256'] or '')+'"'
+            modified=formatdate(int(row['created'] or 0),usegmt=True)
+            start,end,status=0,total-1,200
+            requested=self.headers.get('Range') if self.command!='HEAD' else None
+            validator=self.headers.get('If-Range')
+            if requested and validator:
+                # Two uploads can share a one-second Last-Modified value.
+                # Only the content hash is a strong enough resume validator.
+                if validator!=etag:requested=None
+            if requested:
+                match=re.fullmatch(r'bytes=(\d*)-(\d*)',requested.strip())
+                try:
+                    if not match or not any(match.groups()):raise ValueError('range')
+                    first,last=match.groups()
+                    if first:
+                        start=int(first);end=min(int(last),total-1) if last else total-1
+                    else:
+                        if int(last)<=0:raise ValueError('range')
+                        start=max(0,total-int(last))
+                    if start>=total or start>end:raise ValueError('range')
+                except ValueError:
+                    return self.send(416, {'error':'下载范围无效'},extra={'Content-Range':f'bytes */{total}'})
+                status=206
+            if self.command!='HEAD':
+                with db() as c:c.execute('UPDATE apps SET downloads=downloads+1 WHERE id=?',(row['id'],))
+            self.send_response(status)
+            self.send_header('Content-Type','application/octet-stream' if suffix=='ipa' else 'application/vnd.android.package-archive')
+            self.send_header('Content-Length',str(end-start+1))
+            self.send_header('Content-Disposition','attachment; filename="'+row['id']+'.'+suffix+'"')
+            self.send_header('Accept-Ranges','bytes')
+            self.send_header('ETag',etag)
+            self.send_header('Last-Modified',modified)
+            if status==206:self.send_header('Content-Range',f'bytes {start}-{end}/{total}')
+            self.send_header('X-Content-Type-Options','nosniff')
+            self.send_header('Cache-Control','no-store');self.end_headers()
+            if self.command=='HEAD':return
+            stream.seek(start);remaining=end-start+1
+            try:
+                while remaining:
+                    chunk=stream.read(min(1024*1024,remaining))
+                    if not chunk:break
+                    self.wfile.write(chunk);remaining-=len(chunk)
+            except (BrokenPipeError,ConnectionResetError):pass
 
     def do_HEAD(self):
         self.do_GET()
@@ -266,68 +316,46 @@ class Handler(BaseHTTPRequestHandler):
             with db() as c: c.execute('DELETE FROM sessions WHERE token=?',(s['token'],))
             return self.send(200,{'ok':True},extra={'Set-Cookie':'apk_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict'})
         if path=='/api/upload':
-            if not self.headers.get('Content-Type','').startswith('multipart/form-data'): return self.send(400,{'error':'请选择 APK 或 IPA 文件'})
+            if not self.headers.get('Content-Type','').startswith('multipart/form-data'):return self.send(400,{'error':'请选择 APK 或 IPA 文件'})
             form=cgi.FieldStorage(fp=self.rfile,headers=self.headers,environ={'REQUEST_METHOD':'POST','CONTENT_TYPE':self.headers['Content-Type'],'CONTENT_LENGTH':str(size)})
-            if 'file' not in form: return self.send(400,{'error':'请选择 APK 或 IPA 文件'})
+            if 'file' not in form:return self.send(400,{'error':'请选择 APK 或 IPA 文件'})
             file=form['file']
-            if isinstance(file,list) or not file.filename or not file.filename.lower().endswith(('.apk','.ipa')): return self.send(400,{'error':'仅支持 APK 或 IPA 文件'})
+            if isinstance(file,list) or not file.filename or not file.filename.lower().endswith(('.apk','.ipa')):return self.send(400,{'error':'仅支持 APK 或 IPA 文件'})
             suffix=Path(file.filename).suffix.lower()
             platform='ios' if suffix=='.ipa' else 'android'
-            values={k:str(form.getfirst(k,'')).strip() for k in ['name','version','package','description','notes','category']}
-            if any(len(v)>4000 for v in values.values()): return self.send(400,{'error':'文字过长'})
-            ident=secrets.token_hex(12); target=DATA/'packages'/(ident+suffix); digest=hashlib.sha256(); total=0
+            values={k:str(form.getfirst(k,'')).strip() for k in ['description','notes','category']}
+            if any(len(v)>4000 for v in values.values()):return self.send(400,{'error':'文字过长'})
+            token=secrets.token_hex(16)
+            target=DATA/'.incoming'/(token+suffix)
+            icon=DATA/'.incoming'/(token+'.png')
+            total=0
             try:
-                with target.open('wb') as out:
+                with target.open('xb') as out:
                     while chunk:=file.file.read(1024*1024):
                         total+=len(chunk)
-                        if total>MAX: raise ValueError('size')
-                        out.write(chunk); digest.update(chunk)
+                        if total>MAX:raise ValueError('文件不能超过 500 MB')
+                        out.write(chunk)
+                    out.flush();os.fsync(out.fileno())
+                if not total:raise ValueError('安装包为空')
                 if platform=='android':
-                    with zipfile.ZipFile(target) as z:
-                        if 'AndroidManifest.xml' not in z.namelist(): raise ValueError('manifest')
-            except (ValueError,zipfile.BadZipFile):
-                target.unlink(missing_ok=True); return self.send(400,{'error':'不是有效的安装包，或文件超过 500 MB'})
-            icon_file = DATA/'icons'/(ident+'.png')
-            try:
-                metadata = parse_ipa(target, icon_file) if platform=='ios' else parse_apk(target, icon_file)
-            except ValueError as error:
-                target.unlink(missing_ok=True); icon_file.unlink(missing_ok=True)
-                return self.send(400, {'error':str(error)})
-            values.update({key: metadata[key] for key in ['name','version','package']})
-            icon_url = '/icons/'+ident+'.png' if metadata['icon_found'] else ''
-            try:
-                with db() as c:
-                    c.execute('INSERT INTO apps(id,name,version,package,description,notes,category,size,sha256,filename,published,downloads,created,icon_url,version_code,parse_warning,platform,minimum_os_version,ios_distribution,provisioning_expires_at,ios_signed) VALUES(?,?,?,?,?,?,?,?,?,?,0,0,?,?,?,?,?,?,?,?,?)',(ident,values['name'],values['version'],values['package'],values['description'],values['notes'],values['category'] or '实用工具',total,digest.hexdigest(),ident+suffix,int(time.time()),icon_url,metadata['version_code'],metadata['parse_warning'],platform,metadata.get('minimum_os_version',''),metadata.get('ios_distribution',''),metadata.get('provisioning_expires_at',''),int(bool(metadata.get('ios_signed')))))
-            except Exception:
-                target.unlink(missing_ok=True); icon_file.unlink(missing_ok=True); raise
-            return self.send(201,app_response({'id':ident,**metadata,'platform':platform,'icon_url':icon_url,'published':0}))
+                    with zipfile.ZipFile(target) as archive:
+                        if 'AndroidManifest.xml' not in archive.namelist():raise ValueError('不是完整的 APK 安装包')
+                metadata=parse_ipa(target,icon) if platform=='ios' else parse_apk(target,icon)
+                metadata['platform']=platform
+                result=install_release(metadata,target,icon,values)
+                return self.send(201,result)
+            except (ValueError,zipfile.BadZipFile,EOFError) as error:
+                return self.send(400,{'error':str(error) or '安装包不完整，原版本未更改'})
+            finally:
+                target.unlink(missing_ok=True);icon.unlink(missing_ok=True)
         if path=='/api/delete':
-            if size>4096: return self.send(400, {'error':'请求过大'})
-            data=json.loads(self.rfile.read(size))
-            ident=data.get('id')
-            if not isinstance(ident,str) or not re.fullmatch(r'[a-f0-9]{24}',ident):
-                return self.send(400, {'error':'应用编号无效'})
-            moved=[]
-            try:
-                with db() as c:
-                    c.execute('BEGIN IMMEDIATE')
-                    row=c.execute('SELECT * FROM apps WHERE id=?',(ident,)).fetchone()
-                    if not row: return self.send(404, {'error':'应用不存在或已删除'})
-                    if data.get('confirm_name')!=row['name']:
-                        return self.send(409, {'error':'应用名称已变化，请刷新后重新确认'})
-                    suffix='.ipa' if row['platform']=='ios' else '.apk'
-                    if row['filename']!=ident+suffix: raise ValueError('filename')
-                    for source in [DATA/'packages'/(ident+suffix),DATA/'icons'/(ident+'.png')]:
-                        if source.exists():
-                            staged=source.with_name(source.name+'.deleting-'+secrets.token_hex(8))
-                            source.rename(staged);moved.append((source,staged))
-                    c.execute('DELETE FROM apps WHERE id=?',(ident,))
-            except Exception:
-                for source,staged in reversed(moved):
-                    if staged.exists(): staged.rename(source)
-                raise
-            for source,staged in moved: staged.unlink(missing_ok=True)
-            return self.send(200, {'ok':True})
+            if size>4096:return self.send(400,{'error':'请求过大'})
+            data=json.loads(self.rfile.read(size));ident=data.get('id')
+            if not isinstance(ident,str) or not re.fullmatch(r'[a-f0-9]{24}',ident):return self.send(400,{'error':'应用编号无效'})
+            result=releases.delete_release(ident,data.get('confirm_name'))
+            if result==404:return self.send(404,{'error':'应用不存在或已删除'})
+            if result==409:return self.send(409,{'error':'应用名称已变化，请刷新后重新确认'})
+            return self.send(200,{'ok':True})
         if path=='/api/update':
             if size>16384: return self.send(400,{'error':'请求过大'})
             data=json.loads(self.rfile.read(size))

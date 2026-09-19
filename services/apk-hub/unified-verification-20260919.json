@@ -1,0 +1,44 @@
+{
+  "at": "2026-09-19T11:57:17.015Z",
+  "url": "https://212.189.31.46/app/jinling-mahjong",
+  "http": [
+    {
+      "platform": "android",
+      "id": "247db54dd42a67ad48643ed5",
+      "version": "0.7.24",
+      "bytes": 121097630,
+      "sha256": "310a0eec999233c645802a8c02be7ca4e344381a3f0a45ea4e80c5e01a76bd2a"
+    },
+    {
+      "platform": "ios",
+      "id": "a95d20346de845814fd68845",
+      "version": "0.7.24",
+      "bytes": 121345711,
+      "sha256": "26bcea1d07286cb69fabaf385d22c708e69a9abc590f487d217399f4248d1c21"
+    }
+  ],
+  "redirects": [
+    "274a36f0ce9c607445a15603",
+    "856c6d2ea04a63507648d102",
+    "247db54dd42a67ad48643ed5",
+    "a95d20346de845814fd68845"
+  ],
+  "browserChecks": [
+    {
+      "platform": "android",
+      "href": "https://212.189.31.46/download/247db54dd42a67ad48643ed5.apk",
+      "errors": []
+    },
+    {
+      "platform": "ios",
+      "href": "itms-services://?action=download-manifest&url=https%3A%2F%2F212.189.31.46%2Fmanifest%2Fa95d20346de845814fd68845.plist",
+      "errors": []
+    }
+  ],
+  "backendTestsPassed": 15,
+  "frontendChecksPassed": 20,
+  "legacyDeleteTestsPassed": true,
+  "userSuppliedIpa": "金陵麻将.ipa",
+  "iosSignatureNote": "Enterprise metadata; profile/application-identifier mismatch reported; real iPhone installation not verified.",
+  "androidAutomaticInstaller": "Browser-controlled; no promise of automatic launch or silent installation."
+}

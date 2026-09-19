@@ -38,3 +38,33 @@ dialog h2{overflow-wrap:anywhere}
 @media(max-width:650px){.standalone-page{padding:26px 16px 40px;min-height:calc(100vh - 170px)}.standalone-card{padding:26px 22px}.standalone-card h1{font-size:25px}.share-controls{flex-wrap:wrap}.share-controls input{flex-basis:100%}.share-controls button{width:100%}}
 
 .text-button.delete-button{color:#b42318}.text-button.delete-button:hover{color:#8c1c13;background:#fff0ee}
+
+/* One permanent product link, with platform-specific releases. */
+.product-page{max-width:660px}
+.product-heading{display:flex;align-items:center;gap:20px}
+.product-heading>.app-icon{width:78px;height:78px;border-radius:20px;font-size:34px}
+.product-eyebrow{font-size:12px;color:#7d8ba1;letter-spacing:2px}
+.product-heading h1{margin:5px 0 0}
+.product-intro{color:var(--muted);font-size:14px;margin:24px 0 20px}
+.product-platforms{display:flex;gap:6px;padding:5px;background:#eef2f8;border-radius:12px}
+.product-platform{display:flex;align-items:center;justify-content:center;gap:8px;flex:1;border:1px solid transparent;border-radius:8px;padding:11px 8px;color:#7a889d;background:transparent;font-size:14px;font-weight:600;min-height:46px}
+.product-platform.selected{background:#fff;color:var(--blue);border-color:#e2e9f6;box-shadow:0 3px 10px #20396508}
+.device-detected{font-size:12px;line-height:1.8;color:#8b97a9;margin:10px 0 24px}
+.product-version .detail-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.product-version .detail-meta span{margin:0 2px}
+.product-version .detail-meta .product-platform-label{color:#536c97;background:#f0f4fb;font-size:12px;border-radius:5px;padding:3px 7px;margin-right:4px}
+.product-version .standalone-description{margin:16px 0}
+.product-version .detail-actions{margin-top:22px}
+.product-version .primary{min-height:50px;font-size:15px}
+.product-share{margin-bottom:0;margin-top:28px}
+.product-share h3{font-size:14px}
+.product-share .share-controls{margin-top:12px}
+.browser-guide{display:flex;gap:12px;background:#edf3ff;border:1px solid #dce7fc;border-radius:11px;padding:17px;margin-top:20px;color:#4972b4}
+.browser-guide>svg{flex-shrink:0;margin-top:2px}
+.browser-guide strong{font-size:15px}
+.browser-guide p{font-size:13px;line-height:1.9;margin-top:7px;color:#6b80a2}
+.download-status{background:#f1f7ff;border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.8;color:#637fa8;margin-top:12px}
+.product-unavailable{font-size:14px;color:#8290a4;background:#f5f7fb;border-radius:9px;padding:18px}
+dialog .upload-update-help{font-size:12px;line-height:1.8;color:#6f819d;background:#f2f6ff;border-radius:8px;padding:12px 14px;margin-top:-6px}
+#upload-share .share-section{margin-top:12px}
+@media(max-width:650px){.product-heading{gap:16px}.product-heading>.app-icon{width:68px;height:68px;border-radius:17px}.product-heading h1{font-size:25px}.product-platform{font-size:13px;gap:6px}.product-platform svg{width:17px}.product-intro{font-size:13px}.product-share .share-controls button{min-height:42px}.browser-guide{padding:14px;gap:9px}.product-version .detail-meta{gap:5px}}

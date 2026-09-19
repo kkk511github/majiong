@@ -32,3 +32,7 @@ docker compose -p apk-hub logs --tail=100 apkhub
 HTTPS 复用现有 IP 证书与自动续期任务。网关路由在 `/opt/jinling-mahjong/server/mahjong.routes`，迁移前副本位于 `/root/apkhub-migration-20260918/mahjong.routes.before`。
 
 旧站保留，旧链接暂时仍指向旧服务器；新的分享链接使用新地址。两个后台的数据不会自动双向同步，以新后台为后续发布入口。
+
+## 金陵麻将统一链接
+
+Android/iOS统一入口：`https://212.189.31.46/app/jinling-mahjong`。后台上传同应用标识的新包会替换同平台旧版本并清理旧包，链接不变；详细规则和维护方式见 [UNIFIED-RELEASES.md](UNIFIED-RELEASES.md)。

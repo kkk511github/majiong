@@ -4,12 +4,13 @@ const demos=[{id:'demo1',name:'轻记',version:'2.4.0',description:'随手记录
 let apps=[],csrf='',preview=false,category='全部应用',platform='all',query='';
 const admin=location.pathname.startsWith('/admin');
 const standalone=location.pathname.startsWith('/app/'),sharedId=(location.pathname.match(/^\/app\/([a-f0-9]{24})$/)||[])[1];
+const productSlug=location.pathname==='/app/jinling-mahjong'?'jinling-mahjong':'';
 const mb=n=>(n/1024/1024).toFixed(1)+' MB';
 function toast(t){$('#toast').textContent=t;$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),3500)}
 async function api(path,options={}){const r=await fetch(path,{...options,headers:{...options.headers,...(csrf?{'X-CSRF-Token':csrf}:{})}});const d=await r.json();if(!r.ok){const error=Error(d.error||'请求失败');error.status=r.status;throw error}return d}
 function logo(){return `<a class="brand" href="/"><span class="brand-icon">${icon('box',25)}</span><span>轻装<span class="brand-en">APP SPACE</span></span></a>`}
 function shell(content){$('#app').innerHTML=`<header><div class="nav">${logo()}${standalone?'<span class="standalone-nav">应用分发</span>':`<nav><a class="${!admin?'active':''}" href="/">应用广场</a>${admin?'<a class="active" href="/admin">管理后台 </a>':''}</nav>`}</div></header>${content}<footer><span>轻装 · 让应用触手可及</span><span>Android / iOS 应用分发 <i>·</i> 简单，自在</span></footer>`}
-function badge(a){const name=String(a.name||'应用');if(a.icon_url && /^\/icons\/[a-f0-9]{24}\.png$/.test(a.icon_url)) return `<img class="app-icon" src="${esc(a.icon_url)}" alt="${esc(a.name)}图标" style="object-fit:contain;background:transparent">`;return `<div class="app-icon ${['blue','violet','orange','pink'].includes(a.color)?a.color:['blue','violet','orange','pink'][name.length%4]}">${esc(a.mark||name.slice(0,1))}</div>`}
+function badge(a){const name=String(a.name||'应用');if(a.icon_url && /^\/icons\/[a-f0-9]{24}(?:-[a-f0-9]{64})?\.png$/.test(a.icon_url)) return `<img class="app-icon" src="${esc(a.icon_url)}" alt="${esc(a.name)}图标" style="object-fit:contain;background:transparent">`;return `<div class="app-icon ${['blue','violet','orange','pink'].includes(a.color)?a.color:['blue','violet','orange','pink'][name.length%4]}">${esc(a.mark||name.slice(0,1))}</div>`}
 const appPlatform=a=>a.platform==='ios'?'ios':'android';
 const platformName=a=>appPlatform(a)==='ios'?'iOS':'Android';
 const packageLabel=a=>appPlatform(a)==='ios'?'IPA':'APK';
@@ -17,8 +18,9 @@ function publicLink(value,path){
  try{const u=new URL(value);return u.protocol==='https:'&&u.hostname&&!u.username&&!u.password&&!u.search&&!u.hash&&u.pathname===path?u.href:''}catch{return ''}
 }
 function downloadURL(a){return /^[a-f0-9]{24}$/.test(String(a.id||''))?(publicLink(a.download_url,'/download/'+a.id+'.'+packageLabel(a).toLowerCase())||'/download/'+a.id):''}
-function shareURL(a){return a.published&&/^[a-f0-9]{24}$/.test(String(a.id||''))?publicLink(a.share_url,'/app/'+a.id):''}
-function shareBlock(a){const url=shareURL(a);return url?`<section class="share-section"><h3>分发链接</h3><p>${a.unlisted?'仅通过链接访问，不在应用市场显示。':'可分享此链接，直接打开本应用。'}</p><div class="share-controls"><input aria-label="分发链接" readonly value="${esc(url)}"><button type="button" class="secondary" data-copy-share>复制链接</button></div><a class="source-download" href="${esc(url)}" target="_blank" rel="noopener">打开独立分发页 ${icon('arrow',15)}</a></section>`:''}
+function productURL(a){return publicLink(a.product_url||a.share_url,'/app/jinling-mahjong')}
+function shareURL(a){return a.published&&/^[a-f0-9]{24}$/.test(String(a.id||''))?(productURL(a)||publicLink(a.share_url,'/app/'+a.id)):''}
+function shareBlock(a){const url=shareURL(a),unified=!!productURL(a);return url?`<section class="share-section"><h3>${unified?'Android / iOS 固定链接':'分发链接'}</h3><p>${unified?'两种手机共用此链接，自动识别设备。上传新版后链接保持不变。':a.unlisted?'仅通过链接访问，不在应用市场显示。':'可分享此链接，直接打开本应用。'}</p><div class="share-controls"><input aria-label="分发链接" readonly value="${esc(url)}"><button type="button" class="secondary" data-copy-share>复制链接</button></div><a class="source-download" href="${esc(url)}" target="_blank" rel="noopener">打开独立分发页 ${icon('arrow',15)}</a></section>`:''}
 function wireShare(root){root.querySelectorAll('[data-copy-share]').forEach(button=>button.onclick=async()=>{const input=button.parentElement.querySelector('input');try{await navigator.clipboard.writeText(input.value);toast('分发链接已复制')}catch{input.focus();input.select();toast('请复制已选中的分发链接')}})}
 function installURL(a){
  if(appPlatform(a)!=='ios'||!a.published||!downloadURL(a)||typeof a.install_url!=='string')return '';
@@ -45,6 +47,31 @@ function standalonePage(a){
  const ios=appPlatform(a)==='ios';
  document.title=String(a.name||'应用')+' · 应用分发';
  shell(`<main class="standalone-page"><article class="standalone-card">${badge(a)}<h1>${esc(a.name)}</h1><div class="detail-meta">v${esc(a.version)} <span>·</span> ${mb(a.size)} <span>·</span> ${platformName(a)}${ios&&a.minimum_os_version?' '+esc(a.minimum_os_version)+' 及以上':''}</div>${a.description?`<p class="standalone-description">${esc(a.description)}</p>`:''}${appActions(a,true)}${a.notes?`<section class="standalone-notes"><h2>版本说明</h2><p class="pre">${esc(a.notes)}</p></section>`:''}</article></main>`);
+}
+function deviceInfo(){
+ const ua=navigator.userAgent||'',ios=/iPad|iPhone|iPod/i.test(ua)||(/Mac/i.test(navigator.platform||ua)&&navigator.maxTouchPoints>1);
+ return {platform:ios?'ios':/Android/i.test(ua)?'android':'desktop',embedded:/MicroMessenger|\bQQ\//i.test(ua)};
+}
+function productPage(product,selected){
+ const device=deviceInfo(),variants=Array.isArray(product.variants)?product.variants.filter(a=>a&&['android','ios'].includes(a.platform)&&a.published&&downloadURL(a)):[];
+ const requested=selected||(device.platform==='desktop'?(variants.some(a=>a.platform==='android')?'android':'ios'):device.platform);
+ const chosen=variants.find(a=>a.platform===requested),display=chosen||variants[0];
+ const url=publicLink(product.share_url,'/app/jinling-mahjong')||location.origin+'/app/jinling-mahjong',name=String(product.name||'金陵麻将');
+ const browserName=requested==='ios'?'Safari':'系统浏览器';
+ const detected=selected?'当前查看 '+(requested==='ios'?'iPhone / iPad':'Android')+' 版本。':device.platform==='desktop'?'请选择需要安装的平台。':'已识别'+(device.platform==='ios'?' iPhone / iPad':' Android 手机')+'，已为你选择对应平台。';
+ document.title=name+' · 手机安装';
+ let actions='';
+ if(!chosen){actions=`<div class="product-unavailable" role="status">${requested==='ios'?'iOS':'Android'} 安装包暂未提供，请稍后再试。</div>`}
+ else if(device.embedded){actions=`<section class="browser-guide" role="status">${icon('phone',24)}<div><strong>请在${browserName}中打开安装</strong><p>点击右上角菜单，选择“${requested==='ios'?'在 Safari 中打开':'在浏览器中打开'}”。也可以复制下方链接，在${browserName}中粘贴打开。</p></div></section>${requested==='ios'?`<p class="installation-note">${esc(iosNote(chosen))}</p>`:''}`}
+ else{
+  actions=appActions(chosen,true);
+  if(requested==='android')actions+=`<p class="installation-note">下载完成后，点击浏览器的下载通知或下载列表中的 APK，按系统提示安装。</p><p class="download-status" id="product-download-status" role="status" hidden></p>`;
+  if(requested==='ios'&&device.platform==='desktop')actions+='<p class="installation-note">请将本页链接发到 iPhone / iPad，在 Safari 中打开安装。</p>';
+ }
+ shell(`<main class="standalone-page product-page"><article class="standalone-card product-card"><div class="product-heading">${display?badge(display):'<div class="app-icon blue">麻</div>'}<div><span class="product-eyebrow">手机安装</span><h1>${esc(name)}</h1></div></div><p class="product-intro">Android 与 iOS 共用一个链接，始终提供已发布的最新安装包。</p><div class="product-platforms" role="group" aria-label="选择安装平台">${[['android','Android'],['ios','iPhone / iPad']].map(([value,label])=>`<button type="button" data-product-platform="${value}" class="product-platform ${requested===value?'selected':''}" aria-pressed="${requested===value}">${icon('phone',19)} ${label}</button>`).join('')}</div><p class="device-detected">${detected}</p><section class="product-version" aria-label="当前平台版本">${chosen?`<div class="detail-meta"><span class="product-platform-label">${platformName(chosen)}</span> v${esc(chosen.version)} <span>·</span> ${mb(chosen.size)}${requested==='ios'&&chosen.minimum_os_version?' <span>·</span> iOS '+esc(chosen.minimum_os_version)+' 及以上':''}</div>${chosen.description?`<p class="standalone-description">${esc(chosen.description)}</p>`:''}`:''}${actions}</section><section class="share-section product-share"><h3>固定安装链接</h3><p>分享给朋友或收藏此页，更新后无需更换链接。</p><div class="share-controls"><input aria-label="固定安装链接" readonly value="${esc(url)}"><button type="button" class="secondary" data-copy-share>复制链接</button></div></section>${chosen&&chosen.notes?`<section class="standalone-notes"><h2>版本说明</h2><p class="pre">${esc(chosen.notes)}</p></section>`:''}</article></main>`);
+ wireShare($('#app'));
+ document.querySelectorAll('[data-product-platform]').forEach(button=>button.onclick=()=>{productPage(product,button.dataset.productPlatform);document.querySelector(`[data-product-platform="${button.dataset.productPlatform}"]`).focus()});
+ if(chosen&&requested==='android'&&!device.embedded){const link=$('.product-version .detail-actions a');if(link)link.onclick=()=>{const message=$('#product-download-status');message.hidden=false;message.textContent='下载已交给浏览器。下载完成后请打开 APK；安装仍需你在系统界面确认。'}}
 }
 function publicPage(){
  const featured=(apps.length?apps:demos)[0];
@@ -85,14 +112,14 @@ function dashboard(){
  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=async()=>{
   if(preview)return toast('演示模式，请先登录后台');
   const a=apps.find(a=>a.id===b.dataset.delete);if(!a)return;
-  if(!confirm(`确定永久删除「${a.name}」v${a.version} 吗？\n\n安装包、图标和该版本记录将被删除，分享及下载链接立即失效。此操作无法撤销。`))return;
+  if(!confirm(`确定永久删除「${a.name}」v${a.version} 吗？\n\n${productURL(a)?`仅删除 ${platformName(a)} 的安装包、图标和版本记录。固定链接不变，其他平台版本不受影响。`:'安装包、图标和该版本记录将被删除，分享及下载链接立即失效。'}此操作无法撤销。`))return;
   b.disabled=true;
   try{await api('/api/delete',{method:'POST',body:JSON.stringify({id:a.id,confirm_name:a.name})});toast('应用已删除');await loadAdmin()}catch(e){toast(e.message);b.disabled=false}
  });
  wireDetails();
 }
 async function start(){try{
- if(standalone){if(!sharedId){const error=Error('链接无效或应用已停用');error.status=404;throw error}standalonePage(await api('/api/apps/'+sharedId))}
+ if(standalone){if(productSlug)productPage(await api('/api/products/'+productSlug));else{if(!sharedId){const error=Error('链接无效或应用已停用');error.status=404;throw error}standalonePage(await api('/api/apps/'+sharedId))}}
  else if(admin){const s=await api('/api/session');csrf=s.csrf;if(s.authenticated||preview)await loadAdmin();else login()}
  else{apps=await api('/api/apps');publicPage()}
 }catch(e){shell(`<main class="empty"><h2>${standalone&&e.status===404?'此应用暂不可用':'暂时无法加载'}</h2><p>${standalone&&e.status===404?'链接无效或应用已停用，请联系发布者。':esc(e.message)}</p>${e.status===404?'':'<button class="primary" id="retry">重新加载</button>'}</main>`);if($('#retry'))$('#retry').onclick=start}}start();

@@ -140,6 +140,7 @@ export interface ScoreTransfer {
     | "点炮"
     | "自摸"
     | "抢杠包三家"
+    | "抢杠赔三家"
     | "三口承包"
     | "杠开包三家"
     | "直杠"
@@ -156,6 +157,8 @@ export interface ScoreTransfer {
 }
 export interface Result {
   winningTile?: Tile;
+  /** Actual rob-kong win, independent of whether limited funds reached its winner. */
+  robbedKong?: boolean;
   bankrupt?: boolean;
   reason: "hu" | "draw" | "dissolved" | "bankrupt";
   winners: Seat[];

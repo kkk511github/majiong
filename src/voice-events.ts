@@ -1,5 +1,6 @@
 import type { Result, Seat, View } from "../shared/types";
 import { gameFeedback } from "./game-feedback";
+import { isRobbedKongWinner } from "./win-label";
 
 const patterns = [
   "天胡",
@@ -19,6 +20,7 @@ const patterns = [
 
 /** Announce only patterns already scored by the server; never infer from concealed tiles. */
 export function winPhrases(result: Result, seat: Seat): string[] {
+  if (!result.winners.includes(seat)) return [];
   const labels = result.details[seat]?.items.map((i) => i.label) ?? [];
   const has = (name: string) => labels.some((label) => label.startsWith(name));
   const main =
@@ -26,9 +28,7 @@ export function winPhrases(result: Result, seat: Seat): string[] {
       ? "杠上开花"
       : has("海底捞月")
         ? "海底捞月"
-        : result.transfers?.some(
-              (t) => t.to === seat && t.reason === "抢杠包三家",
-            )
+        : isRobbedKongWinner(result, seat)
           ? "抢杠胡"
           : has("补花胡")
             ? "补花胡"

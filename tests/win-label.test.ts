@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Result } from "../shared/types";
-import { resultDisplayLabel, winDisplayLabel } from "../src/win-label";
+import { isRobbedKongWinner, resultDisplayLabel, winDisplayLabel } from "../src/win-label";
 import { replayEventLabel } from "../src/replay-events";
 import { replayedRound } from "./fixtures/replayed-round";
 
@@ -35,6 +35,22 @@ it("falls back for ordinary wins and old records without scoring details",()=>{
   const r=result([],1);
   r.transfers=[{from:1,to:0,amount:60,reason:"抢杠包三家"}];
   expect(winDisplayLabel(r,0)).toBe("抢杠胡");
+});
+
+it.each(["marker", "ledger"])("抢杠赔三家用%s识别胡者，不把其他受赔者称为胡牌", (source) => {
+  const r = result(["压绝"], 1);
+  if (source === "marker") r.robbedKong = true;
+  else r.transfers = [0, 2, 3].map(to => ({ from: 1, to: to as 0 | 2 | 3, amount: 48, reason: "抢杠赔三家" }));
+  expect(isRobbedKongWinner(r, 0)).toBe(true);
+  expect(winDisplayLabel(r, 0)).toBe("抢杠胡");
+  for (const seat of [1, 2, 3] as const) {
+    expect(isRobbedKongWinner(r, seat)).toBe(false);
+    expect(winDisplayLabel(r, seat)).toBe("");
+  }
+  expect(r.winners).toEqual([0]);
+  const frame = replayedRound().replay!.frames.at(-1)!;
+  expect(replayEventLabel({ ...frame, result: r }, ["甲", "乙", "丙", "丁"], 0, true))
+    .toBe("本局结算 · 甲抢杠胡 · 乙补杠被抢");
 });
 
 it("keeps each simultaneous winner's pattern and the discard payer in replay",()=>{

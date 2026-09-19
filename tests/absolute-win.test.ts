@@ -290,7 +290,7 @@ describe("用户七九筒卡八筒：抢他人补杠的实收算例", () => {
     inventory(offered);
   });
 
-  it.each([1, 2])("普通开门四硬花、倍率%i：每份48乘倍率，补杠者付三份且不收本次杠分", multiplier => {
+  it.each([1, 2])("普通开门四硬花、倍率%i：补杠者向其余三家各付48乘倍率且不收本次杠分", multiplier => {
     const value = example(4, multiplier), offered = offer(value, "rob");
     expect(offered.pending?.kind).toBe("robKong");
     expect(offered.roundTransfers).toEqual([]);
@@ -301,14 +301,17 @@ describe("用户七九筒卡八筒：抢他人补杠的实收算例", () => {
       { label: "成牌", value: 10 }, { label: "压绝", value: 30 }, { label: "硬花 4 × 2", value: 8 },
     ]));
     expect(score.items.some(item => /压档|软花|门清/.test(item.label))).toBe(false);
-    expect(ended.result!.transfers).toEqual([{ from: 1, to: 0, amount: 144 * multiplier, reason: "抢杠包三家" }]);
-    expect(ended.result!.deltas).toEqual([144 * multiplier, -144 * multiplier, 0, 0]);
+    expect([...ended.result!.transfers!].sort((a, b) => a.to - b.to)).toEqual(
+      ([0, 2, 3] as Seat[]).map(to => ({ from: 1, to, amount: 48 * multiplier, reason: "抢杠赔三家" })),
+    );
+    expect(ended.result!.winners).toEqual([0]);
+    expect(ended.result!.deltas).toEqual([48 * multiplier, -144 * multiplier, 48 * multiplier, 48 * multiplier]);
     expect(ended.players[1]!.melds[0].type).toBe("pung");
     expect(ended.roundTransfers!.some(transfer => ["补杠", "暗杠", "直杠"].includes(transfer.reason))).toBe(false);
     inventory(ended);
   });
 
-  it.each([1, 2])("清一色三硬花、倍率%i：每份86乘倍率，抢八筒由补杠者付258乘倍率", multiplier => {
+  it.each([1, 2])("清一色三硬花、倍率%i：补杠者向其余三家各付86乘倍率", multiplier => {
     const value = example(3, multiplier, true), ended = finishWin(value, "rob");
     const score = ended.result!.details[0]!;
     expect(score.total).toBe(86 * multiplier);
@@ -317,7 +320,11 @@ describe("用户七九筒卡八筒：抢他人补杠的实收算例", () => {
       { label: "压绝", value: 30 }, { label: "硬花 3 × 2", value: 6 },
     ]));
     expect(score.items.some(item => /压档|软花|门清/.test(item.label))).toBe(false);
-    expect(ended.result!.transfers).toEqual([{ from: 1, to: 0, amount: 258 * multiplier, reason: "抢杠包三家" }]);
+    expect([...ended.result!.transfers!].sort((a, b) => a.to - b.to)).toEqual(
+      ([0, 2, 3] as Seat[]).map(to => ({ from: 1, to, amount: 86 * multiplier, reason: "抢杠赔三家" })),
+    );
+    expect(ended.result!.winners).toEqual([0]);
+    expect(ended.result!.deltas).toEqual([86 * multiplier, -258 * multiplier, 86 * multiplier, 86 * multiplier]);
     expect(ended.players[1]!.melds[0].type).toBe("pung");
     inventory(ended);
   });
@@ -328,9 +335,12 @@ describe("用户七九筒卡八筒：抢他人补杠的实收算例", () => {
     value.game.roundStartScores[1] = 90;
     const ended = finishWin(value, "rob");
     expect(ended.result!.details[0]!.total).toBe(48 * multiplier);
-    expect(ended.result!.transfers).toEqual([{ from: 1, to: 0, amount: 90, reason: "抢杠包三家" }]);
-    expect(ended.result!.deltas).toEqual([90, -90, 0, 0]);
-    expect(ended.players.map(player => player!.score)).toEqual([1090, 0, 1000, 1000]);
+    expect([...ended.result!.transfers!].sort((a, b) => a.to - b.to)).toEqual(
+      ([0, 2, 3] as Seat[]).map(to => ({ from: 1, to, amount: 30, reason: "抢杠赔三家" })),
+    );
+    expect(ended.result!.winners).toEqual([0]);
+    expect(ended.result!.deltas).toEqual([30, -90, 30, 30]);
+    expect(ended.players.map(player => player!.score)).toEqual([1030, 0, 1030, 1030]);
     expect(ended.players.reduce((sum, player) => sum + player!.score, 0)).toBe(3090);
     inventory(ended);
   });

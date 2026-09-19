@@ -56,6 +56,20 @@ describe("动作与胡牌语音", () => {
     ];
     expect(actionVoices(a, b)[0].phrase).toBe("补杠");
   });
+  it("抢杠赔三家只给实际胡者播胡牌，另外两家受赔不播胡牌", () => {
+    const r = result([], 0);
+    r.robbedKong = true;
+    r.transfers = [1, 2, 3].map(to => ({ from: 0, to: to as 1 | 2 | 3, amount: 48, reason: "抢杠赔三家" }));
+    expect(winPhrases(r, 1)).toEqual(["抢杠胡"]);
+    expect(winPhrases(r, 2)).toEqual([]);
+    expect(winPhrases(r, 3)).toEqual([]);
+    expect(winPhrases(r, 0)).toEqual([]);
+    delete r.robbedKong;
+    expect(winPhrases(r, 1)).toEqual(["抢杠胡"]);
+    expect(winPhrases(r, 2)).toEqual([]);
+    r.robbedKong = true; r.transfers = [];
+    expect(winPhrases(r, 1)).toEqual(["抢杠胡"]);
+  });
   it("恢复或重复结果不报牌；多家同时胡不叠放相同语音", () => {
     const a = fixture(),
       b = structuredClone(a);

@@ -383,6 +383,7 @@ function finishNanjingRound(g: Game, result: Result) {
         "三口承包",
         "杠开包三家",
         "抢杠包三家",
+        "抢杠赔三家",
         "清一色承包",
         "全球独钓承包",
       ].includes(t.reason),
@@ -760,6 +761,7 @@ function settle(
 ) {
   const result: Result = {
     winningTile: from === undefined ? g.lastDraw : g.pending?.tile,
+    ...(robbed ? { robbedKong: true } : {}),
     reason: "hu",
     winners,
     from,
@@ -849,6 +851,12 @@ function settle(
     } else if (isNanjingB(g.rules) && score.items.some((item) => item.label === "天胡")) {
       for (const other of seats)
         if (other !== seat) bill(other, seat, score.total, "天胡");
+    } else if (isNanjingB(g.rules) && robbed && from !== undefined) {
+      // Each actual rob-kong winner supplies one hand value. The attempted
+      // upgrader compensates every other seat once, including non-winners.
+      // Multiple winners remain independent, as for other simultaneous wins.
+      for (const recipient of seats)
+        if (recipient !== from) bill(from, recipient, score.total, "抢杠赔三家");
     } else if (isNanjingV2(g.rules) && responsibility !== undefined) {
       liability(responsibility, seat, score.total, "三口承包");
     } else if (isNanjingV2(g.rules) && robbed && from !== undefined) {

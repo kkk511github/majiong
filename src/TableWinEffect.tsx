@@ -2,13 +2,14 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { Result } from "../shared/types";
 import { layoutTable, sceneOffset, type TableSceneState } from "../shared/table-scene";
 import { tableOverlayLayout } from "./table-overlay-layout";
-import { winDisplayLabel } from "./win-label";
+import { isRobbedKongWinner, winDisplayLabel } from "./win-label";
 import { winTheme } from "./win-theme";
 import { SpecialWinArt } from "./SpecialWinArt";
 import "./table-win-effect.css";
 
 /** Show each result beside the player it belongs to, relative to the viewer's seat. */
 export function TableWinEffect({ state, result }: { state: TableSceneState; result: Result }) {
+  const sourceLabel=result.winners.some(seat=>isRobbedKongWinner(result,seat))?"补杠被抢":"点炮";
   const ref=useRef<HTMLDivElement>(null);
   const [positions,setPositions]=useState<Record<number,CSSProperties>>({});
   const [discarderPosition,setDiscarderPosition]=useState<CSSProperties>({visibility:"hidden"});
@@ -47,7 +48,7 @@ export function TableWinEffect({ state, result }: { state: TableSceneState; resu
         // Once a side avatar moves inward, keep the marker below its panel,
         // instead of pushing it onto that player's tile wall.
         if((offset===1||offset===3)&&avatar.dx!==0){x=avatar.x;y=avatar.y+116;}
-        const fontSize=Math.max(18,32*f.scale),badgeWidth=fontSize*2.4;
+        const fontSize=Math.max(12,Math.max(18,32*f.scale)*Math.min(1,2.4/(sourceLabel.length+.4))),badgeWidth=fontSize*(sourceLabel.length+.4);
         setDiscarderPosition({left:Math.max(8,Math.min(bounds.width-badgeWidth-8,f.left+x*f.scale-badgeWidth/2)),top:f.top+y*f.scale-fontSize*.6,width:badgeWidth,fontSize});
       }
     };
@@ -60,13 +61,13 @@ export function TableWinEffect({ state, result }: { state: TableSceneState; resu
     {specials.length>0&&<div className="special-win-stage" data-count={specials.length} aria-hidden="true">
       {specials.map(label=><SpecialWinArt key={label} label={label} names={result.winners.filter(seat=>winDisplayLabel(result,seat)===label).map(name).join(" · ")} />)}
     </div>}
-    {result.from!==undefined&&<strong className="seat-discarder" data-seat={result.from} data-relative-seat={sceneOffset(result.from,state.me)} style={discarderPosition} aria-label={`${name(result.from)}点炮`}>点炮</strong>}
+    {result.from!==undefined&&<strong className="seat-discarder" data-seat={result.from} data-relative-seat={sceneOffset(result.from,state.me)} style={discarderPosition} aria-label={`${name(result.from)}${sourceLabel}`}>{sourceLabel}</strong>}
     {result.winners.map(seat=><div key={seat} className={`win-callout${sceneOffset(seat,state.me)%2?" win-callout-side":""}${winDisplayLabel(result,seat).length>2?" win-callout-pattern":""}`} data-seat={seat} data-relative-seat={sceneOffset(seat,state.me)} style={positions[seat]??{visibility:"hidden"}}>
       <strong className="win-call-art" role="img" aria-label={winDisplayLabel(result,seat)}>{winDisplayLabel(result,seat)}</strong>
       <div className="win-call-details">
         <div className="win-call-winners"><span className="winner" data-seat={seat} title={name(seat)}>{name(seat)}</span></div>
       </div>
     </div>)}
-    <span className="sr-only">{result.from===undefined?"":`${name(result.from)}点炮 → `}{result.winners.map(seat=>`${name(seat)}${winDisplayLabel(result,seat)}`).join("、")}</span>
+    <span className="sr-only">{result.from===undefined?"":`${name(result.from)}${sourceLabel} → `}{result.winners.map(seat=>`${name(seat)}${winDisplayLabel(result,seat)}`).join("、")}</span>
   </div>;
 }

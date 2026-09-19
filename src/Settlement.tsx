@@ -2,7 +2,7 @@ import { copyText } from "./clipboard";
 import { useState } from "react";
 import { ArrowRight, ChevronRight, Copy, Trophy } from "lucide-react";
 import type { RoundRecord, Seat } from "../shared/types";
-import { isGarden } from "../shared/nanjing-rules";
+import { isGarden, isNanjingB } from "../shared/nanjing-rules";
 import { scoreItemCopy } from "./score-item-copy";
 import { winDisplayLabel } from "./win-label";
 import { tileName } from "../shared/tiles";
@@ -204,6 +204,14 @@ export function ScoreDetails({
   const hasExternal =
     record.result.transfers?.some((t) => t.scope === "external") ||
     record.result.externalDeltas?.some((n) => n !== 0);
+  const legacyRobbedKong = record.result.transfers?.some((entry) => entry.reason === "抢杠包三家");
+  const compensatedKong = record.result.transfers?.some((entry) => entry.reason === "抢杠赔三家") ||
+    !legacyRobbedKong && record.result.robbedKong && record.rules && isNanjingB(record.rules);
+  const kongPayer = record.result.from;
+  const compensatedNames = record.names.filter((_, seat) => seat !== kongPayer).join("、");
+  const kongTotalDue = record.result.winners.every((seat) => record.result.details[seat])
+    ? record.result.winners.reduce<number>((sum, seat) => sum + record.result.details[seat]!.total * 3, 0)
+    : undefined;
   return (
     <div className={`score-details${ledgerFirst ? " record-score-ledger" : ""}`}>
       {ledgerFirst && <>
@@ -274,6 +282,19 @@ export function ScoreDetails({
         </p>
       </div>
       <div className="score-explanation">
+        {compensatedKong && <aside className="score-note" aria-label="抢杠赔付说明">
+          <strong>抢杠赔三家</strong>
+          <p>补杠者向其他三家各赔一份。收到赔分不代表胡牌，胡牌标记只属于实际胡牌者。</p>
+          {record.result.winners.map((seat) => {
+            const score = record.result.details[seat];
+            return score && <p key={seat}>
+              按{record.names[seat]}的胡牌分，每份{score.total}分：
+              {kongPayer === undefined ? "补杠者" : record.names[kongPayer]}向{kongPayer === undefined ? "其余三家" : compensatedNames}
+              各应付{score.total}分，合计应付{score.total * 3}分。
+            </p>;
+          })}
+          <p>{record.result.winners.length > 1 && <>多人抢杠按每名胡牌者依次累计赔三家{kongTotalDue === undefined ? "；" : `，补杠者合计应付${kongTotalDue}分；`}</>}余额不足及保米调整后的实付金额，以逐笔收支为准。</p>
+        </aside>}
         {Object.entries(record.result.details).map(([seat, score]) => (
           <details className="score-breakdown" key={seat} open>
             <summary>

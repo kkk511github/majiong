@@ -478,6 +478,9 @@ export function createRecords(db: DatabaseSync) {
     const initial = "COALESCE(json_extract(r.record,'$.initialScore'),0)";
     const baseline = `COALESCE(json_extract(r.record,'$.settlementBase'),${initial})`;
     const divisor = "COALESCE(NULLIF(json_extract(r.record,'$.scoreDivisor'),0),1)";
+    const feeNotPreviouslyCleared = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='record_clear_fee_carryover'").get()
+      ? "AND NOT EXISTS (SELECT 1 FROM record_clear_fee_carryover carry WHERE carry.game_id=p.game_id AND carry.account_id=p.account_id)"
+      : "";
     const recorded = `(p.points + CASE WHEN p.record_id=(
       SELECT first.record_id FROM point_records first
       LEFT JOIN round_records original ON original.id=first.record_id
@@ -486,7 +489,7 @@ export function createRecords(db: DatabaseSync) {
         AND COALESCE(json_extract(original.record,'$.experience'),0)=0
         AND COALESCE(json_extract(original.record,'$.result.reason'),'')<>'dissolved'
       ORDER BY first.at,first.record_id LIMIT 1
-    ) THEN ${initial}-${baseline} ELSE 0 END) / (1.0 * ${divisor})`;
+    ) ${feeNotPreviouslyCleared} THEN ${initial}-${baseline} ELSE 0 END) / (1.0 * ${divisor})`;
     const grouped =
       `SELECT p.account_id AS accountId,(SELECT CAST(n.member_id AS TEXT) FROM account_numbers n WHERE n.account_id=p.account_id) AS memberId,COALESCE(a.username,p.account_id) AS username,COALESCE(a.name,MAX(p.name)) AS name,p.team_id AS teamId,COALESCE(t.name,MAX(p.team_name)) AS teamName,COUNT(*) AS rounds,COUNT(DISTINCT p.game_id) AS tables,0.0+ROUND(SUM(${recorded}),6) AS points` +
       filter.from +

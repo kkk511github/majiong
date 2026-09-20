@@ -39,8 +39,7 @@
         </provider>
     </application>
 
-    <!-- Microphone access is requested only when the user presses the talk button. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Playback keeps audio routing support; this app no longer records audio. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <uses-permission android:name="android.permission.INTERNET" />

@@ -4,8 +4,8 @@ import { DatabaseSync } from "node:sqlite";
 import { spawn } from "node:child_process";
 import { makeServer } from "../server/service";
 import { provisionAdministrator } from "../server/accounts";
-const file = resolve("../../work/accounts-e2e.sqlite");
-mkdirSync(resolve("../../work"), { recursive: true });
+const file = resolve(process.env.MAHJONG_E2E_DATABASE ?? "../../work/accounts-e2e.sqlite");
+mkdirSync(resolve(file, ".."), { recursive: true });
 for (const suffix of ["", "-wal", "-shm"])
   rmSync(file + suffix, { force: true });
 const db = new DatabaseSync(file);
@@ -19,14 +19,16 @@ await provisionAdministrator(db, {
   password: "Browser-fixture-password-2026",
 });
 db.close();
-const server = makeServer({ database: file, port: 8788, host: "127.0.0.1" });
+const apiPort = Number(process.env.MAHJONG_E2E_API_PORT ?? 8788);
+const uiPort = Number(process.env.MAHJONG_E2E_UI_PORT ?? 5178);
+const server = makeServer({ database: file, port: apiPort, host: "127.0.0.1" });
 await server.listen();
 const vite = spawn(
   process.execPath,
-  ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "5178"],
+  ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(uiPort)],
   {
     stdio: "inherit",
-    env: { ...process.env, VITE_API_TARGET: "http://127.0.0.1:8788" },
+    env: { ...process.env, VITE_API_TARGET: `http://127.0.0.1:${apiPort}` },
   },
 );
 for (const signal of ["SIGINT", "SIGTERM"] as const)

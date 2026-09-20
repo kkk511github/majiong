@@ -39,7 +39,7 @@ export function ScoreDebitOverlay({
     setControls(
       Array.from(
         host.querySelectorAll<HTMLElement>(
-          ".table-claim-actions,.table-claim-source,.mahjong-hint-layer section,.table-toolbar button,.cocos-voice",
+          ".table-claim-actions,.table-claim-source,.mahjong-hint-layer section,.table-toolbar button,.room-communication-tools,.room-communication-panel",
         ),
       )
         .filter((el) => el.getClientRects().length)

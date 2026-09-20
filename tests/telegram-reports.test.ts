@@ -61,8 +61,8 @@ it("三机器人体验桌即使存在旧积分流水也不进入日结和周结"
   expect(participationRows(db, "team-3", end - DAY_MS, end).map(r => r.rounds)).toEqual([1, 1]);
   expect(dailyScoreRows(db, "team-3", end - DAY_MS, end).map(r => r.score)).toEqual([20, 20]);
 });
-it("333069 finishes after five hands: each member receives one table and three points", () => {
-  const { db, table } = source(); table("333069", end - 1000, 5);
+it("a synthetic table finishes after five hands: each member receives one table and three points", () => {
+  const { db, table } = source(); table("930069", end - 1000, 5);
   expect(participationRows(db, "team-3", end - DAY_MS, end)).toEqual([
     { teamName: "日结丁战队", userId: "100001", username: "zhangsan", rounds: 1, points: 3 },
     { teamName: "日结丁战队", userId: "100002", username: "李四", rounds: 1, points: 3 },
@@ -114,7 +114,7 @@ it("queues one daily file at midnight and three weekly files only after the full
   expect(Number(weekly[0].end_at) - Number(weekly[0].start_at)).toBe(7 * DAY_MS);
 });
 it("daily net scores charge one saved table fee then divide by two, never by the app multiplier", async () => {
-  const { db, table } = source(); table("333069", end - 1, 5);
+  const { db, table } = source(); table("930069", end - 1, 5);
   db.exec(`UPDATE round_records SET record=json_set(record,'$.initialScore',90,'$.settlementBase',100,'$.scoreDivisor',5);
     UPDATE point_records SET points=CASE account_id WHEN 'u1' THEN 14 ELSE -18 END;`);
   expect(dailyScoreRows(db, "team-3", end - DAY_MS, end)).toEqual([
@@ -123,8 +123,8 @@ it("daily net scores charge one saved table fee then divide by two, never by the
   ]);
   const doc = await buildScheduledReport(db, config().schedules[2], end - DAY_MS, end);
   const sheet = await readSheet(doc);
-  expect(sheet.getCell("F3").value).toBe(60);
-  expect(sheet.getCell("G3").value).toEqual({ formula: "F3*0.5", result: 30 });
+  expect(sheet.getCell("D3").value).toBe(60);
+  expect(sheet.getCell("E3").value).toEqual({ formula: "D3*0.5", result: 30 });
 });
 it("daily scores use completed hand timestamps across midnight and transfers, with only one fee", () => {
   const { db, table } = source(); table("overnight", null, 3);
@@ -334,13 +334,13 @@ it("renders template columns, dates and formulas; member text cannot become a fo
   const doc = await buildScheduledReport(db,config().schedules[3],end-DAY_MS,end+6*DAY_MS);
   const sh = await readSheet(doc);
   expect(sh.getCell("A1").value).toBe("日结丁战队工资总表2026.9.16-9.22");
-  expect(sh.getRow(2).values).toEqual([undefined,"战队名","玩家ID","用户名","20金额","50局数","50积分","总结算"]);
+  expect(sh.getRow(2).values).toEqual([undefined,"战队名","玩家ID","用户名","50局数","50金额","总结算"]);
   expect(sh.getCell("A3").value).toBe("日结丁战队");
   expect(sh.getCell("B3").value).toBe("100001");
   expect(sh.getCell("C3").type).toBe(ExcelJS.ValueType.String);
-  expect(sh.getCell("F3").value).toEqual({formula:"E3*3",result:3});
-  expect(sh.getCell("G4").value).toEqual({formula:"D4+F4",result:3});
-  expect(sh.getCell("G4").numFmt).toBe("0");
+  expect(sh.getCell("E3").value).toEqual({formula:"D3*3",result:3});
+  expect(sh.getCell("F4").value).toEqual({formula:"E4",result:3});
+  expect(sh.getCell("F4").numFmt).toBe("0");
   const crossYear = await buildScheduledReport(db,config().schedules[3],Date.parse("2026-12-29T00:00:00+08:00"),Date.parse("2027-01-05T00:00:00+08:00"));
   expect(crossYear.filename).toBe("日结丁战队工资总表2026.12.29-2027.1.4.xlsx");
   expect((await readSheet(crossYear)).getCell("A3").value).toBe("本期无结算记录");
@@ -364,6 +364,39 @@ it("saves binary Excel snapshots across retries and keeps sent CSV history untou
   expect(state.prepare("SELECT document,sha256,message_id FROM report_runs WHERE end_at=?").get(end)).toEqual(original);
 });
 
+it("维护前冻结到期未生成报表，不发送、不改已发或不确定任务，清源后仍发原快照", async () => {
+  const state = database(), queue = createReportQueue(state,config());
+  queue.enqueue(end);
+  await queue.deliverDue(end,()=>document,async()=>12);
+  const sent = state.prepare("SELECT * FROM report_runs WHERE end_at=?").get(end);
+  queue.enqueue(end + DAY_MS);
+  const {db,table}=source(); table("before-clear",end+DAY_MS-1,1);
+  db.exec("UPDATE point_records SET points=40");
+  const build=vi.fn(run=>buildScheduledReport(db,config().schedules[2],run.start_at,run.end_at));
+  expect(await queue.freezeDue(end+DAY_MS,build)).toEqual({frozen:1});
+  const pending=state.prepare("SELECT * FROM report_runs WHERE end_at=?").get(end+DAY_MS)!;
+  expect(pending.status).toBe("pending"); expect(pending.attempts).toBe(0);
+  expect((await readSheet(JSON.parse(String(pending.document)))) .getCell("D3").value).toBe(40);
+  expect(await queue.freezeDue(end+DAY_MS,()=>{throw Error("must not rebuild frozen document");})).toEqual({frozen:0});
+  state.prepare("UPDATE report_runs SET status='uncertain' WHERE end_at=?").run(end+DAY_MS);
+  const uncertain=state.prepare("SELECT * FROM report_runs WHERE end_at=?").get(end+DAY_MS);
+  expect(await queue.freezeDue(end+DAY_MS,()=>{throw Error("must not touch uncertain document");})).toEqual({frozen:0});
+  expect(state.prepare("SELECT * FROM report_runs WHERE end_at=?").get(end+DAY_MS)).toEqual(uncertain);
+  state.prepare("UPDATE report_runs SET status='pending' WHERE end_at=?").run(end+DAY_MS);
+  db.exec("DELETE FROM point_records; DELETE FROM round_records; DELETE FROM match_records");
+  const send=vi.fn().mockResolvedValue(14);
+  await queue.deliverDue(end+DAY_MS,()=>{throw Error("source is cleared; use snapshot");},send);
+  expect(send).toHaveBeenCalledOnce();
+  expect(JSON.stringify(send.mock.calls[0][0])).toBe(pending.document);
+  expect(state.prepare("SELECT * FROM report_runs WHERE end_at=?").get(end)).toEqual(sent);
+});
+
+it("冻结失败不冒充生成成功，也不改变发送状态或尝试次数", async () => {
+  const state=database(),queue=createReportQueue(state,config());queue.enqueue(end);
+  await expect(queue.freezeDue(end,()=>{throw Error("source unavailable");})).rejects.toThrow("source unavailable");
+  expect(state.prepare("SELECT status,document,attempts FROM report_runs").get()).toEqual({status:"pending",document:null,attempts:0});
+});
+
 it("uploads XLSX as binary with the Excel MIME type", async () => {
   const {db,table}=source(); table("g",end-1,1);
   const doc=await buildScheduledReport(db,config().schedules[2],end-DAY_MS,end);
@@ -384,17 +417,17 @@ it("adds formula totals to all numeric columns, outside the filter, including si
   ];
   const daily = await readSheet(await settlementWorkbook("dailyScore", "日结丁战队+日结冰战队", "2026-09-16", "2026-09-16", rows));
   expect(daily.getCell("A5").value).toBe("总计：");
-  expect(daily.autoFilter).toBe("A2:H4");
-  expect(daily.getCell("F5").value).toEqual({ formula: "SUM(F3:F4)", result: -5 });
-  expect(daily.getCell("G5").value).toEqual({ formula: "SUM(G3:G4)", result: -2.5 });
-  expect(daily.getCell("H5").value).toEqual({ formula: "SUM(H3:H4)", result: -2.5 });
-  for (const col of ["D", "E"]) expect(daily.getCell(`${col}5`).formula).toBe(`SUM(${col}3:${col}4)`);
+  expect(daily.autoFilter).toBe("A2:F4");
+  expect(daily.getCell("D5").value).toEqual({ formula: "SUM(D3:D4)", result: -5 });
+  expect(daily.getCell("E5").value).toEqual({ formula: "SUM(E3:E4)", result: -2.5 });
+  expect(daily.getCell("F5").value).toEqual({ formula: "SUM(F3:F4)", result: -2.5 });
   for (const name of ["日结丁战队", "一生所爱战队", "冰茉莉战队+日结冰战队"]) {
     const weekly = await readSheet(await settlementWorkbook("weeklyTables", name, "2026-09-16", "2026-09-22",
       rows.map((r, i) => ({...r, rounds: i + 1, points: (i + 1) * 3}))));
     expect(weekly.getCell("A5").value).toBe("总计：");
-    expect(weekly.getCell("E5").value).toEqual({ formula: "SUM(E3:E4)", result: 3 });
-    expect(weekly.getCell("G5").value).toEqual({ formula: "SUM(G3:G4)", result: 9 });
+    expect(weekly.getCell("D5").value).toEqual({ formula: "SUM(D3:D4)", result: 3 });
+    expect(weekly.getCell("E5").value).toEqual({ formula: "SUM(E3:E4)", result: 9 });
+    expect(weekly.getCell("F5").value).toEqual({ formula: "SUM(F3:F4)", result: 9 });
   }
   for (const kind of ["dailyScore", "weeklyTables"] as const) {
     const empty = await readSheet(await settlementWorkbook(kind, "日结丁战队", "2026-09-16", "2026-09-16", []));

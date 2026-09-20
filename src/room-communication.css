@@ -1,0 +1,39 @@
+.cocos-game .room-communication { position: absolute; inset: 0; pointer-events: none; color: #f5e8be; }
+.room-communication-tools { position: absolute; display: flex; pointer-events: none; z-index: 6; }
+.room-communication-tools.panel-open { visibility: hidden; }
+.room-communication .room-communication-button {
+  position: relative; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  width: var(--communication-button-size); height: var(--communication-button-size); min-width: 44px; min-height: 44px;
+  border: 0; border-radius: 10px; padding: 3px; background: url("/ui/table-button-jade-v1.png") center / 100% 100% no-repeat;
+  color: #ffedc0; font-size: 11px; line-height: 1.1; font-weight: 600; pointer-events: auto; touch-action: manipulation;
+  filter: drop-shadow(0 2px 2px #001e2670);
+}
+.room-communication-button svg { flex: none; stroke-width: 1.7; }
+.room-communication-button[aria-expanded="true"] { filter: brightness(1.28); }
+.room-communication-panel {
+  position: absolute; z-index: 7; box-sizing: border-box; display: flex; flex-direction: column; min-width: 0; padding: 0; overflow: hidden;
+  border: 1px solid #bba265; border-radius: 12px; background: #f5efe0; color: #244b3d; box-shadow: 0 5px 18px #001e2166; pointer-events: auto;
+}
+.room-communication-panel header { flex: none; min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 8px 0 12px; background: linear-gradient(120deg,#1c5144,#0c3c30); color: #faedc2; }
+.room-communication-panel header strong { font-size: clamp(14px,calc(20px * var(--communication-scale)),20px); letter-spacing: .04em; white-space: nowrap; }
+.room-communication-panel header button { display: grid; place-items: center; flex: none; min-width: 36px; min-height: 36px; padding: 4px; border: 0; border-radius: 5px; background: none; color: inherit; touch-action: manipulation; }
+.room-communication-panel header button:focus-visible { outline: 2px solid #f5d587; outline-offset: -3px; }
+.phrase-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; padding: 7px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #bfbb9c transparent; }
+.phrase-list > button { flex: none; width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid #d5c9ac80; border-radius: 7px; background: #fffdf650; color: #244b3d; font-size: clamp(13px,calc(18px * var(--communication-scale)),18px); line-height: 1.45; text-align: left; font-weight: 500; touch-action: manipulation; overflow-wrap: anywhere; }
+.phrase-list > button:active:not(:disabled) { background: #e5d9b9; border-color: #b2985e; }
+.phrase-list > button:disabled { opacity: .58; }
+.phrase-list small { display: block; font-size: 11px; color: #66785d; }
+.room-communication-panel footer { flex: none; padding: 5px 6px 7px; color: #8a826e; font-size: 11px; line-height: 1.3; text-align: center; }
+.room-communication-panel .phrase-error { flex: none; margin: 0; padding: 6px 9px; color: #a3412d; background: #f6e0d3; font-size: 12px; line-height: 1.4; }
+.room-communication .room-phrase-bubble { position: absolute; z-index: 1; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #baab78; border-radius: 11px; background: #f4eddbeF; color: #214b3c; box-shadow: 0 3px 8px #00251c44; font-size: clamp(11px,calc(15px * var(--communication-scale)),15px); line-height: 1.4; text-align: left; pointer-events: auto; animation: phrase-appear .16s ease-out; }
+.room-phrase-bubble > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.room-phrase-bubble > svg { flex: none; color: #6b7953; }
+.room-phrase-bubble::after { content: ""; position: absolute; right: -5px; top: 13px; width: 8px; height: 8px; background: #f4eddb; border-top: 1px solid #baab78; border-right: 1px solid #baab78; transform: rotate(45deg); }
+.room-phrase-bubble.seat-3::after { left: -5px; right: auto; transform: rotate(225deg); }
+.room-communication.compact .room-communication-panel header { min-height: 32px; padding-left: 8px; }
+.room-communication.compact .room-communication-panel header button { min-width: 36px; min-height: 32px; }
+.room-communication.compact .phrase-list { padding: 4px; gap: 4px; }
+.room-communication.compact .phrase-list > button { padding: 7px; }
+.room-communication.compact .room-communication-panel footer { padding: 3px; font-size: 10px; }
+@keyframes phrase-appear { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .room-communication .room-phrase-bubble { animation: none; } }

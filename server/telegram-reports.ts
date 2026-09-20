@@ -52,6 +52,7 @@ export function chinaDate(at: number) {
   return new Date(at + CHINA_OFFSET).toISOString().slice(0, 10);
 }
 
+
 export function parseReportConfig(value: unknown): TelegramReportConfig {
   const c = value as TelegramReportConfig;
   if (!c || !/^-[1-9]\d{0,15}$/.test(c.chatId) || !Number.isSafeInteger(Number(c.chatId)))
@@ -134,6 +135,9 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
   const teams = validateReportRange(db, teamIds, from, to);
   const initial = "COALESCE(json_extract(r.record,'$.initialScore'),0)";
   const baseline = `COALESCE(json_extract(r.record,'$.settlementBase'),${initial})`;
+  const feeNotPreviouslyCleared = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='record_clear_fee_carryover'").get()
+    ? "AND NOT EXISTS (SELECT 1 FROM record_clear_fee_carryover carry WHERE carry.game_id=p.game_id AND carry.account_id=p.account_id)"
+    : "";
   const rows = db.prepare(`
     ${finalRoster}
     SELECT CAST(n.member_id AS TEXT) AS user_id, a.username, t.name AS team_name,
@@ -145,7 +149,7 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
           AND COALESCE(json_extract(original.record,'$.experience'),0)=0
           AND json_extract(original.record,'$.result.reason')<>'dissolved'
         ORDER BY first.at,first.record_id LIMIT 1
-      ) THEN ${initial}-${baseline} ELSE 0 END),6) AS score
+      ) ${feeNotPreviouslyCleared} THEN ${initial}-${baseline} ELSE 0 END),6) AS score
     FROM point_records p
     JOIN round_records r ON r.id=p.record_id
     JOIN accounts a ON a.id=p.account_id
@@ -314,10 +318,23 @@ export function createReportQueue(db: DatabaseSync, config: TelegramReportConfig
       }
     }
   }
+  async function freezeDue(now: number, build: (run: Run) => ReportDocument | Promise<ReportDocument>) {
+    // Used only while the normal worker is stopped, before clearing source data.
+    // Do not send, retry uncertain deliveries, or rewrite an existing snapshot.
+    const due = db.prepare("SELECT * FROM report_runs WHERE status='pending' AND document IS NULL AND end_at<=? ORDER BY end_at,schedule_id").all(now) as unknown as Run[];
+    let frozen = 0;
+    for (const run of due) {
+      const document = await build(run);
+      const changed = db.prepare("UPDATE report_runs SET document=?,sha256=? WHERE id=? AND status='pending' AND document IS NULL")
+        .run(JSON.stringify(document), createHash("sha256").update(reportBytes(document)).digest("hex"), run.id);
+      frozen += Number(changed.changes);
+    }
+    return { frozen };
+  }
   function status() {
     return db.prepare("SELECT id,name,teams,kind,start_at,end_at,status,attempts,message_id,sent_at,error FROM report_runs ORDER BY end_at DESC,schedule_id LIMIT 100").all();
   }
-  return { recoverInterrupted, enqueue, deliverDue, status };
+  return { recoverInterrupted, enqueue, deliverDue, freezeDue, status };
 }
 
 /** All failures use local messages; never put URLs containing a bot token in logs. */

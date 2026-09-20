@@ -1,308 +1,161 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { App as NativeApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { Mic, Volume2, X, Square } from "lucide-react";
-import type { RoomVoiceMessage } from "../shared/room-voice";
+import { MessageCircle, Volume2, X } from "lucide-react";
+import { ROOM_PHRASES, ROOM_PHRASE_TTL_MS, type RoomPhraseId, type RoomPhraseMessage } from "../shared/room-phrases";
+import { sceneOffset, type TableSceneState } from "../shared/table-scene";
 import { gameAudio } from "./audio";
-import { VoiceRecorder } from "./voice-recorder";
 import type { GameClient } from "./game-client";
+import { roomCommunicationLayout, roomPhrasePosition } from "./room-communication-layout";
+import "./room-communication.css";
 
+/** The table offers fixed recorded phrases only; it never captures a microphone. */
 export function RoomVoice({
-  client,
-  game,
-  connected,
-  enabled,
-  volume,
-  me,
-  messages,
+  client, game, connected, enabled, volume, phrases, phrasesAvailable, voiceGender, tableState,
 }: {
-  client: GameClient;
+  client: Pick<GameClient, "sendPhrase" | "now" | "prunePhraseMessages">;
   game: string;
   connected: boolean;
   enabled: boolean;
   volume: number;
-  me: string;
-  messages: RoomVoiceMessage[];
+  phrases: RoomPhraseMessage[];
+  phrasesAvailable: boolean;
+  voiceGender: "male" | "female";
+  tableState: TableSceneState;
 }) {
-  const [open, setOpen] = useState(false),
-    [phase, setPhase] = useState<
-      "idle" | "permission" | "recording" | "sending"
-    >("idle");
-  const [canceling, setCanceling] = useState(false),
-    [elapsed, setElapsed] = useState(0),
-    [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
   const [playing, setPlaying] = useState("");
-  const recorder = useRef<VoiceRecorder | null>(null),
-    upload = useRef<AbortController | null>(null);
-  const player = useRef<HTMLAudioElement | null>(null),
-    origin = useRef(0),
-    cancel = useRef(false),
-    start = useRef(0);
-  const alive = useRef(true),
-    seen = useRef(new Set(messages.map((m) => m.id)));
+  const [sendingPhrase, setSendingPhrase] = useState<RoomPhraseId | null>(null);
+  const sendingRef = useRef(false);
+  const phraseStop = useRef<(() => void) | null>(null);
+  const phraseSeen = useRef(new Set(phrases.map((m) => m.id)));
+  const root = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<ReturnType<typeof roomCommunicationLayout> | null>(null);
+  const alive = useRef(true);
+
   function stopPlayback() {
-    const previous = player.current;
-    player.current = null;
-    if (previous) {
-      previous.pause();
-      previous.onended = null;
-      previous.onerror = null;
-      previous.removeAttribute("src");
-      previous.load();
-    }
+    const stop = phraseStop.current;
+    phraseStop.current = null;
+    stop?.();
     if (alive.current) setPlaying("");
-    gameAudio.setCommunication(recorder.current ? "recording" : "off");
   }
-  function stopAll() {
-    recorder.current?.finish(false);
-    recorder.current = null;
-    upload.current?.abort();
-    upload.current = null;
+  function playPhrase(message: RoomPhraseMessage, automatic = false) {
+    if (!enabled || !connected || document.hidden) return;
+    if (playing === message.id && !automatic) { stopPlayback(); return; }
     stopPlayback();
-    gameAudio.setCommunication("off");
-    if (alive.current) {
-      setPhase("idle");
-      setCanceling(false);
-    }
-  }
-  async function play(message: RoomVoiceMessage, automatic = false) {
-    if (!enabled || recorder.current || document.hidden) return;
-    if (playing === message.id && !automatic) {
-      stopPlayback();
-      return;
-    }
-    stopPlayback();
-    const audio = new Audio(`data:audio/wav;base64,${message.audio}`);
-    player.current = audio;
-    audio.volume = Math.max(0, Math.min(1, volume));
-    gameAudio.setCommunication("playing");
     setPlaying(message.id);
-    audio.onended = audio.onerror = () => {
-      if (player.current === audio) stopPlayback();
-    };
-    try {
-      await audio.play();
-    } catch {
-      if (player.current === audio) stopPlayback();
-    }
-  }
-  async function finish(send: boolean) {
-    const current = recorder.current;
-    if (!current) return;
-    recorder.current = null;
-    const bytes = current.finish(send && !cancel.current);
-    gameAudio.setCommunication("off");
-    setCanceling(false);
-    if (!bytes) {
-      setPhase("idle");
-      if (send && !cancel.current) setError("说话时间太短，请按住后说话");
-      return;
-    }
-    const controller = new AbortController();
-    upload.current = controller;
-    setPhase("sending");
-    try {
-      await client.sendVoice(bytes, game, controller.signal);
-    } catch (e) {
-      if (alive.current && !controller.signal.aborted)
-        setError(e instanceof Error ? e.message : "语音发送失败");
-    } finally {
-      if (upload.current === controller) {
-        upload.current = null;
-        if (alive.current) setPhase("idle");
+    phraseStop.current = gameAudio.playChatPhrase(message.phrase, voiceGender, volume, (state) => {
+      if (state === "ended" || state === "failed" || state === "cancelled") {
+        if (alive.current) setPlaying(current => current === message.id ? "" : current);
       }
-    }
+    });
   }
-  async function begin(y: number) {
-    if (!connected || recorder.current || upload.current || document.hidden)
-      return;
-    stopPlayback();
+  async function sendPhrase(id: RoomPhraseId) {
+    if (sendingRef.current || !connected || !phrasesAvailable) return;
+    gameAudio.unlock();
+    sendingRef.current = true;
+    setSendingPhrase(id);
     setError("");
-    cancel.current = false;
-    setCanceling(false);
-    origin.current = y;
-    const current = new VoiceRecorder();
-    recorder.current = current;
-    setPhase("permission");
-    gameAudio.setCommunication("recording");
     try {
-      const ready = await current.start(() => void finish(true));
-      if (ready && recorder.current === current && alive.current) {
-        start.current = Date.now();
-        setElapsed(0);
-        setPhase("recording");
-      }
+      await client.sendPhrase(game, id);
+      if (alive.current) setOpen(false);
     } catch (e) {
-      if (recorder.current !== current || !alive.current) return;
-      recorder.current = null;
-      current.finish(false);
-      gameAudio.setCommunication("off");
-      setPhase("idle");
-      setError(
-        e instanceof DOMException && e.name === "NotAllowedError"
-          ? Capacitor.isNativePlatform()
-            ? "麦克风权限未开启，请在系统设置中允许后再试"
-            : "麦克风权限未开启，请在浏览器的网站设置中允许后再试"
-          : e instanceof DOMException && e.name === "NotFoundError"
-            ? "未检测到麦克风，请连接麦克风后重试"
-            : e instanceof Error && !(e instanceof DOMException)
-              ? e.message
-              : "麦克风暂时无法使用，请检查是否被其他应用占用",
-      );
+      if (alive.current) setError(e instanceof Error ? e.message : "短句发送失败，请重试");
+    } finally {
+      sendingRef.current = false;
+      if (alive.current) setSendingPhrase(null);
     }
   }
   useEffect(() => {
     alive.current = true;
-    const hide = () => {
-        if (document.hidden) stopAll();
-      },
-      blur = () => stopAll();
+    const hide = () => { if (document.hidden) stopPlayback(); };
     document.addEventListener("visibilitychange", hide);
-    window.addEventListener("blur", blur);
-    const expiry = setInterval(() => client.pruneVoiceMessages(), 5000);
+    const expiry = setInterval(() => client.prunePhraseMessages(), 500);
     const native = Capacitor.isNativePlatform()
-      ? NativeApp.addListener("appStateChange", (state) => {
-          if (!state.isActive) stopAll();
-        })
+      ? NativeApp.addListener("appStateChange", (state) => { if (!state.isActive) stopPlayback(); })
       : undefined;
     return () => {
       clearInterval(expiry);
       alive.current = false;
-      stopAll();
+      stopPlayback();
       document.removeEventListener("visibilitychange", hide);
-      window.removeEventListener("blur", blur);
       void native?.then((h) => h.remove());
     };
   }, [game]);
+  useLayoutEffect(() => {
+    const host = root.current?.closest<HTMLElement>(".cocos-game");
+    const frame = host?.querySelector("iframe");
+    if (!host || !frame) return;
+    const resize = () => {
+      const a = host.getBoundingClientRect();
+      const toolbar = host.querySelector(".table-menu-actions")?.getBoundingClientRect();
+      setLayout(roomCommunicationLayout(a, frame.getBoundingClientRect(), tableState.safeArea, toolbar ? toolbar.bottom - a.top : 104));
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(host); observer.observe(frame);
+    const toolbar = host.querySelector(".table-menu-actions");
+    if (toolbar) observer.observe(toolbar);
+    resize();
+    return () => observer.disconnect();
+  }, [tableState.safeArea]);
   useEffect(() => {
-    if (!connected) stopAll();
+    if (!open) return;
+    const close = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", close);
+    const tableDocument = root.current?.closest(".cocos-game")?.querySelector("iframe")?.contentDocument;
+    const outside = () => setOpen(false);
+    tableDocument?.addEventListener("pointerdown", outside);
+    return () => {
+      window.removeEventListener("keydown", close);
+      tableDocument?.removeEventListener("pointerdown", outside);
+    };
+  }, [open]);
+  useEffect(() => {
+    if (!connected) { stopPlayback(); setOpen(false); }
   }, [connected]);
+  const claimContext = `${tableState.phase}:${tableState.pending?.from}:${tableState.pending?.tile}:${tableState.pending?.kind}`;
   useEffect(() => {
-    if (!enabled) stopPlayback();
-  }, [enabled]);
+    if (tableState.phase === "claiming" && tableState.actions.length) setOpen(false);
+  }, [claimContext]);
   useEffect(() => {
-    if (phase !== "recording") return;
-    const timer = setInterval(
-      () =>
-        setElapsed(
-          Math.min(15, Math.floor((Date.now() - start.current) / 1000)),
-        ),
-      200,
-    );
-    return () => clearInterval(timer);
-  }, [phase]);
+    if (!enabled || volume <= 0) stopPlayback();
+  }, [enabled, volume]);
   useEffect(() => {
-    const fresh = messages.filter((m) => !seen.current.has(m.id));
-    for (const message of messages) seen.current.add(message.id);
-    if (seen.current.size > 100)
-      seen.current = new Set(messages.map((m) => m.id));
-    const last = fresh
-      .filter((m) => m.sender !== me && client.now() - m.at < 10000)
-      .slice(-1)[0];
-    if (last && enabled) void play(last, true);
-  }, [messages]);
+    const fresh = phrases.filter(m => !phraseSeen.current.has(m.id));
+    for (const message of phrases) phraseSeen.current.add(message.id);
+    if (phraseSeen.current.size > 100) phraseSeen.current = new Set(phrases.map(m => m.id));
+    const last = fresh.filter(m => m.game === game && client.now() - m.at >= -1000 && client.now() - m.at < ROOM_PHRASE_TTL_MS).at(-1);
+    if (last && enabled) playPhrase(last, true);
+  }, [phrases]);
+
+  const bubbleMessages = phrases.filter((m, i) => m.game === game && client.now() - m.at < ROOM_PHRASE_TTL_MS && !phrases.slice(i + 1).some(next => next.seat === m.seat));
   return (
-    <div className="room-voice">
-      <button
-        className="icon-button"
-        aria-label="同桌语音"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen(!open);
-          setError("");
-          if (open) stopAll();
-        }}
-      >
-        <Mic size={20} />
-        {messages.length > 0 && <i />}
-      </button>
+    <div ref={root} className={`room-communication${layout?.compact ? " compact" : ""}`} style={{ visibility: layout ? "visible" : "hidden", "--communication-scale": layout?.scale ?? 1 } as CSSProperties}>
+      <div className={`room-communication-tools${layout?.compact && open ? " panel-open" : ""}`} style={{ ...layout?.rail, "--communication-button-size": `${layout?.size ?? 44}px` } as CSSProperties}>
+        <button className="room-communication-button" aria-label="快捷短句" aria-expanded={open}
+          onClick={() => { gameAudio.unlock(); setOpen(current => !current); setError(""); }}>
+          <MessageCircle size={22} /><span>短句</span>
+        </button>
+      </div>
       {open && (
-        <section className="voice-panel" aria-label="同桌语音面板">
-          <header>
-            <strong>同桌语音</strong>
-            <button
-              aria-label="关闭同桌语音"
-              onClick={() => {
-                stopAll();
-                setOpen(false);
-              }}
-            >
-              <X size={18} />
-            </button>
-          </header>
-          <div className="voice-clips">
-            {messages.length ? (
-              messages.slice(-4).map((m) => (
-                <button
-                  key={m.id}
-                  disabled={!enabled}
-                  onClick={() => void play(m)}
-                  aria-label={`播放${m.name}的语音`}
-                >
-                  <span>{m.sender === me ? "我" : m.name}</span>
-                  {playing === m.id ? (
-                    <Square size={15} />
-                  ) : (
-                    <Volume2 size={16} />
-                  )}
-                  <b>{Math.ceil(m.duration)}″</b>
-                </button>
-              ))
-            ) : (
-              <p>按住下方按钮说话，同桌玩家可听到</p>
-            )}
+        <section className="room-communication-panel phrase-panel" aria-label="快捷短句面板" style={layout?.panel as CSSProperties}>
+          <header><strong>快捷短句</strong><button aria-label="关闭快捷短句" onClick={() => setOpen(false)}><X size={20}/></button></header>
+          <div className="phrase-list">
+            {ROOM_PHRASES.map(phrase => <button key={phrase.id} disabled={!connected || !phrasesAvailable || sendingPhrase !== null} onClick={() => void sendPhrase(phrase.id)}><span>{phrase.text}</span>{sendingPhrase === phrase.id && <small>发送中…</small>}</button>)}
           </div>
-          <button
-            className={`hold-to-talk ${phase === "recording" ? "recording" : ""} ${canceling ? "canceling" : ""}`}
-            disabled={!connected || phase === "sending"}
-            onContextMenu={(e) => e.preventDefault()}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              e.currentTarget.setPointerCapture(e.pointerId);
-              void begin(e.clientY);
-            }}
-            onPointerMove={(e) => {
-              if (!recorder.current) return;
-              cancel.current = origin.current - e.clientY > 45;
-              setCanceling(cancel.current);
-            }}
-            onPointerUp={() => void finish(true)}
-            onPointerCancel={() => void finish(false)}
-            onKeyDown={(e) => {
-              if ((e.key === " " || e.key === "Enter") && !e.repeat) {
-                e.preventDefault();
-                void begin(0);
-              }
-              if (e.key === "Escape") void finish(false);
-            }}
-            onKeyUp={(e) => {
-              if (e.key === " " || e.key === "Enter") {
-                e.preventDefault();
-                void finish(true);
-              }
-            }}
-          >
-            <Mic size={18} />
-            {phase === "permission"
-              ? "请允许麦克风，按住说话"
-              : phase === "sending"
-                ? "正在发送…"
-                : phase === "recording"
-                  ? `${canceling ? "松手取消" : "松开发送"} · ${elapsed} 秒`
-                  : "按住说话"}
-          </button>
-          <small>
-            {canceling ? "松开后这条语音不会发送" : "最长 15 秒 · 上滑取消"}
-            {!enabled && " · 已关闭播放"}
-          </small>
-          {error && (
-            <p className="voice-error" role="alert">
-              {error}
-            </p>
-          )}
+          <footer>{!connected ? "连接恢复后可发送" : !phrasesAvailable ? "服务器暂未开启短句" : "点击发送 · 发完收起"}</footer>
+          {error && <p className="phrase-error" role="alert">{error}</p>}
         </section>
       )}
+      {layout && bubbleMessages.map(message => {
+        const phrase = ROOM_PHRASES.find(p => p.id === message.phrase);
+        if (!phrase) return null;
+        const offset = sceneOffset(message.seat, tableState.me);
+        return <button key={message.id} className={`room-phrase-bubble seat-${offset}`} data-seat={message.seat} style={roomPhrasePosition(layout, offset)} aria-label={`${message.name}：${phrase.text}，点击播放`} onClick={() => playPhrase(message)}>
+          {playing === message.id ? <Volume2 size={15}/> : <MessageCircle size={15}/>}<span>{phrase.text}</span>
+        </button>;
+      })}
     </div>
   );
 }

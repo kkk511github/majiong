@@ -6,7 +6,7 @@ import { NetworkDiagnostics } from "./NetworkDiagnostics";
 import { networkLabel } from "./network-health";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
-import { AppUpdate } from "./AppUpdate";
+import { NotificationCenter } from "./NotificationCenter";
 import { CocosTable } from "./CocosTable";
 import { useScoreDebits } from "./useScoreDebits";
 import { openingScene, openingTitle, type OpeningCue } from "./TableOpening";
@@ -32,6 +32,7 @@ import {
 import {
   ArrowLeft,
   ArrowRight,
+  Bell,
   BookOpen,
   Bot,
   Check,
@@ -151,6 +152,8 @@ function Avatar({
 
 export function App() {
   const [updateRequest, setUpdateRequest] = useState(0);
+  const [announcementRequest, setAnnouncementRequest] = useState(0);
+  const [announcementUnread, setAnnouncementUnread] = useState(0);
   const [scoreDetailsKey, setScoreDetailsKey] = useState("");
   const state = useSyncExternalStore(client.subscribe, client.snapshot);
   const [page, setPage] = useState<Page>("home"),
@@ -162,6 +165,7 @@ export function App() {
   const [passwordError, setPasswordError] = useState("");
   const admin = state.account?.role === "admin";
   const canOpen = mayCreateTables(state.account);
+  useEffect(() => { setAnnouncementUnread(0); }, [state.account?.id]);
   useEffect(() => {
     if (!canOpen && modal === "create") setModal(null);
   }, [canOpen, modal]);
@@ -605,6 +609,8 @@ export function App() {
         {!v && page === "profile" && <h1 className="profile-header-title">我的</h1>}
         {!v && page === "profile" && <button className="profile-update-entry" onClick={() => setUpdateRequest(n => n + 1)}><RefreshCw size={16} />检查更新</button>}
         <div className="header-right">
+          {!v && page === "home" && state.account && <button className="announcement-bell" aria-label={announcementUnread ? `公告，${announcementUnread}条未读` : "查看公告"}
+            onClick={() => setAnnouncementRequest(n => n + 1)}><Bell size={22} />{announcementUnread > 0 && <span className="announcement-badge" aria-hidden="true" />}</button>}
           <span className="header-note">{name}</span>
           <button
             className="icon-button"
@@ -870,11 +876,14 @@ export function App() {
             }
           }}
         >
-          {state.mode === "online" && <RoomVoice key={v.id} client={client} game={v.id} connected={state.connected} enabled={audioPreferences.chat !== false} volume={audioPreferences.voiceVolume} me={mine.id} messages={state.voiceMessages} />}
+          {tableState => state.mode === "online" && <RoomVoice key={v.id} client={client} game={v.id} connected={state.connected} enabled={audioPreferences.chat !== false} volume={audioPreferences.voiceVolume} voiceGender={audioPreferences.voiceGender ?? "male"} phrases={state.phraseMessages} phrasesAvailable={state.phrasesAvailable} tableState={tableState} />}
         </CocosTable>
       )}
       <AudioRecovery />
-      <AppUpdate canPrompt={!v && modal === null} request={updateRequest} />
+      <NotificationCenter key={state.account?.id ?? "guest"} client={client} accountId={state.account?.id}
+        lobby={!v && page === "home"} idle={!v && modal === null}
+        updateRequest={updateRequest} announcementRequest={announcementRequest} refreshKey={state.announcementVersion ?? 0}
+        onUnreadChange={setAnnouncementUnread} notice={setToast} />
       {!v && (
         <nav className="bottom-nav" aria-label="主导航">
           {(

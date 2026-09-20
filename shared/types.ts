@@ -213,6 +213,8 @@ export interface Account {
   playBlocked?: boolean;
   canPlay?: boolean;
   canManageAdmins?: boolean;
+  createdAt?: number;
+  suspended?: boolean;
 }
 export interface Team {
   id: string;
@@ -444,6 +446,7 @@ export type ClientMessage = (
   | { type: "ready" }
   | { type: "addBot" }
   | { type: "action"; action: Action; revision: number }
+  | { type: "phrase"; game: string; phrase: import("./room-phrases").RoomPhraseId }
   | { type: "trustee"; enabled: boolean }
   | { type: "leave" }
   | { type: "dissolve"; agree: boolean }
@@ -451,7 +454,9 @@ export type ClientMessage = (
 ) & { requestId?: string };
 export type ServerMessage = (
   | { type: "voice"; message: import("./room-voice").RoomVoiceMessage }
+  | { type: "phrase"; message: import("./room-phrases").RoomPhraseMessage }
   | { type: "accountUpdated"; account: Account }
+  | { type: "announcementsChanged" }
   | {
       type: "session";
       token: string;
@@ -459,6 +464,7 @@ export type ServerMessage = (
       name: string;
       roomCode?: string;
       commandAck?: true;
+      roomPhrases?: true;
       tableLobby?: true;
       timeSync?: true;
       serverVersion?: string;

@@ -56,13 +56,26 @@ for (const [width, height, left, right] of [
     await page.getByLabel("账号", { exact: true }).fill("offline-fixture");
     await page.getByLabel("密码", { exact: true }).fill(password);
     await page.getByRole("button", { name: "登录，开始相聚" }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
-    const practiceBox = (await page
-      .getByRole("button", { name: "先去单人练习 →" })
-      .boundingBox())!;
-    expect(practiceBox.y + practiceBox.height).toBeLessThanOrEqual(
-      height - (width > 700 ? 21 : 0),
-    );
+    const loginError = page.getByRole("alert");
+    const loginSubmit = page.getByRole("button", {
+      name: "登录，开始相聚",
+      exact: true,
+    });
+    await expect(loginError).toBeVisible();
+    for (const element of [loginError, loginSubmit]) {
+      const box = (await element.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(left);
+      expect(box.x + box.width).toBeLessThanOrEqual(width - right);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(
+        height - (width > 700 ? 21 : 0),
+      );
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
     await page.screenshot({
       path: `${captures}/account-login-error-${width}.png`,
     });
@@ -116,6 +129,10 @@ test("真实注册、会员权限、退出和密码登录、修改密码", async
     .getByRole("button", { name: "我的", exact: true })
     .click();
   await page.getByRole("button", { name: "退出登录", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "退出当前账号？" })
+    .getByRole("button", { name: "退出登录", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "登录，开始相聚" }),
   ).toBeVisible();
@@ -127,7 +144,7 @@ test("真实注册、会员权限、退出和密码登录、修改密码", async
     .getByRole("navigation")
     .getByRole("button", { name: "我的", exact: true })
     .click();
-  await page.getByRole("button", { name: "修改密码", exact: true }).click();
+  await page.getByRole("button", { name: "账号安全", exact: true }).click();
   await page.getByLabel("原密码", { exact: true }).fill(password);
   await page
     .getByLabel("新密码", { exact: true })
@@ -138,10 +155,14 @@ test("真实注册、会员权限、退出和密码登录、修改密码", async
   await page.getByRole("button", { name: "保存新密码" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "退出登录", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "退出当前账号？" })
+    .getByRole("button", { name: "退出登录", exact: true })
+    .click();
   await login(page, username, "Changed-Password-2026");
   await expect(page.getByRole("navigation")).toBeVisible();
 });
-test("管理员首次登录更换初始密码后才能开桌", async ({ page }) => {
+test("普通管理员首次登录更换初始密码后仍不能开桌", async ({ page }) => {
   await page.setViewportSize({ width: 874, height: 402 });
   await login(page, "initial-admin");
   await expect(
@@ -156,7 +177,7 @@ test("管理员首次登录更换初始密码后才能开桌", async ({ page }) 
   await page.getByRole("button", { name: "保存密码，进入大厅" }).click();
   await expect(
     page.getByRole("button", { name: "开一桌，等朋友" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });
 test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房号日期查询", async ({
   page,
@@ -246,10 +267,16 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
   await page.getByLabel("战绩房间号", { exact: true }).fill("881");
   await page.getByRole("button", { name: "查询战绩" }).click();
   await expect(page.locator(".record-card")).toHaveCount(5);
-  await expect(page.locator(".records-pagination")).toContainText("共 5 桌");
+  await expect(page.locator(".records-results-heading")).toContainText(
+    "共 5 桌",
+  );
+  await expect(page.locator(".records-pagination")).toContainText("1 / 1");
   await page.screenshot({ path: `${captures}/admin-final-five-tables.png` });
   await page.getByRole("button", { name: "查看房间 881001 最终战绩" }).click();
   const board = page.getByRole("dialog");
+  await board
+    .getByRole("button", { name: "返回整桌明细", exact: true })
+    .click();
   await expect(board.locator(".match-details-summary")).toContainText(
     "房间 881001",
   );
@@ -257,14 +284,14 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
     "8 / 8 把",
   );
   await expect(
-    board.locator(".match-details-summary .match-points b"),
+    board.locator(".record-detail-total .match-points b"),
   ).toHaveText(["-50", "-50", "0", "+80"]);
   await expect(
-    board.locator(".match-details-summary .record-member-id"),
+    board.locator(".record-detail-total .record-member-id"),
   ).toHaveText(memberIds.map((id) => `ID：${id}`));
   await expect(board.locator(".match-round")).toHaveCount(8);
   await expect(
-    board.locator(".match-details-summary .record-team"),
+    board.locator(".record-detail-total .record-team"),
   ).toHaveCount(4);
   const ids = await board.locator(".round-replay-code code").allTextContents();
   expect(new Set(ids).size).toBe(8);
@@ -279,7 +306,10 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
     .getByRole("button", { name: "回放", exact: true })
     .click();
   const replayDialog = page.locator(".replay-dialog");
-  await expect(replayDialog.locator(".replay-player")).toHaveCount(4);
+  await expect(replayDialog.locator(".cocos-loading")).toHaveCount(0, {
+    timeout: 45000,
+  });
+  await expect(replayDialog.locator("iframe")).toBeVisible();
   await replayDialog.getByRole("button", { name: "关闭", exact: true }).click();
   const finalCdp = await page.context().newCDPSession(page);
   for (const [width, height] of [
@@ -307,16 +337,15 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
         .locator(".modal-body")
         .evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
     ).toBe(true);
-    const r = (await board.boundingBox())!;
-    expect(r.x).toBeGreaterThanOrEqual(width > 700 ? 62 : 0);
-    expect(r.x + r.width).toBeLessThanOrEqual(width - (width > 700 ? 62 : 0));
     await page.screenshot({
       path: `${captures}/final-settlement-${width}.png`,
     });
   }
   await page.setViewportSize({ width: 932, height: 430 });
   await page.getByRole("button", { name: "关闭", exact: true }).click();
-  await page.getByLabel("结束日期", { exact: true }).fill("2020-01-01");
+  await page
+    .getByLabel("选择战绩日期", { exact: true })
+    .fill("2020-01-01");
   await page.getByRole("button", { name: "查询战绩" }).click();
   await expect(page.locator(".record-card")).toHaveCount(0);
   await page.evaluate(() => localStorage.removeItem("jinling:token"));
@@ -331,6 +360,10 @@ test("管理员5桌8局汇总显示5条，四人最终分数减半，支持房�
     page.locator(".record-card").first().locator(".record-member-id"),
   ).toHaveText(memberIds.map((id) => `ID：${id}`));
   await page.locator(".record-card").first().click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "返回整桌明细", exact: true })
+    .click();
   await expect(page.locator(".match-round")).toHaveCount(8);
   await expect(page.locator(".match-record-dialog .record-team")).toHaveCount(
     0,

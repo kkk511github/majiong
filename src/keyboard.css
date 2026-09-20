@@ -110,6 +110,11 @@
   scroll-padding-block: 3px;
   gap: 4px;
 }
+/* Some Android keyboards overlay the WebView without resizing either viewport.
+ * Keep a single focused row at the top; the form scrolls to the next row. */
+:root[data-account-editing]:not([data-keyboard-open]) .account-card {
+  max-height: min(88px, 100%);
+}
 :root[data-keyboard-open] .account-form label,
 :root[data-account-editing] .account-form label {
   font-size: 0;

@@ -78,6 +78,25 @@ export const sceneTileName = (tile:number) => {
  return k<27?'一二三四五六七八九'[k%9]+['万','筒','条'][Math.floor(k/9)]:['东','南','西','北','中','发','白','春','夏','秋','冬','梅','兰','竹','菊'][k-27];
 };
 export const sceneOffset=(seat:number,me:number)=>(seat-me+4)%4;
+
+/** Local presentation memory only; a claimed discard can disappear from the
+ * current river snapshot while still being the latest actual discard. */
+export interface CompassMemory {
+ key:string; round:number; revision:number; presentation?:'replay'; connected:boolean;
+ lastDiscardSeat?:number;
+}
+export function nextCompassMemory(
+ s:Pick<TableSceneState,'key'|'round'|'revision'|'presentation'|'connected'|'lastDiscard'>,
+ previous?:CompassMemory,
+):CompassMemory {
+ const same=previous&&previous.key===s.key&&previous.round===s.round&&previous.presentation===s.presentation&&
+  s.revision>=previous.revision&&!(s.presentation==='replay'&&s.revision>previous.revision+1)&&
+  !(s.connected&&!previous.connected);
+ const seat=s.lastDiscard?.seat;
+ const known=seat!==undefined&&Number.isInteger(seat)&&seat>=0&&seat<4;
+ return {key:s.key,round:s.round,revision:s.revision,presentation:s.presentation,connected:s.connected,
+  lastDiscardSeat:known?seat:same?previous.lastDiscardSeat:undefined};
+}
 const poses=['bottom','right','top','left'];
 
 /** A concealed kong keeps three backs and shows its upper tile face. */

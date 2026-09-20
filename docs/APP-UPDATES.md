@@ -16,11 +16,19 @@
 - iOS 使用当前已安装版本与系统版本判断更新及最低系统要求。沿用分发服务现有 IPA 签名/有效期检查，用户点击后打开固定安装页，由 Safari 与 iOS 完成签名、设备与安装确认。插件只返回 `page-opened`，不声称安装成功。
 - 旧安装包本身没有新原生插件，首次启用需要先安装含此功能的新版本。
 
+### Android 安装包大小读取修复
+
+早期更新插件使用 `PluginCall.getLong("size")`。Capacitor 的该方法只接受 Java `Long`，而 Android JSON 会把正常 APK 字节数解析为 `Integer`，导致有效的包大小被读成空值，下载前即提示“安装包校验信息无效，请重新检查版本”。此问题与服务器上的包是否完整是两项独立检查。
+
+修复版在原生桥读取整数类型的字节数并保留原有大小上限、SHA-256、版本、包名、签名及 HTTPS 校验。旧设备里的插件不会随服务器上传而改变；遇到此错误，应先从固定安装页下载修复版 APK，直接覆盖安装一次，无需卸载。此后新的原生更新模块才会用于下一次更新。不要通过修改服务器包大小、摘要或关闭校验来绕过旧插件。
+
 公开产品接口只允许 `capacitor://localhost`、`https://localhost`、`http://localhost`、`https://212.189.31.46` 的 GET/OPTIONS 跨域读取，不开放 Cookie 凭据或管理接口。
 
 ## 验证
 
 `tests/app-update.test.ts` 使用离线模拟元数据与原生桥，覆盖数字构建号、失效签名、系统版本、替换竞态、显式安装及网页无原生动作。分发 HTTP 回归使用临时数据库、假安装包和回环端口，覆盖原子替换及精确 CORS。原生编译只针对模拟器/构建目标，不向用户设备发出安装请求。
+
+`android/app/src/androidTest/java/com/jinling/mahjong/AppUpdatePluginTest.java` 使用 Android 真正的 `org.json` 和 Capacitor `PluginCall`，复现整数大小被旧读取方法遗漏，并覆盖整数表示、1 GiB 上限、非法数值及原有地址、摘要、构建号限制。联网安装验收使用隔离模拟器与明确指定的测试入口，不纳入默认离线回归。
 
 ## 官方依据
 

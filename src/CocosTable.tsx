@@ -30,7 +30,7 @@ export function CocosTable({
 }: {
   state: TableSceneState;
   onCommand: (command: TableSceneCommand) => void;
-  children?: ReactNode;
+  children?: ReactNode | ((state: TableSceneState) => ReactNode);
   embedded?: boolean;
   connectionQuality?: string;
   readyDiscards?: number[];
@@ -241,7 +241,7 @@ export function CocosTable({
       {status === "ready" && !embedded && <ReadyDiscardArrows state={state} tiles={readyDiscards} />}
       {status === "ready" && !showingOpening && !embedded && <ScoreDebitOverlay state={viewState} events={scoreDebits} />}
       {status === "ready" && winResult && <TableWinEffect state={viewState} result={winResult} />}
-      {children && <div className="cocos-voice">{children}</div>}
+      {status === "ready" && !showingOpening && children && <div className="cocos-voice">{typeof children === "function" ? children(viewState) : children}</div>}
       {showingOpening && opening && <TableOpening key={opening.key} state={state} done={dismissOpening} tableReady={status === "ready"} />}
     </main>
   );

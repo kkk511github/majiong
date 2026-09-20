@@ -21,6 +21,7 @@ const patterns = [
 /** Announce only patterns already scored by the server; never infer from concealed tiles. */
 export function winPhrases(result: Result, seat: Seat): string[] {
   if (!result.winners.includes(seat)) return [];
+  if (result.details[seat]?.snapshot === true) return ["胡了"];
   const labels = result.details[seat]?.items.map((i) => i.label) ?? [];
   const has = (name: string) => labels.some((label) => label.startsWith(name));
   const main =

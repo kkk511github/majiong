@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @CapacitorPlugin(name = "AppUpdate")
 public final class AppUpdatePlugin extends Plugin {
     private static final String HOST = "212.189.31.46", PACKAGE = "com.jinling.mahjong";
+    private static final long MAX_UPDATE_BYTES = 1024L * 1024 * 1024;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicBoolean busy = new AtomicBoolean(false);
     private volatile boolean cancelled, foreground = true, destroyed;
@@ -74,7 +75,7 @@ public final class AppUpdatePlugin extends Plugin {
     }
     @PluginMethod public void install(PluginCall call) {
         final String address = call.getString("url", ""), sha = call.getString("sha256", ""), build = call.getString("build", "");
-        final Long sizeValue = call.getLong("size");
+        final Long sizeValue = readUpdateSize(call);
         try { validate(address, sha, sizeValue, build); }
         catch (Exception error) { call.reject(error.getMessage(), error); return; }
         if (pendingCall != null || !busy.compareAndSet(false, true)) { call.reject("更新正在处理中，请稍候"); return; }
@@ -102,10 +103,19 @@ public final class AppUpdatePlugin extends Plugin {
             finally { if (part != null) part.delete(); HttpsURLConnection current = connection; if (current != null) current.disconnect(); connection = null; busy.set(false); }
         });
     }
+    // JSON integers below 2^31 arrive as Integer; Capacitor getLong only accepts
+    // a boxed Long. Accept a numeric integer without coercing strings or truncating.
+    static Long readUpdateSize(PluginCall call) {
+        Object raw = call.getData().opt("size");
+        if (!(raw instanceof Number)) return null;
+        double bytes = ((Number) raw).doubleValue();
+        if (Double.isNaN(bytes) || Double.isInfinite(bytes) || bytes <= 0 || bytes > MAX_UPDATE_BYTES || bytes != Math.rint(bytes)) return null;
+        return (long) bytes;
+    }
     private void validate(String address, String sha, Long size, String build) throws Exception {
         URL url = new URL(address);
         if (!"https".equals(url.getProtocol()) || !HOST.equals(url.getHost()) || url.getPort() != -1 && url.getPort() != 443 || url.getUserInfo() != null || url.getQuery() != null || url.getRef() != null || !url.getPath().matches("/download/[a-f0-9]{24}\\.apk")) throw new Exception("更新地址不受信任");
-        if (!sha.matches("[a-f0-9]{64}") || size == null || size <= 0 || size > 1024L * 1024 * 1024 || !build.matches("[0-9]+")) throw new Exception("安装包校验信息无效，请重新检查版本");
+        if (!sha.matches("[a-f0-9]{64}") || size == null || size <= 0 || size > MAX_UPDATE_BYTES || !build.matches("[0-9]+")) throw new Exception("安装包校验信息无效，请重新检查版本");
         if (Long.parseLong(build) <= buildNumber(installed())) throw new Exception("该安装包不是更新版本");
     }
     private void download(String address, File target, String sha, long expectedSize) throws Exception {

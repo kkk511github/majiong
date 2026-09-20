@@ -1,6 +1,10 @@
 import type { WinScore } from "../shared/types";
 
-export function scoreItemCopy(item: WinScore["items"][number]) {
+export function scoreItemCopy(item: WinScore["items"][number], snapshot = false) {
+  if (snapshot && item.label === "全球独钓") return {
+    label: "快照加分",
+    calculation: "第四嘴由任意一家供牌，按快照规则计分",
+  };
   const flowers = /^(硬花|软花) (\d+) × (\d+)$/.exec(item.label);
   if (flowers) {
     const [, label, count, points] = flowers;

@@ -23,6 +23,7 @@ import { createWall, kind, seededRandom } from "../shared/tiles";
 import { listeningHints } from "../src/listening-hints";
 import { ruleSections } from "../src/rule-copy";
 import type { Game, Player, Rules, Seat } from "../shared/types";
+import { lastWallAction, lastWallGame, LAST_WIN_TILE, takeLastWallDraw } from "./fixtures/last-wall";
 
 const garden = ruleDefaults("nj-garden-v2"),
   open = ruleDefaults("nj-open-v2");
@@ -1104,16 +1105,12 @@ describe("2026-09-16 用户规则图回归", () => {
     ledger(g);
   });
   it("无其他大胡的海底捞月也触发比下胡", () => {
-    let g = fixture(
-      [[], [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 30, 30], [], []],
-      { successorDouble: false },
-    );
-    g.turn = 1;
-    g.lastDraw = g.players[1]!.hand.at(-1);
-    g.players[1]!.flowers = [124];
-    g.wall = [112, 116];
-    g = act(g, 1, { type: "hu" });
-    expect(g.result!.details[1]!.major).toBe(false);
+    let g = takeLastWallDraw(lastWallGame({
+      wall: [LAST_WIN_TILE], rules: { id: "nj-garden-v2", twoBankrupt: false, successorDouble: false },
+    }));
+    expect(g.wall).toHaveLength(0);
+    g = lastWallAction(g, 0, { type: "hu" }, 2000);
+    expect(g.result!.details[0]!.major).toBe(false);
     expect(g.ruleState!.nextReasons).toEqual(["海底捞月"]);
     expect(g.ruleState!.nextMultiplier).toBe(2);
     ledger(g);

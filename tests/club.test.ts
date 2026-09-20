@@ -121,7 +121,7 @@ it.each([1,2,5])("五把提前终桌按1桌统计，桌内与桌外输赢扣一�
   }
   const db=new DatabaseSync(file),records=createRecords(db);
   const at=Date.parse("2026-09-16T14:00:00+08:00");
-  const g=createGame("333069","five-hand-table",{rounds:8});
+  const g=createGame("930069","five-hand-table",{rounds:8});
   g.settlementBase=100;g.scoreDivisor=divisor;
   g.players=seats.map(seat=>newPlayer(members[seat],`核算牌友${seat}`));
   const deltas=[[0,24,0,-24],[-90,0,24,66],[0,0,0,0],[0,160,-56,-104],[0,-14,42,-28]];

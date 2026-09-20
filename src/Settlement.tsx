@@ -295,28 +295,30 @@ export function ScoreDetails({
           })}
           <p>{record.result.winners.length > 1 && <>多人抢杠按每名胡牌者依次累计赔三家{kongTotalDue === undefined ? "；" : `，补杠者合计应付${kongTotalDue}分；`}</>}余额不足及保米调整后的实付金额，以逐笔收支为准。</p>
         </aside>}
-        {Object.entries(record.result.details).map(([seat, score]) => (
+        {Object.entries(record.result.details).map(([seat, score]) => {
+          const externalReceipt = record.result.transfers?.filter(
+            entry => entry.to === Number(seat) && entry.scope === "external",
+          ).reduce((amount, entry) => amount + entry.amount, 0) ?? 0;
+          return (
           <details className="score-breakdown" key={seat} open>
             <summary>
               <span>
                 {record.names[Number(seat)]} · {winDisplayLabel(record.result, Number(seat) as Seat)}
-                {record.result.transfers?.some(
-                  (t) => t.to === Number(seat) && t.scope === "external",
-                )
+                {externalReceipt > 0
                   ? "（外包按固定额结算）"
                   : ""}
               </span>
               <strong>
-                {score.total} <small>分 / 份</small>
+                {externalReceipt > 0 ? externalReceipt : score.total} <small>{externalReceipt > 0 ? "分 · 外包收款" : "分 / 份"}</small>
               </strong>
             </summary>
             <table className="score-items-table" aria-label={`${record.names[Number(seat)]}的胡牌计分`}>
               <thead><tr><th>计分项目</th><th>计算说明</th><th>得分</th></tr></thead>
               <tbody>{score.items.map((item, i) => {
-                const copy = scoreItemCopy(item);
+                const copy = scoreItemCopy(item, score.snapshot);
                 return <tr key={i}><td>{copy.label}</td><td>{copy.calculation}</td><td>{scoreText(item.value)}分</td></tr>;
               })}</tbody>
-              <tfoot><tr><th colSpan={2}>本次胡牌分（每份）</th><td>{score.total}分</td></tr></tfoot>
+              <tfoot><tr><th colSpan={2}>{score.snapshot ? "快照参考牌分" : "本次胡牌分（每份）"}</th><td>{score.total}分</td></tr></tfoot>
             </table>
             {record.hands?.[Number(seat)] && <p className="score-hand-note">
               {record.hands[Number(seat)].melds.map((meld) =>
@@ -324,7 +326,8 @@ export function ScoreDetails({
               ).join("；")}
             </p>}
           </details>
-        ))}
+          );
+        })}
         {!ledgerFirst && (record.result.transfers !== undefined ? (
           <details
             className="score-ledger"

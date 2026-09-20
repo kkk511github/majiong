@@ -1,3 +1,5 @@
+export const ACCOUNT_VIEW_CHANGE_EVENT = "mahjong-account-view-change";
+
 /** Keep account inputs visible even when a fullscreen keyboard overlays the WebView. */
 export function installKeyboardViewport() {
   const viewport = window.visualViewport;
@@ -66,15 +68,28 @@ export function installKeyboardViewport() {
     if (!frame) frame = requestAnimationFrame(update);
   };
   const focus = (event: Event) => {
+    // A submit button becomes disabled while the request is pending. Letting it
+    // take focus then leaves BODY focused while Android's overlay IME is still
+    // open, which would restore the tall form underneath the keyboard.
+    if (event.type === "pointerdown" && event.target instanceof Element) {
+      const button = event.target.closest("button");
+      const active = document.activeElement;
+      if ((event as PointerEvent).button === 0 && button instanceof HTMLButtonElement &&
+          button.type === "submit" && button.form?.matches(".account-form") &&
+          active?.matches(editable) && button.form.contains(active))
+        event.preventDefault();
+    }
     if (event.target instanceof Element && event.target.matches(editable)) focusIntent = true;
     schedule();
   };
+  const accountViewChanged = () => { focusIntent = touchInput; schedule(); };
   viewport?.addEventListener("resize", schedule);
   viewport?.addEventListener("scroll", schedule);
   window.addEventListener("resize", schedule);
   document.addEventListener("focusin", focus);
   document.addEventListener("focusout", schedule);
   document.addEventListener("pointerdown", focus);
+  window.addEventListener(ACCOUNT_VIEW_CHANGE_EVENT, accountViewChanged);
   update();
   return () => {
     cancelAnimationFrame(frame);
@@ -85,6 +100,7 @@ export function installKeyboardViewport() {
     document.removeEventListener("focusin", focus);
     document.removeEventListener("focusout", schedule);
     document.removeEventListener("pointerdown", focus);
+    window.removeEventListener(ACCOUNT_VIEW_CHANGE_EVENT, accountViewChanged);
     root.removeAttribute("data-keyboard-open");
     root.removeAttribute("data-account-editing");
     root.style.removeProperty("--input-viewport-height");

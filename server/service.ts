@@ -1,5 +1,7 @@
 import { createExperienceTable, fillExperienceBots } from "./experience-table";
 import { readVoice } from "./room-voice";
+import { createPhraseGate } from "./room-phrases";
+import { isRoomPhraseId, type RoomPhraseMessage } from "../shared/room-phrases";
 import { createClub } from "./club";
 import { createServer } from "node:http";
 import { randomInt, randomUUID } from "node:crypto";
@@ -41,6 +43,8 @@ import type {
 
 import { createAccounts, AuthError, type AuthSession } from "./accounts";
 import { createRecords } from "./records";
+import { createControl } from "./control";
+import { createControlReleaseProxy } from "./control-release-proxy";
 import { mayCreateTables } from "../shared/permissions";
 const APP_VERSION = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
@@ -108,6 +112,10 @@ export function makeServer(
   );
   const records = createRecords(db);
   const club = createClub(db, accounts, records);
+  const control = createControl(db, accounts, () => {
+    for (const ws of clients.values()) send(ws, { type: "announcementsChanged" });
+  });
+  const controlReleases = createControlReleaseProxy(control.requireSession);
   const lobbySubscribers = new Set<string>(),
     lobbySent = new Map<string, string>();
   const save = db.prepare(
@@ -393,6 +401,7 @@ export function makeServer(
   const seatFor = (g: Game, id: string) =>
     g.players.findIndex((p) => p?.id === id) as Seat;
   const voiceUploads = new Map<string, { at: number; busy: boolean }>();
+  const acceptPhrase = createPhraseGate();
   const api = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -504,6 +513,8 @@ export function makeServer(
       }
       return;
     }
+    if (await controlReleases.handle(req, res, url)) return;
+    if (await control.handle(req, res, url)) return;
     if (await accounts.handle(req, res, url.pathname)) return;
     if (await club.handle(req, res, url)) return;
     if (
@@ -832,6 +843,7 @@ export function makeServer(
             name: session.name,
             roomCode: room?.code,
             commandAck: true,
+            roomPhrases: true,
             tableLobby: true,
             timeSync: true,
             serverVersion: APP_VERSION,
@@ -864,10 +876,12 @@ export function makeServer(
         }
         session = current;
         if (
-          ["create", "createTables", "closeTable"].includes(msg.type) &&
+          ["create", "createTables", "createExperienceTable"].includes(msg.type) &&
           !mayCreateTables(session.account)
         )
-          throw Error("需要管理员授予开桌权限，请选择已有牌桌入座");
+          throw Error("开桌权限仅限 guanli@1，请选择已有牌桌入座");
+        if (msg.type === "closeTable" && session.account.role !== "admin" && !mayCreateTables(session.account))
+          throw Error("没有收起牌桌的权限");
         if (msg.type === "ping") {
           // A foreground refresh is read-only and returns only this account's
           // private view. It must not reconnect, replay an action or advance play.
@@ -887,6 +901,29 @@ export function makeServer(
           return;
         }
         let g = findRoom(session.id);
+        if (msg.type === "phrase") {
+          accounts.requirePlay(session.id);
+          if (!g || typeof msg.game !== "string" || msg.game !== g.id)
+            throw Error("请先进入对应的联机牌桌");
+          if (!requestId || !isRoomPhraseId(msg.phrase) ||
+              Object.keys(msg).some(key => !["type", "game", "phrase", "requestId"].includes(key)))
+            throw Error("请选择有效的固定短句");
+          if (acceptPhrase(session.id, g.id, msg.phrase, requestId)) {
+            const seat = seatFor(g, session.id);
+            const message: RoomPhraseMessage = {
+              id: randomUUID(), game: g.id, sender: session.id, name: g.players[seat]!.name,
+              seat, phrase: msg.phrase, at: Date.now(),
+            };
+            for (const player of g.players) {
+              const peer = player && !player.bot && clients.get(player.id);
+              if (peer && peer.readyState === WebSocket.OPEN && peer.bufferedAmount < 1000000 && findRoom(player!.id)?.id === g.id)
+                send(peer, { type: "phrase", message });
+            }
+          }
+          // Chat never changes revision, persists a room, or acknowledges a move.
+          send(ws, { type: "ack", requestId });
+          return;
+        }
         if (msg.type === "tables") {
           lobbySubscribers.add(session.id);
           sendTables(session.id, true);
@@ -900,7 +937,8 @@ export function makeServer(
           let room=[...games.values()].find(r=>r.table?.experience?.sourceCode===source.code&&!r.table.closed);
           if(!room) {
             const used=new Set([...games.values()].filter(r=>r.table).map(r=>r.table!.number));
-            room=createExperienceTable(source,freshTableCode(),randomUUID(),reserveTableNumber(used),Date.now());
+            const ownedSource={...source,table:{...source.table,creatorId:session.id}};
+            room=createExperienceTable(ownedSource,freshTableCode(),randomUUID(),reserveTableNumber(used),Date.now());
             persist(room);
           }
           lobbySubscribers.add(session.id);

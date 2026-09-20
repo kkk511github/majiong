@@ -8,6 +8,7 @@ export function Dialog({
   variant = "",
   footer,
   headerAside,
+  dismissOnBackdrop = true,
 }: {
   title: string;
   children: ReactNode;
@@ -15,6 +16,7 @@ export function Dialog({
   variant?: string;
   footer?: ReactNode;
   headerAside?: ReactNode;
+  dismissOnBackdrop?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -30,6 +32,7 @@ export function Dialog({
       aria-labelledby={titleId}
       onCancel={(event) => { event.preventDefault(); close(); }}
       onClick={(e) => {
+        if (!dismissOnBackdrop) return;
         if (e.target !== e.currentTarget) return;
         const bounds = e.currentTarget.getBoundingClientRect();
         if (

@@ -67,6 +67,8 @@ def parse_apk(path, icon_output):
                     break
             except (KeyError, OSError, ValueError, Image.DecompressionBombError):
                 continue
-    return {'name': name, 'package': package, 'version': version,
+    sdk = re.search(r"^sdkVersion:'(\d+)'", text, re.M)
+    return {'name': name, 'package': package, 'version': version, 'platform': 'android',
+            'minimum_os_version': sdk.group(1) if sdk else '',
             'version_code': attrs.get('versionCode', ''), 'icon_found': icon_found,
             'parse_warning': '' if icon_found else '安装包未提供可读取的位图图标，暂用应用名称图标（部分自适应矢量图标不支持）。'}

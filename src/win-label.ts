@@ -10,9 +10,11 @@ export function isRobbedKongWinner(result: Result, seat: Seat): boolean {
   );
 }
 
-// Titles describe the scored hand; `from` still determines who pays.
+// Snapshot scoring can contain a projected fourth meld. Its title must not
+// present that scoring projection as an actual global-single-wait hand.
 export function winDisplayLabel(result: Result, seat: Seat): string {
   if (!result.winners.includes(seat)) return "";
+  if (result.details[seat]?.snapshot === true) return "胡";
   const labels = result.details[seat]?.items.map((item) => item.label) ?? [];
   const has = (name: string) => labels.some((label) => label.startsWith(name));
   if (has("大杠开花") || has("小杠开花")) return "杠上开花";

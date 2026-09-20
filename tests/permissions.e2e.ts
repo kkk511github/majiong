@@ -1,99 +1,119 @@
-import { test, expect } from "./browser-fixtures";
+import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
-const captures = "test-results/screenshots";
-test.beforeAll(() => mkdirSync(captures, { recursive: true }));
-for (const [width, height] of [
-  [568, 320],
-  [844, 390],
-  [932, 430],
-]) {
-  test(`开桌授权 ${width}：管理员授权与收回实时生效，按钮在横屏安全区内`, async ({
-    page,
-    browser,
-  }) => {
+import { browserAccount, UI_PASSWORD } from "./browser-fixtures";
+
+async function installToken(context: BrowserContext, token: string) {
+  await context.addInitScript(
+    (value) => localStorage.setItem("jinling:token", JSON.stringify(value)),
+    token,
+  );
+}
+
+async function expectNoCreateActions(page: Page) {
+  await expect(page.getByRole("button", { name: "开一桌，等朋友", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "开桌设置", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /创建.*桌|去开一桌|体验|练习/ })).toHaveCount(0);
+}
+
+for (const [width, height] of [[568, 320], [844, 390], [932, 430]]) {
+  test(`开桌权限 ${width}：仅指定账号可开桌，其他管理员保留管理权限且不能转授权`, async ({
+    page, context, browser, baseURL,
+  }, testInfo) => {
     await page.setViewportSize({ width, height });
-    const cdp = await page.context().newCDPSession(page);
+    const safeBottom = width > 700 ? 21 : 0;
+    const safeInsets = { left: width > 700 ? 59 : 0, right: 0, bottom: safeBottom, top: 0 };
+    const cdp = await context.newCDPSession(page);
     await cdp.send("Emulation.setSafeAreaInsetsOverride", {
-      insets: {
-        left: width > 700 ? 59 : 0,
-        right: 0,
-        bottom: width > 700 ? 21 : 0,
-        top: 0,
-      },
+      insets: safeInsets,
     });
-    const username = "grant-" + randomUUID().slice(0, 8),
-      context = await browser.newContext({
-        viewport: { width: 844, height: 390 },
-      });
+    const login = await context.request.post("/api/auth/login", {
+      data: { username: "guanli@1", password: UI_PASSWORD },
+    });
+    expect(login.ok()).toBe(true);
+    const owner = await login.json();
+    expect(owner.account.canCreateTables).toBe(true);
+    await installToken(context, owner.token);
+
+    const otherContext = await browser.newContext({
+      baseURL,
+      viewport: { width, height },
+      storageState: await context.storageState(),
+    });
+    const memberContext = await browser.newContext({
+      baseURL,
+      viewport: { width, height },
+      storageState: await context.storageState(),
+    });
     try {
-      const registration = await context.request.post(
-        "http://127.0.0.1:5178/api/auth/register",
-        {
-          data: {
-            username,
-            name: "授权牌友",
-            password: "Permission-Test-Password-42",
-          },
+      const otherAdmin = await browserAccount(otherContext, "其他管理员");
+      const registration = await memberContext.request.post("/api/auth/register", {
+        data: {
+          username: "member-" + randomUUID().slice(0, 8),
+          name: "普通牌友",
+          password: UI_PASSWORD,
         },
-      );
+      });
       expect(registration.ok()).toBe(true);
       const member = await registration.json();
-      await context.addInitScript(
-        (token) => localStorage.setItem("jinling:token", JSON.stringify(token)),
-        member.token,
-      );
-      const memberPage = await context.newPage();
-      await memberPage.goto("http://127.0.0.1:5178");
-      await expect(
-        memberPage.getByRole("button", { name: "进入牌桌大厅", exact: true }),
-      ).toBeVisible();
+      await installToken(memberContext, member.token);
+      const otherPage = await otherContext.newPage();
+      const memberPage = await memberContext.newPage();
+      const otherCdp = await otherContext.newCDPSession(otherPage);
+      await otherCdp.send("Emulation.setSafeAreaInsetsOverride", { insets: safeInsets });
+
       await page.goto("/");
-      await page
-        .getByRole("navigation")
-        .getByRole("button", { name: "我的", exact: true })
-        .click();
-      await page.getByRole("button", { name: "开桌授权", exact: true }).click();
-      await page.getByLabel("授权账号").fill(username.toUpperCase());
+      await page.getByRole("button", { name: "开一桌，等朋友", exact: true }).click();
+      const tableName = `权限验收${width}`;
+      await page.getByRole("textbox", { name: "玩法名称", exact: true }).fill(tableName);
+      await page.getByRole("button", { name: "下一步", exact: true }).click();
+      await page.getByRole("button", { name: "下一步", exact: true }).click();
+      await page.getByRole("button", { name: "创建 1 桌", exact: true }).click();
+      await expect(page.locator(".table-card").filter({ hasText: tableName })).toBeVisible();
+
+      await otherPage.goto("/");
+      await expect(otherPage.getByRole("button", { name: "进入牌桌大厅", exact: true })).toBeVisible();
+      await expectNoCreateActions(otherPage);
+      await otherPage.getByRole("button", { name: "进入牌桌大厅", exact: true }).click();
+      await expectNoCreateActions(otherPage);
+      const card = otherPage.locator(".table-card").filter({ hasText: tableName });
+      await card.getByRole("button", { name: "收桌", exact: true }).click();
+      await expect(otherPage.getByRole("dialog", { name: "收起这张桌子？", exact: true })).toBeVisible();
+      await otherPage.getByRole("button", { name: "确认收桌", exact: true }).click();
+      await expect(card).toHaveCount(0);
+      await expect(otherPage.getByRole("dialog")).toHaveCount(0);
+      await otherPage.getByRole("navigation").getByRole("button", { name: "我的", exact: true }).click();
+      await expect(otherPage.getByRole("button", { name: "战队与会员", exact: true })).toBeVisible();
+      await expect(otherPage.getByRole("button", { name: "开桌授权", exact: true })).toHaveCount(0);
+      await otherPage.getByRole("button", { name: "开桌权限", exact: true }).click();
+      await expect(otherPage.getByText("仅 guanli@1 可开桌", { exact: true })).toBeVisible();
+      await expect(otherPage.getByRole("button", { name: /授予|收回/ })).toHaveCount(0);
+      await expect(otherPage.locator(".permission-account")).toHaveCount(1);
+      await expect(otherPage.locator(".permission-account")).toContainText("guanli@1");
+      await otherPage.getByLabel("查询账号").fill(otherAdmin.account.username);
+      await otherPage.getByRole("button", { name: "查找账号", exact: true }).click();
+      await expect(otherPage.locator(".permission-badge")).toHaveText("不可开桌");
+      const searchButton = (await otherPage.getByRole("button", { name: "查找账号", exact: true }).boundingBox())!;
+      expect(searchButton.x).toBeGreaterThanOrEqual(safeInsets.left);
+      expect(searchButton.y + searchButton.height).toBeLessThanOrEqual(height - safeBottom);
+      await otherPage.screenshot({ path: testInfo.outputPath(`readonly-permissions-${width}.png`) });
+
+      await page.getByRole("navigation").getByRole("button", { name: "我的", exact: true }).click();
+      await page.getByRole("button", { name: "开桌权限", exact: true }).click();
+      await expect(page.getByRole("button", { name: /授予|收回/ })).toHaveCount(0);
+      await page.getByLabel("查询账号").fill(member.account.username);
       await page.getByRole("button", { name: "查找账号", exact: true }).click();
-      const grant = page.getByRole("button", {
-        name: "授予开桌权限",
-        exact: true,
-      });
-      await expect(grant).toBeVisible();
-      const b = (await grant.boundingBox())!;
-      expect(b.y + b.height).toBeLessThanOrEqual(
-        height - (width > 700 ? 21 : 0),
-      );
-      await grant.click();
-      await expect(page.locator(".permission-feedback [role=status]")).toContainText("已获得开桌权限");
-      await expect(
-        memberPage.getByRole("button", { name: "开一桌，等朋友", exact: true }),
-      ).toBeVisible();
-      await page.screenshot({
-        path: `${captures}/table-permission-${width}.png`,
-      });
-      await memberPage
-        .getByRole("button", { name: "开一桌，等朋友", exact: true })
-        .click();
-      await expect(memberPage.getByRole("dialog")).toBeVisible();
-      await page
-        .getByRole("button", { name: "收回开桌权限", exact: true })
-        .click();
-      await expect(page.locator(".permission-feedback [role=status]")).toContainText("已收回开桌权限");
-      await expect(memberPage.getByRole("dialog")).toHaveCount(0);
-      await expect(
-        memberPage.getByRole("button", { name: "进入牌桌大厅", exact: true }),
-      ).toBeVisible();
-      await memberPage
-        .getByRole("navigation")
-        .getByRole("button", { name: "我的", exact: true })
-        .click();
-      await expect(
-        memberPage.getByRole("button", { name: "开桌授权", exact: true }),
-      ).toHaveCount(0);
+      await expect(page.locator(".permission-badge")).toHaveText("不可开桌");
+
+      await memberPage.goto("/");
+      await expect(memberPage.getByRole("button", { name: "进入牌桌大厅", exact: true })).toBeVisible();
+      await expectNoCreateActions(memberPage);
+      await memberPage.getByRole("button", { name: "进入牌桌大厅", exact: true }).click();
+      await expectNoCreateActions(memberPage);
+      await memberPage.getByRole("navigation").getByRole("button", { name: "我的", exact: true }).click();
+      await expect(memberPage.getByLabel("管理入口", { exact: true })).toHaveCount(0);
     } finally {
-      await context.close();
+      await otherContext.close();
+      await memberContext.close();
     }
   });
 }

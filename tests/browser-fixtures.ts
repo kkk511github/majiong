@@ -3,19 +3,26 @@ import { DatabaseSync } from "node:sqlite";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { hashPassword } from "../server/accounts";
+import { TABLE_CREATOR_USERNAME } from "../shared/permissions";
 export * from "@playwright/test";
 export const UI_PASSWORD = "Browser-fixture-password-2026";
 const encoded = hashPassword(UI_PASSWORD);
 export async function browserAccount(
   context: BrowserContext,
   name = "金陵牌友",
+  creator = false,
 ) {
-  const username = `qa-${randomUUID()}`,
+  const username = creator ? TABLE_CREATOR_USERNAME : `qa-${randomUUID()}`,
     id = randomUUID();
-  const db = new DatabaseSync(resolve("../../work/accounts-e2e.sqlite"));
+  const db = new DatabaseSync(resolve(process.env.MAHJONG_E2E_DATABASE ?? "../../work/accounts-e2e.sqlite"));
   const hash = await encoded;
   const token = randomBytes(32).toString("hex");
   try {
+    // Each scenario gets a fresh sole creator in the isolated UI-test database.
+    // Additional peer contexts stay ordinary admins and cannot create tables.
+    if (creator)
+      db.prepare("UPDATE accounts SET username=? WHERE username=?")
+        .run(`qa-retired-${randomUUID()}`, TABLE_CREATOR_USERNAME);
     db.prepare("INSERT INTO accounts VALUES (?,?,?,?,?,?,?)").run(
       id,
       username,
@@ -44,7 +51,7 @@ export async function browserAccount(
       name,
       role: "admin",
       mustChangePassword: false,
-      canCreateTables: true,
+      canCreateTables: creator,
     },
   };
   await context.addInitScript(({ token }) => {
@@ -56,7 +63,7 @@ export async function browserAccount(
 export const test = base.extend<{ accountFixture: void }>({
   accountFixture: [
     async ({ context }, use) => {
-      await browserAccount(context);
+      await browserAccount(context, "金陵牌友", true);
       await use();
     },
     { auto: true },

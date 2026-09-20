@@ -117,8 +117,8 @@ for (const [width,height] of [[390,844],[844,390],[1280,720]]) {
     expect(csv.suggestedFilename()).toMatch(/\.csv$/);
     expect((await readFile((await csv.path())!,"utf8")).length).toBeGreaterThan(10);
     await page.getByRole("button",{name:"关闭",exact:true}).click();
-    await page.getByRole("button",{name:"开桌授权",exact:true}).click();
-    await expect(page.getByRole("dialog",{name:"开桌授权",exact:true})).toBeVisible();
+    await page.getByRole("button",{name:"开桌权限",exact:true}).click();
+    await expect(page.getByRole("dialog",{name:"开桌权限",exact:true})).toBeVisible();
     await page.getByRole("button",{name:"关闭",exact:true}).click();
     await assertFit(page);
     await page.screenshot({path:`output/web-parity-20260919/profile-${width}-${info.project.name}.png`});

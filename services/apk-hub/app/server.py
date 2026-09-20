@@ -1,12 +1,14 @@
-import os, json, sqlite3, secrets, hashlib, hmac, time, cgi, zipfile, plistlib, re
+import os, json, sqlite3, secrets, hashlib, hmac, time, cgi, zipfile, plistlib, re, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse, quote, parse_qs
 from email.utils import formatdate
 from apk_metadata import parse_apk
 from ipa_metadata import parse_ipa
 from release_store import ReleaseStore, JINLING_PACKAGE, JINLING_SLUG
+from management_releases import ManagementReleases, ManagementError, authenticate_management
+from package_validation import validate_archive
 
 ROOT = Path(__file__).parent
 DATA = Path(os.environ.get('DATA_DIR', '/var/lib/apk-hub'))
@@ -136,6 +138,9 @@ def manifest_bytes(app):
     }}]}
     return plistlib.dumps(manifest, fmt=plistlib.FMT_XML, sort_keys=False)
 
+
+management_releases = ManagementReleases(releases, app_response, ios_install_status)
+
 class Handler(BaseHTTPRequestHandler):
     def update_cors(self):
         # Only the public product read endpoint is callable from installed apps.
@@ -177,6 +182,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path=urlparse(self.path).path
+        if path.startswith('/internal/control/'):
+            try:
+                authenticate_management(self.headers)
+                if path == '/internal/control/releases':
+                    return self.send(200, management_releases.list())
+                return self.send(404, {'error':'管理接口不存在','code':'NOT_FOUND'})
+            except ManagementError as error:
+                return self.send(error.status, {'error':str(error),'code':error.code})
+            except Exception as error:
+                print(type(error).__name__, flush=True)
+                return self.send(500, {'error':'读取版本失败，请稍后重试','code':'MANAGEMENT_FAILED'})
         if path=='/health': return self.send(200,{'ok':True})
         if path=='/api/session':
             s=self.session(); return self.send(200,{'authenticated':bool(s),'csrf':s['csrf'] if s else None})
@@ -305,12 +321,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try: self.post()
-        except (ValueError,KeyError,json.JSONDecodeError): self.send(400,{'error':'提交内容无效，请检查后重试'})
+        except ManagementError as error: self.send(error.status,{'error':str(error),'code':error.code})
+        except (ValueError,KeyError,json.JSONDecodeError):
+            self.send(400,{'error':'提交内容无效，请检查后重试', **({'code':'INVALID_REQUEST'} if self.path.startswith('/internal/control/') else {})})
         except Exception as e:
-            print(type(e).__name__, flush=True); self.send(500,{'error':'操作失败，请稍后重试'})
+            print(type(e).__name__, flush=True)
+            self.send(500,{'error':'操作失败，请稍后重试', **({'code':'MANAGEMENT_FAILED'} if self.path.startswith('/internal/control/') else {})})
 
     def post(self):
         path=urlparse(self.path).path
+        if path.startswith('/internal/control/'):
+            return self.control_post(path)
         size=int(self.headers.get('Content-Length','0'))
         if size<=0 or size>MAX+65536: return self.send(413,{'error':'文件不能超过 500 MB'})
         if path=='/api/login':
@@ -361,6 +382,8 @@ class Handler(BaseHTTPRequestHandler):
                         if 'AndroidManifest.xml' not in archive.namelist():raise ValueError('不是完整的 APK 安装包')
                 metadata=parse_ipa(target,icon) if platform=='ios' else parse_apk(target,icon)
                 metadata['platform']=platform
+                if metadata.get('package') == JINLING_PACKAGE and os.environ.get('MANAGEMENT_API_TOKEN_FILE', '').strip():
+                    raise ManagementError(409, 'MANAGED_RELEASE_REQUIRED', '金陵麻将版本请前往 /manage/ 上传待发布包并确认发布')
                 result=install_release(metadata,target,icon,values)
                 return self.send(201,result)
             except (ValueError,zipfile.BadZipFile,EOFError) as error:
@@ -370,6 +393,7 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/delete':
             if size>4096:return self.send(400,{'error':'请求过大'})
             data=json.loads(self.rfile.read(size));ident=data.get('id')
+            self.guard_managed_legacy_write(ident)
             if not isinstance(ident,str) or not re.fullmatch(r'[a-f0-9]{24}',ident):return self.send(400,{'error':'应用编号无效'})
             result=releases.delete_release(ident,data.get('confirm_name'))
             if result==404:return self.send(404,{'error':'应用不存在或已删除'})
@@ -378,6 +402,7 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/update':
             if size>16384: return self.send(400,{'error':'请求过大'})
             data=json.loads(self.rfile.read(size))
+            self.guard_managed_legacy_write(data.get('id'))
             if 'unlisted' in data and type(data['unlisted']) is not bool:
                 return self.send(400, {'error': '请选择有效的展示范围'})
             name=str(data.get('name','')).strip()
@@ -396,6 +421,7 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/visibility':
             if size>4096: return self.send(400, {'error': '请求过大'})
             data=json.loads(self.rfile.read(size))
+            self.guard_managed_legacy_write(data.get('id'))
             if type(data.get('unlisted')) is not bool:
                 return self.send(400, {'error': '请选择有效的展示范围'})
             with db() as c:
@@ -404,10 +430,127 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {'ok': True})
         if path=='/api/publish':
             data=json.loads(self.rfile.read(size))
+            self.guard_managed_legacy_write(data.get('id'))
             with db() as c:
                 cur=c.execute('UPDATE apps SET published=? WHERE id=?',(int(bool(data['published'])),str(data['id'])))
                 if not cur.rowcount: return self.send(404,{'error':'应用不存在'})
             return self.send(200,{'ok':True})
         self.send(404,{'error':'接口不存在'})
+
+    def guard_managed_legacy_write(self, ident):
+        # A configured but unreadable secret must not reopen the legacy bypass.
+        if isinstance(ident, str) and os.environ.get('MANAGEMENT_API_TOKEN_FILE', '').strip():
+            with db() as c:
+                row = c.execute('SELECT package FROM apps WHERE id=?', (ident,)).fetchone()
+            if row and row['package'] == JINLING_PACKAGE:
+                raise ManagementError(409, 'MANAGED_RELEASE_REQUIRED', '金陵麻将请前往 /manage/ 专用后台管理，当前版本未更改')
+
+    def control_post(self, path):
+        actor = authenticate_management(self.headers)
+        if self.headers.get('Transfer-Encoding') or not re.fullmatch(r'\d{1,12}', self.headers.get('Content-Length', '')):
+            raise ManagementError(411, 'CONTENT_LENGTH_REQUIRED', '请提供完整的请求长度')
+        size = int(self.headers['Content-Length'])
+        if size > MAX + 65536:
+            raise ManagementError(413, 'PACKAGE_TOO_LARGE', '安装包不能超过 500 MB')
+        if path == '/internal/control/releases/upload':
+            return self.control_upload(actor, size)
+        match = re.fullmatch(r'/internal/control/releases/([a-f0-9]{24})/(publish|discard)', path)
+        if not match:
+            raise ManagementError(404, 'NOT_FOUND', '待发布版本接口不存在')
+        if size > 4096:
+            raise ManagementError(413, 'REQUEST_TOO_LARGE', '确认请求过大')
+        if size and self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json':
+            raise ManagementError(400, 'INVALID_CONFIRMATION', '请使用 JSON 提交确认信息')
+        payload = self.rfile.read(size)
+        if len(payload) != size:
+            raise ManagementError(400, 'INCOMPLETE_UPLOAD', '确认请求未完整接收，线上版本未更改')
+        try:
+            request = json.loads(payload) if payload else {}
+        except (ValueError, UnicodeError):
+            raise ManagementError(400, 'INVALID_CONFIRMATION', '确认信息无效')
+        if not isinstance(request, dict):
+            raise ManagementError(400, 'INVALID_CONFIRMATION', '确认信息无效')
+        if match.group(2) == 'publish':
+            return self.send(200, management_releases.publish(match.group(1), request, actor))
+        return self.send(200, management_releases.discard(match.group(1), actor))
+
+    def control_upload(self, actor, size):
+        query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+        platforms = query.get('platform', [])
+        if len(platforms) != 1 or platforms[0] not in ('android', 'ios'):
+            raise ManagementError(400, 'INVALID_PLATFORM', '请选择 Android 或 iOS 平台')
+        platform = platforms[0]
+        content_type, parameters = cgi.parse_header(self.headers.get('Content-Type', ''))
+        boundary = parameters.get('boundary', '')
+        if (content_type != 'multipart/form-data' or not boundary or len(boundary) > 200 or size <= 0):
+            raise ManagementError(400, 'INVALID_UPLOAD', '请选择完整的 APK 或 IPA 文件')
+        form = self.complete_control_form(size)
+        if (not form.list or any(item.name not in ('file', 'notes') or item.done == -1 for item in form.list)
+                or 'file' not in form or isinstance(form['file'], list)):
+            raise ManagementError(400, 'INVALID_UPLOAD', '安装包上传不完整或包含重复字段')
+        uploaded = form['file']
+        if uploaded.file is None:
+            raise ManagementError(400, 'INVALID_UPLOAD', '安装包字段格式无效')
+        filename = uploaded.filename
+        suffix = '.ipa' if platform == 'ios' else '.apk'
+        if (not isinstance(filename, str) or not filename or len(filename) > 255
+                or any(char in filename for char in '/\\:') or any(ord(char) < 32 for char in filename)
+                or not filename.lower().endswith(suffix)):
+            raise ManagementError(400, 'PLATFORM_MISMATCH', '文件名或安装包后缀与所选平台不符')
+        if 'notes' in form and (isinstance(form['notes'], list) or form['notes'].filename):
+            raise ManagementError(400, 'INVALID_NOTES', '更新说明格式无效')
+        # Do not materialize a maliciously large text field via .value/getfirst.
+        notes = form['notes'].file.read(501) if 'notes' in form and form['notes'].file else ''
+        if not isinstance(notes, str) or len(notes) > 500 or any(ord(char) < 32 and char not in '\r\n\t' for char in notes):
+            raise ManagementError(400, 'INVALID_NOTES', '更新说明不能超过 500 字')
+        notes = notes.strip()
+        ident = secrets.token_hex(16)
+        target, icon = DATA / '.incoming' / (ident + suffix), DATA / '.incoming' / (ident + '.png')
+        total = 0
+        try:
+            with target.open('xb') as stream:
+                while chunk := uploaded.file.read(1024 * 1024):
+                    total += len(chunk)
+                    if total > MAX:
+                        raise ManagementError(413, 'PACKAGE_TOO_LARGE', '安装包不能超过 500 MB')
+                    stream.write(chunk)
+                stream.flush()
+                os.fsync(stream.fileno())
+            if not total:
+                raise ManagementError(400, 'EMPTY_PACKAGE', '安装包为空')
+            validate_archive(target, platform)
+            metadata = parse_ipa(target, icon) if platform == 'ios' else parse_apk(target, icon)
+            if metadata.get('platform') != platform:
+                raise ManagementError(400, 'PLATFORM_MISMATCH', '安装包实际平台与所选平台不符')
+            result = management_releases.stage(metadata, target, icon, notes, actor)
+            return self.send(200 if result.get('alreadyPublished') or result.get('alreadyStaged') else 201, result)
+        except (ValueError, zipfile.BadZipFile, EOFError) as error:
+            raise ManagementError(400, 'INVALID_PACKAGE', str(error) or '安装包校验失败，当前版本未更改') from error
+        finally:
+            target.unlink(missing_ok=True)
+            icon.unlink(missing_ok=True)
+
+    def complete_control_form(self, size):
+        # FieldStorage can stop at the closing multipart boundary while an
+        # epilogue remains. The Node gateway withholds its final body chunk
+        # until reauthentication, so consume the entire declared request first.
+        # A bounded disk spool keeps 500 MB uploads out of process memory.
+        with tempfile.TemporaryFile(dir=DATA / '.incoming') as body:
+            remaining = size
+            try:
+                while remaining:
+                    chunk = self.rfile.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        raise ManagementError(400, 'INCOMPLETE_UPLOAD', '上传连接提前结束，线上版本未更改')
+                    body.write(chunk)
+                    remaining -= len(chunk)
+            except (ConnectionResetError, TimeoutError):
+                raise ManagementError(400, 'INCOMPLETE_UPLOAD', '上传连接中断，线上版本未更改')
+            body.seek(0)
+            try:
+                return cgi.FieldStorage(fp=body, headers=self.headers, environ={'REQUEST_METHOD':'POST',
+                    'CONTENT_TYPE':self.headers['Content-Type'], 'CONTENT_LENGTH':str(size)}, limit=size, max_num_fields=2)
+            except ValueError:
+                raise ManagementError(400, 'INVALID_UPLOAD', '上传表单无效')
 
 if __name__=='__main__': ThreadingHTTPServer((os.environ.get('LISTEN_HOST', '127.0.0.1'),8091),Handler).serve_forever()

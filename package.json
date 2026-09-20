@@ -1,6 +1,6 @@
 {
   "name": "jinling-mahjong",
-  "version": "0.7.25",
+  "version": "0.7.31",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,10 +9,12 @@
   "scripts": {
     "dev": "concurrently -k -n api,app \"tsx watch server/index.ts\" \"vite --host 0.0.0.0\"",
     "dev:web": "vite --host 0.0.0.0",
+    "dev:control": "vite --config vite.control.config.ts",
     "server": "tsx server/index.ts",
     "build": "npm run build:cocos && tsc --noEmit && vite build && node scripts/check-web-assets.mjs",
     "build:native": "npm run build:cocos && tsc --noEmit && vite build --mode native",
     "build:web": "npm run build:cocos && tsc --noEmit && vite build --mode web && node scripts/check-web-assets.mjs",
+    "build:control": "tsc --noEmit && vite build --config vite.control.config.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:load": "tsx scripts/load-test.ts",

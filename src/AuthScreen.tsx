@@ -1,5 +1,5 @@
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
-import { useId, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Eye,
@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { client, type ClientState } from "./game-client";
+import { ACCOUNT_VIEW_CHANGE_EVENT } from "./keyboard-viewport";
 
 export function AuthScreen({
   state,
@@ -17,6 +18,7 @@ export function AuthScreen({
 }) {
   const forced = !!state.account?.mustChangePassword;
   const formId = useId();
+  const screen = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
@@ -26,6 +28,30 @@ export function AuthScreen({
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState("");
   const registering = mode === "register" && !forced;
+  useLayoutEffect(() => {
+    const element = screen.current;
+    if (!element) return;
+    // React can restore a reused password input after mutation-phase cleanup.
+    // End that old editing session once the new login/register view is mounted.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && element.contains(active)) active.blur();
+    const reset = () => {
+      element.scrollTop = 0;
+      element.parentElement?.scrollTo(0, 0);
+      for (const part of element.querySelectorAll<HTMLElement>(".account-card,.account-form"))
+        part.scrollTop = 0;
+      window.scrollTo(0, 0);
+      window.dispatchEvent(new Event(ACCOUNT_VIEW_CHANGE_EVENT));
+    };
+    reset();
+    const frame = requestAnimationFrame(reset);
+    return () => {
+      cancelAnimationFrame(frame);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && element.contains(active)) active.blur();
+      window.dispatchEvent(new Event(ACCOUNT_VIEW_CHANGE_EVENT));
+    };
+  }, [mode, forced]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
@@ -46,7 +72,7 @@ export function AuthScreen({
         <h2>横屏，开始这一局</h2>
         <p>请将手机横过来，完整牌桌就在眼前。</p>
       </div>
-      <main className="account-screen">
+      <main className="account-screen" ref={screen}>
         <section className="account-welcome">
           <div className="account-brand">
             <img src={`${import.meta.env.BASE_URL}brand-icon.png`} alt="金陵麻将" />

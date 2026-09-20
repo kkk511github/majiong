@@ -16,11 +16,11 @@ function fixture() {
   db.exec(`PRAGMA journal_mode=WAL;
     CREATE TABLE rooms(id TEXT PRIMARY KEY,state TEXT NOT NULL,updated_at INTEGER);
     CREATE TABLE table_archives(id TEXT PRIMARY KEY,state TEXT NOT NULL,at INTEGER);
-    CREATE TABLE accounts(id TEXT PRIMARY KEY,role TEXT,must_change INTEGER);
+    CREATE TABLE accounts(id TEXT PRIMARY KEY,role TEXT,must_change INTEGER,username TEXT);
     CREATE TABLE match_records(code TEXT);
     CREATE TABLE round_records(code TEXT);
     CREATE TABLE table_creations(codes TEXT);
-    INSERT INTO accounts VALUES('admin-1','admin',0);`);
+    INSERT INTO accounts VALUES('admin-1','admin',0,'guanli@1');`);
   const codes = ["345811", "559668", "810152", "878967", "192809"];
   const sources = codes.map((code, index) => {
     const game = createGame(code, `source-${code}`, newGameRules({ rounds: 8, turnSeconds: 10 }));
@@ -109,5 +109,14 @@ describe("explicit experience-table maintenance", () => {
     renewed.table = { ...original.table!, createdAt: 2 }; fillExperienceBots(renewed);
     expect(renewed.players[0]).toBeNull(); expect(renewed.players.slice(1).every(p => p?.bot && p.ready && p.online)).toBe(true);
     expect(renewed.table.experience).toEqual(original.table!.experience); expect(renewed.table.settings.autoRenew).toBe(true);
+  });
+  it("机器人维护脚本也只接受指定开桌管理员，不能用其他admin绕过", async () => {
+    const f = fixture(), before = f.rows();
+    f.db.prepare("INSERT INTO accounts VALUES(?,?,?,?)").run("other-admin", "admin", 0, "another-admin");
+    await expect(ensureExperienceTables({ databasePath: f.path, count: 3, apply: true, creatorId: "other-admin" })).rejects.toThrow("guanli@1");
+    expect(f.rows()).toEqual(before);
+    f.db.prepare("UPDATE accounts SET must_change=1 WHERE id='admin-1'").run();
+    await expect(ensureExperienceTables({ databasePath: f.path, count: 3, apply: true })).rejects.toThrow("guanli@1");
+    expect(f.rows()).toEqual(before);
   });
 });

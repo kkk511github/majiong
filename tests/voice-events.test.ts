@@ -4,6 +4,7 @@ import { gameFeedback } from "../src/game-feedback";
 import { createGame, newPlayer, startRound, viewFor } from "../shared/engine";
 import { seededRandom } from "../shared/tiles";
 import type { Result } from "../shared/types";
+import { snapshotDisplayFixture } from "./fixtures/snapshot-display";
 function fixture() {
   const g = createGame("v", "voices");
   g.players = [0, 1, 2, 3].map((i) => {
@@ -27,6 +28,14 @@ const result = (labels: string[], from: 0 | undefined = undefined): Result => ({
   },
 });
 describe("动作与胡牌语音", () => {
+  it("快照只报胡了，不根据旧计分项另报全球或对对，非赢家仍不报胡", () => {
+    const r = snapshotDisplayFixture().record.result;
+    expect(winPhrases(r, 1)).toEqual(["胡了"]);
+    expect(winPhrases({ ...r, from: undefined }, 1)).toEqual(["胡了"]);
+    expect(winPhrases(r, 0)).toEqual([]);
+    const ordinary = structuredClone(r); ordinary.details[1]!.snapshot = false;
+    expect(winPhrases(ordinary, 1)).toContain("全球独钓");
+  });
   it("只用服务端计分项选牌型，杠开不误报普通自摸，最多三句", () => {
     expect(
       winPhrases(result(["小杠开花", "清一色", "七对", "门清"]), 1),

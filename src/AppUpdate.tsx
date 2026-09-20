@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
 import { ArrowUpRight, CheckCircle2, Download, RefreshCw, Smartphone } from "lucide-react";
@@ -10,8 +10,10 @@ import {
 import "./app-update.css";
 
 type UpdateCheck = Awaited<ReturnType<typeof checkAppUpdate>>;
+export interface AppUpdateActivity { open: boolean; checking: boolean; checked: boolean; installing: boolean }
 const idle: AppUpdateProgress = { status: "idle", received: 0, total: 0, percent: 0 };
 const transferActive = (progress: AppUpdateProgress) => ["downloading", "verifying"].includes(progress.status);
+const transferredToSystem = (status: AppUpdateProgress["status"]) => ["installer-opened", "page-opened"].includes(status);
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const progressLabel = (progress: AppUpdateProgress) => ({
   idle: "", downloading: "正在下载安装包", verifying: "正在核对安装包",
@@ -22,24 +24,47 @@ const progressLabel = (progress: AppUpdateProgress) => ({
 }[progress.status]);
 
 /** Only ask about an update in the lobby; never interrupt a live table. */
-export function AppUpdate({ canPrompt, request }: { canPrompt: boolean; request: number }) {
+export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChange }: {
+  canPrompt: boolean; request: number;
+  onPromptRequest?: () => void;
+  onActivityChange?: (activity: AppUpdateActivity) => void;
+}) {
   const [result, setResult] = useState<UpdateCheck | null>(null);
   const [progress, setProgress] = useState<AppUpdateProgress>(idle);
   const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
-  const mounted = useRef(false), lastRequest = useRef(0), lastCheck = useRef(0);
+  const mounted = useRef(false), lastRequest = useRef(request), lastCheck = useRef(0);
   const checkTask = useRef<Promise<UpdateCheck> | null>(null);
   const installTask = useRef(false);
+  const handedOff = useRef(false), returnedDuringInstall = useRef(false);
   const promptEpoch = useRef(0);
   const allowed = useRef(canPrompt);
+  const promptRequest = useRef(onPromptRequest);
+  promptRequest.current = onPromptRequest;
   allowed.current = canPrompt;
+  const releaseSystemHandoff = useCallback(() => {
+    if (!handedOff.current) return;
+    if (installTask.current) { returnedDuringInstall.current = true; return; }
+    handedOff.current = false;
+    returnedDuringInstall.current = false;
+    promptEpoch.current++;
+    setOpen(false);
+  }, []);
+  const receiveProgress = useCallback((value: AppUpdateProgress) => {
+    if (installTask.current && transferredToSystem(value.status)) handedOff.current = true;
+    setProgress(value);
+  }, []);
+  useLayoutEffect(() => {
+    onActivityChange?.({ open, checking, checked, installing });
+  }, [open, checking, checked, installing, onActivityChange]);
 
   const check = useCallback(async (manual: boolean) => {
     if (!manual && checkTask.current) return;
     const epoch = promptEpoch.current;
-    if (manual) { setOpen(true); setError(""); setProgress(idle); }
+    if (manual) { promptRequest.current?.(); setOpen(true); setError(""); setProgress(idle); }
     setChecking(true);
     try {
       const task = checkTask.current ?? checkAppUpdate();
@@ -48,12 +73,12 @@ export function AppUpdate({ canPrompt, request }: { canPrompt: boolean; request:
       if (!mounted.current) return;
       lastCheck.current = Date.now();
       setResult(value);
-      if (epoch === promptEpoch.current && (manual || value.available)) setOpen(true);
+      if (epoch === promptEpoch.current && (manual || value.available)) { promptRequest.current?.(); setOpen(true); }
     } catch (e) {
       if (mounted.current && manual) setError((e as Error).message || "暂时无法检查更新，请稍后重试。");
     } finally {
       checkTask.current = null;
-      if (mounted.current) setChecking(false);
+      if (mounted.current) { setChecking(false); setChecked(true); }
     }
   }, []);
 
@@ -62,17 +87,20 @@ export function AppUpdate({ canPrompt, request }: { canPrompt: boolean; request:
     let disposed = false, removeProgress: (() => void) | undefined;
     let lifecycle: PluginListenerHandle | undefined;
     if (Capacitor.isNativePlatform()) {
-      void listenAppUpdate(value => { if (!disposed) setProgress(value); })
+      void listenAppUpdate(value => { if (!disposed) receiveProgress(value); })
         .then(remove => { if (disposed) remove(); else removeProgress = remove; }).catch(() => {});
-      void getAppUpdateProgress().then(value => { if (!disposed && value.status !== "idle") setProgress(value); }).catch(() => {});
+      void getAppUpdateProgress().then(value => { if (!disposed && value.status !== "idle") receiveProgress(value); }).catch(() => {});
       void NativeApp.addListener("appStateChange", ({ isActive }) => {
         if (!isActive || disposed) return;
-        void getAppUpdateProgress().then(value => { if (!disposed) setProgress(value); }).catch(() => {});
+        releaseSystemHandoff();
+        void getAppUpdateProgress().then(value => {
+          if (!disposed) { receiveProgress(value); releaseSystemHandoff(); }
+        }).catch(() => {});
         if (allowed.current && !installTask.current && Date.now() - lastCheck.current > 30 * 60_000) void check(false);
       }).then(handle => { if (disposed) void handle.remove(); else lifecycle = handle; });
     }
     return () => { disposed = true; mounted.current = false; removeProgress?.(); void lifecycle?.remove(); };
-  }, [check]);
+  }, [check, receiveProgress, releaseSystemHandoff]);
 
   useEffect(() => {
     if (!canPrompt || lastCheck.current || !Capacitor.isNativePlatform()) return;
@@ -87,15 +115,20 @@ export function AppUpdate({ canPrompt, request }: { canPrompt: boolean; request:
 
   async function install() {
     if (installTask.current || !result?.latest || !result.installable || !canPrompt) return;
+    handedOff.current = false; returnedDuringInstall.current = false;
     installTask.current = true; setInstalling(true); setError(""); setProgress(idle);
     try {
       const response = await installAppUpdate(result.latest);
+      if (transferredToSystem(response.status)) handedOff.current = true;
       if (mounted.current) setProgress(value => ({ ...value, status: response.status }));
     } catch (e) {
       if (mounted.current) setError((e as Error).message || "更新未完成，请重试。");
     } finally {
       installTask.current = false;
-      if (mounted.current) setInstalling(false);
+      if (mounted.current) {
+        setInstalling(false);
+        if (returnedDuringInstall.current) releaseSystemHandoff();
+      }
     }
   }
   async function close() {
@@ -104,6 +137,7 @@ export function AppUpdate({ canPrompt, request }: { canPrompt: boolean; request:
       catch (e) { setError((e as Error).message || "请等待当前操作完成。"); return; }
     }
     promptEpoch.current++;
+    handedOff.current = false; returnedDuringInstall.current = false;
     setOpen(false);
   }
   const latest = result?.latest;
@@ -127,7 +161,7 @@ export function AppUpdate({ canPrompt, request }: { canPrompt: boolean; request:
       {!checking && !busy && error && <button className="primary" onClick={() => void check(true)}><RefreshCw size={18} />重新检查</button>}
     </div>
   </>;
-  return <Dialog title={title} close={() => void close()} variant="app-update-dialog" footer={footer}>
+  return <Dialog title={title} close={() => void close()} variant="notice-dialog app-update-dialog" footer={footer}>
     <section className="app-update-heading">
       <img src={`${import.meta.env.BASE_URL}brand-icon.png`} alt="金陵麻将图标" />
       <div><h3>金陵麻将</h3><p>{current ? `当前 v${current.version} · Build ${current.build}` : web ? "当前使用网页版" : "正在读取版本信息"}</p></div>

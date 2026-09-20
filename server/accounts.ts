@@ -11,6 +11,7 @@ import type { Account } from "../shared/types";
 import { membership, teamSchema } from "./teams";
 import sharp from "sharp";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
+import { isTableCreator, TABLE_CREATOR_USERNAME } from "../shared/permissions";
 
 export const ADMIN_USERNAME = "guanli@1";
 export const tokenHash = (token: string) =>
@@ -23,6 +24,7 @@ interface AccountRow {
   password_hash: string;
   role: Account["role"];
   must_change: number;
+  created_at?: number;
 }
 export interface AuthSession {
   id: string;
@@ -52,6 +54,10 @@ export function accountSchema(db: DatabaseSync) {
     granted_by TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
   db.exec(`CREATE TABLE IF NOT EXISTS account_avatars (
     account_id TEXT PRIMARY KEY, digest TEXT NOT NULL, image BLOB NOT NULL);`);
+  // Account suspension is separate from a member's existing play-only block.
+  db.exec(`CREATE TABLE IF NOT EXISTS account_suspensions (
+    account_id TEXT PRIMARY KEY, suspended INTEGER NOT NULL CHECK(suspended IN(0,1)),
+    reason TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
   // Separate public numbers preserve all existing UUID references and old DB
   // insert statements. Allocate once, including historical accounts on upgrade.
   db.exec(`CREATE TABLE IF NOT EXISTS account_numbers (
@@ -65,6 +71,10 @@ export function accountSchema(db: DatabaseSync) {
     BEGIN INSERT OR IGNORE INTO account_numbers(account_id) VALUES(new.id); END;`);
 }
 function account(row: AccountRow, db: DatabaseSync): Account {
+  const suspended = !!db
+    .prepare("SELECT suspended FROM account_suspensions WHERE account_id=?")
+    .get(row.id)?.suspended;
+  const participation = membership(db, row.id);
   return {
     id: row.id,
     memberId: String(
@@ -77,16 +87,13 @@ function account(row: AccountRow, db: DatabaseSync): Account {
     avatar: avatarPath(db, row.id),
     role: row.role,
     mustChangePassword: !!row.must_change,
-    ...membership(db, row.id),
+    ...participation,
+    canPlay: participation.canPlay && !suspended,
+    suspended,
+    createdAt: row.created_at,
     canManageAdmins:
       row.role === "admin" && row.username.toLowerCase() === ADMIN_USERNAME,
-    canCreateTables:
-      row.role === "admin" ||
-      !!db
-        .prepare(
-          "SELECT 1 FROM table_permissions WHERE account_id=? AND can_create=1",
-        )
-        .get(row.id),
+    canCreateTables: isTableCreator(row),
   };
 }
 function username(value: unknown) {
@@ -97,7 +104,7 @@ function username(value: unknown) {
     throw new AuthError("账号需为 3–48 位字母、数字或 _ . @ -");
   return value.trim().toLowerCase();
 }
-function displayName(value: unknown) {
+export function displayName(value: unknown) {
   if (
     typeof value !== "string" ||
     !value.trim() ||
@@ -113,7 +120,7 @@ function avatarPath(db: DatabaseSync, id: string): string | undefined {
     .get(id);
   return row ? `/api/avatars/${id}/${row.digest}.jpg` : undefined;
 }
-function password(value: unknown): string {
+export function password(value: unknown): string {
   if (
     typeof value !== "string" ||
     value.length < MIN_PASSWORD_LENGTH ||
@@ -234,12 +241,14 @@ export function createAccounts(
       .get(tokenHash(token), Date.now() - SESSION_AGE) as unknown as
       (AccountRow & { token_hash: string; last_seen: number }) | undefined;
     if (!row) return;
+    const current = account(row, db);
+    if (current.suspended) return;
     return {
       id: row.id,
       name: row.name,
       token_hash: row.token_hash,
       last_seen: row.last_seen,
-      account: account(row, db),
+      account: current,
     };
   }
   function requireSession(req: IncomingMessage, admin = false) {
@@ -254,19 +263,23 @@ export function createAccounts(
     return session;
   }
   function issue(row: AccountRow) {
+    const current = account(row, db);
+    if (current.suspended)
+      throw new AuthError("账号已暂停使用，请联系管理员", 403);
     const token = randomBytes(32).toString("hex");
     db.prepare(
       `INSERT INTO sessions VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET
       token_hash=excluded.token_hash, name=excluded.name, last_seen=excluded.last_seen`,
     ).run(tokenHash(token), row.id, row.name, Date.now());
     revoke(row.id);
-    return { token, account: account(row, db) };
+    return { token, account: current };
   }
   function canOpenTables(id: string) {
     const row = db
       .prepare("SELECT * FROM accounts WHERE id=? AND must_change=0")
       .get(id) as unknown as AccountRow | undefined;
-    return !!row && account(row, db).canCreateTables === true;
+    const current = row ? account(row, db) : undefined;
+    return !!current && !current.suspended && current.canCreateTables === true;
   }
   function getAccount(id: string) {
     const row = db
@@ -283,9 +296,74 @@ export function createAccounts(
     const a = getAccount(id);
     if (!a || a.mustChangePassword)
       throw new AuthError("请先登录并设置密码", 403);
+    if (a.suspended) throw new AuthError("账号已暂停使用，请联系管理员", 403);
     if (a.playBlocked)
       throw new AuthError("你的牌局权限已暂停，请联系管理员", 403);
     if (!a.canPlay) throw new AuthError("请联系管理员分配战队后再入桌", 403);
+  }
+  function revokeSessions(id: string) {
+    db.prepare("DELETE FROM sessions WHERE id=?").run(id);
+    revoke(id);
+  }
+  function issueAdministratorSession(id: string, credentialHash: string) {
+    const row = db
+      .prepare("SELECT * FROM accounts WHERE id=? AND password_hash=?")
+      .get(id, credentialHash) as unknown as AccountRow | undefined;
+    if (!row) throw new AuthError("账号或密码已变更，请重新登录", 401);
+    const current = account(row, db);
+    if (
+      current.role !== "admin" ||
+      current.mustChangePassword ||
+      current.suspended
+    )
+      throw new AuthError("后台权限已变更，请重新登录", 403);
+    return issue(row);
+  }
+  async function verifyAdministrator(
+    req: IncomingMessage,
+    body: Record<string, unknown>,
+  ) {
+    limit(`ip:${req.socket.remoteAddress ?? "unknown"}`, 150);
+    const login = username(body.username),
+      secret = password(body.password);
+    limit(`account:${login}`, 15);
+    if (hashing >= 6) throw new AuthError("登录服务繁忙，请稍后重试", 429);
+    hashing++;
+    try {
+      const before = db
+        .prepare("SELECT * FROM accounts WHERE username=?")
+        .get(login) as unknown as AccountRow | undefined;
+      if (!(await verifyPassword(secret, before?.password_hash)))
+        throw new AuthError("账号或密码不正确", 401);
+      // Hashing yields: credentials, role and suspension must all still be current.
+      const current = db
+        .prepare("SELECT * FROM accounts WHERE id=? AND password_hash=?")
+        .get(before!.id, before!.password_hash) as unknown as
+        AccountRow | undefined;
+      if (!current) throw new AuthError("账号或密码不正确", 401);
+      const verified = account(current, db);
+      if (verified.suspended)
+        throw new AuthError("账号已暂停使用，请联系管理员", 403);
+      if (verified.role !== "admin")
+        throw new AuthError("仅管理员可以登录后台", 403);
+      if (verified.mustChangePassword)
+        throw new AuthError("请先在 APP 设置你的新密码", 403);
+      rates.delete(`account:${login}`);
+      return { account: verified, credentialHash: current.password_hash };
+    } finally {
+      hashing--;
+    }
+  }
+  async function hashAdministrativePassword(actorId: string, value: unknown) {
+    limit(`password-admin:${actorId}`, 30);
+    const secret = password(value);
+    if (hashing >= 6) throw new AuthError("登录服务繁忙，请稍后重试", 429);
+    hashing++;
+    try {
+      return await hashPassword(secret);
+    } finally {
+      hashing--;
+    }
   }
   async function handle(
     req: IncomingMessage,
@@ -381,7 +459,7 @@ export function createAccounts(
         return true;
       }
       if (path === "/api/admin/table-permissions") {
-        const actor = requireSession(req, true);
+        requireSession(req, true);
         if (req.method === "GET") {
           const query = new URL(req.url ?? "/", "http://localhost")
             .searchParams;
@@ -392,8 +470,8 @@ export function createAccounts(
             throw new AuthError("页码不正确");
           const where = search
             ? "a.username=?"
-            : "a.role='member' AND p.can_create=1";
-          const args = search ? [username(search)] : [];
+            : "a.role='admin' AND a.username=?";
+          const args = [search ? username(search) : TABLE_CREATOR_USERNAME];
           const from =
             " FROM accounts a LEFT JOIN table_permissions p ON p.account_id=a.id WHERE " +
             where;
@@ -429,63 +507,10 @@ export function createAccounts(
           return true;
         }
         if (req.method !== "POST") throw new AuthError("请求方式不支持", 405);
-        limit(`permissions:${actor.id}`, 150);
-        const body = await readJSON(req);
-        requireSession(req, true);
-        if (
-          typeof body.accountId !== "string" ||
-          body.accountId.length > 100 ||
-          typeof body.canCreateTables !== "boolean"
-        )
-          throw new AuthError("请指定账号和开桌权限");
-        const target = db
-          .prepare("SELECT * FROM accounts WHERE id=?")
-          .get(body.accountId) as unknown as AccountRow | undefined;
-        if (!target) throw new AuthError("账号不存在，请让牌友先注册", 404);
-        if (target.role === "admin")
-          throw new AuthError("管理员已拥有开桌权限，无需单独授权");
-        const before = account(target, db).canCreateTables;
-        if (before !== body.canCreateTables) {
-          db.exec("BEGIN");
-          try {
-            db.prepare(
-              "INSERT INTO table_permissions VALUES (?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET can_create=excluded.can_create, granted_by=excluded.granted_by, updated_at=excluded.updated_at",
-            ).run(
-              target.id,
-              body.canCreateTables ? 1 : 0,
-              actor.id,
-              Date.now(),
-            );
-            db.prepare("INSERT INTO account_audit VALUES (?,?,?,?)").run(
-              randomUUID(),
-              target.id,
-              JSON.stringify({
-                event: "table-permission-changed",
-                actorId: actor.id,
-                canCreateTables: body.canCreateTables,
-              }),
-              Date.now(),
-            );
-            db.exec("COMMIT");
-          } catch (error) {
-            db.exec("ROLLBACK");
-            throw error;
-          }
-        }
-        const updated = account(target, db);
-        permissionsChanged(updated);
-        res.end(
-          JSON.stringify({
-            account: {
-              id: updated.id,
-              username: updated.username,
-              name: updated.name,
-              role: updated.role,
-              canCreateTables: updated.canCreateTables,
-            },
-          }),
+        throw new AuthError(
+          `开桌权限仅限 ${TABLE_CREATOR_USERNAME}，不能通过授权接口更改`,
+          403,
         );
-        return true;
       }
       if (path === "/api/auth/session" && req.method === "GET") {
         const session = getSession(
@@ -554,6 +579,11 @@ export function createAccounts(
         if (next === body.currentPassword)
           throw new AuthError("新密码不能与原密码相同");
         const encoded = await hashPassword(next);
+        if (
+          getSession(req.headers.authorization?.replace(/^Bearer /, ""))?.id !==
+          session.id
+        )
+          throw new AuthError("请重新登录", 401);
         // A concurrent password change must not overwrite a newer credential.
         const changed = db
           .prepare(
@@ -562,6 +592,7 @@ export function createAccounts(
           .run(encoded, old.id, old.password_hash);
         if (!changed.changes)
           throw new AuthError("密码已经变更，请重新登录", 401);
+        revokeSessions(old.id);
         db.prepare("INSERT INTO account_audit VALUES (?,?,?,?)").run(
           randomUUID(),
           old.id,
@@ -605,6 +636,7 @@ export function createAccounts(
           password_hash: encoded,
           role: "member",
           must_change: 0,
+          created_at: Date.now(),
         };
         try {
           db.prepare("INSERT INTO accounts VALUES (?,?,?,?,?,?,?)").run(
@@ -614,7 +646,7 @@ export function createAccounts(
             encoded,
             "member",
             0,
-            Date.now(),
+            row.created_at!,
           );
         } catch {
           throw new AuthError("账号或设备已完成注册，请直接登录");
@@ -656,5 +688,9 @@ export function createAccounts(
     getAvatar: (id: string) => avatarPath(db, id),
     notifyAccount,
     requirePlay,
+    revokeSessions,
+    verifyAdministrator,
+    hashAdministrativePassword,
+    issueAdministratorSession,
   };
 }

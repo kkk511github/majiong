@@ -357,7 +357,8 @@ describe("已核实玩法开关", () => {
       two.items.find((i) => i.label === "成牌"),
     );
   });
-  it("海底只对最后四张内的自摸加20，点炮和关闭开关不加", () => {
+  it("已确认末张自摸的海底项目加20，点炮和关闭开关不加", () => {
+    // Actual last-wall drawing boundaries are covered by sea-last-tile.test.ts.
     const p = newPlayer("a", "a");
     p.hand = [0, 4, 8, 36, 40, 44, 72, 76, 80, 108, 109, 110, 112, 113];
     const rules = { ...table().rules, seaBottom: true };

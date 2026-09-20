@@ -1,7 +1,10 @@
 import type { View } from "../shared/types";
 import { gameFeedback } from "./game-feedback";
 import { TileVoice, voicePacks, type VoicePlaybackState } from "./tile-voice";
+import type { RoomPhraseId } from "../shared/room-phrases";
+import { phraseAudioUrl, type PhraseVoiceGender } from "./phrase-audio";
 export type VoicePreviewState = VoicePlaybackState | "loading" | "muted";
+export type ChatPhrasePlaybackState = "loading" | "playing" | "ended" | "failed" | "cancelled";
 
 export type Cue =
   | "click"
@@ -81,6 +84,11 @@ export class GameAudio {
   private musicGain?: GainNode;
   private effectsGain?: GainNode;
   private voiceGain?: GainNode;
+  private phraseGain?: GainNode;
+  private phraseVolume = 0.85;
+  private phraseSpeaking = false;
+  private phrasePlayback?: { cancel: () => void };
+  private phraseBuffers = new Map<string, AudioBuffer>();
   private voice?: TileVoice;
   private speaking = false;
   private communication: "off" | "recording" | "playing" = "off";
@@ -112,12 +120,16 @@ export class GameAudio {
 
   configure(preferences: AudioPreferences, table: boolean) {
     const track = this.musicTrack;
+    const chatVolumeChanged = this.preferences.voiceVolume !== preferences.voiceVolume;
     this.preferences = preferences;
+    if (chatVolumeChanged) this.phraseVolume = clamp(preferences.voiceVolume);
+    if (preferences.chat === false || preferences.voiceVolume <= 0 || (this.table && !table)) this.stopChatPhrase();
     this.reportHealth({
       enabled:
         (preferences.music && preferences.musicVolume > 0) ||
         (preferences.sound && preferences.soundVolume > 0) ||
-        (preferences.voice && preferences.voiceVolume > 0),
+        (preferences.voice && preferences.voiceVolume > 0) ||
+        (preferences.chat !== false && preferences.voiceVolume > 0),
     });
     this.table = table;
     if (track !== this.musicTrack) this.changeMusic();
@@ -158,6 +170,7 @@ export class GameAudio {
     }
   }
   setCommunication(state: "off" | "recording" | "playing") {
+    if (state !== "off") this.stopChatPhrase();
     this.communication = state;
     if (state === "recording") this.stopVoice();
     this.setGains();
@@ -171,7 +184,7 @@ export class GameAudio {
         this.communication !== "recording"
         ? clamp(this.preferences.musicVolume) *
             (this.table ? 0.85 : 1) *
-            (this.speaking || this.communication === "playing" ? 0.3 : 1)
+            (this.speaking || this.phraseSpeaking || this.communication === "playing" ? 0.3 : 1)
         : 0,
       now,
       0.06,
@@ -191,6 +204,12 @@ export class GameAudio {
         this.communication !== "recording"
         ? clamp(this.preferences.voiceVolume)
         : 0,
+      now,
+      0.015,
+    );
+    this.phraseGain?.gain.setTargetAtTime(
+      this.preferences.chat !== false && this.visible && this.communication === "off"
+        ? this.phraseVolume : 0,
       now,
       0.015,
     );
@@ -243,15 +262,18 @@ export class GameAudio {
     this.musicGain = a.createGain();
     this.effectsGain = a.createGain();
     this.voiceGain = a.createGain();
+    this.phraseGain = a.createGain();
     this.musicGain.gain.value = 0;
     this.effectsGain.gain.value = 0;
     this.voiceGain.gain.value = 0;
+    this.phraseGain.gain.value = 0;
     const limiter = a.createDynamicsCompressor();
     limiter.threshold.value = -12;
     limiter.ratio.value = 5;
     this.musicGain.connect(limiter);
     this.effectsGain.connect(limiter);
     this.voiceGain.connect(limiter);
+    this.phraseGain.connect(limiter);
     this.voice = new TileVoice(
       a,
       this.voiceGain,
@@ -347,6 +369,7 @@ export class GameAudio {
   setVisible(visible: boolean) {
     if (visible === this.visible) return;
     this.visible = visible;
+    if (!visible) this.stopChatPhrase();
     if (!visible) this.reportHealth({ phase: "hidden" });
     this.voice?.setEnabled(
       this.preferences.voice && visible && (this.table || this.replayActive),
@@ -534,6 +557,77 @@ export class GameAudio {
   sayTile(key: string, tile: number | string) {
     this.voice?.say(key, tile);
   }
+  /** Local recordings share the unlocked audio session, but never the game-call
+   * queue. A newer phrase replaces this one; real voice playback/recording wins. */
+  playChatPhrase(
+    phraseId: RoomPhraseId,
+    gender: PhraseVoiceGender,
+    volume: number,
+    notice?: (state: ChatPhrasePlaybackState) => void,
+  ): () => void {
+    this.stopChatPhrase();
+    const level = Number.isFinite(volume) ? clamp(volume) : 0;
+    if (!this.visible || this.preferences.chat === false || level <= 0 || this.communication !== "off") {
+      notice?.("cancelled");
+      return () => {};
+    }
+    let url: string;
+    try { url = phraseAudioUrl(phraseId, gender); }
+    catch { notice?.("failed"); return () => {}; }
+    this.unlock();
+    const context = this.context, target = this.phraseGain;
+    if (!context || !target) { notice?.("failed"); return () => {}; }
+    this.phraseVolume = level;
+    const abort = new AbortController();
+    let finished = false, source: AudioBufferSourceNode | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const playback = { cancel: () => finish("cancelled") };
+    const finish = (state: "ended" | "failed" | "cancelled") => {
+      if (finished) return;
+      finished = true; clearTimeout(timeout); abort.abort();
+      if (source) {
+        source.onended = null;
+        if (state !== "ended") { try { source.stop(); } catch { /* Already stopped. */ } }
+        source.disconnect();
+      }
+      if (this.phrasePlayback === playback) {
+        this.phrasePlayback = undefined; this.phraseSpeaking = false; this.setGains();
+      }
+      notice?.(state);
+    };
+    const current = () => !finished && this.phrasePlayback === playback && this.context === context && this.visible && this.preferences.chat !== false && this.communication === "off" && this.phraseVolume > 0;
+    this.phrasePlayback = playback;
+    notice?.("loading");
+    // A delayed decode/unlock must not replay an old chat after the UI has moved on.
+    timeout = setTimeout(() => finish("failed"), 4000);
+    void (async () => {
+      if (context.state !== "running") await context.resume();
+      if (!current()) return finish("cancelled");
+      let buffer = this.phraseBuffers.get(url);
+      if (!buffer) {
+        const response = await fetch(url, { signal: abort.signal });
+        const bundled = globalThis.location?.protocol === "capacitor:" && globalThis.location.host === "localhost";
+        if (!response.ok && !(response.status === 0 && bundled)) throw new Error("Chat recording unavailable");
+        const bytes = await response.arrayBuffer();
+        if (!current()) return finish("cancelled");
+        buffer = await context.decodeAudioData(bytes);
+        if (!current()) return finish("cancelled");
+        if (!Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > 15) throw new Error("Invalid chat recording");
+        this.phraseBuffers.set(url, buffer);
+      }
+      if (!current()) return finish("cancelled");
+      if (context.state !== "running") return finish("failed");
+      source = context.createBufferSource(); source.buffer = buffer; source.playbackRate.value = 1;
+      source.connect(target); source.onended = () => finish("ended");
+      this.phraseSpeaking = true; this.setGains();
+      source.start(context.currentTime);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => finish("failed"), (buffer.duration + 1.5) * 1000);
+      notice?.("playing");
+    })().catch(() => finish("failed"));
+    return playback.cancel;
+  }
+  stopChatPhrase() { this.phrasePlayback?.cancel(); }
   previewVoice(notice?: (state: VoicePreviewState) => void): () => void {
     if (!this.visible || !this.preferences.voice || this.preferences.voiceVolume <= 0 || this.communication === "recording") {
       notice?.("muted");
@@ -585,6 +679,10 @@ export class GameAudio {
     this.voice?.stop();
   }
   dispose() {
+    this.stopChatPhrase();
+    this.phraseBuffers.clear();
+    this.phraseGain?.disconnect();
+    this.phraseGain = undefined;
     this.musicEpoch++;
     this.previewEpoch++;
     this.voice?.dispose();

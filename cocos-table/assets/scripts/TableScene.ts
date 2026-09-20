@@ -1,5 +1,5 @@
 import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp, EventTouch } from 'cc';
-import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
+import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type TileDragOrigin } from './tile-drag';
 const { ccclass } = _decorator;
 const GOLD='#e4c573', INK='#fcf1d0', GREEN='#093f37';
@@ -13,6 +13,8 @@ const load=<T>(path:string,kind:any)=>new Promise<T>((resolve,reject)=>resources
 export class TableScene extends Component {
  private root!:Node; private hud!:Node; private racks!:Node; private marks!:Node; private effectsRoot!:Node; private state?:TableSceneState;
  private layoutKey=''; private hudKey=''; private racksKey=''; private marksKey=''; private orderKey=''; private countdownLabel?:Label;
+ private compassRoot?:Node; private compassWinds:Label[]=[]; private compassHighlights:UIOpacity[]=[];
+ private compassMemory?:CompassMemory; private compassActive=-1; private compassPerspective=-1;
  private stateFrame=0;
  private effectData=new Map<string,sp.SkeletonData>();
  private frames=new Map<string,SpriteFrame>(); private nodes=new Map<string,Node>(); private shadows=new Map<string,Node>();
@@ -46,6 +48,8 @@ export class TableScene extends Component {
   // countdown). Paint the newest geometry once, retaining each confirmed cue.
   if(!d.state.connected)this.skipNextTransition=true;
   if(this.releasedTile)this.releasedTile.sawDisabled ||= d.state.disabled;
+  // Observe before frame coalescing: discard and claim can arrive together.
+  this.compassMemory=nextCompassMemory(d.state,this.compassMemory);
   const queued=!document.hidden&&this.stateFrame&&this.state?.key===d.state.key&&this.state?.round===d.state.round?this.state.effects:[];
   this.state={...d.state,effects:Array.from(new Map([...queued,...d.state.effects].map(e=>[e.key,e])).values())};
   if(this.ready&&!this.stateFrame)this.stateFrame=requestAnimationFrame(()=>{this.stateFrame=0;if(this.isValid&&this.ready)this.draw();});
@@ -87,7 +91,7 @@ export class TableScene extends Component {
    if(this.state)this.draw();
   }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error'},location.origin==='null'?'*':location.origin);}
  }
- onDestroy(){cancelAnimationFrame(this.stateFrame);window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
+ onDestroy(){cancelAnimationFrame(this.stateFrame);for(const opacity of this.compassHighlights)Tween.stopAllByTarget(opacity);window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}
  private text(parent:Node,str:string,x:number,y:number,w:number,h:number,size=20,color=INK){const n=this.make(str,x,y,w,h,parent),l=n.addComponent(Label);l.string=str;l.fontSize=size;l.lineHeight=size+4;l.color=new Color(color);l.isBold=true;l.overflow=Label.Overflow.SHRINK;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;return n;}
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
@@ -338,8 +342,69 @@ export class TableScene extends Component {
    s.roundMultiplier,s.nextRoundMultiplier,s.practice,s.connected,s.externalControls,s.safeArea,s.disabled,
    s.trusteeDisabled,s.actions,s.pending,s.remaining,s.players.reduce((sum,p)=>sum+p.flowers.length,0),
    s.players.map(p=>[p.seat,p.name,p.score,p.avatar,p.bot,p.trustee,p.online])]);
-  if(key!==this.hudKey){this.hudKey=key;this.hud.destroy();this.hud=this.make('HUD',640,295,1280,590);this.drawHud(s);}
+  if(key!==this.hudKey){
+   this.hudKey=key;
+   // Compass geometry and its short highlight tween survive HUD text changes.
+   if(this.compassRoot)this.compassRoot.parent=this.root;
+   this.hud.destroy();this.hud=this.make('HUD',640,295,1280,590);this.drawHud(s);
+  }
+  this.drawCompass(s);
   if(this.countdownLabel&&this.countdownLabel.string!==s.countdown){this.countdownLabel.string=s.countdown;this.countdownLabel.fontSize=s.countdown.length>=3?25:33;}
+ }
+ private drawCompass(s:TableSceneState){
+  if(!this.compassRoot){
+   this.compassRoot=this.make('center',640,295,1280,590,this.hud);
+   const compass=this.make('compass',640,278,122,92,this.compassRoot),frame=compass.addComponent(Graphics);
+   const polygon=(g:Graphics,points:number[][])=>{g.moveTo(points[0][0],points[0][1]);for(const p of points.slice(1))g.lineTo(p[0],p[1]);g.close();};
+   polygon(frame,[[-42,45],[42,45],[60,27],[60,-27],[42,-45],[-42,-45],[-60,-27],[-60,27]]);
+   frame.fillColor=new Color('#082b23');frame.fill();frame.strokeColor=new Color('#58735a');frame.lineWidth=1.2;frame.stroke();
+   const regions=[
+    [[-40,-42],[40,-42],[26,-23],[-26,-23]],
+    [[43,40],[57,26],[57,-26],[43,-40],[30,-20],[30,20]],
+    [[-40,42],[40,42],[26,23],[-26,23]],
+    [[-43,40],[-57,26],[-57,-26],[-43,-40],[-30,-20],[-30,20]],
+   ];
+   for(let offset=0;offset<4;offset++){
+    const base=this.make('compass-sector-'+offset,640,295,122,92,compass),g=base.addComponent(Graphics);
+    polygon(g,regions[offset]);g.fillColor=new Color('#15392f');g.fill();g.strokeColor=new Color('#47604b80');g.lineWidth=1;g.stroke();
+    const light=this.make('compass-highlight-'+offset,640,295,122,92,compass),gold=light.addComponent(Graphics);
+    polygon(gold,regions[offset]);gold.fillColor=new Color('#806d32');gold.fill();
+    gold.strokeColor=new Color('#e7cd6c60');gold.lineWidth=3;gold.stroke();
+    gold.strokeColor=new Color('#f0d986');gold.lineWidth=1.1;gold.stroke();
+    const opacity=light.addComponent(UIOpacity);opacity.opacity=0;this.compassHighlights.push(opacity);
+   }
+   const well=this.make('compass-well',640,295,54,38,compass).addComponent(Graphics);
+   well.fillColor=new Color('#061f1b');well.roundRect(-27,-19,54,38,10);well.fill();well.strokeColor=new Color('#3d5b42');well.lineWidth=1;well.stroke();
+   const positions=[[0,33],[44,0],[0,-33],[-44,0]];
+   for(let offset=0;offset<4;offset++){
+    const [x,y]=positions[offset],word=this.text(compass,'',640+x,295+y,28,23,19,'#becbb8');
+    word.name='compass-wind-'+offset;this.compassWinds.push(word.getComponent(Label)!);
+   }
+   const clock=this.text(compass,s.countdown,640,295,54,36,s.countdown.length>=3?25:33,'#26ddf5');clock.name='table-countdown';this.countdownLabel=clock.getComponent(Label)!;
+  }
+  if(this.compassRoot.parent!==this.hud)this.compassRoot.parent=this.hud;
+  this.compassMemory=nextCompassMemory(s,this.compassMemory);
+  // No local discard history on entry: show the authoritative current turn.
+  const seat=this.compassMemory.lastDiscardSeat??s.turn,active=sceneOffset(seat,s.me);
+  const perspectiveChanged=this.compassPerspective!==s.me;
+  if(perspectiveChanged){
+   for(let offset=0;offset<4;offset++)this.compassWinds[offset].string=['东','南','西','北'][(s.me+offset)%4];
+   this.compassPerspective=s.me;
+  }
+  const selectionChanged=active!==this.compassActive;
+  if(selectionChanged){
+   const previous=this.compassActive;
+   for(let offset=0;offset<4;offset++){
+    const opacity=this.compassHighlights[offset];Tween.stopAllByTarget(opacity);opacity.opacity=0;
+    if(offset===active){
+     if(previous>=0&&this.animateEffects&&!document.hidden)tween(opacity).to(.14,{opacity:255},{easing:'sineOut'}).start();
+     else opacity.opacity=255;
+    }
+   }
+   this.compassActive=active;
+  }
+  if(perspectiveChanged||selectionChanged)
+   for(let offset=0;offset<4;offset++)this.compassWinds[offset].color=new Color(offset===active?'#fff0bf':'#becbb8');
  }
  private drawTile(t:SceneTile){
   if(t.area!=='hand'||t.pose.startsWith('back-')){
@@ -449,12 +514,6 @@ export class TableScene extends Component {
    this.image('own-'+tileKind(prompt.tile),59,402,35,52,h).name='claim-prompt-tile';
    this.text(h,prompt.name,136,390,100,25,22,GOLD);
    this.text(h,'可'+prompt.labels.join(' / '),136,417,106,24,17);
-  }
-  {
-  const center=this.make('center',640,295,1280,590,h);
-  const g=this.make('compass',640,278,116,92,center).addComponent(Graphics);g.fillColor=new Color('#092724');g.roundRect(-61,-46,122,92,14);g.fill();g.fillColor=new Color('#283633');g.moveTo(-45,-41);g.lineTo(45,-41);g.lineTo(58,-25);g.lineTo(58,25);g.lineTo(42,41);g.lineTo(-42,41);g.lineTo(-58,25);g.lineTo(-58,-25);g.close();g.fill();g.strokeColor=new Color('#697264');g.lineWidth=2;g.stroke();g.fillColor=new Color('#09201e');g.roundRect(-30,-19,60,38,13);g.fill();
-  const positions=[[640,311],[684,278],[640,245],[596,278]];for(let o=0;o<4;o++){const seat=(s.me+o)%4;this.text(center,['东','南','西','北'][seat],positions[o][0],positions[o][1],28,23,19,s.turn===seat?GOLD:'#c3ccc0');}
-  const clock=this.text(center,s.countdown,640,278,57,36,s.countdown.length>=3?25:33,'#26ddf5');clock.name='table-countdown';this.countdownLabel=clock.getComponent(Label)!;
   }
   const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));
   // Counter positions remain fixed during claims.

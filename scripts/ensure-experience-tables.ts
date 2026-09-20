@@ -8,6 +8,7 @@ import { createExperienceTable } from "../server/experience-table";
 import { newGameRules } from "../shared/nanjing-rules";
 import { normalizeTableSettings } from "../shared/table-settings";
 import type { Game } from "../shared/types";
+import { TABLE_CREATOR_USERNAME } from "../shared/permissions";
 
 export interface EnsureExperienceOptions {
   databasePath: string;
@@ -59,9 +60,9 @@ function plan(db: DatabaseSync, options: EnsureExperienceOptions) {
   const planned: Game[] = [];
   if (existing.length >= options.count) return { existing, planned, skippedClosedSources: [] as string[] };
   const formal = rooms.filter(game => game.table && !game.table.closed && !game.table.experience);
-  const admins = db.prepare("SELECT id FROM accounts WHERE role='admin' AND must_change=0 ORDER BY id").all().map(row => String(row.id));
-  if (options.creatorId && !admins.includes(options.creatorId)) throw Error("指定 creator 不是已完成改密、可以开桌的现有管理员");
-  if (!admins.length) throw Error("没有已完成改密、可以开桌的管理员，未执行补桌");
+  const admins = db.prepare("SELECT id FROM accounts WHERE role='admin' AND must_change=0 AND lower(username)=?").all(TABLE_CREATOR_USERNAME).map(row => String(row.id));
+  if (options.creatorId && !admins.includes(options.creatorId)) throw Error(`指定 creator 不是唯一可开桌管理员 ${TABLE_CREATOR_USERNAME}`);
+  if (!admins.length) throw Error(`未找到已完成改密的开桌管理员 ${TABLE_CREATOR_USERNAME}，未执行补桌`);
   if (options.sourceCodes?.some(code => !formal.some(game => game.code === code))) throw Error("指定源桌中存在非活跃正式桌，未执行补桌");
   const allowed = options.sourceCodes ? options.sourceCodes.map(code => formal.find(game => game.code === code)!) : formal.sort((a, b) => a.table!.number - b.table!.number || a.code.localeCompare(b.code));
   const occupiedSources = new Set(existing.map(game => game.table!.experience!.sourceCode));

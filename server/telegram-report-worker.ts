@@ -10,7 +10,9 @@ const configFile = process.env.TELEGRAM_REPORT_CONFIG;
 if (!configFile) throw new Error("缺少 TELEGRAM_REPORT_CONFIG 配置文件路径");
 const config = parseReportConfig(JSON.parse(readFileSync(configFile, "utf8")));
 const command = process.argv[2] ?? "run";
-if (!["run", "once", "check", "status", "preview"].includes(command)) throw new Error("未知报表命令");
+if (!["run", "once", "check", "status", "preview", "freeze"].includes(command)) throw new Error("未知报表命令");
+if (command === "freeze" && !process.argv.includes("--worker-stopped"))
+  throw new Error("冻结报表前必须先停止常驻报告进程");
 const statePath = process.env.TELEGRAM_REPORT_STATE ?? "data/telegram-reports.sqlite";
 mkdirSync(dirname(statePath), { recursive: true });
 const state = new DatabaseSync(statePath);
@@ -24,7 +26,13 @@ for (const s of config.schedules) {
   }
 }
 
-if (command === "status") {
+if (command === "freeze") {
+  const now = Date.now();
+  queue.enqueue(now);
+  console.log(JSON.stringify(await queue.freezeDue(now,
+    run => buildScheduledReport(source, { teams: JSON.parse(run.teams), name: run.name, kind: run.kind }, run.start_at, run.end_at))));
+  source.close(); state.close();
+} else if (command === "status") {
   console.log(JSON.stringify(queue.status(), null, 2));
   source.close(); state.close();
 } else if (command === "preview") {
@@ -42,7 +50,8 @@ if (command === "status") {
   if (!tokenFile) throw new Error("缺少 TELEGRAM_BOT_TOKEN_FILE 凭据文件路径");
   const api = telegramApi(readFileSync(tokenFile, "utf8").trim());
   if (command === "check") {
-    console.log(JSON.stringify(await api.verifyDestination(config.chatId, config.chatTitle)));
+    await api.verifyDestination(config.chatId, config.chatTitle);
+    console.log(JSON.stringify({ verified: true }));
     source.close(); state.close();
   } else {
     queue.recoverInterrupted();

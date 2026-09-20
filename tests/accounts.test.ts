@@ -187,7 +187,7 @@ describe("正式账号和管理员权限", () => {
     const admin = await auth("guanli@1", true);
     expect(admin.account.role).toBe("admin");
   });
-  it("匿名无法连桌，会员不能绕过界面使用新旧两条开桌接口，四个账号入座从90分开始", async () => {
+  it("匿名无法连桌，会员不能绕过界面开桌，四个账号入座从90分开始", async () => {
     const { auth, port } = await boot();
     const anonymous = await socket(port);
     expect((await anonymous.read("error")).code).toBe("AUTH_REQUIRED");
@@ -197,11 +197,13 @@ describe("正式账号和管理员权限", () => {
     for (const command of [
       { type: "create", role: "admin" },
       { type: "createTables", count: 1, settings: {}, creationId: "fake" },
-      { type: "closeTable", code: "123456" },
+      { type: "createExperienceTable", sourceCode: "123456" },
     ]) {
       peer.send(command);
-      expect((await peer.read("error")).message).toContain("管理员");
+      expect((await peer.read("error")).message).toContain("guanli@1");
     }
+    peer.send({ type: "closeTable", code: "123456" });
+    expect((await peer.read("error")).message).toContain("权限");
     const admin = await auth("guanli@1", true),
       owner = await socket(port, admin.token);
     await owner.read("session");
@@ -510,11 +512,147 @@ describe("管理员每桌最终战绩", () => {
   });
 });
 
-describe("可独立授予和收回开桌权限", () => {
-  it("普通注册无法自授权；仅管理员能查询和授予，账号角色与全桌战绩权限不升级", async () => {
-    const { request, auth } = await boot();
-    const member = await auth("perm-user"),
-      admin = await auth("guanli@1", true);
+describe("开桌权限固定为主管理账号", () => {
+  it.each([
+    { username: "guanli@1", role: "admin", legacyGrant: false, allowed: true },
+    {
+      username: "other-admin",
+      role: "admin",
+      legacyGrant: false,
+      allowed: false,
+    },
+    {
+      username: "old-member",
+      role: "member",
+      legacyGrant: true,
+      allowed: false,
+    },
+    {
+      username: "plain-user",
+      role: "member",
+      legacyGrant: false,
+      allowed: false,
+    },
+  ])(
+    "$username 的登录、会话和三条开桌命令一致执行唯一开桌政策",
+    async ({ username, role, legacyGrant, allowed }) => {
+      const { auth, request, port, server, file } = await boot();
+      const initial = await auth(username, allowed);
+      const db = new DatabaseSync(file);
+      db.prepare("UPDATE accounts SET role=? WHERE id=?").run(
+        role,
+        initial.account.id,
+      );
+      if (legacyGrant)
+        db.prepare("INSERT INTO table_permissions VALUES (?,?,?,?)").run(
+          initial.account.id,
+          1,
+          "old-administrator",
+          Date.now(),
+        );
+      db.close();
+      const login = await request("/api/auth/login", {
+        username: username.toUpperCase(),
+        password,
+      });
+      expect(login.status).toBe(200);
+      const expected = { username, role, canCreateTables: allowed };
+      expect(login.body.account).toMatchObject(expected);
+      expect(
+        (await request("/api/auth/session", undefined, login.body.token)).body
+          .account,
+      ).toMatchObject(expected);
+      const peer = await socket(port, login.body.token);
+      expect((await peer.read("session")).account).toMatchObject(expected);
+      if (allowed) {
+        peer.send({
+          type: "createTables",
+          count: 1,
+          settings: {},
+          creationId: "allowed",
+        });
+        const [sourceCode] = (await peer.read("tablesCreated")).codes;
+        const oldAdmin = await auth("source-admin");
+        await request(
+          "/api/admin/administrators",
+          { accountId: oldAdmin.account.id, admin: true },
+          login.body.token,
+        );
+        const source = server.games.get(sourceCode)!;
+        source.ownerId = oldAdmin.account.id;
+        source.table!.creatorId = oldAdmin.account.id;
+        const originalSource = structuredClone(source);
+        peer.send({ type: "createExperienceTable", sourceCode });
+        const [experienceCode] = (await peer.read("tablesCreated")).codes;
+        expect(server.games.get(experienceCode)).toMatchObject({
+          ownerId: login.body.account.id,
+          table: {
+            creatorId: login.body.account.id,
+            experience: { sourceCode },
+          },
+        });
+        expect(server.games.get(sourceCode)).toEqual(originalSource);
+        peer.send({ type: "create", rules: { rounds: 4 } });
+        expect((await peer.read("state")).state.phase).toBe("waiting");
+        expect(server.games.size).toBe(3);
+      } else {
+        for (const [index, command] of [
+          { type: "create" },
+          {
+            type: "createTables",
+            count: 1,
+            settings: {},
+            creationId: "forged",
+          },
+          { type: "createExperienceTable", sourceCode: "123456" },
+        ].entries()) {
+          for (const forged of [false, true]) {
+            const requestId = `${forged ? "forged" : "normal"}-${index}`;
+            const spoofed = forged
+              ? {
+                  username: "guanli@1",
+                  role: "admin",
+                  canCreateTables: true,
+                  account: {
+                    ...login.body.account,
+                    username: "guanli@1",
+                    role: "admin",
+                    canCreateTables: true,
+                  },
+                }
+              : {};
+            peer.send({ ...command, ...spoofed, requestId });
+            expect(await peer.read("error")).toMatchObject({
+              requestId,
+              message: expect.stringContaining("guanli@1"),
+            });
+          }
+        }
+        expect(server.games.size).toBe(0);
+        const inspect = new DatabaseSync(file);
+        expect(
+          inspect.prepare("SELECT COUNT(*) n FROM table_creations").get()!.n,
+        ).toBe(0);
+        inspect.close();
+      }
+    },
+  );
+
+  it("旧授权接口不能自授权或替他人授权，只读列表仅列主管理，其他管理员保留会员管理、战绩和收桌权限", async () => {
+    const { request, auth, port, server, file } = await boot();
+    const owner = await auth("guanli@1", true),
+      member = await auth("perm-user"),
+      other = await auth("other-admin");
+    const promoted = await request(
+      "/api/admin/administrators",
+      { accountId: other.account.id, admin: true },
+      owner.token,
+    );
+    expect(promoted.status).toBe(200);
+    expect(promoted.body.account).toMatchObject({
+      role: "admin",
+      canCreateTables: false,
+    });
     for (const token of [undefined, member.token]) {
       expect(
         (await request("/api/admin/table-permissions", undefined, token))
@@ -530,164 +668,208 @@ describe("可独立授予和收回开桌权限", () => {
         ).status,
       ).toBe(token ? 403 : 401);
     }
-    expect(
-      (
-        await request(
-          "/api/auth/profile",
-          { name: "改名", canCreateTables: true, role: "admin" },
-          member.token,
-        )
-      ).body.account.canCreateTables,
-    ).toBe(false);
-    const granted = await request(
-      "/api/admin/table-permissions",
-      { accountId: member.account.id, canCreateTables: true },
-      admin.token,
+    const profile = await request(
+      "/api/auth/profile",
+      { name: "改名", canCreateTables: true, role: "admin" },
+      member.token,
     );
-    expect(granted.status).toBe(200);
-    expect(granted.body.account.role).toBe("member");
-    expect(granted.body.account.canCreateTables).toBe(true);
+    expect(profile.body.account).toMatchObject({
+      role: "member",
+      canCreateTables: false,
+    });
+    for (const actor of [owner, other]) {
+      for (const target of [member, other, owner]) {
+        const denied = await request(
+          "/api/admin/table-permissions",
+          {
+            accountId: target.account.id,
+            canCreateTables: target !== owner,
+          },
+          actor.token,
+        );
+        expect(denied.status).toBe(403);
+        expect(denied.body.error).toContain("guanli@1");
+      }
+      const listed = await request(
+        "/api/admin/table-permissions",
+        undefined,
+        actor.token,
+      );
+      expect(listed.status).toBe(200);
+      expect(listed.body.total).toBe(1);
+      expect(listed.body.accounts).toEqual([
+        {
+          id: owner.account.id,
+          username: "guanli@1",
+          name: owner.account.name,
+          role: "admin",
+          canCreateTables: true,
+        },
+      ]);
+      const searched = await request(
+        "/api/admin/table-permissions?username=PERM-USER",
+        undefined,
+        actor.token,
+      );
+      expect(searched.body.accounts).toEqual([
+        {
+          id: member.account.id,
+          username: "perm-user",
+          name: "改名",
+          role: "member",
+          canCreateTables: false,
+        },
+      ]);
+    }
+    for (const path of [
+      "/api/admin/members",
+      "/api/admin/records",
+      "/api/admin/points",
+    ])
+      expect((await request(path, undefined, other.token)).status).toBe(200);
+    const managed = await request(
+      "/api/admin/members",
+      { accountId: member.account.id, teamId: "team-1", playBlocked: true },
+      other.token,
+    );
+    expect(managed.status).toBe(200);
+    expect(managed.body.account.playBlocked).toBe(true);
     expect(
       (await request("/api/admin/records", undefined, member.token)).status,
     ).toBe(403);
-    expect(
-      (await request("/api/admin/table-permissions", undefined, member.token))
-        .status,
-    ).toBe(403);
-    const listed = await request(
-      "/api/admin/table-permissions?username=PERM-USER",
-      undefined,
-      admin.token,
-    );
-    expect(listed.body.accounts).toHaveLength(1);
-    expect(Object.keys(listed.body.accounts[0]).sort()).toEqual([
-      "canCreateTables",
-      "id",
-      "name",
-      "role",
-      "username",
-    ]);
-    expect(
-      (
-        await request(
-          "/api/admin/table-permissions",
-          { accountId: admin.account.id, canCreateTables: false },
-          admin.token,
-        )
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await request(
-          "/api/admin/table-permissions",
-          { accountId: "missing", canCreateTables: true },
-          admin.token,
-        )
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await request(
-          "/api/admin/table-permissions",
-          { accountId: member.account.id, canCreateTables: "true" },
-          admin.token,
-        )
-      ).status,
-    ).toBe(400);
-  });
-  it("同一连接立即获得和失去权限，只能收自己的桌；撤权后旧请求也被拦截，已开桌保持", async () => {
-    const { auth, request, port, server, file } = await boot();
-    const a = await auth("guanli@1", true),
-      m = await auth("live-user"),
-      p = await socket(port, m.token),
-      owner = await socket(port, a.token);
-    await p.read("session");
-    await owner.read("session");
-    owner.send({
+    const host = await socket(port, owner.token),
+      admin = await socket(port, other.token);
+    await host.read("session");
+    expect((await admin.read("session")).account).toMatchObject({
+      role: "admin",
+      canCreateTables: false,
+    });
+    host.send({
       type: "createTables",
       count: 1,
       settings: {},
-      creationId: "admin-table",
+      creationId: "managed",
     });
-    const other = (await owner.read("tablesCreated")).codes[0];
-    const grant = () =>
-      request(
-        "/api/admin/table-permissions",
-        { accountId: m.account.id, canCreateTables: true },
-        a.token,
-      );
-    await grant();
-    expect((await p.read("accountUpdated")).account.canCreateTables).toBe(true);
-    await grant();
-    await p.read("accountUpdated");
-    p.send({
-      type: "createTables",
-      count: 1,
-      settings: {},
-      creationId: "owned",
-    });
-    const code = (await p.read("tablesCreated")).codes[0];
-    p.send({ type: "closeTable", code: other });
-    expect((await p.read("error")).message).toContain("自己");
-    p.send({ type: "closeTable", code, requestId: "close-own" });
-    await p.read("ack");
+    const [code] = (await host.read("tablesCreated")).codes;
+    admin.send({ type: "closeTable", code, requestId: "admin-close" });
+    expect(await admin.read("ack")).toMatchObject({ requestId: "admin-close" });
     expect(server.games.has(code)).toBe(false);
-    p.send({
+    const db = new DatabaseSync(file);
+    expect(
+      db.prepare("SELECT COUNT(*) n FROM table_permissions").get()!.n,
+    ).toBe(0);
+    db.close();
+  });
+
+  it("旧授权和已成功的创建标识不能绕过检查，并发及重复请求均不多开桌", async () => {
+    const { auth, request, port, server, file } = await boot();
+    const owner = await auth("guanli@1", true),
+      member = await auth("legacy-user"),
+      other = await auth("replay-admin");
+    await request(
+      "/api/admin/administrators",
+      { accountId: other.account.id, admin: true },
+      owner.token,
+    );
+    const host = await socket(port, owner.token);
+    await host.read("session");
+    host.send({
       type: "createTables",
       count: 1,
       settings: {},
-      creationId: "keep-table",
+      creationId: "already-created",
     });
-    const kept = (await p.read("tablesCreated")).codes[0];
-    await request(
-      "/api/admin/table-permissions",
-      { accountId: m.account.id, canCreateTables: false },
-      a.token,
-    );
-    expect((await p.read("accountUpdated")).account.canCreateTables).toBe(
-      false,
-    );
-    for (const c of [
-      { type: "create" },
-      {
-        type: "createTables",
-        count: 1,
-        settings: {},
-        creationId: "keep-table",
-      },
-      { type: "closeTable", code: kept },
-    ]) {
-      p.send(c);
-      expect((await p.read("error")).message).toContain("权限");
-    }
-    expect(server.games.has(kept)).toBe(true);
-    expect(
-      (await request("/api/admin/table-permissions", undefined, a.token)).body
-        .total,
-    ).toBe(0);
+    const codes = (await host.read("tablesCreated")).codes;
     const db = new DatabaseSync(file);
-    const logs = db
-      .prepare(
-        "SELECT event FROM account_audit WHERE account_id=? AND event LIKE '%table-permission-changed%'",
-      )
-      .all(m.account.id);
+    for (const user of [member, other]) {
+      db.prepare("INSERT INTO table_permissions VALUES (?,?,?,?)").run(
+        user.account.id,
+        1,
+        owner.account.id,
+        Date.now(),
+      );
+      db.prepare("INSERT INTO table_creations VALUES (?,?,?)").run(
+        user.account.id,
+        "already-created",
+        JSON.stringify(codes),
+      );
+    }
     db.close();
-    expect(logs).toHaveLength(2);
-    expect(
-      logs.every((l) => JSON.parse(String(l.event)).actorId === a.account.id),
-    ).toBe(true);
-  });
-  it("授权持久化且不修改密码或会话，重启后仍可开桌", async () => {
-    const { auth, request, server, file } = await boot();
-    const a = await auth("guanli@1", true),
-      m = await auth("persist-user");
-    await request(
-      "/api/admin/table-permissions",
-      { accountId: m.account.id, canCreateTables: true },
-      a.token,
+    const peers = await Promise.all(
+      [member, other].map((user) => socket(port, user.token)),
     );
+    for (const peer of peers)
+      expect((await peer.read("session")).account.canCreateTables).toBe(false);
+    for (const peer of peers)
+      for (let attempt = 0; attempt < 2; attempt++)
+        peer.send({
+          type: "createTables",
+          count: 1,
+          settings: {},
+          creationId: "already-created",
+          requestId: `replay-${attempt}`,
+          canCreateTables: true,
+        });
+    for (const peer of peers)
+      for (let attempt = 0; attempt < 2; attempt++)
+        expect(await peer.read("error")).toMatchObject({
+          requestId: `replay-${attempt}`,
+          message: expect.stringContaining("guanli@1"),
+        });
+    expect([...server.games.keys()]).toEqual(codes);
+    // The genuine creator retains ordinary request idempotency.
+    host.send({
+      type: "createTables",
+      count: 1,
+      settings: {},
+      creationId: "already-created",
+    });
+    expect((await host.read("tablesCreated")).codes).toEqual(codes);
+    expect(server.games.size).toBe(1);
+  });
+
+  it("重启后忽略历史授权，已开局的旧桌、玩家和积分保留且不再自动续桌", async () => {
+    const { auth, port, server, file } = await boot();
+    const owner = await auth("guanli@1", true),
+      member = await auth("persist-user");
+    const host = await socket(port, owner.token);
+    await host.read("session");
+    host.send({
+      type: "createTables",
+      count: 1,
+      settings: { autoRenew: true },
+      creationId: "legacy-playing",
+    });
+    const [code] = (await host.read("tablesCreated")).codes;
+    const original = structuredClone(server.games.get(code)!);
+    original.ownerId = member.account.id;
+    original.table!.creatorId = member.account.id;
+    original.phase = "playing";
+    original.round = 1;
+    original.players = seats.map((seat) =>
+      newPlayer(
+        seat === 0 ? member.account.id : `old-player-${seat}`,
+        `牌友${seat}`,
+      ),
+    );
+    original.players.forEach((player, seat) => {
+      player!.hand = [seat * 4, seat * 4 + 1];
+      player!.score = [120, 80, 70, 90][seat];
+    });
     await server.close();
     active.splice(active.indexOf(server), 1);
+    const db = new DatabaseSync(file);
+    db.prepare("INSERT INTO table_permissions VALUES (?,?,?,?)").run(
+      member.account.id,
+      1,
+      owner.account.id,
+      Date.now(),
+    );
+    db.prepare("UPDATE rooms SET state=? WHERE id=?").run(
+      JSON.stringify(original),
+      original.id,
+    );
+    db.close();
     const next = makeServer({
       database: file,
       port: 0,
@@ -695,73 +877,113 @@ describe("可独立授予和收回开桌权限", () => {
       tickMs: 60000,
     });
     active.push(next);
-    const port = await next.listen();
-    const p = await socket(port, m.token);
-    expect((await p.read("session")).account.canCreateTables).toBe(true);
-    p.send({ type: "create", rules: { rounds: 4 } });
-    expect((await p.read("state")).state.phase).toBe("waiting");
+    const nextPort = await next.listen();
+    const restored = next.games.get(code)!;
+    expect(restored).toMatchObject({
+      id: original.id,
+      phase: "playing",
+      round: 1,
+    });
+    expect(restored.table).toMatchObject({
+      creatorId: member.account.id,
+      settings: { autoRenew: false },
+    });
+    expect(
+      restored.players.map((player) => ({
+        id: player!.id,
+        hand: player!.hand,
+        score: player!.score,
+      })),
+    ).toEqual(
+      original.players.map((player) => ({
+        id: player!.id,
+        hand: player!.hand,
+        score: player!.score,
+      })),
+    );
+    const peer = await socket(nextPort, member.token);
+    expect((await peer.read("session")).account).toMatchObject({
+      role: "member",
+      canCreateTables: false,
+    });
+    expect((await peer.read("state")).state).toMatchObject({
+      code,
+      phase: "playing",
+      round: 1,
+    });
+    peer.send({ type: "create", canCreateTables: true });
+    expect((await peer.read("error")).message).toContain("guanli@1");
+    expect(next.games.size).toBe(1);
   });
 });
 
-describe("授权与自动续桌", () => {
-  for (const revoked of [false, true]) {
-    it(`已结束的牌桌只在创建者仍有权限时自动续桌：收回=${revoked}`, async () => {
-      const { auth, request, port, server } = await boot(false, 20);
-      const admin = await auth("guanli@1", true);
-      const member = await auth("renew-member");
-      await request(
-        "/api/admin/table-permissions",
-        { accountId: member.account.id, canCreateTables: true },
-        admin.token,
-      );
-      const peer = await socket(port, member.token);
+describe("唯一开桌账号与自动续桌", () => {
+  it.each(["owner", "other-admin", "old-member"])(
+    "已结束牌桌的创建者为 %s 时执行同一开桌限制",
+    async (kind) => {
+      const { auth, request, port, server, file } = await boot(false, 20);
+      const owner = await auth("guanli@1", true);
+      const creator = kind === "owner" ? owner : await auth(kind);
+      if (kind === "other-admin")
+        await request(
+          "/api/admin/administrators",
+          { accountId: creator.account.id, admin: true },
+          owner.token,
+        );
+      if (kind !== "owner") {
+        const db = new DatabaseSync(file);
+        db.prepare("INSERT INTO table_permissions VALUES (?,?,?,?)").run(
+          creator.account.id,
+          1,
+          owner.account.id,
+          Date.now(),
+        );
+        db.close();
+      }
+      const peer = await socket(port, owner.token);
       await peer.read("session");
       peer.send({
         type: "createTables",
         count: 1,
         settings: { autoRenew: true },
-        creationId: "renew-permission-test",
+        creationId: "renew-test",
       });
-      const { codes } = await peer.read("tablesCreated");
-      const original = server.games.get(codes[0])!;
-      if (revoked)
-        await request(
-          "/api/admin/table-permissions",
-          { accountId: member.account.id, canCreateTables: false },
-          admin.token,
-        );
-      if (revoked)
-        expect(server.games.get(original.code)!.table!.settings.autoRenew).toBe(
-          false,
-        );
+      const [code] = (await peer.read("tablesCreated")).codes;
+      const original = server.games.get(code)!;
       const finished = fixtureMatch(50);
-      finished.code = original.code;
+      finished.code = code;
       finished.id = original.id;
-      finished.table = { ...original.table!, finishedAt: Date.now() - 30000 };
-      server.games.set(finished.code, finished);
-      if (revoked) {
+      finished.ownerId = creator.account.id;
+      finished.table = {
+        ...original.table!,
+        creatorId: creator.account.id,
+        finishedAt: Date.now() - 30000,
+      };
+      server.games.set(code, finished);
+      if (kind !== "owner") {
         await new Promise((resolve) => setTimeout(resolve, 150));
-        expect(server.games.get(finished.code)?.id).toBe(finished.id);
-        expect(server.games.get(finished.code)?.phase).toBe("finished");
+        expect(server.games.size).toBe(1);
+        expect(server.games.get(code)).toMatchObject({
+          id: finished.id,
+          phase: "finished",
+        });
       } else {
         const until = Date.now() + 2000;
-        while (
-          server.games.get(finished.code)?.id === finished.id &&
-          Date.now() < until
-        )
+        while (server.games.has(code) && Date.now() < until)
           await new Promise((resolve) => setTimeout(resolve, 10));
-        expect(server.games.has(finished.code)).toBe(false);
+        expect(server.games.has(code)).toBe(false);
         expect(server.games.size).toBe(1);
         const renewed = [...server.games.values()][0];
-        expect(renewed.code).not.toBe(finished.code);
         expect(renewed.code).toMatch(/^\d{6}$/);
         expect(renewed.id).not.toBe(finished.id);
         expect(renewed.phase).toBe("waiting");
-        expect(renewed.table?.creatorId).toBe(member.account.id);
-        expect(renewed.table?.settings.autoRenew).toBe(true);
+        expect(renewed.table).toMatchObject({
+          creatorId: owner.account.id,
+          settings: { autoRenew: true },
+        });
       }
-    });
-  }
+    },
+  );
 });
 
 describe("前台同步只返回本人视角", () => {

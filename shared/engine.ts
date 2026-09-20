@@ -573,7 +573,8 @@ function winContext(g: Game, tile?: Tile, seat: Seat = g.turn): WinContext {
     winTile: tile === undefined ? g.lastDraw : undefined,
     replacement: tile === undefined ? g.replacement?.type : undefined,
     directKong: g.replacement?.direct,
-    seaBottom: !!g.rules.seaBottom && tile === undefined && g.wall.length <= 4,
+    // Draw has already removed the tile: only an empty wall means the last tile.
+    seaBottom: !!g.rules.seaBottom && tile === undefined && g.wall.length === 0,
     visiblePungs: g.players.flatMap(
       (p) =>
         p?.melds

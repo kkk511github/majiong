@@ -6,6 +6,8 @@ import {
   type NetworkHealth,
 } from "./network-health";
 import { voiceDuration, type RoomVoiceMessage } from "../shared/room-voice";
+import { isRoomPhraseId, isRoomPhraseMessage, ROOM_PHRASE_TTL_MS, ROOM_PHRASE_HISTORY_LIMIT,
+  type RoomPhraseId, type RoomPhraseMessage } from "../shared/room-phrases";
 import { newGameRules } from "../shared/nanjing-rules";
 import { ServerClock } from "./server-clock";
 import type { OpeningCue } from "./TableOpening";
@@ -77,6 +79,9 @@ export interface ClientState {
   createdTables: string[];
   lobbyNotice: string;
   voiceMessages: RoomVoiceMessage[];
+  phraseMessages: RoomPhraseMessage[];
+  phrasesAvailable: boolean;
+  announcementVersion?: number;
 }
 const base = import.meta.env.VITE_GAME_SERVER_URL as string | undefined;
 export const avatarURL = (path?: string) =>
@@ -103,6 +108,9 @@ export class GameClient {
     createdTables: [],
     lobbyNotice: "",
     voiceMessages: [],
+    phraseMessages: [],
+    phrasesAvailable: false,
+    announcementVersion: 0,
   };
   private local?: Game;
   private authStarted = false;
@@ -117,6 +125,9 @@ export class GameClient {
   private localPaused = false;
   private pausedAt?: number;
   private commandAck = false;
+  private phraseSequence = 0;
+  private phraseExpiry?: ReturnType<typeof setTimeout>;
+  private phraseRequest?: { id: string; game: string; timer: ReturnType<typeof setTimeout>; resolve: () => void; reject: (error: Error) => void };
   private commandId?: string;
   private commandTimer?: ReturnType<typeof setTimeout>;
   private commandSequence = 0;
@@ -314,6 +325,14 @@ export class GameClient {
     this.commandId = undefined;
     this.emit({ submitting: null });
   }
+  private finishPhrase(error?: Error) {
+    const pending = this.phraseRequest;
+    this.phraseRequest = undefined;
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    if (error) pending.reject(error); else pending.resolve();
+  }
+  get phraseMessages() { return this.state.phraseMessages; }
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
     return () => {
@@ -332,6 +351,14 @@ export class GameClient {
       ("mode" in patch && patch.mode !== "online")
     )
       patch.voiceMessages = [];
+    if (patch.connected === false || ("view" in patch && patch.view?.id !== this.state.view?.id) ||
+        ("mode" in patch && patch.mode !== "online")) {
+      patch.phraseMessages = [];
+      clearTimeout(this.phraseExpiry);
+      this.phraseExpiry = undefined;
+      this.finishPhrase(new Error("已离开或断开牌桌，短句发送未确认"));
+    }
+    if (patch.connected === false && patch.phrasesAvailable === undefined) patch.phrasesAvailable = false;
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((fn) => fn());
   }
@@ -341,6 +368,17 @@ export class GameClient {
     );
     if (keep.length !== this.state.voiceMessages.length)
       this.emit({ voiceMessages: keep });
+  }
+  prunePhraseMessages() {
+    clearTimeout(this.phraseExpiry);
+    this.phraseExpiry = undefined;
+    const now = this.now(), keep = this.state.phraseMessages.filter(message =>
+      message.game === this.state.view?.id && now - message.at < ROOM_PHRASE_TTL_MS);
+    if (keep.length !== this.state.phraseMessages.length) this.emit({ phraseMessages: keep });
+    if (keep.length) {
+      const until = Math.min(...keep.map(message => message.at + ROOM_PHRASE_TTL_MS));
+      this.phraseExpiry = setTimeout(() => this.prunePhraseMessages(), Math.max(1, until - now + 1));
+    }
   }
   clearError() {
     this.emit({ error: "" });
@@ -366,6 +404,7 @@ export class GameClient {
       if (!response.ok) {
         if (
           response.status === 401 &&
+          token === storage.get<string>("token", "") &&
           ![
             "/api/auth/login",
             "/api/auth/register",
@@ -426,6 +465,20 @@ export class GameClient {
       clearTimeout(timer);
       signal.removeEventListener("abort", cancel);
     }
+  }
+  async sendPhrase(game: string, phrase: RoomPhraseId): Promise<void> {
+    if (!isRoomPhraseId(phrase)) throw Error("请选择有效的固定短句");
+    if (!this.state.connected || this.state.mode !== "online" || this.state.view?.id !== game || this.socket?.readyState !== WebSocket.OPEN)
+      throw Error("请连接牌桌后再发送短句");
+    if (!this.state.phrasesAvailable) throw Error("牌桌短句服务正在更新，请稍后再试");
+    if (this.phraseRequest) throw Error("短句正在发送，请稍候");
+    const id = `phrase-${Date.now().toString(36)}-${++this.phraseSequence}-${Math.random().toString(36).slice(2, 10)}`;
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => this.finishPhrase(new Error("发送确认超时，请稍后再试")), 8000);
+      this.phraseRequest = { id, game, timer, resolve, reject };
+      try { this.socket!.send(JSON.stringify({ type: "phrase", game, phrase, requestId: id })); }
+      catch { this.finishPhrase(new Error("短句未发送，请检查牌桌连接")); }
+    });
   }
   private acceptAccount(data: { token: string; account: Account }) {
     this.disconnect();
@@ -800,6 +853,7 @@ export class GameClient {
           else this.connectionReady();
           this.emit({
             connected: !msg.roomCode,
+            phrasesAvailable: msg.roomPhrases === true,
             connecting: !!msg.roomCode,
             notice: msg.roomCode ? "正在同步牌桌…" : "",
             error: "",
@@ -863,6 +917,15 @@ export class GameClient {
               if (this.lobbyWanted) this.browseTables(this.name);
             }
           }
+        } else if (msg.type === "phrase") {
+          const message = msg.message, view = this.state.view, now = this.now();
+          if (this.state.connected && this.state.mode === "online" && isRoomPhraseMessage(message) &&
+              view?.id === message.game && view.players[message.seat]?.id === message.sender &&
+              now - message.at < ROOM_PHRASE_TTL_MS && message.at <= now + 1000 &&
+              !this.state.phraseMessages.some(item => item.id === message.id)) {
+            this.emit({ phraseMessages: [...this.state.phraseMessages.filter(item => now - item.at < ROOM_PHRASE_TTL_MS), message].slice(-ROOM_PHRASE_HISTORY_LIMIT) });
+            this.prunePhraseMessages();
+          }
         } else if (msg.type === "voice") {
           const voice = msg.message;
           if (
@@ -878,6 +941,8 @@ export class GameClient {
                 voice,
               ].slice(-8),
             });
+        } else if (msg.type === "announcementsChanged") {
+          this.emit({ announcementVersion: (this.state.announcementVersion ?? 0) + 1 });
         } else if (msg.type === "accountUpdated") {
           if (this.state.account?.id === msg.account.id)
             this.emit({ account: msg.account });
@@ -938,10 +1003,15 @@ export class GameClient {
           if (restored && this.lobbyWanted) this.send({ type: "tables" });
           this.archive();
         } else if (msg.type === "ack") {
+          if (msg.requestId === this.phraseRequest?.id) this.finishPhrase();
           if (msg.requestId === this.commandId) this.finishCommand();
         } else if (msg.type === "error") {
           if (msg.code === "AUTH_REQUIRED") {
             this.expireAuth();
+            return;
+          }
+          if (msg.requestId === this.phraseRequest?.id) {
+            this.finishPhrase(new Error(msg.message));
             return;
           }
           // A renewal/leave notification can finish the old command before its late reply arrives.

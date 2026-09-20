@@ -204,8 +204,7 @@
 }
 @media (orientation: landscape) and (max-width: 730px) {
   .permission-intro > svg,
-  .permission-avatar,
-  .permission-badge {
+  .permission-avatar {
     display: none;
   }
   .permission-search button {

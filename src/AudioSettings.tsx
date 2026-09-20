@@ -112,10 +112,10 @@ export function AudioSettings({
         className="setting-row"
         role="switch"
         aria-checked={value.chat !== false}
-        aria-label="同桌语音播放"
+        aria-label="短句语音播放"
         onClick={() => change({ chat: value.chat === false })}
       >
-        <span>同桌语音播放</span>
+        <span>短句语音播放</span>
         <span className={`switch ${value.chat !== false ? "on" : ""}`} />
       </button>
     </div>

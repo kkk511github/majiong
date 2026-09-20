@@ -295,19 +295,9 @@ describe("建桌大厅真实联机", () => {
       db.close();
     }
   });
-  it("大厅桌序号跨批次和创建者唯一，重试不占号，收桌后复用最小空号", async () => {
+  it("主管理跨批次开桌序号唯一，重试不占号，收桌后复用最小空号", async () => {
     const { s, port } = await boot(),
-      host = await peer(port, "桌序号管理员"),
-      other = await peer(port, "另一位开桌人");
-    const granted = await fetch(`http://127.0.0.1:${port}/api/admin/table-permissions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${host.session.token}`,
-      },
-      body: JSON.stringify({ accountId: other.session.id, canCreateTables: true }),
-    });
-    expect(granted.status).toBe(200);
+      host = await peer(port, "桌序号管理员");
     const numbers = (codes: string[]) => codes.map((code) => s.games.get(code)!.table!.number);
     const first = await createTables(host, {}, 2, "number-first");
     expect(numbers(first)).toEqual([1, 2]);
@@ -315,24 +305,24 @@ describe("建桌大厅真实联机", () => {
     expect(numbers(second)).toEqual([3]);
     expect(await createTables(host, {}, 2, "number-first")).toEqual(first);
     expect(s.games.size).toBe(3);
-    const anotherOwner = await createTables(other, {}, 2, "number-other");
-    expect(numbers(anotherOwner)).toEqual([4, 5]);
+    const third = await createTables(host, {}, 1, "number-third");
+    expect(numbers(third)).toEqual([4]);
     host.send({ type: "closeTable", code: first[1], requestId: "free-number-two" });
     await host.read("ack", (m) => m.requestId === "free-number-two");
     expect(s.games.has(first[1])).toBe(false);
     const replacements = await createTables(host, {}, 2, "number-reuse");
-    expect(numbers(replacements)).toEqual([2, 6]);
-    expect(await createTables(other, {}, 2, "number-other")).toEqual(anotherOwner);
-    expect(s.games.size).toBe(6);
-    expect([...s.games.values()].map((g) => g.table!.number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(numbers(replacements)).toEqual([2, 5]);
+    expect(await createTables(host, {}, 1, "number-third")).toEqual(third);
+    expect(s.games.size).toBe(5);
+    expect([...s.games.values()].map((g) => g.table!.number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
     host.send({ type: "tables" });
-    const listing = await host.read("tables", (m) => m.tables.length === 6);
-    expect(listing.tables.map((t) => t.number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+    const listing = await host.read("tables", (m) => m.tables.length === 5);
+    expect(listing.tables.map((t) => t.number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
     s.games.get(replacements[0])!.table!.createdAt = Date.now() + 60_000;
     const visitor = await peer(port, "按序看桌的牌友");
     visitor.send({ type: "tables" });
-    const ordered = await visitor.read("tables", (m) => m.tables.length === 6);
-    expect(ordered.tables.map((t) => t.number)).toEqual([1, 2, 3, 4, 5, 6]);
+    const ordered = await visitor.read("tables", (m) => m.tables.length === 5);
+    expect(ordered.tables.map((t) => t.number)).toEqual([1, 2, 3, 4, 5]);
   });
   it.each([
     { label: "重复桌序号", numbers: [1, 2, 3, 4, 2], expected: [1, 5, 3, 4, 2] },
@@ -800,7 +790,7 @@ describe("建桌大厅真实联机", () => {
     const [empty, code] = await createTables(host, {allowDissolve:true,autoRenew:true}, 2);
     const visitor = await peer(port,"访客");
     visitor.send({type:"closeTable",code:empty});
-    expect((await visitor.read("error")).message).toContain("管理员");
+    expect((await visitor.read("error")).message).toContain("权限");
     host.send({type:"closeTable",code:empty,requestId:"empty-close"});
     await host.read("ack",m=>m.requestId==="empty-close");
     expect(s.games.has(empty)).toBe(false);
@@ -1034,14 +1024,14 @@ describe('正式服务器机器人体验桌',()=>{
     expect(renewed.rules).toEqual(original.rules);
     expect(renewed.table!.experience).toEqual({sourceCode:source});
   });
-  it('只允许管理员创建，复制正式桌配置，三机器人和真人走同一开局流程，可重启恢复和收桌',async()=>{
+  it('只允许主管理创建，复制正式桌配置，三机器人和真人走同一开局流程，可重启恢复和收桌',async()=>{
     const database=databasePath();
     let {s,port}=await boot(database);
     const host=await peer(port,'管理员');
     const [source]=await createTables(host,{autoRenew:true,readyMode:'manual',overtimeSeconds:87,resultSeconds:5,scoreMultiplier:0.2});
     const member=await peer(port,'体验成员');
     member.send({type:'createExperienceTable',sourceCode:source});
-    expect((await member.read('error')).message).toContain('只有管理员');
+    expect((await member.read('error')).message).toContain('guanli@1');
     host.send({type:'createExperienceTable',sourceCode:source,requestId:'experience'});
     const code=(await host.read('tablesCreated')).codes[0];
     await host.read('ack',m=>m.requestId==='experience');

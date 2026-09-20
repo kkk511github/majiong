@@ -12,7 +12,7 @@
 .cocos-loading-pending{overflow:hidden}
 .cocos-loading-pending>img{width:100%;height:100%;object-fit:cover;object-position:center 58%}
 .cocos-loading button{min-width:150px;padding:12px 20px;border:1px solid #d1b66c;border-radius:10px;background:#23574b;color:#fff1c4;font-size:18px}
-.cocos-game .cocos-voice{position:absolute;top:2%;right:14.5%;z-index:2}
+.cocos-game .cocos-voice{position:absolute;inset:0;pointer-events:none}
 
 .replay-cocos{position:relative;flex:1;min-height:0;min-width:0;overflow:hidden}
 .app.polished .cocos-game.cocos-embedded{position:relative;inset:auto;width:100%;height:100%;min-height:0}

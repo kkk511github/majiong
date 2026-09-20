@@ -632,11 +632,9 @@ export function TableLobby({
     [notice, setNotice] = useState("");
   const initialCreated = useRef(state.createdTables);
   useEffect(() => {
-    if (!canOpen) {
-      setSetup(false);
-      setClosing(null);
-    }
-  }, [canOpen]);
+    if (!canOpen) setSetup(false);
+    if (!admin && !canOpen) setClosing(null);
+  }, [admin, canOpen]);
   useEffect(() => {
     client.browseTables(name);
   }, []);

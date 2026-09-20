@@ -17,7 +17,15 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(fileURLToPath(new URL(`./templates/${kind}.xlsx`, import.meta.url)));
   const sheet = wb.worksheets[0];
-  const cols = daily ? 8 : 7;
+  // Keep the reviewed template styling while permanently omitting its retired
+  // 20-rate fields from every generated daily and weekly settlement.
+  sheet.unMergeCells("A1");
+  for (let c = sheet.getRow(2).cellCount; c >= 1; c--) {
+    if (["20分数", "20金额"].includes(sheet.getCell(2, c).text)) sheet.spliceColumns(c, 1);
+  }
+  const cols = 6;
+  sheet.getCell("E2").value = "50金额";
+  sheet.mergeCells("A1:F1");
   const styles = Array.from({ length: cols }, (_, i) => structuredClone(sheet.getCell(3, i + 1).style));
   sheet.getCell("A1").value = title;
   wb.creator = "金陵麻将";
@@ -28,16 +36,16 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
     line.height = 26;
     const points = data.points;
     line.values = daily
-      ? [data.teamName, data.userId, data.username, 0, { formula: `D${r}*0.2`, result: 0 }, (data as ScoreRow).score,
-        { formula: `F${r}*0.5`, result: points }, { formula: `E${r}+G${r}`, result: points }]
-      : [data.teamName, data.userId, data.username, 0, (data as ParticipationRow).rounds,
-        { formula: `E${r}*3`, result: points }, { formula: `D${r}+F${r}`, result: points }];
+      ? [data.teamName, data.userId, data.username, (data as ScoreRow).score,
+        { formula: `D${r}*0.5`, result: points }, { formula: `E${r}`, result: points }]
+      : [data.teamName, data.userId, data.username, (data as ParticipationRow).rounds,
+        { formula: `D${r}*3`, result: points }, { formula: `E${r}`, result: points }];
     for (let c = 1; c <= cols; c++) {
       const cell = line.getCell(c);
       cell.style = structuredClone(styles[c - 1]);
       const value = cell.value;
       const number = typeof value === "number" ? value
-        : value && typeof value === "object" && "result" in value ? value.result : undefined;
+        : value && typeof value === "object" && "formula" in value ? cell.result : undefined;
       if (typeof number === "number") cell.numFmt = Number.isInteger(number) ? "0" : "0.#######";
     }
     line.getCell(3).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -66,7 +74,8 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
     cell.numFmt = Number.isInteger(total) ? "0" : "0.#######";
   }
   sheet.autoFilter = `A2:${last}${lastDetail}`;
-  sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "1:2" };
+  sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+    printTitlesRow: "1:2", printArea: `A1:${last}${totalRow.number}` };
   const bytes = Buffer.from(await wb.xlsx.writeBuffer());
   return { filename: `${title}.xlsx`, xlsxBase64: bytes.toString("base64"),
     caption: `${teamName} ${daily ? "日结算" : "周结算"}\n${start} 至 ${end}（北京时间）\n按统计期结束时最终战队归属\n${daily ? "分数÷2" : "局数×3"}=${Number(rows.reduce((n,r)=>n+r.points,0).toFixed(6))}${rows.length ? "" : "\n本期无结算记录"}` };

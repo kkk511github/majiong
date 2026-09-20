@@ -83,7 +83,7 @@ export function ProfilePage({ account, name, audio, changeAudio, password, legal
         </section>
         {admin && <section className="profile-admin profile-paper" aria-label="管理入口">
           <h2>管理入口</h2>
-          <div><button onClick={club}><Users size={25} /><span>战队与会员</span><ChevronRight size={20} /></button><button onClick={permissions}><LayoutGrid size={25} /><span>开桌授权</span><ChevronRight size={20} /></button></div>
+          <div><button onClick={club}><Users size={25} /><span>战队与会员</span><ChevronRight size={20} /></button><button onClick={permissions}><LayoutGrid size={25} /><span>开桌权限</span><ChevronRight size={20} /></button></div>
         </section>}
       </div>
     </div>

@@ -1209,6 +1209,9 @@ h3 {
 .control-more-menu button:last-child {
   color: #a56a50;
 }
+.control-more-menu .control-danger-menu-item {
+  color: var(--control-red);
+}
 .control-pagination {
   display: flex;
   align-items: center;
@@ -1275,6 +1278,27 @@ h3 {
 }
 .control-confirm-copy p {
   margin-bottom: 12px;
+}
+.control-delete-warning {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid #e3b3aa;
+  border-radius: 8px;
+  background: #fff6f1;
+  color: #70443d;
+}
+.control-delete-warning > svg {
+  flex: none;
+  color: var(--control-red);
+  margin-top: 3px;
+}
+.control-delete-warning strong {
+  color: #8f342d;
+}
+.control-delete-warning p {
+  margin: 5px 0 0;
 }
 .control-drawer-overlay {
   align-items: stretch;

@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { ControlApi, errorMessage } from "./api";
@@ -25,7 +26,7 @@ import type {
 } from "./types";
 import { Empty, ErrorNotice, Loading, Modal, Notice, StatusBadge } from "./ui";
 
-type MemberMode = "edit" | "password" | "suspension";
+type MemberMode = "edit" | "password" | "suspension" | "delete";
 const initialFilters: MemberFilters = { q: "", team: "", status: "", page: 1 };
 
 export function Members({
@@ -49,6 +50,7 @@ export function Members({
   const [loading, setLoading] = useState(true);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [teamError, setTeamError] = useState("");
   const [reload, setReload] = useState(0);
   const [teamReload, setTeamReload] = useState(0);
@@ -99,6 +101,19 @@ export function Members({
     }));
     if (actor.id === account.id) onAccountChanged(account);
     setReload((value) => value + 1);
+  }
+  function deleted(account: ControlAccount) {
+    const moveToPreviousPage = data.accounts.length === 1 && filters.page > 1;
+    setSelection(null);
+    setNotice(`账号 ${account.username} 已删除，历史战绩仍会保留。`);
+    setData((previous) => ({
+      ...previous,
+      accounts: previous.accounts.filter((value) => value.id !== account.id),
+      total: Math.max(0, previous.total - 1),
+    }));
+    if (moveToPreviousPage)
+      setFilters((previous) => ({ ...previous, page: previous.page - 1 }));
+    else setReload((value) => value + 1);
   }
 
   return (
@@ -183,6 +198,7 @@ export function Members({
         <ErrorNotice retry={() => setReload((value) => value + 1)}>
           {error}
         </ErrorNotice>
+        {notice && <Notice success>{notice}</Notice>}
         {data.accounts.length > 0 && (
           <p className="control-mobile-table-hint">
             横向滑动查看完整资料，右侧可编辑成员。
@@ -277,6 +293,21 @@ export function Members({
                               >
                                 {member.suspended ? "恢复使用" : "暂停使用"}
                               </button>
+                              <button
+                                className="control-danger-menu-item"
+                                type="button"
+                                onClick={(event) => {
+                                  event.currentTarget
+                                    .closest("details")
+                                    ?.removeAttribute("open");
+                                  setSelection({
+                                    account: member,
+                                    mode: "delete",
+                                  });
+                                }}
+                              >
+                                删除账号
+                              </button>
                             </div>
                           </details>
                         )}
@@ -331,6 +362,7 @@ export function Members({
           teamsReady={!teamsLoading && !teamError}
           onClose={() => setSelection(null)}
           onChanged={changed}
+          onDeleted={deleted}
         />
       )}
     </div>
@@ -346,6 +378,7 @@ function MemberDrawer({
   teamsReady,
   onClose,
   onChanged,
+  onDeleted,
 }: {
   api: ControlApi;
   actor: ControlAccount;
@@ -355,6 +388,7 @@ function MemberDrawer({
   teamsReady: boolean;
   onClose: () => void;
   onChanged: (account: ControlAccount) => void;
+  onDeleted: (account: ControlAccount) => void;
 }) {
   const [member, setMember] = useState(account);
   const [mode, setMode] = useState<MemberMode>(initialMode);
@@ -363,6 +397,7 @@ function MemberDrawer({
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [reason, setReason] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -383,6 +418,7 @@ function MemberDrawer({
     edit: canEdit ? "编辑人员" : "成员资料",
     password: "重置密码",
     suspension: member.suspended ? "恢复使用" : "暂停使用",
+    delete: "删除账号",
   };
 
   useEffect(() => {
@@ -412,9 +448,11 @@ function MemberDrawer({
     setPassword("");
     setConfirmation("");
     setReason("");
+    setDeleteConfirmation("");
   }
   function close() {
-    if (dirty || password || confirmation || reason) setConfirmClose(true);
+    if (dirty || password || confirmation || reason || deleteConfirmation)
+      setConfirmClose(true);
     else onClose();
   }
 
@@ -430,10 +468,21 @@ function MemberDrawer({
       setError("昵称需要 1–12 个字。");
       return;
     }
+    if (mode === "delete" && deleteConfirmation.trim() !== member.username) {
+      setError("请输入完整账号，确认删除的是正确人员。");
+      return;
+    }
     setBusy(true);
     setError("");
     setSuccess("");
     try {
+      if (mode === "delete") {
+        await api.post<{ ok: true; id: string }>(
+          `/members/${encodeURIComponent(member.id)}/delete`,
+        );
+        onDeleted(member);
+        return;
+      }
       const suffix =
         mode === "edit"
           ? ""
@@ -635,10 +684,19 @@ function MemberDrawer({
                     >
                       {member.suspended ? "恢复使用" : "暂停使用"}
                     </button>
+                    <button
+                      className="control-button control-danger-outline"
+                      type="button"
+                      disabled={busy || !canChangeAccess}
+                      onClick={() => changeMode("delete")}
+                    >
+                      <Trash2 size={16} />
+                      删除账号
+                    </button>
                   </div>
                   {!canChangeAccess && (
                     <p className="control-field-hint">
-                      本人、受保护账号，或无权维护的管理员不能在这里重置密码或暂停使用。
+                      本人、受保护账号，或无权维护的管理员不能在这里重置密码、暂停使用或删除账号。
                     </p>
                   )}
                 </section>
@@ -713,6 +771,33 @@ function MemberDrawer({
                 </label>
               </>
             )}
+            {mode === "delete" && (
+              <>
+                <div className="control-confirm-copy control-delete-warning">
+                  <Trash2 size={22} />
+                  <div>
+                    <strong>删除后无法恢复这个登录账号。</strong>
+                    <p>
+                      该账号的游戏和后台会话会立即失效，当前战队归属会移除；已经完成的牌局、战绩、积分与回放继续保留。
+                    </p>
+                  </div>
+                </div>
+                <label className="control-field">
+                  <span>输入账号 {member.username} 确认删除</span>
+                  <input
+                    aria-label="输入账号确认删除"
+                    autoComplete="off"
+                    value={deleteConfirmation}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setDeleteConfirmation(event.target.value);
+                      setError("");
+                    }}
+                    placeholder={member.username}
+                  />
+                </label>
+              </>
+            )}
             <ErrorNotice>{error}</ErrorNotice>
             <div className="control-actions control-drawer-footer">
               <button
@@ -725,10 +810,13 @@ function MemberDrawer({
               </button>
               {(mode === "edit" ? canEdit : canChangeAccess) && (
                 <button
-                  className={`control-button ${mode === "suspension" && !member.suspended ? "control-danger" : "control-primary"}`}
+                  className={`control-button ${mode === "delete" || (mode === "suspension" && !member.suspended) ? "control-danger" : "control-primary"}`}
                   type="submit"
                   disabled={
-                    busy || (mode === "edit" && (!dirty || !teamsReady))
+                    busy ||
+                    (mode === "edit" && (!dirty || !teamsReady)) ||
+                    (mode === "delete" &&
+                      deleteConfirmation.trim() !== member.username)
                   }
                 >
                   {busy
@@ -737,9 +825,11 @@ function MemberDrawer({
                       ? "保存修改"
                       : mode === "password"
                         ? "确认重置"
-                        : member.suspended
-                          ? "确认恢复"
-                          : "确认暂停"}
+                        : mode === "delete"
+                          ? "确认删除账号"
+                          : member.suspended
+                            ? "确认恢复"
+                            : "确认暂停"}
                 </button>
               )}
             </div>

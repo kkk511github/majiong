@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { createAccounts, hashPassword } from "../server/accounts";
 import { createControl } from "../server/control";
 import { createAnnouncements } from "../server/announcements";
+import { createRecords } from "../server/records";
 
 const secret = "Fixture-2026";
 let encoded: string;
@@ -476,6 +477,163 @@ it("人员列表按真实注册时间及rowid稳定分页，昵称与战队写�
     name: "已改昵称",
     teamId: "team-1",
   });
+});
+
+it("删除账号会撤销会话和当前归属，同时保留会员编号、历史战绩、回放与审计", async () => {
+  const f = await fixture(),
+    memberToken = await f.login("ordinary-member", false),
+    root = await f.login();
+  f.db.exec(
+    `CREATE TABLE rooms(id TEXT PRIMARY KEY,state TEXT,updated_at INTEGER);
+    CREATE TABLE table_archives(id TEXT PRIMARY KEY,state TEXT,at INTEGER);
+    CREATE TABLE table_creations(session_id TEXT,creation_id TEXT,codes TEXT,PRIMARY KEY(session_id,creation_id));`,
+  );
+  createRecords(f.db);
+  f.db
+    .prepare("INSERT INTO team_memberships VALUES (?,?,?,?,?)")
+    .run("member", "team-1", 1, "guardian", 1000);
+  f.db
+    .prepare("INSERT INTO table_permissions VALUES (?,?,?,?)")
+    .run("member", 0, "guardian", 1000);
+  f.db
+    .prepare("INSERT INTO account_avatars VALUES (?,?,?)")
+    .run("member", "avatar", Buffer.from("avatar"));
+  f.db
+    .prepare("INSERT INTO account_suspensions VALUES (?,?,?,?,?)")
+    .run("member", 0, "", "guardian", 1000);
+  f.db
+    .prepare("INSERT INTO announcement_reads VALUES (?,?,?,?)")
+    .run("member", "announcement", 1, 1000);
+  f.db
+    .prepare("INSERT INTO announcement_requests VALUES (?,?,?,?,?)")
+    .run("member", "request", "fingerprint", "{}", 1000);
+  f.db
+    .prepare("INSERT INTO admin_match_reads VALUES (?,?,?)")
+    .run("game", "member", 1000);
+  f.db
+    .prepare("INSERT INTO table_creations VALUES (?,?,?)")
+    .run("member", "creation", "[]");
+
+  f.db
+    .prepare("INSERT INTO round_replays VALUES (?,?)")
+    .run("replay", Buffer.from("historical-replay"));
+  f.db
+    .prepare("INSERT INTO round_records VALUES (?,?,?,?,?,?,?)")
+    .run("round", "game", "123456", 1000, '["member"]', 0, "{}");
+  f.db
+    .prepare("INSERT INTO match_records VALUES (?,?,?,?,?,?,?)")
+    .run("match", "game", "123456", 1000, '["member"]', 0, "{}");
+  f.db
+    .prepare("INSERT INTO round_rosters VALUES (?,?,?,?,?)")
+    .run("game", 1, "member", "team-1", "一生所爱战队");
+  f.db
+    .prepare("INSERT INTO point_records VALUES (?,?,?,?,?,?,?,?)")
+    .run(
+      "round",
+      "game",
+      1000,
+      "member",
+      "ordinary-member",
+      "team-1",
+      "一生所爱战队",
+      20,
+    );
+  const memberId = f.accounts.getAccount("member")!.memberId;
+
+  expect(
+    (await f.call("/api/control/members/member/delete", undefined, {})).status,
+  ).toBe(401);
+  expect(
+    (await f.call("/api/control/members/member/delete", memberToken, {}))
+      .status,
+  ).toBe(403);
+  const removed = await f.call("/api/control/members/member/delete", root, {});
+  expect(removed).toEqual({ status: 200, body: { ok: true, id: "member" } });
+  expect(f.accounts.getAccount("member")).toBeUndefined();
+  expect((await f.call("/api/auth/session", memberToken)).status).toBe(401);
+  expect(f.revoked).toContain("member");
+
+  for (const [table, column] of [
+    ["sessions", "id"],
+    ["team_memberships", "account_id"],
+    ["table_permissions", "account_id"],
+    ["account_avatars", "account_id"],
+    ["account_suspensions", "account_id"],
+    ["announcement_reads", "account_id"],
+    ["announcement_requests", "actor_id"],
+    ["admin_match_reads", "admin_id"],
+    ["table_creations", "session_id"],
+  ])
+    expect(
+      f.db
+        .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column}=?`)
+        .get("member")!.n,
+      table,
+    ).toBe(0);
+  expect(
+    f.db
+      .prepare(
+        "SELECT member_id FROM account_numbers WHERE account_id='member'",
+      )
+      .get()!.member_id,
+  ).toBe(Number(memberId));
+  for (const [table, id] of [
+    ["round_replays", "replay"],
+    ["round_records", "round"],
+    ["match_records", "match"],
+  ])
+    expect(
+      f.db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE id=?`).get(id)!.n,
+      table,
+    ).toBe(1);
+  expect(
+    f.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM round_rosters WHERE account_id='member'",
+      )
+      .get()!.n,
+  ).toBe(1);
+  expect(
+    f.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM point_records WHERE account_id='member'",
+      )
+      .get()!.n,
+  ).toBe(1);
+  expect(
+    JSON.parse(
+      String(
+        f.db
+          .prepare(
+            "SELECT event FROM account_audit WHERE account_id='member' ORDER BY at DESC,rowid DESC LIMIT 1",
+          )
+          .get()!.event,
+      ),
+    ),
+  ).toMatchObject({ event: "account-deleted", actorId: "guardian" });
+});
+
+it("删除账号对不存在账号、当前账号和受保护开桌账号返回明确错误", async () => {
+  const f = await fixture(),
+    root = await f.login(),
+    second = await f.login("second-admin");
+  expect(
+    await f.call("/api/control/members/missing/delete", root, {}),
+  ).toMatchObject({ status: 404, body: { error: "账号不存在" } });
+  expect(
+    await f.call("/api/control/members/admin/delete", second, {}),
+  ).toMatchObject({
+    status: 403,
+    body: { error: "不能删除当前登录的账号" },
+  });
+  expect(
+    await f.call("/api/control/members/guardian/delete", second, {}),
+  ).toMatchObject({
+    status: 403,
+    body: { error: "不能删除受保护账号 guanli@1" },
+  });
+  expect(f.accounts.getAccount("guardian")).toBeDefined();
+  expect(f.accounts.getAccount("admin")).toBeDefined();
 });
 
 it("密码重置撤销共用会话，停用与牌局暂停分离，恢复保留角色战队和开桌资格", async () => {

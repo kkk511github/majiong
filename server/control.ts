@@ -290,13 +290,63 @@ export function createControl(
         return true;
       }
       const targetPath =
-        /^\/api\/control\/members\/([a-zA-Z0-9_-]{1,100})(?:\/(password|suspension))?$/.exec(
+        /^\/api\/control\/members\/([a-zA-Z0-9_-]{1,100})(?:\/(password|suspension|delete))?$/.exec(
           path,
         );
       if (!targetPath) throw new AuthError("接口不存在", 404);
       const id = targetPath[1],
         operation = targetPath[2];
       let target = targetAccount(id);
+      if (operation === "delete") {
+        if (target.id === actor.id)
+          throw new AuthError("不能删除当前登录的账号", 403);
+        if (target.username.toLowerCase() === ADMIN_USERNAME)
+          throw new AuthError(`不能删除受保护账号 ${ADMIN_USERNAME}`, 403);
+        if (target.role === "admin" && !actor.account.canManageAdmins)
+          throw new AuthError(
+            `其他管理员的账号仅限 ${ADMIN_USERNAME} 删除`,
+            403,
+          );
+        transaction(() => {
+          audit(actor.id, id, {
+            event: "account-deleted",
+            before: {
+              name: target.name,
+              teamId: target.teamId ?? null,
+              teamName: target.teamName ?? null,
+              suspended: !!target.suspended,
+              playBlocked: !!target.playBlocked,
+            },
+          });
+          // Keep account_numbers, records, rosters and audit trails so old
+          // score sheets and replays retain their stable player identity.
+          for (const [table, column] of [
+            ["sessions", "id"],
+            ["team_memberships", "account_id"],
+            ["table_permissions", "account_id"],
+            ["account_avatars", "account_id"],
+            ["account_suspensions", "account_id"],
+            ["announcement_reads", "account_id"],
+            ["announcement_requests", "actor_id"],
+            ["admin_match_reads", "admin_id"],
+            ["table_creations", "session_id"],
+          ] as const) {
+            if (
+              db
+                .prepare(
+                  "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                )
+                .get(table)
+            )
+              db.prepare(`DELETE FROM ${table} WHERE ${column}=?`).run(id);
+          }
+          const removed = db.prepare("DELETE FROM accounts WHERE id=?").run(id);
+          if (!removed.changes) throw new AuthError("账号不存在", 404);
+        });
+        accounts.revokeSessions(id);
+        res.end(JSON.stringify({ ok: true, id }));
+        return true;
+      }
       mayChange(actor, target, !!operation);
       if (!operation) {
         if (

@@ -187,6 +187,11 @@ async function setup(page: Page, customActor = actor) {
         state.failMember = false;
         return send({ error: "当前无权保存，请稍后重试" }, 403);
       }
+      if (path.endsWith("/delete")) {
+        const id = decodeURIComponent(path.split("/").at(-2) || "");
+        state.accounts = state.accounts.filter((member) => member.id !== id);
+        return send({ ok: true, id });
+      }
       const previous = state.accounts.find(
         (member) => path === `/members/${member.id}`,
       )!;
@@ -402,6 +407,47 @@ test("member saves keep inputs on permission failure and show the server's final
   await expect(
     page.getByRole("row").filter({ hasText: "testmember24" }),
   ).toContainText("测试战队");
+});
+
+test("member deletion requires the exact account and removes only the login account", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await setup(page);
+  const member = state.accounts.find(
+    (account) => account.username === "testmember24",
+  )!;
+  await page.getByRole("button", { name: "人员管理", exact: true }).click();
+  const row = page.getByRole("row").filter({ hasText: member.username });
+  await row.getByText("更多", { exact: true }).click();
+  await row.getByRole("button", { name: "删除账号", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "删除账号", exact: true });
+  await expect(drawer).toBeInViewport();
+  await expect(drawer).toContainText(
+    "已经完成的牌局、战绩、积分与回放继续保留",
+  );
+  const confirm = drawer.getByRole("button", {
+    name: "确认删除账号",
+    exact: true,
+  });
+  await expect(confirm).toBeDisabled();
+  await drawer.getByLabel("输入账号确认删除").fill(member.username);
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText(
+    `账号 ${member.username} 已删除`,
+  );
+  await expect(
+    page.getByRole("row").filter({ hasText: member.username }),
+  ).toHaveCount(0);
+  expect(state.accounts.some((account) => account.id === member.id)).toBe(
+    false,
+  );
+  expect(state.posts.at(-1)).toEqual({
+    path: `/members/${member.id}/delete`,
+    body: {},
+  });
 });
 
 test("package upload stages only and publishes the exact package after confirmation", async ({

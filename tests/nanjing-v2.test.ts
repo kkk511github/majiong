@@ -334,7 +334,7 @@ describe("不能胡已归零的供牌者", () => {
       }
     },
   );
-  it("实际记录的点炮牌型：出牌者零分时不能再产生零转分胡牌", () => {
+  it("实际记录的点炮牌型：零分供牌不显示胡并立即进入过水", () => {
     const g = fixture([[], [], [], []], { twoBankrupt: true });
     g.players[0]!.hand = [95];
     g.players[1]!.hand = [10, 12, 15, 16, 19, 22, 44, 47, 81, 84, 90, 93, 94];
@@ -350,12 +350,13 @@ describe("不能胡已归零的供牌者", () => {
     const after = act(g, 0, { type: "discard", tile: 95 }, 1000);
     expect(after.pending!.offers[1]).toEqual(["pung", "pass"]);
     expect(viewFor(after, 1).actions).not.toContain("hu");
+    expect(after.players[1]!.passedHu).toBe(true);
     expect(() => act(after, 1, { type: "hu" }, 1001)).toThrow();
     const continued = pendingDone(after);
     expect(continued.phase).toBe("playing");
     expect(continued.result).toBeUndefined();
     expect(continued.players.map((p) => p!.score)).toEqual([0, 102, 168, 90]);
-    expect(continued.players[1]!.passedHu).toBe(false);
+    expect(continued.players[1]!.passedHu).toBe(true);
   });
   it("零分供牌仍可碰、直杠", () => {
     const g = fixture([[30], [30, 30, 30], [], []], { twoBankrupt: true });
@@ -374,7 +375,7 @@ describe("不能胡已归零的供牌者", () => {
       act(after, 1, { type: "kong" }, 1001).players[1]!.melds[0].type,
     ).toBe("kong");
   });
-  it("旧待操作状态隐藏胡按钮、拒绝胡请求，过牌不记过水", () => {
+  it("旧待操作状态隐藏胡按钮、拒绝胡请求，过牌仍记过水", () => {
     const g = discardGame("nj-garden-v2", 10);
     const pending = act(
       g,
@@ -390,7 +391,7 @@ describe("不能胡已归零的供牌者", () => {
     );
     expect(pending.pending!.replies).toEqual({});
     const continued = act(pending, 1, { type: "pass" }, 1001);
-    expect(continued.players[1]!.passedHu).toBe(false);
+    expect(continued.players[1]!.passedHu).toBe(true);
     expect(continued.result).toBeUndefined();
   });
   it("旧状态已收到的非法胡回复不会在其他人过牌后结算", () => {

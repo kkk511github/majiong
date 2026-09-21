@@ -930,13 +930,13 @@ function offerClaims(
   for (const seat of seats)
     if (seat !== from) {
       const p = g.players[seat]!,
-        options: Claim[] = [];
-      if (
-        canClaimHuFrom(g, from) &&
-        !p.passedHu &&
-        scoreForWin(g, seat, tile, robbed)
-      )
-        options.push("hu");
+        options: Claim[] = [],
+        winning = !p.passedHu && !!scoreForWin(g, seat, tile, robbed),
+        payable = canClaimHuFrom(g, from);
+      if (winning && payable) options.push("hu");
+      // A winning tile discarded by a bankrupt player cannot be claimed, but
+      // it still starts passed-Hu. Only this player's own discard clears it.
+      if (winning && !payable) p.passedHu = true;
       const c = p.hand.filter((t) => kind(t) === kind(tile)).length;
       if (!robbed && !p.passedPung.includes(kind(tile))) {
         if (
@@ -1085,8 +1085,8 @@ export function act(
     pending.replies[seat] = action.type as Claim;
     if (
       action.type !== "hu" &&
-      canClaimHuFrom(g, pending.from) &&
-      pending.offers[seat]!.includes("hu")
+      (pending.offers[seat]!.includes("hu") ||
+        !!scoreForWin(g, seat, pending.tile, pending.kind === "robKong"))
     )
       p.passedHu = true;
     if (action.type === "pass" && pending.offers[seat]!.includes("pung"))

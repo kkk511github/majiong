@@ -271,6 +271,198 @@ describe("建桌大厅真实联机", () => {
       ),
     ).toBe(true);
   });
+  it("目标两桌在每次满员后只补一桌，整桌结束不重复补", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "桌池管理员"),
+      initial = await createTables(host, { autoRenew: true }, 2, "pool-two");
+    const groupId = s.games.get(initial[0])!.table!.groupId;
+    const group = () =>
+      [...s.games.values()].filter((game) => game.table?.groupId === groupId);
+    const joinable = () =>
+      group().filter(
+        (game) =>
+          game.phase === "waiting" && game.players.some((player) => !player),
+      );
+    async function occupy(code: string, label: string) {
+      for (let seat = 0; seat < 4; seat++) {
+        const player = await peer(port, `${label}${seat + 1}`);
+        const requestId = `pool-${code}-${seat}`;
+        player.send({ type: "join", code, seat: seat as Seat, requestId });
+        await player.read("ack", (message) => message.requestId === requestId);
+      }
+    }
+
+    expect(group()).toHaveLength(2);
+    expect(joinable()).toHaveLength(2);
+    expect(group().every((game) => game.table!.poolTarget === 2)).toBe(true);
+
+    await occupy(initial[0], "甲桌牌友");
+    expect(group()).toHaveLength(3);
+    expect(joinable()).toHaveLength(2);
+    const afterFirst = new Set(group().map((game) => game.code));
+
+    await occupy(initial[1], "乙桌牌友");
+    expect(group()).toHaveLength(4);
+    expect(joinable()).toHaveLength(2);
+    expect(group().filter((game) => !afterFirst.has(game.code))).toHaveLength(
+      1,
+    );
+
+    const beforeFinish = new Set(group().map((game) => game.code));
+    const finished = s.games.get(initial[0])!;
+    finished.phase = "finished";
+    finished.table!.finishedAt = Date.now() - 11_000;
+    const until = Date.now() + 2000;
+    while (s.games.has(initial[0]) && Date.now() < until)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(s.games.has(initial[0])).toBe(false);
+    expect(joinable()).toHaveLength(2);
+    expect(new Set(group().map((game) => game.code))).toEqual(
+      new Set([...beforeFinish].filter((code) => code !== initial[0])),
+    );
+  });
+  it("收起池桌会持久下调目标，重启不会把它补回来", async () => {
+    const file = databasePath(),
+      first = await boot(file),
+      host = await peer(first.port, "收桌管理员"),
+      codes = await createTables(host, { autoRenew: true }, 2, "pool-close"),
+      groupId = first.s.games.get(codes[0])!.table!.groupId;
+    host.send({ type: "closeTable", code: codes[0], requestId: "close-one" });
+    await host.read("ack", (message) => message.requestId === "close-one");
+    expect(first.s.games.size).toBe(1);
+    expect(first.s.games.get(codes[1])!.table).toMatchObject({
+      groupId,
+      poolTarget: 1,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    expect(first.s.games.size).toBe(1);
+
+    await stop(first.s);
+    const second = await boot(file);
+    expect(second.s.games.size).toBe(1);
+    expect([...second.s.games.values()][0].table).toMatchObject({
+      groupId,
+      poolTarget: 1,
+    });
+  });
+  it("收起已满池桌不下调目标并保留两张可加入桌", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "满桌管理员"),
+      codes = await createTables(host, { autoRenew: true, readyMode: "auto" }, 2, "pool-close-full"),
+      groupId = s.games.get(codes[0])!.table!.groupId;
+    const players = await fill(port, codes[0]);
+    await players[0].read("state", (message) => message.state.phase === "playing");
+    const group = () =>
+      [...s.games.values()].filter((game) => game.table?.groupId === groupId);
+    const joinable = () =>
+      group().filter(
+        (game) =>
+          game.phase === "waiting" && game.players.some((player) => !player),
+      );
+    expect(joinable()).toHaveLength(2);
+
+    host.send({ type: "closeTable", code: codes[0], requestId: "close-full" });
+    await host.read("ack", (message) => message.requestId === "close-full");
+    for (const player of players) await player.read("left");
+    expect(group()).toHaveLength(2);
+    expect(joinable()).toHaveLength(2);
+    expect(group().every((game) => game.table!.poolTarget === 2)).toBe(true);
+  });
+  it("下调桌池目标不推进进行中牌桌版本，旧版本操作仍生效", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "版本管理员"),
+      codes = await createTables(
+        host,
+        { autoRenew: true, readyMode: "auto" },
+        2,
+        "pool-revision",
+      ),
+      groupId = s.games.get(codes[0])!.table!.groupId,
+      players = await fill(port, codes[0]);
+    await players[0].read("state", (message) => message.state.phase === "playing");
+    const activeRevision = s.games.get(codes[0])!.revision;
+    const reserve = [...s.games.values()].find(
+      (game) =>
+        game.table?.groupId === groupId &&
+        game.code !== codes[0] &&
+        game.players.every((player) => !player),
+    )!;
+
+    host.send({ type: "closeTable", code: reserve.code, requestId: "reduce-pool" });
+    await host.read("ack", (message) => message.requestId === "reduce-pool");
+    expect(s.games.get(codes[0])!.revision).toBe(activeRevision);
+    expect(s.games.get(codes[0])!.table!.poolTarget).toBe(1);
+    expect((await win(s, codes[0], players[0])).phase).toBe("ended");
+  });
+  it("满桌补桌后有人离开会裁掉多余纯空桌", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "离桌管理员"),
+      codes = await createTables(
+        host,
+        { autoRenew: true, readyMode: "manual" },
+        2,
+        "pool-leave",
+      ),
+      groupId = s.games.get(codes[0])!.table!.groupId,
+      players = await fill(port, codes[0]);
+    const group = () =>
+      [...s.games.values()].filter((game) => game.table?.groupId === groupId);
+    const joinable = () =>
+      group().filter(
+        (game) =>
+          game.phase === "waiting" && game.players.some((player) => !player),
+      );
+    expect(group()).toHaveLength(3);
+    expect(joinable()).toHaveLength(2);
+
+    players[3].send({ type: "leave", requestId: "leave-full-table" });
+    await players[3].read("left");
+    await players[3].read(
+      "ack",
+      (message) => message.requestId === "leave-full-table",
+    );
+    expect(group()).toHaveLength(2);
+    expect(joinable()).toHaveLength(2);
+    expect(
+      group().filter((game) => game.players.every((player) => !player)),
+    ).toHaveLength(1);
+  });
+  it("服务启动时按持久目标补回缺失的可加入桌", async () => {
+    const file = databasePath(),
+      first = await boot(file),
+      host = await peer(first.port, "恢复桌池管理员"),
+      codes = await createTables(host, { autoRenew: true }, 2, "pool-restart"),
+      groupId = first.s.games.get(codes[0])!.table!.groupId;
+    await stop(first.s);
+    const db = new DatabaseSync(file);
+    db.prepare("DELETE FROM rooms WHERE id=?").run(
+      JSON.parse(
+        String(
+          db
+            .prepare(
+              "SELECT state FROM rooms WHERE json_extract(state, '$.code')=?",
+            )
+            .get(codes[1])!.state,
+        ),
+      ).id,
+    );
+    db.close();
+
+    const restored = await boot(file);
+    const group = [...restored.s.games.values()].filter(
+      (game) => game.table?.groupId === groupId,
+    );
+    expect(group).toHaveLength(2);
+    expect(group.every((game) => game.table!.poolTarget === 2)).toBe(true);
+    expect(
+      group.every(
+        (game) =>
+          game.phase === "waiting" && game.players.every((player) => !player),
+      ),
+    ).toBe(true);
+    expect(group.map((game) => game.code)).toContain(codes[0]);
+    expect(group.map((game) => game.code)).not.toContain(codes[1]);
+  });
   it("数据库故障不出现半批桌子，恢复后同一创建标识可重试", async () => {
     const file = databasePath(),
       { s, port } = await boot(file),
@@ -723,11 +915,12 @@ describe("建桌大厅真实联机", () => {
       expect(renewed.table).toMatchObject({
         creatorId: original.table!.creatorId,
         groupId: original.table!.groupId,
-        number: original.table!.number,
+        poolTarget: 1,
       });
+      expect(renewed.table!.number).not.toBe(original.table!.number);
       host.send({ type: "tables" });
       const listing = await host.read("tables", (m) =>
-        m.tables.some((t) => t.code === renewed.code),
+        m.tables.length === 1 && m.tables[0].code === renewed.code,
       );
       expect(listing.tables.map((t) => t.code)).toEqual([renewed.code]);
       ps[0].send({ type: "join", code });

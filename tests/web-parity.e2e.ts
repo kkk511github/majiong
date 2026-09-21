@@ -173,6 +173,7 @@ test("四人开桌准备、拖牌与旧出牌方式、刷新恢复同桌",async(
     await host.getByRole("button",{name:"开一桌，等朋友"}).click();
     await host.getByLabel("玩法名称",{exact:true}).fill(tableName);
     await host.getByRole("button",{name:"下一步",exact:true}).click();
+    await host.getByRole("group",{name:"创建桌数",exact:true}).getByRole("button",{name:"1 桌",exact:true}).click();
     await host.getByRole("group",{name:"准备方式",exact:true}).getByRole("button",{name:"手动准备",exact:true}).click();
     await host.getByRole("group",{name:"超时托管",exact:true}).getByRole("button",{name:"关闭托管",exact:true}).click();
     await host.getByRole("button",{name:"下一步",exact:true}).click();

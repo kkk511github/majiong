@@ -66,6 +66,7 @@ for (const [width, height] of [[568, 320], [844, 390], [932, 430]]) {
       const tableName = `权限验收${width}`;
       await page.getByRole("textbox", { name: "玩法名称", exact: true }).fill(tableName);
       await page.getByRole("button", { name: "下一步", exact: true }).click();
+      await page.getByRole("group", { name: "创建桌数", exact: true }).getByRole("button", { name: "1 桌", exact: true }).click();
       await page.getByRole("button", { name: "下一步", exact: true }).click();
       await page.getByRole("button", { name: "创建 1 桌", exact: true }).click();
       await expect(page.locator(".table-card").filter({ hasText: tableName })).toBeVisible();

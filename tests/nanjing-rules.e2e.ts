@@ -31,6 +31,7 @@ for (const [width, height] of [[844, 390], [932, 430], [667, 375]]) {
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
       expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(height + 1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (step === 1) await dialog.getByRole("group", { name: "创建桌数", exact: true }).getByRole("button", { name: "1 桌", exact: true }).click();
       if (step < 2) await dialog.getByRole("button", { name: "下一步", exact: true }).click();
     }
     await expect(dialog.locator(".setup-review")).toContainText("进园子 B档 · 底分 10 · 门清 10");

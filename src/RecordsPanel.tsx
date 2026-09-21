@@ -10,13 +10,19 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
-import { client } from "./game-client";
+import { client, storage } from "./game-client";
+import { gameAudio } from "./audio";
+import { useLiveRecords } from "./useLiveRecords";
+import { RECORDS_HIGHLIGHT_MS } from "./records-live";
 import { Dialog } from "./Dialog";
 import { MatchRecordDetails, RecordPlayers } from "./MatchRecordDetails";
 import "./records-match.css";
 import "./records-workspace.css";
 import "./records-redesign.css";
+import "./records-live.css";
 import { DeferredFeature } from "./DeferredFeature";
 const ReplayPanel = lazy(() => import("./ReplayPanel").then(m => ({ default: m.ReplayPanel })));
 import {
@@ -74,6 +80,37 @@ export function RecordsPanel({
     [error, setError] = useState("");
   const [selected, setSelected] = useState<StoredRound | null>(null);
   const [replayId, setReplayId] = useState<string | null>(null);
+  const [liveRefresh, setLiveRefresh] = useState(0);
+  const [newGames, setNewGames] = useState<Set<string>>(new Set());
+  const [soundEnabled, setSoundEnabled] = useState(() => storage.get(`recordsSound:${memoryKey}`, true));
+  const soundPreference = useRef(soundEnabled);
+  soundPreference.current = soundEnabled;
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const loadEpoch = useRef(0);
+  const successfulLoadKey = useRef<string | null>(null);
+  const listRequestPending = useRef(false);
+  const today = recordDate(Date.now());
+  // A refresh becomes a background read only after this exact user request
+  // succeeds. Starting an earlier request does not validate its cached rows.
+  const requestKey = JSON.stringify([tab, page, filter, readFilter, account?.id, today, refresh]);
+  useEffect(() => { setSoundEnabled(storage.get(`recordsSound:${memoryKey}`, true)); }, [memoryKey]);
+  useEffect(() => () => clearTimeout(highlightTimer.current), []);
+  const onLiveSnapshot = useCallback((next: RecordsPage, arrivals: string[], notify: boolean) => {
+    if (!listRequestPending.current) {
+      if (page === 1 && readFilter === "all" && !filter.code && !filter.date && !filter.member) {
+        loadEpoch.current++;
+        successfulLoadKey.current = requestKey;
+        setData(next); setBusy(false); setError("");
+      } else setLiveRefresh(value => value + 1);
+    }
+    if (arrivals.length) {
+      setNewGames(previous => new Set([...previous, ...arrivals]));
+      clearTimeout(highlightTimer.current);
+      highlightTimer.current = setTimeout(() => setNewGames(new Set()), RECORDS_HIGHLIGHT_MS);
+      if (notify && soundPreference.current) gameAudio.play("records");
+    }
+  }, [page, readFilter, filter.code, filter.date, filter.member, requestKey]);
+  const live = useLiveRecords(tab === "admin" && showTeams, account?.id, onLiveSnapshot);
   const list = useRef<HTMLDivElement>(null);
   const initialScroll = useRef(saved?.scroll ?? 0);
   const latestMemory = useRef<WorkspaceMemory>({
@@ -115,14 +152,18 @@ export function RecordsPanel({
       ),
     }));
   }, []);
-  const today = recordDate(Date.now());
   const yesterday = recordDate(recordDayRange(today).from - 86400000);
   useEffect(() => {
     let cancelled = false;
-    setBusy(true);
-    setError("");
-    setSelected(null);
-    list.current?.scrollTo({ top: 0 });
+    const epoch = ++loadEpoch.current;
+    const background = successfulLoadKey.current === requestKey;
+    listRequestPending.current = true;
+    if (!background) {
+      setBusy(true);
+      setError("");
+      setSelected(null);
+      list.current?.scrollTo({ top: 0 });
+    }
     if (tab === "practice") {
       const groups = new Map<string, StoredRound>();
       for (const item of client.history().filter((r) => r.practice)) {
@@ -158,6 +199,8 @@ export function RecordsPanel({
           .map(([date, count]) => ({ date, count }))
           .sort((a, b) => b.date.localeCompare(a.date)),
       });
+      successfulLoadKey.current = requestKey;
+      listRequestPending.current = false;
       setBusy(false);
       return;
     }
@@ -173,13 +216,19 @@ export function RecordsPanel({
     client
       .loadRecords(tab === "admin", query)
       .then((next) => {
-        if (!cancelled) setData(next);
+        if (!cancelled && epoch === loadEpoch.current) {
+          successfulLoadKey.current = requestKey;
+          setData(next); setError("");
+        }
       })
       .catch((e) => {
-        if (!cancelled) setError((e as Error).message);
+        if (!cancelled && epoch === loadEpoch.current && !background) setError((e as Error).message);
       })
       .finally(() => {
-        if (!cancelled) setBusy(false);
+        if (!cancelled && epoch === loadEpoch.current) {
+          listRequestPending.current = false;
+          setBusy(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -188,12 +237,14 @@ export function RecordsPanel({
     tab,
     page,
     refresh,
+    liveRefresh,
     filter.code,
     filter.date,
     filter.member,
     readFilter,
     account?.id,
     today,
+    requestKey,
   ]);
   const chooseDate = (date: string) => {
     setFilter((f) => ({ ...f, date }));
@@ -204,7 +255,7 @@ export function RecordsPanel({
     { id: "online", name: "我的对局" },
   ] as const;
   return (
-    <section className="records-panel records-workspace" aria-label="战绩中心">
+    <section className="records-panel records-workspace" aria-label="战绩中心" data-scope={tab}>
       <div className="records-heading">
         <button className="records-back" onClick={onBack} aria-label="返回大厅">
           <ArrowLeft size={23} />
@@ -335,6 +386,11 @@ export function RecordsPanel({
               {tab === "admin" && filter.member && ` · 会员 ${filter.member}`}
             </span>
             <div>
+              {tab === "admin" && <div className="records-live-controls">
+                <span className={`records-live-status records-live-${live.phase}`} role="status" title={live.updatedAt ? `最近同步：${recordClock(live.updatedAt, true)}` : undefined}><i/>{live.phase === "live" ? "实时更新" : live.phase === "retrying" ? "更新重试中" : live.phase === "paused" ? "更新已暂停" : "正在连接"}</span>
+                <button type="button" className="records-live-sound" aria-label="新战绩提示音" aria-pressed={soundEnabled} title="新整桌战绩提示音，跟随应用音效设置" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); storage.set(`recordsSound:${memoryKey}`, next); if (next) gameAudio.unlock(); }}>{soundEnabled ? <Volume2 size={15}/> : <VolumeX size={15}/>}<span>提示音{soundEnabled ? "开" : "关"}</span></button>
+                {newGames.size > 0 && <span className="records-arrivals" aria-live="polite">新增 {newGames.size} 桌</span>}
+              </div>}
               {tab === "admin" && (
                 <span className="records-admin">
                   <ShieldCheck size={14} />
@@ -438,8 +494,9 @@ export function RecordsPanel({
             ) : (
               data.records.map((item) => (
                 <button
-                  className="record-card match-card"
+                  className={`record-card match-card${newGames.has(item.game) && tab === "admin" ? " record-card-new" : ""}`}
                   key={item.game}
+                  data-game={item.game}
                   onClick={() => setSelected(item)}
                   aria-label={`查看房间 ${item.code} 最终战绩`}
                 >

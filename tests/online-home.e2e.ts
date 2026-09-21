@@ -4,7 +4,11 @@ import { DEFAULT_TABLE_SETTINGS } from "../shared/table-settings";
 import { mkdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 const captures = "test-results/screenshots";
-test.beforeAll(() => mkdirSync(captures, { recursive: true }));
+const poolCaptures = "output/table-pool-20260921";
+test.beforeAll(() => {
+  mkdirSync(captures, { recursive: true });
+  mkdirSync(poolCaptures, { recursive: true });
+});
 const tables: TableSummary[] = [
   {
     code: "518209",
@@ -15,12 +19,7 @@ const tables: TableSummary[] = [
     rules: DEFAULT_RULES,
     settings: DEFAULT_TABLE_SETTINGS,
     managed: false,
-    seats: [
-      { name: "紫金", online: true, ready: true, isMe: false },
-      { name: "秦淮", online: true, ready: false, isMe: false },
-      { name: "玄武", online: true, ready: true, isMe: false },
-      null,
-    ],
+    seats: [null, null, null, null],
   },
   {
     code: "639158",
@@ -65,35 +64,22 @@ for (const [width, height, left, right] of [
       });
     });
     await page.goto("/");
-    await expect(page.locator(".home-table")).toHaveCount(2);
+    await expect(page.locator(".home-table")).toHaveCount(1);
     await expect(page.locator(".home-live-heading")).toContainText(
-      "1 桌有空位",
+      "1 张空桌",
     );
     await expect(page.locator(".home-table").first()).toContainText("等待入座");
-    await expect(page.locator(".home-table").nth(1)).toContainText(
-      "对局中 3/4",
-    );
-    await expect(
-      page.locator(".home-table").first().locator(".ready").first(),
-    ).toBeVisible();
     const primary = page.getByRole("button", {
       name: "进入牌桌大厅",
       exact: true,
     });
-    const practice = page.getByRole("button", {
-      name: "单人练习，快速开始",
-      exact: true,
-    });
-    expect((await primary.boundingBox())!.height).toBeGreaterThan(
-      (await practice.boundingBox())!.height,
-    );
+    expect((await primary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     for (const locator of [
       primary,
-      practice,
       page.getByRole("button", { name: "全部牌桌", exact: true }),
       page.getByRole("button", { name: "加入好友桌", exact: true }),
       page.getByRole("button", { name: "开一桌，等朋友", exact: true }),
-      page.getByRole("button", { name: "518209 北位入座", exact: true }),
+      page.getByRole("button", { name: "518209 东位入座", exact: true }),
     ]) {
       const b = (await locator.boundingBox())!;
       expect(b.x).toBeGreaterThanOrEqual(left);
@@ -112,7 +98,7 @@ for (const [width, height, left, right] of [
     }
     expect(
       (await page
-        .getByRole("button", { name: "518209 北位入座" })
+        .getByRole("button", { name: "518209 东位入座" })
         .boundingBox())!.height,
     ).toBeGreaterThanOrEqual(44);
     expect(
@@ -123,13 +109,15 @@ for (const [width, height, left, right] of [
       ),
     ).toBe(true);
     await page.screenshot({ path: `${captures}/online-home-${width}.png` });
+    if (width === 844)
+      await page.screenshot({ path: `${poolCaptures}/home-empty-tables.png` });
     populated = false;
     await page.reload();
     await expect(page.locator(".home-empty")).toContainText(
-      "好牌局，等你来相聚",
+      "暂时没有空桌",
     );
     await expect(page.locator(".home-live-heading")).toContainText(
-      "0 桌有空位",
+      "0 张空桌",
     );
     await expect(page.locator(".home-table-join")).toHaveCount(0);
     await page.screenshot({
@@ -137,7 +125,39 @@ for (const [width, height, left, right] of [
     });
   });
 }
-test("首页完整联机：管理员开桌，三人准备实时展示，点最后空位入座后四人开局", async ({
+test("牌桌大厅按0人、1至3人、不可加入排序并使用紧凑卡片", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  const ordered: TableSummary[] = [
+    tables[1],
+    { ...tables[0], code: "300003", number: 3, seats: [{ name: "紫金", online: true, ready: false, isMe: false }, null, null, null] },
+    { ...tables[0], code: "300001", number: 1, seats: [null, null, null, null] },
+    { ...tables[0], seats: [
+      { name: "紫金", online: true, ready: true, isMe: false },
+      { name: "秦淮", online: true, ready: false, isMe: false },
+      { name: "玄武", online: true, ready: true, isMe: false },
+      null,
+    ] },
+  ];
+  await page.routeWebSocket("**/ws", (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((message) => {
+      const data = JSON.parse(String(message));
+      ws.send(data.type === "tables" ? JSON.stringify({ ...data, tables: ordered }) : message);
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "进入牌桌大厅", exact: true }).click();
+  await expect(page.locator(".table-card")).toHaveCount(4);
+  expect(await page.locator(".table-room-code").allInnerTexts()).toEqual([
+    "300001",
+    "518209",
+    "300003",
+    "639158",
+  ]);
+  expect((await page.locator(".table-card").first().boundingBox())!.height).toBeLessThanOrEqual(100);
+  await page.screenshot({ path: `${poolCaptures}/lobby-compact-sorted.png` });
+});
+test("首页只展示0人桌，已有三人后从约局大厅入座开局", async ({
   page,
   browser,
 }) => {
@@ -161,6 +181,10 @@ test("首页完整联机：管理员开桌，三人准备实时展示，点最�
       .getByRole("textbox", { name: "玩法名称", exact: true })
       .fill(tableName);
     await page.getByRole("button", { name: "下一步", exact: true }).click();
+    await page
+      .getByRole("group", { name: "创建桌数", exact: true })
+      .getByRole("button", { name: "1 桌", exact: true })
+      .click();
     await page.getByRole("button", { name: "下一步", exact: true }).click();
     await page.getByRole("button", { name: "创建 1 桌", exact: true }).click();
     const card = page.locator(".table-card").filter({ hasText: tableName });
@@ -185,10 +209,10 @@ test("首页完整联机：管理员开桌，三人准备实时展示，点最�
       name: `${tableName} 房号 ${code}`,
       exact: true,
     });
-    await expect(featured).toContainText("等待入座");
-    await expect(featured.locator(".ready")).toHaveText("3 人已准备");
+    await expect(featured).toHaveCount(0);
     await page.screenshot({ path: `${captures}/online-home-live.png` });
-    await featured
+    await page.getByRole("button", { name: "全部牌桌", exact: true }).click();
+    await page.locator(".table-card").filter({ hasText: tableName })
       .getByRole("button", { name: `${code} 北位入座`, exact: true })
       .click();
     await page.getByRole("button", { name: "我准备好了", exact: true }).click();
@@ -226,7 +250,7 @@ test("首页断线不显示陈旧空位为在线，恢复后自动更新", async
   await expect(page.locator(".home-table-join")).toHaveCount(1);
   disconnect!();
   await expect(page.locator(".home-live-heading")).not.toContainText(
-    "1 桌有空位",
+    "1 张空桌",
   );
   await expect(page.locator(".home-table-join")).toHaveCount(0);
   await expect(page.locator(".home-table-join")).toHaveCount(1, {
@@ -369,7 +393,7 @@ for (const [width, height] of [
       });
     });
     await page.goto("/");
-    await expect(page.locator(".home-table")).toHaveCount(2);
+    await expect(page.locator(".home-table")).toHaveCount(1);
     const card = page.locator(".home-table").first();
     const before = (await card.boundingBox())!;
     hold = true;
@@ -377,7 +401,7 @@ for (const [width, height] of [
       .getByRole("button", { name: "金陵麻将首页", exact: true })
       .click();
     await expect(page.locator(".home-refresh-status")).toHaveText("更新中…");
-    await expect(page.locator(".home-table")).toHaveCount(2);
+    await expect(page.locator(".home-table")).toHaveCount(1);
     await expect(page.locator(".home-empty")).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "重新连接", exact: true }),
@@ -401,7 +425,7 @@ for (const [width, height] of [
     );
     await expect(page.locator(".home-table")).toHaveCount(0);
     await expect(page.locator(".home-empty")).toContainText(
-      "好牌局，等你来相聚",
+      "暂时没有空桌",
     );
     cut!();
     await expect(page.locator(".home-refresh-status")).toHaveCount(0);

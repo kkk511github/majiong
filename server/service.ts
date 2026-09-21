@@ -121,12 +121,13 @@ export function makeServer(
   const save = db.prepare(
     "INSERT INTO rooms VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at",
   );
-  function freshTableCode() {
+  function freshTableCode(reserved: ReadonlySet<string> = new Set()) {
     let code: string;
     do {
       code = String(randomInt(100000, 1000000));
     } while (
       games.has(code) ||
+      reserved.has(code) ||
       db.prepare("SELECT 1 FROM match_records WHERE code=? LIMIT 1").get(code)
     );
     return code;
@@ -136,6 +137,43 @@ export function makeServer(
     while (used.has(number)) number++;
     used.add(number);
     return number;
+  }
+  function tablePoolTarget(g: Game) {
+    const target = g.table?.poolTarget;
+    return Number.isInteger(target) && target! >= 1 && target! <= 5
+      ? target!
+      : 0;
+  }
+  function isJoinableTable(g: Game) {
+    return (
+      !!g.table &&
+      !g.table.closed &&
+      g.phase === "waiting" &&
+      g.players.some((player) => !player)
+    );
+  }
+  function managedTableCapacity(creatorId: string) {
+    const pools = new Map<string, number>();
+    let legacyTables = 0;
+    for (const game of games.values()) {
+      if (
+        !game.table ||
+        game.table.closed ||
+        game.table.creatorId !== creatorId
+      )
+        continue;
+      const target = tablePoolTarget(game);
+      if (!target) legacyTables++;
+      else
+        pools.set(
+          game.table.groupId,
+          Math.max(pools.get(game.table.groupId) ?? 0, target),
+        );
+    }
+    return (
+      legacyTables +
+      [...pools.values()].reduce((sum, target) => sum + target, 0)
+    );
   }
   for (const row of db
     .prepare(
@@ -287,6 +325,130 @@ export function makeServer(
       if (ws) send(ws, { type: "left", lobby: true, message });
     }
   }
+  function createPooledTable(
+    template: Game,
+    target: number,
+    usedNumbers: Set<number>,
+    reservedCodes: Set<string>,
+    now: number,
+  ) {
+    const code = freshTableCode(reservedCodes);
+    reservedCodes.add(code);
+    const room = createGame(code, randomUUID(), template.rules);
+    if (template.initialScore !== undefined)
+      room.initialScore = template.initialScore;
+    if (template.settlementBase !== undefined)
+      room.settlementBase = template.settlementBase;
+    if (template.scoreDivisor !== undefined)
+      room.scoreDivisor = template.scoreDivisor;
+    room.ownerId = template.table!.creatorId;
+    room.table = {
+      creatorId: template.table!.creatorId,
+      groupId: template.table!.groupId,
+      poolTarget: target,
+      number: reserveTableNumber(usedNumbers),
+      createdAt: now,
+      settings: structuredClone(template.table!.settings),
+      ...(template.table!.experience
+        ? { experience: structuredClone(template.table!.experience) }
+        : {}),
+    };
+    fillExperienceBots(room);
+    return room;
+  }
+  function reconcileTablePool(
+    groupId: string,
+    fallback?: Game,
+    preserveId?: string,
+  ) {
+    const group = [...games.values()].filter(
+      (game) => game.table?.groupId === groupId && !game.table.closed,
+    );
+    const candidates =
+      fallback && !group.some((game) => game.id === fallback.id)
+        ? [...group, fallback]
+        : group;
+    const target = candidates.reduce(
+      (maximum, game) => Math.max(maximum, tablePoolTarget(game)),
+      0,
+    );
+    if (!target) return [];
+    const joinable = group.filter(isJoinableTable);
+    const removable = joinable
+      .filter(
+        (game) =>
+          game.id !== preserveId && game.players.every((player) => !player),
+      )
+      .sort(
+        (a, b) =>
+          b.table!.createdAt - a.table!.createdAt ||
+          b.table!.number - a.table!.number,
+      )
+      .slice(0, Math.max(0, joinable.length - target));
+    const template = candidates.find(
+      (game) =>
+        tablePoolTarget(game) === target &&
+        game.table!.settings.autoRenew &&
+        accounts.canOpenTables(game.table!.creatorId),
+    );
+    const missing = target - (joinable.length - removable.length);
+    const createCount = template
+      ? Math.min(
+          Math.max(0, missing),
+          Math.max(0, 1000 - games.size + removable.length),
+        )
+      : 0;
+    if (!removable.length && !createCount) return [];
+    const now = Date.now();
+    const usedNumbers = new Set(
+      [...games.values()]
+        .filter((game) => game.table)
+        .map((game) => game.table!.number),
+    );
+    const reservedCodes = new Set<string>();
+    const created = template
+      ? Array.from({ length: createCount }, () =>
+          createPooledTable(template, target, usedNumbers, reservedCodes, now),
+        )
+      : [];
+    try {
+      db.exec("BEGIN");
+      for (const room of removable)
+        db.prepare("DELETE FROM rooms WHERE id = ?").run(room.id);
+      for (const room of created) save.run(room.id, JSON.stringify(room), now);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw new StorageError(error);
+    }
+    for (const room of removable) {
+      games.delete(room.code);
+      lastAuto.delete(room.id);
+    }
+    for (const room of created) games.set(room.code, room);
+    broadcastTables();
+    return created;
+  }
+  function reconcileAllTablePools() {
+    const groups = new Set(
+      [...games.values()]
+        .filter((game) => tablePoolTarget(game))
+        .map((game) => game.table!.groupId),
+    );
+    for (const groupId of groups) reconcileTablePool(groupId);
+  }
+  function repairTablePool(
+    groupId: string,
+    fallback?: Game,
+    preserveId?: string,
+  ) {
+    try {
+      return reconcileTablePool(groupId, fallback, preserveId);
+    } catch (error) {
+      console.error("Table pool repair failed", groupId, error);
+      return [];
+    }
+  }
   function persist(g: Game) {
     const hasHumans = g.players.some((p) => p && !p.bot);
     const keep = !g.table?.closed && (
@@ -316,6 +478,54 @@ export function makeServer(
       lastAuto.delete(g.id);
     }
   }
+  function closeTableAndReducePool(closing: Game) {
+    const target = tablePoolTarget(closing);
+    const wasJoinable =
+      closing.phase === "waiting" && closing.players.some((player) => !player);
+    if (!target || !wasJoinable) {
+      persist(closing);
+      return;
+    }
+    const nextTarget = target - 1;
+    closing.table!.poolTarget = nextTarget;
+    if (!nextTarget) closing.table!.settings.autoRenew = false;
+    const changed = [...games.values()]
+      .filter(
+        (game) =>
+          game.id !== closing.id &&
+          game.table?.groupId === closing.table!.groupId &&
+          !game.table.closed,
+      )
+      .map((game) => {
+        const updated = structuredClone(game);
+        updated.table!.poolTarget = nextTarget;
+        if (!nextTarget) updated.table!.settings.autoRenew = false;
+        return updated;
+      });
+    const now = Date.now();
+    try {
+      db.exec("BEGIN");
+      records.capture(closing);
+      db.prepare("DELETE FROM rooms WHERE id = ?").run(closing.id);
+      if (closing.phase === "finished" && closing.players.every(Boolean))
+        db.prepare("INSERT OR IGNORE INTO table_archives VALUES (?,?,?)").run(
+          closing.id,
+          JSON.stringify(closing),
+          now,
+        );
+      for (const game of changed) save.run(game.id, JSON.stringify(game), now);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw new StorageError(error);
+    }
+    games.delete(closing.code);
+    lastAuto.delete(closing.id);
+    for (const game of changed) games.set(game.code, game);
+  }
+  // A durable pool target lets a restart repair a gap left between a full-table
+  // join and the replacement insert.
+  reconcileAllTablePools();
   function broadcast(g: Game) {
     for (const seat of seats) {
       const p = g.players[seat],
@@ -416,9 +626,13 @@ export function makeServer(
       "http://127.0.0.1:5173",
       "http://127.0.0.1:5178",
     ]);
+    // A profile <img> request may omit Origin, while the Cocos/WebGL renderer
+    // later fetches the same digest URL in CORS mode. Mark both responses as
+    // origin-dependent so a shared browser cache cannot reuse the first
+    // header-less response and reject the table texture.
+    res.setHeader("Vary", "Origin");
     if (origin && allowedOrigins.has(origin)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Vary", "Origin");
       res.setHeader(
         "Access-Control-Allow-Headers",
         "Authorization, Content-Type",
@@ -971,14 +1185,8 @@ export function makeServer(
           }
           if (!Number.isInteger(msg.count) || msg.count < 1 || msg.count > 5)
             throw Error("一次可开 1–5 桌");
-          if (
-            [...games.values()].filter(
-              (r) => r.table?.creatorId === session!.id,
-            ).length +
-              msg.count >
-            5
-          )
-            throw Error("你最多同时管理 5 桌，请先收起空桌");
+          if (managedTableCapacity(session.id) + msg.count > 5)
+            throw Error("你的桌池目标合计最多 5 桌，请先收起已有牌桌");
           if (games.size + msg.count > 1000)
             throw Error("大厅暂时已满，请稍后开桌");
           if (
@@ -991,14 +1199,13 @@ export function makeServer(
             groupId = randomUUID(),
             now = Date.now();
           const created: Game[] = [];
+          const reservedCodes = new Set<string>();
           const usedNumbers = new Set([...games.values()]
             .filter((g) => g.table)
             .map((g) => g.table!.number));
           for (let i = 0; i < msg.count; i++) {
-            let code: string;
-            do {
-              code = String(randomInt(100000, 1000000));
-            } while (games.has(code) || created.some((r) => r.code === code));
+            const code = freshTableCode(reservedCodes);
+            reservedCodes.add(code);
             const room = createGame(code, randomUUID(), {
               ...newGameRules(msg.rules),
               ...(settings.trusteeMode === "disabled"
@@ -1011,6 +1218,7 @@ export function makeServer(
             room.table = {
               creatorId: session.id,
               groupId,
+              poolTarget: msg.count,
               number: reserveTableNumber(usedNumbers),
               createdAt: now,
               settings,
@@ -1056,7 +1264,7 @@ export function makeServer(
           closing.table!.closed = true;
           closing.table!.endReason = "管理员收桌";
           closing.revision++;
-          persist(closing);
+          closeTableAndReducePool(closing);
           sendLeft(source, "开桌人已收起这张桌子");
           broadcastTables();
           if (requestId) send(ws, { type: "ack", requestId });
@@ -1118,6 +1326,7 @@ export function makeServer(
           g.revision++;
           g = startIfReady(g);
           publish(g);
+          if (msg.type === "join" && g.table) repairTablePool(g.table.groupId);
           if (requestId) send(ws, { type: "ack", requestId });
           return;
         }
@@ -1209,8 +1418,10 @@ export function makeServer(
             throw Error("未知操作");
         }
         publish(g);
-        if (msg.type === "leave")
+        if (msg.type === "leave") {
+          if (g.table) repairTablePool(g.table.groupId);
           send(ws, { type: "left", ...(g.table ? { lobby: true } : {}) });
+        }
         if (requestId) send(ws, { type: "ack", requestId });
       } catch (error) {
         send(ws, {
@@ -1246,6 +1457,7 @@ export function makeServer(
     const p = g.players[seat]!;
     return p.bot ? botAction(g, seat) : trusteeAction(g, seat);
   }
+  let nextPoolAudit = Date.now() + 1000;
   const tick = setInterval(() => {
     for (const source of games.values()) {
       let g = structuredClone(source);
@@ -1291,6 +1503,7 @@ export function makeServer(
           if (kicked.length) {
             g.revision++;
             publish(g);
+            repairTablePool(g.table.groupId, undefined, g.id);
             g = structuredClone(g);
             for (const id of kicked) {
               const ws = clients.get(id);
@@ -1310,19 +1523,25 @@ export function makeServer(
           g.table.settings.autoRenew &&
           accounts.canOpenTables(g.table.creatorId)
         ) {
-          const renewed = createGame(freshTableCode(), randomUUID(), g.rules);
-          renewed.settlementBase = 100;
-          renewed.scoreDivisor = 1 / (g.table.settings.scoreMultiplier ?? 0.5);
-          renewed.ownerId = g.table.creatorId;
-          renewed.table = {
-            ...g.table,
-            createdAt: now,
-            settledRound: undefined,
-            readyDeadline: undefined,
-            endReason: undefined,
-            finishedAt: undefined,
-          };
-          fillExperienceBots(renewed);
+          const pooled = tablePoolTarget(g) > 0;
+          const renewed = pooled
+            ? undefined
+            : createGame(freshTableCode(), randomUUID(), g.rules);
+          if (renewed) {
+            renewed.settlementBase = 100;
+            renewed.scoreDivisor =
+              1 / (g.table.settings.scoreMultiplier ?? 0.5);
+            renewed.ownerId = g.table.creatorId;
+            renewed.table = {
+              ...g.table,
+              createdAt: now,
+              settledRound: undefined,
+              readyDeadline: undefined,
+              endReason: undefined,
+              finishedAt: undefined,
+            };
+            fillExperienceBots(renewed);
+          }
           try {
             db.exec("BEGIN");
             records.capture(g);
@@ -1330,16 +1549,21 @@ export function makeServer(
               "INSERT OR IGNORE INTO table_archives VALUES (?,?,?)",
             ).run(g.id, JSON.stringify(g), now);
             db.prepare("DELETE FROM rooms WHERE id=?").run(g.id);
-            save.run(renewed.id, JSON.stringify(renewed), now);
+            if (renewed) save.run(renewed.id, JSON.stringify(renewed), now);
             db.exec("COMMIT");
           } catch (error) {
             db.exec("ROLLBACK");
             throw new StorageError(error);
           }
           games.delete(g.code);
-          games.set(renewed.code, renewed);
+          if (renewed) games.set(renewed.code, renewed);
           lastAuto.delete(g.id);
-          sendLeft(g, `本桌结束，已按原设置新开空桌 ${renewed.code}`);
+          if (pooled) {
+            repairTablePool(g.table.groupId, g);
+            sendLeft(g, "本桌结束，桌池已保留可加入的牌桌");
+          } else {
+            sendLeft(g, `本桌结束，已按原设置新开空桌 ${renewed!.code}`);
+          }
           broadcastTables();
           continue;
         }
@@ -1416,6 +1640,11 @@ export function makeServer(
       } catch (error) {
         console.error("Room tick failed", g.id, error);
       }
+    }
+    if (Date.now() >= nextPoolAudit) {
+      nextPoolAudit = Date.now() + 1000;
+      try { reconcileAllTablePools(); }
+      catch (error) { console.error("Table pool audit failed", error); }
     }
   }, options.tickMs ?? 250);
   return {

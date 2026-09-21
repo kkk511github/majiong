@@ -432,6 +432,13 @@ describe("管理员每桌最终战绩", () => {
       admin.token,
     );
     expect(managed.body.match.record.teamNames[0]).toBe("一生所爱战队");
+    const managedList = (
+      await request("/api/admin/records", undefined, admin.token)
+    ).body;
+    expect(
+      managedList.records.find((item: any) => item.game === "match-0").record
+        .teamNames[0],
+    ).toBe("一生所爱战队");
     const privateView = await request(
       "/api/matches/match-0",
       undefined,
@@ -1154,6 +1161,15 @@ describe("四位密码与个人头像", () => {
     expect(live.state.players[live.state.me].avatar).toBe(path);
     const photo = await fetch(base + path);
     expect(photo.headers.get("content-type")).toBe("image/jpeg");
+    expect(photo.headers.get("vary")).toContain("Origin");
+    const tablePhoto = await fetch(base + path + "?table-avatar=1", {
+      headers: { Origin: "http://127.0.0.1:5178" },
+    });
+    expect(tablePhoto.status).toBe(200);
+    expect(tablePhoto.headers.get("access-control-allow-origin")).toBe(
+      "http://127.0.0.1:5178",
+    );
+    expect(tablePhoto.headers.get("vary")).toContain("Origin");
     const bytes = Buffer.from(await photo.arrayBuffer()),
       meta = await sharp(bytes).metadata();
     expect([meta.width, meta.height]).toEqual([192, 192]);

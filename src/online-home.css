@@ -858,7 +858,7 @@
   border-radius: 0;
   box-shadow: none;
   backdrop-filter: blur(14px);
-  grid-template-rows: auto auto minmax(0, 1fr) 22px;
+  grid-template-rows: auto minmax(0, 1fr) 22px;
   height: min(100%, 420px);
 }
 .home-table-filters {
@@ -951,7 +951,7 @@
   .home-live-panel {
     padding: 8px 10px;
     border-radius: 12px;
-    grid-template-rows: auto auto minmax(0, 1fr) 16px;
+    grid-template-rows: auto minmax(0, 1fr) 16px;
   }
   .home-live-heading {
     margin-bottom: 5px;

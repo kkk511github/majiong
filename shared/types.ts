@@ -48,6 +48,8 @@ export interface TableConfig {
   experience?: { sourceCode: string };
   creatorId: string;
   groupId: string;
+  /** Minimum number of waiting tables with at least one open seat in this group. */
+  poolTarget?: number;
   number: number;
   createdAt: number;
   settings: TableSettings;
@@ -65,6 +67,7 @@ export interface TableSummary {
   round: number;
   rules: Rules;
   settings: TableSettings;
+  poolTarget?: number;
   managed: boolean;
   seats: ({
     name: string;

@@ -122,8 +122,7 @@ export function TableSetup({
     count: number,
   ) => void;
 }) {
-  const hasSaved = storage.get("tableDraft-v3", null) !== null;
-  const saved = storage.get<{
+  type TableDraft = {
     settings: TableSettings;
     rounds: number;
     seconds: number;
@@ -134,11 +133,30 @@ export function TableSetup({
     ruleId?: Rules["id"];
     successorDouble?: boolean;
     fourWinds?: boolean;
-  }>("tableDraft-v3", {
-    settings: DEFAULT_TABLE_SETTINGS,
-    rounds: 8,
-    seconds: 10,
-    count: 1,
+    poolCountDefaultVersion?: number;
+  };
+  const [{ saved, hasSaved }] = useState(() => {
+    const raw = storage.get<TableDraft | null>("tableDraft-v3", null);
+    if (!raw)
+      return {
+        hasSaved: false,
+        saved: {
+          settings: DEFAULT_TABLE_SETTINGS,
+          rounds: 8,
+          seconds: 10,
+          count: 2,
+          poolCountDefaultVersion: 1,
+        } satisfies TableDraft,
+      };
+    if (raw.poolCountDefaultVersion === 1)
+      return { hasSaved: true, saved: raw };
+    const migrated = {
+      ...raw,
+      count: raw.count === 1 ? 2 : raw.count,
+      poolCountDefaultVersion: 1,
+    };
+    storage.set("tableDraft-v3", migrated);
+    return { hasSaved: true, saved: migrated };
   });
   const [step, setStep] = useState(0),
     [settings, setSettings] = useState<TableSettings>({
@@ -221,6 +239,7 @@ export function TableSetup({
       seaBottom,
       protectWinner,
       count,
+      poolCountDefaultVersion: 1,
     });
     submit(
       finalSettings,
@@ -366,7 +385,7 @@ export function TableSetup({
         )}
         {step === 1 && (
           <>
-            <Setting label="创建桌数" help="每人最多同时管理 5 桌">
+            <Setting label="创建桌数" help="桌池会始终保留所选数量的可加入桌；满一桌自动补一桌，目标合计最多 5 桌">
               <Choices
                 label="创建桌数"
                 value={count}
@@ -416,7 +435,7 @@ export function TableSetup({
                 change={(readyMode) => update({ readyMode })}
               />
             </Setting>
-            <Setting label="自动续桌" help="本桌结束后换新桌号，按原设置开空桌">
+            <Setting label="自动续桌" help="满一桌立即补一桌，始终保留所选数量的可加入桌">
               <Toggle
                 label="自动续桌"
                 checked={settings.autoRenew}
@@ -554,7 +573,7 @@ export function TableSetup({
               <div>
                 <h3>{settings.name}</h3>
                 <p>
-                  {count} 张空桌 · 每桌 4 人 · {rounds} 把
+                  保留 {count} 张可加入桌 · 每桌 4 人 · {rounds} 把
                 </p>
               </div>
             </div>
@@ -595,9 +614,9 @@ export function TableSetup({
                 </dd>
               </div>
               <div>
-                <dt>桌子结束后</dt>
+                <dt>桌池补桌</dt>
                 <dd>
-                  {settings.autoRenew ? "换新桌号，按原设置开空桌" : "不自动续桌"}
+                  {settings.autoRenew ? `坐满即补，始终保留 ${count} 张可加入桌` : "不自动补桌"}
                 </dd>
               </div>
             </dl>
@@ -665,7 +684,12 @@ export function TableLobby({
       (filter !== "waiting" || t.phase === "waiting") &&
       (filter !== "mine" || t.managed) &&
       (!query || t.code.includes(query) || t.name.includes(query)),
-  );
+  ).sort((a, b) => {
+    const occupied = (table: TableSummary) => table.seats.filter(Boolean).length;
+    const rank = (table: TableSummary) => table.phase === "waiting" && occupied(table) === 0 ? 0
+      : table.phase === "waiting" && occupied(table) < 4 ? 1 : 2;
+    return rank(a) - rank(b) || occupied(b) - occupied(a) || a.number - b.number;
+  });
   const busy =
     !state.connected ||
     state.connecting ||
@@ -972,10 +996,11 @@ export function TableSettingsSummary({
           </dd>
         </div>
         <div>
-          <dt>记分与续桌</dt>
+          <dt>记分与补桌</dt>
           <dd>
             输赢 × {s.scoreMultiplier ?? 0.5} · 展示 {s.resultSeconds} 秒 ·{" "}
-            {s.autoRenew ? "结束后换新桌号开空桌" : "不续桌"}
+            {s.autoRenew ? table.poolTarget ? `坐满即补，保留 ${table.poolTarget} 张可加入桌`
+              : "结束后换新桌号开空桌" : "不自动补桌"}
           </dd>
         </div>
         <div>

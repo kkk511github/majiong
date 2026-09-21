@@ -1261,7 +1261,9 @@ export function App() {
                     第 {v.round} / {v.rules.rounds} 局
                     {v.phase === "finished"
                       ? v.table?.settings.autoRenew
-                        ? ` · ${resultSecondsLeft} 秒后换新桌号开空桌`
+                        ? v.table.poolTarget
+                          ? ` · ${resultSecondsLeft} 秒后返回大厅，桌池已有可加入桌`
+                          : ` · ${resultSecondsLeft} 秒后换新桌号开空桌`
                         : " · 本桌结束"
                       : resultSecondsLeft > 0
                         ? ` · 结算展示 ${resultSecondsLeft} 秒`

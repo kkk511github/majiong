@@ -8,6 +8,8 @@ type VisualTile=Pick<SceneTile,'x'|'y'|'w'|'h'>;
 type MotionSnapshot=Pick<TableSceneState,'key'|'round'|'me'|'revision'|'connected'|'phase'|'presentation'>&{renderedAt:number};
 type TileFlight={tile:SceneTile;identity?:number;progress:{t:number};animation:Tween<{t:number}>;endsAt:number};
 type ReleasedTile={tile:number;id:string;visual:VisualTile;key:string;round:number;me:number;revision:number;sawDisabled:boolean;timer:ReturnType<typeof setTimeout>;rejectionTimer?:ReturnType<typeof setTimeout>};
+type AvatarFailure={attempts:number;retryAt:number};
+const AVATAR_ATTEMPT_LIMIT=3,AVATAR_RETRY_BASE_MS=500;
 const load=<T>(path:string,kind:any)=>new Promise<T>((resolve,reject)=>resources.load(path,kind,(e,r)=>e?reject(e):resolve(r as unknown as T)));
 @ccclass('TableScene')
 export class TableScene extends Component {
@@ -26,7 +28,7 @@ export class TableScene extends Component {
  private motionScale=1;
  private releasedTile?:ReleasedTile; private motionEffects=new Set<Node>(); private seenEffects=new Set<string>();
  private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3;released?:boolean;moved:boolean};
- private avatarLoads=new Set<string>();
+ private avatarLoads=new Set<string>(); private avatarFailures=new Map<string,AvatarFailure>();
  private ready=false; private channel='';
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
  private lastHandTap?:{tile:number;key:string;round:number;turn:number;phase:string;canDiscard:boolean;at:number};
@@ -97,10 +99,28 @@ export class TableScene extends Component {
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
  private avatar(url:string|undefined,seat:number,x:number,y:number,w:number,h:number,parent:Node){
   const key=url||'avatar-'+seat,n=this.image(this.frames.has(key)?key:'avatar-'+seat,x,y,w,h,parent);n.name=key;
-  if(url&&!this.frames.has(url)&&!this.avatarLoads.has(url)){
+  const failure=url?this.avatarFailures.get(url):undefined;
+  const retryReady=!failure||(failure.attempts<AVATAR_ATTEMPT_LIMIT&&Date.now()>=failure.retryAt);
+  if(url&&!this.frames.has(url)&&!this.avatarLoads.has(url)&&retryReady){
    this.avatarLoads.add(url);
-   assetManager.loadRemote<ImageAsset>(url,{ext:'.jpg'},(error,img)=>{
-    if(error||!img||!this.isValid)return;
+   // The profile/header first display this digest through a plain <img>. Use a
+   // distinct cache key for the CORS-enabled WebGL texture; otherwise WebKit or
+   // Chromium can reuse the earlier response without its CORS headers.
+   const remote=url+(url.includes('?')?'&':'?')+'table-avatar=1';
+   assetManager.loadRemote<ImageAsset>(remote,{ext:'.jpg'},(error,img)=>{
+    this.avatarLoads.delete(url);
+    if(!this.isValid)return;
+    if(error||!img){
+     const attempts=(this.avatarFailures.get(url)?.attempts||0)+1;
+     const retryAt=Date.now()+attempts*AVATAR_RETRY_BASE_MS;
+     this.avatarFailures.set(url,{attempts,retryAt});
+     if(attempts<AVATAR_ATTEMPT_LIMIT)setTimeout(()=>{
+      if(!this.isValid||!this.state?.players.some(player=>player.avatar===url))return;
+      this.hudKey='';this.draw();
+     },Math.max(0,retryAt-Date.now()));
+     return;
+    }
+    this.avatarFailures.delete(url);
     const texture=new Texture2D();texture.image=img;const frame=new SpriteFrame();frame.texture=texture;this.frames.set(url,frame);
     for(const node of this.hud.children)if(node.name===url&&node.isValid){const sprite=node.getComponent(Sprite);if(sprite)sprite.spriteFrame=frame;}
    });

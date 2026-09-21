@@ -198,6 +198,22 @@ for (const [width, height] of [
       name: "查看房间 582644 最终战绩",
     });
     await expect(button).toContainText("100004");
+    await expect(button.locator(".record-team")).toHaveCount(4);
+    await expect(button.locator(".match-player-name").first()).toHaveCSS(
+      "flex-wrap",
+      "wrap",
+    );
+    const identity = await button.locator(".match-player-name").first().evaluate((node) => {
+      const name = node.querySelector("strong")!,
+        team = node.querySelector<HTMLElement>(".record-team")!;
+      return {
+        sameLine: Math.abs(name.getBoundingClientRect().top - team.getBoundingClientRect().top) < 2,
+        nameComplete: name.scrollWidth <= name.clientWidth,
+        teamComplete: team.scrollWidth <= team.clientWidth,
+      };
+    });
+    expect(identity.nameComplete && identity.teamComplete).toBe(true);
+    expect(identity.sameLine).toBe(width >= 1280);
     await expect(button.locator(".match-points b")).toHaveText([
       "+42",
       "-12",

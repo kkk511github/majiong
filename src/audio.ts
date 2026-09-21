@@ -16,6 +16,7 @@ export type Cue =
   | "pung"
   | "kong"
   | "hu"
+  | "records"
   | "warning"
   | "flower";
 export interface AudioPreferences {
@@ -522,6 +523,10 @@ export class GameAudio {
       this.lastDealAt = at;
       this.tone(hz(74), at, 0.28, 0.085, out, "sine", 0.018);
       this.tone(hz(81), at + 0.16, 0.34, 0.065, out, "sine", 0.018);
+    }
+    if (cue === "records") {
+      this.tone(hz(79), at, 0.36, 0.055, out, "sine", 0.018);
+      this.tone(hz(74), at + 0.2, 0.44, 0.04, out, "sine", 0.018);
     }
     const chimes: Partial<Record<Cue, number[]>> = {
       flower: [79, 84],

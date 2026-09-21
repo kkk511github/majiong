@@ -133,6 +133,7 @@ export function tableSummary(g: Game, viewer: string): TableSummary {
     round: g.round,
     rules: g.rules,
     settings: table.settings,
+    poolTarget: table.poolTarget,
     managed: table.creatorId === viewer,
     seats: g.players.map((p, i) =>
       p

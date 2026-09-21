@@ -7,7 +7,7 @@ import {
 import { DEFAULT_TABLE_SETTINGS } from "../shared/table-settings";
 import { mkdirSync } from "node:fs";
 
-const tables: TableSummary[] = [3, 2, 4, 4].map((count, index) => ({
+const tables: TableSummary[] = [0, 2, 4, 4].map((count, index) => ({
   code: String(600128 + index * 8),
   name: ["金陵好友局", "秦淮相聚", "南京麻将", "四方牌友"][index],
   number: index + 1,
@@ -70,17 +70,17 @@ for (const role of ["admin", "member", "authorized"] as const)
         });
       });
       await page.goto("/");
-      await expect(page.locator(".home-table")).toHaveCount(4);
-      await expect(page.locator(".home-table").first()).toContainText("3/4 人");
-      await expect(page.locator(".home-table-join")).toHaveCount(2);
+      await expect(page.locator(".home-table")).toHaveCount(1);
+      await expect(page.locator(".home-table").first()).toContainText("0/4 人");
+      await expect(page.locator(".home-table-join")).toHaveCount(1);
       await expect(
-        page.getByRole("article", { name: /600144/ }).getByRole("button"),
+        page.getByRole("article", { name: /600136/ }),
       ).toHaveCount(0);
-      await expect(page.getByRole("article", { name: /600152/ })).toContainText(
-        "等待准备",
-      );
       await expect(
-        page.getByRole("article", { name: /600152/ }).getByRole("button"),
+        page.getByRole("article", { name: /600144/ }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("article", { name: /600152/ }),
       ).toHaveCount(0);
       await expect(
         page.getByRole("button", { name: "开一桌，等朋友", exact: true }),
@@ -109,7 +109,7 @@ for (const role of ["admin", "member", "authorized"] as const)
         );
       expect(overflow).toEqual([]);
       const join = page.getByRole("button", {
-        name: "600128 北位入座",
+        name: "600128 东位入座",
         exact: true,
       });
       expect(
@@ -130,7 +130,7 @@ for (const role of ["admin", "member", "authorized"] as const)
       });
       await join.click();
       await expect.poll(() => joins.length).toBe(1);
-      expect(joins[0]).toMatchObject({ type: "join", code: "600128", seat: 3 });
+      expect(joins[0]).toMatchObject({ type: "join", code: "600128", seat: 0 });
       await page
         .getByRole("navigation", { name: "主导航" })
         .getByRole("button", { name: "我的", exact: true })
@@ -165,7 +165,7 @@ for (const blocked of [false, true]) {
     await expect(page.locator(".admission-notice")).toContainText(
       blocked ? "权限已暂停" : "分配战队",
     );
-    await expect(page.locator(".home-table-join")).toHaveCount(2);
+    await expect(page.locator(".home-table-join")).toHaveCount(1);
     for (const button of await page.locator(".home-table-join").all())
       await expect(button).toBeDisabled();
   });

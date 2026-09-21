@@ -121,12 +121,12 @@
 }
 .table-card {
   display: grid;
-  grid-template-columns: 130px minmax(0, 1fr) 76px;
+  grid-template-columns: 118px minmax(0, 1fr) 68px;
   align-items: center;
-  gap: 12px;
-  padding: 10px 13px;
-  margin-bottom: 9px;
-  border-radius: 13px;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 5px;
+  border-radius: 10px;
   background: linear-gradient(100deg, #eef1d9, #fffae9 60%, #f3edcf);
   border: 1px solid #d6c789;
   box-shadow:
@@ -137,7 +137,7 @@
 .table-card-info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
   min-width: 0;
 }
 .table-card-info h2 {
@@ -160,12 +160,12 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  min-height: 30px;
+  min-height: 24px;
   align-self: start;
   border: 0;
   padding: 0;
   background: none;
-  font-size: 17px;
+  font-size: 15px;
   letter-spacing: 1px;
   font-variant-numeric: tabular-nums;
   color: #546c4c;
@@ -173,7 +173,7 @@
 .table-card-seats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 5px;
   align-items: center;
   min-width: 0;
 }
@@ -183,8 +183,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 3px;
+  gap: 2px;
+  padding: 2px;
   border: 0;
   border-radius: 10px;
   background: none;
@@ -204,15 +204,15 @@
   color: #899478;
 }
 .lobby-seat .avatar {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   flex: none;
   border-radius: 10px;
 }
 .empty-seat {
   border: 1px dashed #b5b994;
   background: #e3e7ca80;
-  min-height: 78px;
+  min-height: 58px;
   cursor: pointer;
 }
 .empty-seat:hover {
@@ -220,8 +220,8 @@
   border-color: #7ba06c;
 }
 .empty-seat > span {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -235,7 +235,7 @@
   gap: 3px;
 }
 .table-card-actions > button {
-  min-height: 36px;
+  min-height: 30px;
   border-radius: 8px;
   font-size: 12px;
   display: flex;
@@ -631,9 +631,9 @@
     margin: 0;
   }
   .table-card {
-    grid-template-columns: 112px minmax(0, 1fr) 62px;
-    gap: 8px;
-    padding: 8px 10px;
+    grid-template-columns: 106px minmax(0, 1fr) 58px;
+    gap: 6px;
+    padding: 5px 8px;
   }
   .table-card-seats {
     gap: 5px;
@@ -642,10 +642,10 @@
     min-height: 44px;
   }
   .table-card-actions > button {
-    min-height: 44px;
+    min-height: 32px;
   }
   .table-room-code {
-    min-height: 44px;
+    min-height: 32px;
   }
   .polished .table-setup-dialog {
     padding: 10px 16px;
@@ -687,9 +687,9 @@
     font-size: 12px;
   }
   .table-card {
-    grid-template-columns: 90px minmax(0, 1fr) 50px;
+    grid-template-columns: 86px minmax(0, 1fr) 48px;
     gap: 6px;
-    padding: 7px;
+    padding: 5px;
   }
   .table-card-info h2 {
     font-size: 12px;
@@ -701,8 +701,8 @@
     font-size: 8px;
   }
   .lobby-seat .avatar {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
   }
   .table-card-info small {
     font-size: 8px;

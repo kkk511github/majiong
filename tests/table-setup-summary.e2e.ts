@@ -1,6 +1,8 @@
 import {test,expect} from './browser-fixtures';
+import {DEFAULT_TABLE_SETTINGS} from '../shared/table-settings';
 for(const [width,height] of [[568,320],[844,390]])test(`开桌摘要与实际配置一致并复用 ${width}`,async({page})=>{
  await page.setViewportSize({width,height});
+ await page.addInitScript(settings=>localStorage.setItem('jinling:tableDraft-v3',JSON.stringify({settings:{...settings,name:'旧草稿设置'},rounds:8,seconds:10,count:1})),DEFAULT_TABLE_SETTINGS);
  const sent:any[]=[];
  await page.routeWebSocket('**/ws',ws=>{const server=ws.connectToServer();ws.onMessage(raw=>{const m=JSON.parse(String(raw));if(m.type==='createTables')sent.push(m);server.send(raw);});});
  await page.goto('/');
@@ -8,16 +10,17 @@ for(const [width,height] of [[568,320],[844,390]])test(`开桌摘要与实际配
  await page.getByRole('button',{name:'开桌设置',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'开桌设置',exact:true});
  await dialog.getByLabel('玩法名称',{exact:true}).fill('配置回归');
- await dialog.getByRole('switch',{name:'四连风',exact:true}).click();
+ await dialog.getByRole('switch',{name:'东南西北罚分',exact:true}).click();
  await dialog.getByRole('switch',{name:'接庄比',exact:true}).click();
- await dialog.getByLabel('超时倒计时秒数',{exact:true}).fill('45');
- await expect(dialog).toContainText('再开始 45 秒超时倒计时');
- await expect(dialog).toContainText('四连风已关闭');
  await dialog.getByRole('button',{name:'下一步',exact:true}).click();
+ await expect(dialog.getByRole('button',{name:'2 桌',exact:true})).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('jinling:tableDraft-v3')!))).toMatchObject({count:2,poolCountDefaultVersion:1,settings:{name:'旧草稿设置'}});
+ await dialog.getByRole('button',{name:'1 桌',exact:true}).click();
+ await dialog.getByLabel('整桌超时额度秒数',{exact:true}).fill('45');
  await dialog.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(dialog.locator('.setup-review')).toContainText('接庄比：关闭');
  await expect(dialog.locator('.setup-review')).toContainText('四连风：关闭');
- await expect(dialog.locator('.setup-review')).toContainText('超时倒计时 45 秒');
+ await expect(dialog.locator('.setup-review')).toContainText('累计超时额度 45 秒');
  await expect(dialog.locator('.setup-review')).toContainText('桌外累计');
  await dialog.getByRole('button',{name:'创建 1 桌',exact:true}).click();
  await expect(dialog).toHaveCount(0);
@@ -25,6 +28,8 @@ for(const [width,height] of [[568,320],[844,390]])test(`开桌摘要与实际配
  expect(sent).toHaveLength(1);expect(sent[0].rules).toMatchObject({fourWinds:false,successorDouble:false});expect(sent[0].settings.overtimeSeconds).toBe(45);
  await page.getByRole('button',{name:'开桌设置',exact:true}).click();
  await expect(dialog).toContainText('已沿用上次开桌配置');
- await expect(dialog.getByRole('switch',{name:'四连风',exact:true})).toHaveAttribute('aria-checked','false');
- await expect(dialog.getByLabel('超时倒计时秒数',{exact:true})).toHaveValue('45');
+ await expect(dialog.getByRole('switch',{name:'东南西北罚分',exact:true})).toHaveAttribute('aria-checked','false');
+ await dialog.getByRole('button',{name:'下一步',exact:true}).click();
+ await expect(dialog.getByLabel('整桌超时额度秒数',{exact:true})).toHaveValue('45');
+ await expect(dialog.getByRole('button',{name:'1 桌',exact:true})).toHaveAttribute('aria-pressed','true');
 });

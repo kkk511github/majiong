@@ -30,6 +30,8 @@
 }
 .match-player-name > strong {
   display: block;
+  flex: 0 0 auto;
+  min-width: 0;
   max-width: 100%;
   font-size: 18px;
   overflow: hidden;
@@ -38,6 +40,8 @@
 }
 .record-team {
   display: inline-block;
+  flex: 0 0 auto;
+  min-width: 0;
   max-width: 100%;
   padding: 1px 5px;
   border-radius: 4px;
@@ -272,6 +276,8 @@
   border-left: 0;
 }
 .round-player-points strong {
+  flex: 0 0 auto;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;

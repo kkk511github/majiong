@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import sharp from "sharp";
 import type {
   ControlAccount,
   ControlAnnouncement,
@@ -375,6 +376,27 @@ test("member paging resets for search and never interprets playBlocked as suspen
   await expect(drawer.locator(".control-permissions")).toContainText(
     "开桌权限无",
   );
+});
+
+test("人员列表和编辑页显示已保存头像，缺失照片保留姓名占位", async ({ page }) => {
+  const imagePath = `/api/avatars/00000000-0000-4000-8000-000000000024/${"a".repeat(64)}.jpg`;
+  const image = await sharp({ create: { width: 20, height: 20, channels: 3, background: "#b45533" } }).jpeg().toBuffer();
+  let fetched = 0;
+  await page.route(`**${imagePath}`, route => {
+    fetched++;
+    return route.fulfill({ status: 200, contentType: "image/jpeg", body: image });
+  });
+  const state = await setup(page);
+  state.accounts.find(member => member.username === "testmember24")!.avatar = imagePath;
+  await page.getByRole("button", { name: "人员管理", exact: true }).click();
+  const row = page.getByRole("row").filter({ hasText: "testmember24" });
+  const photo = row.getByRole("img", { name: "测试成员24的头像" });
+  await expect(photo).toBeVisible();
+  await expect.poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(20);
+  await row.getByRole("button", { name: "编辑" }).click();
+  await expect(page.getByRole("dialog").getByRole("img", { name: "测试成员24的头像" })).toBeVisible();
+  expect(fetched).toBeGreaterThan(0);
+  await expect(page.getByRole("row").filter({ hasText: "testmember23" }).locator(".control-avatar img")).toHaveCount(0);
 });
 
 test("member saves keep inputs on permission failure and show the server's final team", async ({

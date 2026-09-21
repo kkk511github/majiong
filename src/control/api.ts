@@ -1,5 +1,6 @@
 import brandImage from "../../public/brand-icon.png";
 import lobbyImage from "../../public/lobby-scene.png";
+import { isAvatarPath } from "../../shared/account-profile";
 
 export const CONTROL_SESSION_KEY = "jinling.control.session.v1";
 
@@ -25,6 +26,11 @@ export function controlAsset(name: string) {
   if (name === "brand-icon.png") return brandImage;
   if (name === "lobby-scene.png") return lobbyImage;
   return `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${name.replace(/^\//, "")}`;
+}
+
+export function controlAvatarURL(path?: string) {
+  if (!isAvatarPath(path)) return undefined;
+  return controlApiBase().replace(/\/api\/control$/, "") + path;
 }
 
 export function readControlSession(): string | null {

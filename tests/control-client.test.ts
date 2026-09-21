@@ -5,6 +5,7 @@ import {
   ControlApi,
   ControlApiError,
   CONTROL_SESSION_KEY,
+  controlAvatarURL,
   readControlSession,
   writeControlSession,
 } from "../src/control/api";
@@ -42,6 +43,12 @@ afterEach(() => {
 });
 
 describe("control credential and request boundaries", () => {
+  it("accepts only the game's avatar URLs for the member display", () => {
+    const path = `/api/avatars/00000000-0000-4000-8000-000000000024/${"a".repeat(64)}.jpg`;
+    expect(controlAvatarURL(path)).toBe(path);
+    expect(controlAvatarURL("https://outside.example/photo.jpg")).toBeUndefined();
+    expect(controlAvatarURL("/api/avatars/../../private")).toBeUndefined();
+  });
   it("stores this tab's credential without replacing the game's stored token", () => {
     const values = new Map<string, string>();
     vi.stubGlobal("sessionStorage", {

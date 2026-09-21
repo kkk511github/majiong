@@ -3,6 +3,7 @@ export interface ControlAccount {
   memberId?: string;
   username: string;
   name: string;
+  avatar?: string;
   role: "admin" | "member";
   canManageAdmins?: boolean;
   canCreateTables?: boolean;

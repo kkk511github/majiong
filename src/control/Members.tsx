@@ -10,7 +10,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { ControlApi, errorMessage } from "./api";
+import { ControlApi, controlAvatarURL, errorMessage } from "./api";
 import {
   displayTime,
   mayChangeMemberAccess,
@@ -28,6 +28,16 @@ import { Empty, ErrorNotice, Loading, Modal, Notice, StatusBadge } from "./ui";
 
 type MemberMode = "edit" | "password" | "suspension" | "delete";
 const initialFilters: MemberFilters = { q: "", team: "", status: "", page: 1 };
+
+function MemberAvatar({ member, compact = false }: { member: ControlAccount; compact?: boolean }) {
+  const photo = controlAvatarURL(member.avatar);
+  return (
+    <span className={`control-avatar${compact ? " control-avatar-small" : ""}`}>
+      <span aria-hidden="true">{member.name.slice(0, 1) || <UserRound size={compact ? 18 : 28} />}</span>
+      {photo && <img key={photo} src={photo} alt={`${member.name}的头像`} loading="lazy" onError={event => { event.currentTarget.style.display = "none"; }} />}
+    </span>
+  );
+}
 
 export function Members({
   api,
@@ -231,7 +241,10 @@ export function Members({
                     </td>
                     <td>{member.username}</td>
                     <td>
-                      <strong>{member.name}</strong>
+                      <span className="control-member-name">
+                        <MemberAvatar member={member} compact />
+                        <strong>{member.name}</strong>
+                      </span>
                     </td>
                     <td>
                       <StatusBadge>
@@ -562,9 +575,7 @@ function MemberDrawer({
       ) : (
         <>
           <div className="control-member-identity">
-            <div className="control-avatar">
-              {member.name.slice(0, 1) || <UserRound size={28} />}
-            </div>
+            <MemberAvatar member={member} />
             <div>
               <h3>{member.name}</h3>
               <p>ID {member.memberId || member.id}</p>

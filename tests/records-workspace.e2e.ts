@@ -3,6 +3,7 @@ import { recordDate, recordDayRange } from "../src/record-dates";
 import { mkdirSync } from "node:fs";
 import { replayedRound } from "./fixtures/replayed-round";
 import type { StoredRound } from "../shared/types";
+import sharp from "sharp";
 
 const old = "2026-08-25";
 const roundChanges = [
@@ -31,6 +32,7 @@ function item(
       scoreDivisor: 1,
       tableName: "好友桌",
       names: ["秦淮月", "月白", "江宁", "金陵牌友"],
+      avatars: ["/api/avatars/00000000-0000-4000-8000-000000000000/" + "a".repeat(64) + ".jpg"],
       memberIds: ["100001", "100002", "100003", "100004"],
       teamNames: ["一生所爱战队", "冰茉莉战队", "日结丁战队", "日结冰战队"],
       scores: [132, 78, 60, 90],
@@ -44,6 +46,12 @@ function item(
   };
 }
 async function fixture(page: Page, member = false) {
+  const photo = await sharp({ create: { width: 12, height: 12, channels: 3, background: "#c15747" } }).png().toBuffer();
+  await page.route("**/api/avatars/**", (route) => route.fulfill({
+    status: 200,
+    contentType: "image/png",
+    body: photo,
+  }));
   const today = recordDate(Date.now());
   const queries: string[] = [];
   const reads = new Map<string, number>();
@@ -147,6 +155,17 @@ async function fixture(page: Page, member = false) {
   );
   return queries;
 }
+test("窄屏战绩列表展示实际头像，详情复用当前头像", async ({ page }) => {
+  await page.setViewportSize({ width: 568, height: 320 });
+  await fixture(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "战绩", exact: true }).click();
+  const photo = page.locator(".match-card").first().locator(".record-avatar img");
+  await expect(photo).toBeVisible();
+  await expect.poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  await page.locator(".match-card").first().click();
+  await expect(page.locator(".match-record-dialog .record-avatar img").first()).toHaveAttribute("src", /api\/avatars/);
+});
 for (const [width, height] of [
   [568, 320],
   [844, 390],

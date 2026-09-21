@@ -195,6 +195,8 @@ export interface RoundRecord {
   playerIds?: string[];
   /** Stable public member numbers; account UUIDs remain internal identifiers. */
   memberIds?: string[];
+  /** Current account avatars projected by the authorized records endpoint. */
+  avatars?: (string | undefined)[];
   /** Added by authorized record endpoints only; never sent to member viewers. */
   teamNames?: string[];
   totalRounds?: number;
@@ -402,6 +404,8 @@ export interface RoundReplay {
   startedAt: number;
   endedAt?: number;
   names: string[];
+  /** Current account photos; omitted for private-name replays and legacy data. */
+  avatars?: (string | undefined)[];
   frames: ReplayFrame[];
   summaryOnly?: boolean;
 }

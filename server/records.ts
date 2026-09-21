@@ -13,7 +13,7 @@ import { roundNet } from "../shared/settlement";
 import { gzipSync, gunzipSync } from "node:zlib";
 import type { RoundReplay } from "../shared/types";
 
-export function createRecords(db: DatabaseSync) {
+export function createRecords(db: DatabaseSync, avatarFor: (id: string) => string | undefined = () => undefined) {
   db.exec(`CREATE TABLE IF NOT EXISTS round_replays (
     id TEXT PRIMARY KEY, payload BLOB NOT NULL);`);
   db.exec(`CREATE TABLE IF NOT EXISTS round_records (
@@ -348,12 +348,13 @@ export function createRecords(db: DatabaseSync) {
   ): StoredRound {
     const original = JSON.parse(String(row.record)) as RoundRecord;
     // Never trust cached team fields: permission is enforced at every read.
-    const { teamNames: _teams, memberIds: _numbers, ...clean } = original;
+    const { teamNames: _teams, memberIds: _numbers, avatars: _avatars, ...clean } = original;
     const record: RoundRecord = clean;
     const ids =
       record.playerIds ?? (JSON.parse(String(row.player_ids)) as string[]);
     const me = ids.indexOf(viewer);
     record.playerIds = ids;
+    record.avatars = ids.map((id) => id ? avatarFor(id) : undefined);
     record.memberIds = ids.map((id) => {
       const number = db
         .prepare("SELECT member_id FROM account_numbers WHERE account_id=?")
@@ -375,6 +376,7 @@ export function createRecords(db: DatabaseSync) {
       );
       record.playerIds = ids.map((id, i) => (i === me ? id : ""));
       record.memberIds = record.memberIds.map((id, i) => (i === me ? id : ""));
+      record.avatars = record.avatars.map((avatar, i) => i === me ? avatar : undefined);
     }
     return {
       game: String(row.game_id),
@@ -572,7 +574,7 @@ export function createRecords(db: DatabaseSync) {
     // Lookup deliberately has no participant/admin restriction. Only completed
     // round_records qualify; live engine snapshots never leave this endpoint.
     const row = db
-      .prepare("SELECT record,code,private_names FROM round_records WHERE id=?")
+      .prepare("SELECT record,code,private_names,player_ids FROM round_records WHERE id=?")
       .get(id);
     if (!row)
       throw new AuthError("未找到已结束的牌局，请检查 ID 或等待本局结束", 404);
@@ -617,8 +619,16 @@ export function createRecords(db: DatabaseSync) {
         };
     if (!data.endedAt || data.id !== id)
       throw new AuthError("该牌局回放暂不可用", 404);
-    if (row.private_names)
+    // Resolve current photos from the persisted seat owners, never from cached
+    // replay URLs. Public replay links keep private-name tables anonymous.
+    delete data.avatars;
+    if (row.private_names) {
       data.names = data.names.map((_, seat) => `牌友${seat + 1}`);
+    } else {
+      const ids = record.playerIds ?? JSON.parse(String(row.player_ids)) as string[];
+      const avatars = data.names.map((_, seat) => ids[seat] ? avatarFor(ids[seat]) : undefined);
+      if (avatars.some(Boolean)) data.avatars = avatars;
+    }
     return data;
   }
   return { capture, list, details, markRead, points, exportPoints, replay };

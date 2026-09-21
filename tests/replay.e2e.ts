@@ -1,5 +1,42 @@
 import { test, expect } from "./browser-fixtures";
 import { replayedRound } from "./fixtures/replayed-round";
+import sharp from "sharp";
+
+test("回放加载上传头像，播放及切换视角后仍显示四家照片", async ({ page }) => {
+  await page.setViewportSize({ width: 874, height: 402 });
+  const replay = replayedRound().replay!;
+  replay.avatars = [0, 1, 2, 3].map(seat => `/api/avatars/00000000-0000-4000-8000-${String(seat + 1).padStart(12, "0")}/${"a".repeat(64)}.jpg`);
+  const photo = await sharp({ create: { width: 40, height: 40, channels: 3, background: "#b94c52" } }).jpeg().toBuffer();
+  await page.route("**/api/avatars/**", route => route.fulfill({ contentType: "image/jpeg", body: photo }));
+  await page.route("**/api/replays/**", route => route.fulfill({ json: replay }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "战绩", exact: true }).click();
+  await page.getByRole("button", { name: "牌局回放", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "牌局回放", exact: true });
+  await dialog.getByLabel("牌局 ID", { exact: true }).fill(replay.id);
+  await dialog.getByRole("button", { name: "查看回放", exact: true }).click();
+  const sceneFrame = () => page.frames().find(frame => frame.url().includes("/cocos-table/index.html"));
+  const renderedPhotos = async () => sceneFrame()?.evaluate(async () => {
+    const cc = await (window as any).System.import("cc");
+    const scene = cc.director.getScene()?.getChildByName("Canvas")?.getComponent("TableScene");
+    if (!scene?.state) return [];
+    return scene.state.players.map((player: { avatar?: string }) => {
+      const frame = scene.frames.get(player.avatar);
+      return !!frame && scene.hud.children.some((node: any) => node.name === player.avatar && node.getComponent(cc.Sprite)?.spriteFrame === frame);
+    });
+  });
+  await expect.poll(renderedPhotos, { timeout: 20000 }).toEqual([true, true, true, true]);
+  await dialog.getByRole("button", { name: "下一步", exact: true }).click();
+  await expect.poll(renderedPhotos).toEqual([true, true, true, true]);
+  await sceneFrame()!.evaluate(async () => {
+    const cc = await (window as any).System.import("cc");
+    const scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
+    const avatar = scene.state.players[1].avatar;
+    scene.hud.children.find((node: any) => node.name === avatar).emit(cc.Node.EventType.TOUCH_END);
+  });
+  await expect.poll(renderedPhotos).toEqual([true, true, true, true]);
+  await page.screenshot({ path: `test-results/screenshots/replay-avatars-${test.info().project.name}.png` });
+});
 
 for (const [width, height] of [
   [568, 320],

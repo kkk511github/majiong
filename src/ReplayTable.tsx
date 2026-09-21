@@ -4,6 +4,7 @@ import type { TableSceneState } from '../shared/table-scene';
 import { kind } from '../shared/tiles';
 import { ruleDisplayName } from '../shared/nanjing-rules';
 import { CocosTable } from './CocosTable';
+import { avatarURL } from './game-client';
 
 /** Completed-round snapshots use the same tile, rack and effect renderer as play.
  * No replay command is ever forwarded to the live game client. */
@@ -24,7 +25,7 @@ export function ReplayTable({data,step,perspective,setPerspective,reveal,animate
    rulesName:ruleDisplayName(data.rules),roundMultiplier:data.multiplier,
    countdown:animate?'▶':'Ⅱ',connected:true,disabled:true,practice:false,canDiscard:false,selected:null,drawn,inspectedKind:null,hintKinds:[],hintLabel:'',actions:[],trusteeDisabled:true,lastDiscard,
    effects:animate&&effectType?[{key:`${data.id}:${step}:${perspective}`,type:effectType,seat:frame.seat??frame.result?.winners[0]??frame.turn,concealed:frame.type==='concealedKong',upgraded:frame.type==='addedKong',selfDraw:frame.result?.from===undefined}]:[],
-   players:frame.players.map((p,seat)=>({name:data.names[seat],seat,score:p.score,bot:false,trustee:false,handCount:p.hand.length,
+   players:frame.players.map((p,seat)=>({name:data.names[seat],avatar:avatarURL(data.avatars?.[seat]),seat,score:p.score,bot:false,trustee:false,handCount:p.hand.length,
     hand:seat===perspective||reveal||!!frame.result?[...p.hand].sort((a,b)=>kind(a)-kind(b)||a-b):[],flowers:[...p.flowers],discards:[...p.discards],melds:p.melds.map(m=>({...m,tiles:m.concealed?m.tiles.slice(0,1):[...m.tiles]}))})),
   };
  },[data,step,perspective,reveal,animate]);

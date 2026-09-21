@@ -90,6 +90,18 @@ it("普通旁观会员可按ID读已结束回放；未登录和未结束不能�
     const replay = (await response.json()) as RoundReplay;
     expect(replay).toEqual(game.replay);
     expect(JSON.stringify(replay)).not.toContain('"playerIds"');
+    const avatarIds = [account.account.id, "player-1", "player-2", "player-3"];
+    const digest = "a".repeat(64), nextDigest = "b".repeat(64);
+    db.prepare("UPDATE round_records SET player_ids=?, record=json_set(record,'$.playerIds',json(?)) WHERE id=?")
+      .run(JSON.stringify(avatarIds), JSON.stringify(avatarIds), replay.id);
+    db.prepare("INSERT INTO account_avatars VALUES (?,?,?)")
+      .run(account.account.id, digest, Buffer.from("photo"));
+    const readReplay = async () => (await (await fetch(base + path, { headers })).json());
+    expect((await readReplay()).avatars).toEqual([
+      `/api/avatars/${account.account.id}/${digest}.jpg`, null, null, null,
+    ]);
+    db.prepare("UPDATE account_avatars SET digest=? WHERE account_id=?").run(nextDigest, account.account.id);
+    expect((await readReplay()).avatars[0]).toBe(`/api/avatars/${account.account.id}/${nextDigest}.jpg`);
     expect(
       (await fetch(base + "/api/replays/unknown-99", { headers })).status,
     ).toBe(404);
@@ -109,6 +121,7 @@ it("普通旁观会员可按ID读已结束回放；未登录和未结束不能�
     expect(
       (await (await fetch(base + path, { headers })).json()).names,
     ).toEqual(["牌友1", "牌友2", "牌友3", "牌友4"]);
+    expect(await readReplay()).not.toHaveProperty("avatars");
     db.close();
     db = undefined;
     await server.close();
@@ -123,6 +136,10 @@ it("普通旁观会员可按ID读已结束回放；未登录和未结束不能�
     expect(legacy.summaryOnly).toBe(true);
     expect(legacy.frames).toHaveLength(1);
     expect(legacy.frames[0].result).toEqual(game.result);
+    db.prepare("UPDATE round_records SET private_names=0 WHERE id=?").run(replay.id);
+    expect((await readReplay()).avatars[0]).toBe(`/api/avatars/${account.account.id}/${nextDigest}.jpg`);
+    db.prepare("DELETE FROM account_avatars WHERE account_id=?").run(account.account.id);
+    expect(await readReplay()).not.toHaveProperty("avatars");
   } finally {
     db?.close();
     await server.close();

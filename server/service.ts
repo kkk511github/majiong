@@ -110,7 +110,7 @@ export function makeServer(
       }
     },
   );
-  const records = createRecords(db);
+  const records = createRecords(db, accounts.getAvatar);
   const club = createClub(db, accounts, records);
   const control = createControl(db, accounts, () => {
     for (const ws of clients.values()) send(ws, { type: "announcementsChanged" });

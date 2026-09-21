@@ -185,9 +185,9 @@
   .records-workspace .match-card-header time { margin-left: auto; font-size: 10px; }
   .record-round-count { font-size: 10px; }
   .records-workspace .match-players { padding: 5px 10px 9px; gap: 4px; }
-  .records-workspace .match-player { grid-template-columns: minmax(0, 1fr); gap: 3px; padding: 5px 7px; }
+  .records-workspace .match-player { grid-template-columns: 23px minmax(0, 1fr); column-gap: 4px; row-gap: 3px; padding: 5px 4px; }
   .records-workspace .match-player:first-child { padding-left: 7px; }
-  .records-workspace .record-avatar { display: none; }
+  .records-workspace .record-avatar { display: block; width: 23px; height: 23px; grid-row: 1 / 3; }
   .records-workspace .match-points b { font-size: 23px; }
   .records-workspace .record-member-id { display: none; }
   .records-workspace .match-player-name > strong { font-size: 12px; }

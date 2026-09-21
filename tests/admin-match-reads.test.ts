@@ -41,6 +41,24 @@ it("管理员已读按账号持久化；列表不触发、重复读取幂等、�
     game.history.at(-1)!.playerIds = [m.account.id, "p1", "p2", "p3"];
     const records = createRecords(db);
     records.capture(game);
+    // Historical records resolve today's account photo at read time, without
+    // persisting a stale URL or leaking photos from private-name tables.
+    const digest = "a".repeat(64);
+    db.prepare("INSERT INTO account_avatars VALUES (?,?,?)").run(m.account.id, digest, Buffer.from("avatar"));
+    db.prepare("INSERT INTO account_avatars VALUES (?,?,?)").run(a.account.id, digest, Buffer.from("admin-avatar"));
+    const avatar = `/api/avatars/${m.account.id}/${digest}.jpg`;
+    db.prepare("UPDATE match_records SET player_ids=?, private_names=1 WHERE game_id=?")
+      .run(JSON.stringify([m.account.id, a.account.id, "p2", "p3"]), game.id);
+    db.prepare("UPDATE match_records SET record=json_set(record, '$.playerIds', json(?)) WHERE game_id=?")
+      .run(JSON.stringify([m.account.id, a.account.id, "p2", "p3"]), game.id);
+    const memberRecord = (await listRecord(base, m.token)).records[0].record;
+    expect(memberRecord.avatars).toEqual([avatar, null, null, null]);
+    const adminRecord = (await listRecord(base, a.token, true)).records[0].record;
+    expect(adminRecord.avatars[0]).toBe(avatar);
+    expect(adminRecord.avatars[1]).toBe(`/api/avatars/${a.account.id}/${digest}.jpg`);
+    db.prepare("DELETE FROM account_avatars WHERE account_id=?").run(m.account.id);
+    expect((await listRecord(base, m.token)).records[0].record.avatars[0]).toBeNull();
+    db.prepare("UPDATE match_records SET private_names=0 WHERE game_id=?").run(game.id);
     const path = "/api/admin/match-reads/" + game.id;
     const auth = (u: typeof a) => ({ Authorization: `Bearer ${u.token}` });
     const read = async (u: typeof a) =>
@@ -131,3 +149,10 @@ it("管理员已读按账号持久化；列表不触发、重复读取幂等、�
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+async function listRecord(base: string, token: string, admin = false) {
+  const response = await fetch(base + (admin ? "/api/admin/records" : "/api/records"), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.json();
+}

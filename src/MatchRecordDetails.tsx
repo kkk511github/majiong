@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import type { MatchDetails, RoundRecord, StoredRound } from "../shared/types";
 import { signedScore, settlementRows, roundNet } from "../shared/settlement";
-import { client } from "./game-client";
+import { avatarURL, client } from "./game-client";
 import { RoundReveal } from "./RoundReveal";
 import { ScoreDetails, Settlement } from "./Settlement";
 import { recordClock, recordDate } from "./record-dates";
 import { resultDisplayLabel } from "./win-label";
+import "./avatar.css";
 
 export function RecordPlayers({
   record,
@@ -31,7 +32,12 @@ export function RecordPlayers({
         const score = rows.find((r) => r.seat === seat)!;
         return (
           <div className="match-player" key={seat}>
-            <span className={`avatar avatar-${seat} record-avatar`} aria-hidden="true"><span className="portrait-art" /></span>
+            <span className={`avatar avatar-${seat} record-avatar`} aria-hidden="true">
+              <span className="portrait-art" />
+              {avatarURL(record.avatars?.[seat]) && (
+                <img key={record.avatars![seat]} className="user-avatar" src={avatarURL(record.avatars![seat])} alt="" onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />
+              )}
+            </span>
             <div className="match-player-name">
               <strong title={name}>{name}</strong>
               {showTeams && record.teamNames?.[seat] && (

@@ -1,0 +1,23 @@
+{
+  "version": "0.7.30",
+  "build": 67,
+  "providedFilename": "金陵麻将 (3).ipa",
+  "bytes": 122035117,
+  "sha256": "7309a006d08a30e3f6fa179f1cdea8be03a33c1cfa2b293c33cf0e0094905d3b",
+  "currentlyPublished": true,
+  "fixedURL": "https://212.189.31.46/app/jinling-mahjong",
+  "fullPublicDownloadMatchesProvidedFile": true,
+  "manifestBuild": "67",
+  "androidUnchanged": true,
+  "matchedNativeResources": 257,
+  "matchedCocosFiles": 96,
+  "matchedPhraseMp3s": 24,
+  "macStrictCodesignPassed": false,
+  "sameStrictCodesignFailureInPreviousPublished66": true,
+  "profileBundleIdentifierMatches": false,
+  "signedIPAAlteredByAssistant": false,
+  "realIPhoneInstallationVerified": false,
+  "sourceReport": "output/ios-signed-build67-publish/publication-complete.json",
+  "alreadyPublishedObserved": true,
+  "repeatedReleaseReplacement": false
+}

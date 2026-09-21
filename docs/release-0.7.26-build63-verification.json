@@ -1,0 +1,89 @@
+{
+  "version": "0.7.26",
+  "build": 63,
+  "iosSigning": "Ad Hoc export for user enterprise re-signing",
+  "iosPublishAllowed": false,
+  "realDeviceInstallationTested": false,
+  "sameWebAssetsBothPlatforms": true,
+  "unitTestsPassed": 891,
+  "browserChecks": {
+    "communication": 14,
+    "compassAndTableMotion": 22
+  },
+  "packages": {
+    "android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.26-build63.apk",
+      "bytes": 121885043,
+      "sha256": "dbd2657033b813cfad1b07699d616b127638728134669c72ce8d070e0522868d",
+      "signatureVerified": true,
+      "matchedWebFiles": 257,
+      "phraseRecordings": 24
+    },
+    "ios": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.26-build63-待企业签名.ipa",
+      "bytes": 122028228,
+      "sha256": "9d3d68bb330a11fcc7c3939a01723d30628b1ea1fe8e448ece22a237480daa18",
+      "signatureVerified": true,
+      "matchedWebFiles": 257,
+      "phraseRecordings": 24
+    }
+  },
+  "sourceBaseCommit": "bc2d2452c1a9db4361f5decf7efae6dbc9ce8331",
+  "sourceCommitted": false,
+  "productionVerification": {
+    "release": "0.7.26",
+    "nativeBuild": 63,
+    "backend": {
+      "image": "jinling-mahjong:0.7.26-phrases-20260920",
+      "imageId": "sha256:a9a46dfb39d90a14646eecf868a028163a31168ea9bf111888e16e0cc493116a",
+      "health": "healthy",
+      "tables": {
+        "rooms": 7,
+        "phases": {
+          "waiting": 6,
+          "ended": 1
+        },
+        "active": 0,
+        "onlineHumans": 0
+      }
+    },
+    "publicHealth": {
+      "ok": true,
+      "service": "jinling-mahjong",
+      "version": "0.7.26"
+    },
+    "sourceHashesVerified": 11,
+    "rulesBaseCommit": "bc2d2452c1a9db4361f5decf7efae6dbc9ce8331",
+    "rulesAndRecordsUnchanged": true,
+    "databaseSchemaChanged": false,
+    "dataMountUnchanged": true,
+    "sessionCapabilityVerification": {
+      "method": "Authenticated WebSocket handshake in an isolated candidate-image container; deployed image ID matches exactly",
+      "productionDatabaseMounted": false,
+      "isolated": true,
+      "health": {
+        "ok": true,
+        "service": "jinling-mahjong",
+        "version": "0.7.26"
+      },
+      "sessionCapability": true,
+      "phraseCount": 12,
+      "roomsCreated": 0
+    },
+    "installPackagesUploadedToDistribution": false,
+    "productionTestGamesCreated": 0,
+    "productionTestPhrasesSent": 0,
+    "web": {
+      "activated": true,
+      "release": "0.7.26-phrases-20260920",
+      "previous": "0.7.25-rob-three-20260919",
+      "verifiedFiles": 257,
+      "publicFilesVerified": {
+        "index.html": "9ca40cdaeea5632f929a5bd1c4cc42bf8ef3b9d5f76b716ba57cbb4a73b4fecf",
+        "assets/index-Db0SrxSE.js": "229dcf841029a9342ab46680d1b3728fa030463744d0eeb51ffddab7c1d6232a",
+        "audio/phrases/female/chat_01.mp3": "d2932f5c52c4fdc5357ad2889f0c025fc844936c1713a7884a0733d5a35c7d3f",
+        "audio/phrases/male/chat_01.mp3": "26b7d8f3b2887cbc83ad85df2b723b036c1f9361cbe27aade7d59d0fcf5cf2b2"
+      }
+    }
+  }
+}

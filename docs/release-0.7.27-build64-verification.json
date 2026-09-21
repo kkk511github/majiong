@@ -1,0 +1,65 @@
+{
+  "version": "0.7.27",
+  "build": 64,
+  "sourceBaseCommit": "bc2d2452c1a9db4361f5decf7efae6dbc9ce8331",
+  "sourceCommitted": false,
+  "recordingRemoved": true,
+  "phraseRecordings": 24,
+  "keyboardBrowserChecks": 26,
+  "communicationBrowserChecks": 14,
+  "layoutUnitChecks": 7,
+  "targetedUnitChecks": 54,
+  "sameWebAssetsBothPlatforms": true,
+  "iosPublishAllowed": false,
+  "packages": {
+    "android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.27-build64.apk",
+      "bytes": 121871259,
+      "sha256": "db08aa42d504302b09607cdd4bbd9ea1bf0d298de7d653a1e272b4f9eec56148",
+      "signatureVerified": true,
+      "matchedWebFiles": 257
+    },
+    "ios": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.27-build64-待企业签名.ipa",
+      "bytes": 122014392,
+      "sha256": "f48600abe18445333e8e14e0dcd729f451d29a8b9733a54277909490f187b880",
+      "signatureVerified": true,
+      "matchedWebFiles": 257
+    }
+  },
+  "webProductionReport": "output/phrases-only-build64/web-production-check.json",
+  "keyboardVerificationReport": "output/phrases-only-build64/keyboard-verification.json",
+  "scoringAudit": {
+    "room": "498046",
+    "round": 3,
+    "rulesChanged": false,
+    "recordsChanged": false,
+    "report": "output/room-498046-audit/summary.json"
+  },
+  "androidSimulatorVerification": {
+    "passed": true,
+    "build": "0.7.27/64",
+    "avd": "Jinling_AOSP30",
+    "serial": "emulator-5564",
+    "registrationSubmitted": false,
+    "productionLoginSubmitted": false,
+    "minimumFullInputHeightPx": 121,
+    "minimumGapAboveImePx": 283,
+    "system": {
+      "android": "11",
+      "sdk": 30,
+      "webview": "83.0.4103.120",
+      "ime": "LatinIME",
+      "imeMode": "resize, not fullscreen/extract"
+    },
+    "installedPackage": {
+      "package": "com.jinling.mahjong",
+      "version": "0.7.27",
+      "build": 64,
+      "recordAudioPermission": false
+    },
+    "imeCasesPassed": 5,
+    "report": "output/android-keyboard-return-20260920/candidate64/metrics.json"
+  },
+  "physicalDeviceTested": false
+}

@@ -1,0 +1,24 @@
+{
+  "mode": "built-in image_gen",
+  "stage": "visual design only; not implemented or deployed",
+  "files": [
+    {
+      "path": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/nanjing-mahjong/docs/design/announcement-admin-v1/announcement-admin-v1.png",
+      "source": "/Users/kk/.codex/generated_images/01a0ad10-9fd7-7182-a980-41909ca4cb95/exec-67ca0cef-d95a-4352-9d7b-01c1960973d7.png",
+      "sha256": "733c44daf84cb6393ea97c639754a7cf8e27b993234910f19d429e1190381d39",
+      "bytes": 1484397
+    },
+    {
+      "path": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/nanjing-mahjong/docs/design/announcement-admin-v1/version-admin-v1.png",
+      "source": "/Users/kk/.codex/generated_images/01a0ad10-9fd7-7182-a980-41909ca4cb95/exec-aeb78ee2-a306-4182-95b6-a30295181528.png",
+      "sha256": "04e5e5467db952d62673c536914b97029928e84edaf7d6793a309969475ae667",
+      "bytes": 1393380
+    },
+    {
+      "path": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/nanjing-mahjong/docs/design/announcement-admin-v1/app-dialogs-v1.png",
+      "source": "/Users/kk/.codex/generated_images/01a0ad10-9fd7-7182-a980-41909ca4cb95/exec-74c10857-817d-46b6-b1d8-b3b4abff80b9.png",
+      "sha256": "93ab9cc1109b21216c635c4fc5e2f107125ec46fea3f3277845f255f1632be08",
+      "bytes": 1685942
+    }
+  ]
+}

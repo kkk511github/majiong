@@ -1,0 +1,126 @@
+00000000000212c8 (__TEXT,__gcc_except_tab) non-external GCC_except_table3
+0000000000024e78 (__DATA,__data) non-external _.ds.155ede4a
+0000000000024d40 (__DATA,__data) non-external _.ds.1e2b3893
+00000000000247bb (__DATA,__data) non-external _.ds.1ec1f891
+000000000002499a (__DATA,__data) non-external _.ds.2246094a
+000000000002505f (__DATA,__data) non-external _.ds.2b8ccf96
+0000000000024911 (__DATA,__data) non-external _.ds.36bc7c18
+0000000000024aaf (__DATA,__data) non-external _.ds.68f3102b
+0000000000024ee0 (__DATA,__data) non-external _.ds.7915f62c
+00000000000249c2 (__DATA,__data) non-external _.ds.7b206ae6
+0000000000024e54 (__DATA,__data) non-external _.ds.7e93742c
+00000000000248c5 (__DATA,__data) non-external _.ds.87bb8d3d
+0000000000024b90 (__DATA,__data) non-external _.ds.8ba0c10f
+0000000000024abf (__DATA,__data) non-external _.ds.8bf83926
+0000000000024f99 (__DATA,__data) non-external _.ds.a61f43fd
+0000000000024cbe (__DATA,__data) non-external _.ds.afca5612
+0000000000024fd0 (__DATA,__data) non-external _.ds.b40f0415
+0000000000024566 (__DATA,__data) non-external _.ds.b425f97c
+00000000000245a8 (__DATA,__data) non-external _.ds.bab26e79
+00000000000246cb (__DATA,__data) non-external _.ds.c3776597
+0000000000024a80 (__DATA,__data) non-external _.ds.c889281b
+0000000000024e83 (__DATA,__data) non-external _.ds.c8b33a78
+0000000000024f01 (__DATA,__data) non-external _.ds.d436625d
+000000000002489e (__DATA,__data) non-external _.ds.d5cc6a8d
+000000000002481f (__DATA,__data) non-external _.ds.f1483f56
+00000000000246af (__DATA,__data) non-external _.ds.f5e65ec3
+0000000000024bfa (__DATA,__data) non-external _.ds.f5ee43e1
+00000000000248c2 (__DATA,__data) non-external _.es.0618ea46
+0000000000024fb0 (__DATA,__data) non-external _.es.0ebc5dc1
+000000000002504f (__DATA,__data) non-external _.es.10ad6b37
+0000000000024e51 (__DATA,__data) non-external _.es.2094e92f
+0000000000024898 (__DATA,__data) non-external _.es.24abdf2b
+0000000000024aa3 (__DATA,__data) non-external _.es.2fe717da
+0000000000024ede (__DATA,__data) non-external _.es.43ba11cb
+0000000000024a60 (__DATA,__data) non-external _.es.4505b5f6
+00000000000246bc (__DATA,__data) non-external _.es.5a288b53
+0000000000024abb (__DATA,__data) non-external _.es.657b52a2
+0000000000024f8d (__DATA,__data) non-external _.es.71839290
+0000000000024bea (__DATA,__data) non-external _.es.748a777b
+000000000002481b (__DATA,__data) non-external _.es.78158253
+0000000000024cb4 (__DATA,__data) non-external _.es.81ea2006
+0000000000024e75 (__DATA,__data) non-external _.es.86f5bada
+0000000000024efe (__DATA,__data) non-external _.es.88781c77
+0000000000024564 (__DATA,__data) non-external _.es.8e41f76d
+00000000000245a6 (__DATA,__data) non-external _.es.9c7daa9f
+0000000000024e7b (__DATA,__data) non-external _.es.9e46ac6a
+00000000000247b6 (__DATA,__data) non-external _.es.a0e0d9c6
+00000000000249bd (__DATA,__data) non-external _.es.a732a0cb
+00000000000246a2 (__DATA,__data) non-external _.es.ad71f774
+0000000000024d20 (__DATA,__data) non-external _.es.b23a23c2
+0000000000024993 (__DATA,__data) non-external _.es.b5c14cd5
+000000000002490e (__DATA,__data) non-external _.es.bd3065da
+0000000000024b70 (__DATA,__data) non-external _.es.c9b9b619
+00000000000198b4 (__TEXT,__text) external _AVRSCreateSession
+0000000000019fb4 (__TEXT,__text) external _AVRSInvalidateRoute
+0000000000024340 (__DATA,__objc_data) non-external (was a private external) _OBJC_CLASS_$_AVRoutingSessionController
+                 (undefined) external _OBJC_CLASS_$_NSBundle (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_NSCharacterSet (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_NSDate (from CoreFoundation)
+                 (undefined) external _OBJC_CLASS_$_NSDictionary (from CoreFoundation)
+                 (undefined) external _OBJC_CLASS_$_NSJSONSerialization (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_NSLocale (from CoreFoundation)
+                 (undefined) external _OBJC_CLASS_$_NSMutableString (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_NSMutableURLRequest (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_NSNumber (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_NSObject (from libobjc)
+                 (undefined) external _OBJC_CLASS_$_NSString (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_NSTimeZone (from CoreFoundation)
+                 (undefined) external _OBJC_CLASS_$_NSURL (from CoreFoundation)
+                 (undefined) external _OBJC_CLASS_$_NSURLSession (from Foundation)
+                 (undefined) external _OBJC_CLASS_$_UIDevice (from UIKit)
+0000000000024368 (__DATA,__objc_data) non-external (was a private external) _OBJC_METACLASS_$_AVRoutingSessionController
+                 (undefined) external _OBJC_METACLASS_$_NSObject (from libobjc)
+                 (undefined) external __NSConcreteGlobalBlock (from libSystem)
+0000000000024260 (__DATA,__objc_const) non-external __OBJC_CLASS_RO_$_AVRoutingSessionController
+0000000000024218 (__DATA,__objc_const) non-external __OBJC_METACLASS_RO_$_AVRoutingSessionController
+                 (undefined) external __Unwind_Resume (from libSystem)
+0000000000004c90 (__TEXT,__text) non-external ___46+[AVRoutingSessionController sharedController]_block_invoke
+0000000000005ef4 (__TEXT,__text) non-external ___51-[AVRoutingSessionController preparePreferredRoute]_block_invoke
+000000000001b4c0 (__TEXT,__text) non-external ___Block_byref_object_copy_
+000000000001b6a0 (__TEXT,__text) non-external ___Block_byref_object_dispose_
+                 (undefined) external ___CFConstantStringClassReference (from CoreFoundation)
+000000000001adc8 (__TEXT,__text) non-external ___avrs_boot_block_invoke
+000000000001b6a8 (__TEXT,__text) non-external ___avrs_ingest_block_invoke
+00000000000240f0 (__DATA,__const) non-external (was a private external) ___block_descriptor_32_e5_v8?0l
+0000000000024170 (__DATA,__const) non-external (was a private external) ___block_descriptor_48_e8_32s40r_e46_v32?0"NSData"8"NSURLResponse"16"NSError"24l
+0000000000024110 (__DATA,__const) non-external ___block_literal_global
+0000000000024130 (__DATA,__const) non-external ___block_literal_global.1
+0000000000024150 (__DATA,__const) non-external ___block_literal_global.8
+000000000001bce0 (__TEXT,__text) non-external (was a private external) ___copy_helper_block_e8_32s40r
+000000000001c87c (__TEXT,__text) non-external (was a private external) ___destroy_helper_block_e8_32s40r
+                 (undefined) external ___objc_personality_v0 (from libobjc)
+                 (undefined) external ___stack_chk_fail (from libSystem)
+                 (undefined) external ___stack_chk_guard (from libSystem)
+0000000000026b78 (__DATA,__data) non-external __dyld_private
+                 (undefined) external __exit (from libSystem)
+                 (undefined) external __objc_empty_cache (from libobjc)
+000000000001a7b0 (__TEXT,__text) non-external _avrs_boot
+0000000000026b90 (__DATA,__bss) non-external _avrs_boot.once
+000000000001d054 (__TEXT,__text) non-external _avrs_plist
+                 (undefined) external _class_replaceMethod (from libobjc)
+                 (undefined) external _dispatch_once (from libSystem)
+                 (undefined) external _dlsym (from libSystem)
+                 (undefined) external _getpid (from libSystem)
+                 (undefined) external _kill (from libSystem)
+                 (undefined) external _memset (from libSystem)
+                 (undefined) external _objc_alloc (from libobjc)
+                 (undefined) external _objc_allocateClassPair (from libobjc)
+                 (undefined) external _objc_autoreleasePoolPop (from libobjc)
+                 (undefined) external _objc_autoreleasePoolPush (from libobjc)
+                 (undefined) external _objc_autoreleaseReturnValue (from libobjc)
+                 (undefined) external _objc_enumerationMutation (from libobjc)
+                 (undefined) external _objc_getClass (from libobjc)
+                 (undefined) external _objc_msgSend (from libobjc)
+                 (undefined) external _objc_registerClassPair (from libobjc)
+                 (undefined) external _objc_release (from libobjc)
+                 (undefined) external _objc_retain (from libobjc)
+                 (undefined) external _objc_retainAutorelease (from libobjc)
+                 (undefined) external _objc_retainAutoreleasedReturnValue (from libobjc)
+                 (undefined) external _objc_storeStrong (from libobjc)
+                 (undefined) external _objc_unsafeClaimAutoreleasedReturnValue (from libobjc)
+                 (undefined) external _sel_registerName (from libobjc)
+0000000000026b80 (__DATA,__bss) non-external _sharedController.g
+0000000000026b88 (__DATA,__bss) non-external _sharedController.once
+                 (undefined) external _signal (from libSystem)
+                 (undefined) external dyld_stub_binder (from libSystem)

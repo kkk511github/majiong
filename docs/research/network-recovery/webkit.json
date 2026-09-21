@@ -1,0 +1,21 @@
+{
+  "at": "2026-09-16T06:39:52.617Z",
+  "browser": "webkit",
+  "samples": 15,
+  "successful": 15,
+  "successRate": 1,
+  "oneWayMessageDelayMs": 250,
+  "recoveryMs": {
+    "p50": 2607,
+    "p95": 2739,
+    "max": 2739
+  },
+  "outageDurationMs": 20000,
+  "outageRecoveryMs": 4740,
+  "targets": {
+    "successRate": 1,
+    "halfOpenP95Ms": 8000,
+    "afterOutageMs": 25000
+  },
+  "limitations": "Waiting-room restoration only. Local real server and browser; WS application messages delayed/dropped. Not mobile Wi-Fi/cellular, TLS/DNS failure, TCP loss or five-minute OS suspension. Percentiles use only 15 samples."
+}

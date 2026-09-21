@@ -1,0 +1,1108 @@
+{
+  "source": {
+    "roomCode": "164068",
+    "round": 2,
+    "seat": 0,
+    "frameNumbering": "zero-based",
+    "kind": "historical replay projection, not a captured websocket View",
+    "clientVersion": "not recorded in round/replay",
+    "accountIdsRemoved": true,
+    "opponentHiddenHandsRemoved": true,
+    "phaseAndCanDiscard": "playback fixture context derived from recorded own draw/discard; no live claim-offer packet retained",
+    "connectionAndReadyFlags": "local preview only",
+    "revision": "frame index, not historical engine revision",
+    "earthlyWaits": "no round2 ruleState retained; initial structuralWaits empty and target made two pungs"
+  },
+  "rules": {
+    "id": "nj-garden-b-v3",
+    "rounds": 8,
+    "turnSeconds": 10,
+    "minimumFlowers": 4,
+    "flowerDouble": true,
+    "seaBottom": true,
+    "twoBankrupt": true,
+    "protectWinner": true,
+    "biXiaHu": "next",
+    "doubleSidePayments": true,
+    "successorDouble": true,
+    "fourWinds": true,
+    "discardPenalties": true
+  },
+  "multiplier": 1,
+  "views": [
+    {
+      "name": "beforeDiscard5Wan",
+      "frameIndex": 74,
+      "frameType": "draw",
+      "elapsedMs": 42595,
+      "eventTile": 1,
+      "discardToCompare": 18,
+      "view": {
+        "id": "local-listening-164068-round2",
+        "code": "164068",
+        "rules": {
+          "id": "nj-garden-b-v3",
+          "rounds": 8,
+          "turnSeconds": 10,
+          "minimumFlowers": 4,
+          "flowerDouble": true,
+          "seaBottom": true,
+          "twoBankrupt": true,
+          "protectWinner": true,
+          "biXiaHu": "next",
+          "doubleSidePayments": true,
+          "successorDouble": true,
+          "fourWinds": true,
+          "discardPenalties": true
+        },
+        "phase": "playing",
+        "revision": 74,
+        "round": 2,
+        "dealer": 1,
+        "turn": 0,
+        "me": 0,
+        "players": [
+          {
+            "id": "local-seat-0",
+            "name": "本例玩家",
+            "hand": [
+              1,
+              5,
+              6,
+              7,
+              10,
+              18,
+              46,
+              48
+            ],
+            "handCount": 8,
+            "flowers": [
+              137,
+              143,
+              135
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  69,
+                  71,
+                  68
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  108,
+                  109,
+                  110
+                ],
+                "from": 3,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              107,
+              101,
+              63,
+              123,
+              90
+            ],
+            "score": 68,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-1",
+            "name": "玩家甲",
+            "hand": [],
+            "handCount": 7,
+            "flowers": [
+              128,
+              126,
+              141,
+              130,
+              132
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  58,
+                  59,
+                  57
+                ],
+                "from": 0,
+                "concealed": false
+              },
+              {
+                "type": "kong",
+                "tiles": [
+                  32,
+                  33,
+                  35,
+                  34
+                ],
+                "from": 2,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              118,
+              105,
+              106,
+              55,
+              104,
+              92,
+              87
+            ],
+            "score": 100,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-2",
+            "name": "玩家乙",
+            "hand": [],
+            "handCount": 7,
+            "flowers": [
+              142,
+              138
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  65,
+                  67,
+                  64
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  41,
+                  43,
+                  40
+                ],
+                "from": 1,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              122,
+              96,
+              114,
+              93,
+              49,
+              21,
+              89
+            ],
+            "score": 102,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-3",
+            "name": "玩家丙",
+            "hand": [],
+            "handCount": 10,
+            "flowers": [
+              131,
+              124,
+              134,
+              140
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  25,
+                  26,
+                  24
+                ],
+                "from": 2,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              115,
+              13,
+              29,
+              20,
+              117
+            ],
+            "score": 90,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          }
+        ],
+        "remaining": 52,
+        "roundMultiplier": 1,
+        "actions": [],
+        "selfKongs": [],
+        "canDiscard": true,
+        "earthlyWaits": [],
+        "globalAnchorDiscards": [],
+        "history": [],
+        "events": [],
+        "lastDraw": 1
+      }
+    },
+    {
+      "name": "afterDiscard5Wan",
+      "frameIndex": 75,
+      "frameType": "discard",
+      "elapsedMs": 45185,
+      "eventTile": 18,
+      "discardToCompare": null,
+      "view": {
+        "id": "local-listening-164068-round2",
+        "code": "164068",
+        "rules": {
+          "id": "nj-garden-b-v3",
+          "rounds": 8,
+          "turnSeconds": 10,
+          "minimumFlowers": 4,
+          "flowerDouble": true,
+          "seaBottom": true,
+          "twoBankrupt": true,
+          "protectWinner": true,
+          "biXiaHu": "next",
+          "doubleSidePayments": true,
+          "successorDouble": true,
+          "fourWinds": true,
+          "discardPenalties": true
+        },
+        "phase": "playing",
+        "revision": 75,
+        "round": 2,
+        "dealer": 1,
+        "turn": 0,
+        "me": 0,
+        "players": [
+          {
+            "id": "local-seat-0",
+            "name": "本例玩家",
+            "hand": [
+              1,
+              5,
+              6,
+              7,
+              10,
+              46,
+              48
+            ],
+            "handCount": 7,
+            "flowers": [
+              137,
+              143,
+              135
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  69,
+                  71,
+                  68
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  108,
+                  109,
+                  110
+                ],
+                "from": 3,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              107,
+              101,
+              63,
+              123,
+              90,
+              18
+            ],
+            "score": 68,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-1",
+            "name": "玩家甲",
+            "hand": [],
+            "handCount": 7,
+            "flowers": [
+              128,
+              126,
+              141,
+              130,
+              132
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  58,
+                  59,
+                  57
+                ],
+                "from": 0,
+                "concealed": false
+              },
+              {
+                "type": "kong",
+                "tiles": [
+                  32,
+                  33,
+                  35,
+                  34
+                ],
+                "from": 2,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              118,
+              105,
+              106,
+              55,
+              104,
+              92,
+              87
+            ],
+            "score": 100,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-2",
+            "name": "玩家乙",
+            "hand": [],
+            "handCount": 7,
+            "flowers": [
+              142,
+              138
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  65,
+                  67,
+                  64
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  41,
+                  43,
+                  40
+                ],
+                "from": 1,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              122,
+              96,
+              114,
+              93,
+              49,
+              21,
+              89
+            ],
+            "score": 102,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-3",
+            "name": "玩家丙",
+            "hand": [],
+            "handCount": 10,
+            "flowers": [
+              131,
+              124,
+              134,
+              140
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  25,
+                  26,
+                  24
+                ],
+                "from": 2,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              115,
+              13,
+              29,
+              20,
+              117
+            ],
+            "score": 90,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          }
+        ],
+        "remaining": 52,
+        "roundMultiplier": 1,
+        "actions": [],
+        "selfKongs": [],
+        "canDiscard": false,
+        "earthlyWaits": [],
+        "globalAnchorDiscards": [],
+        "history": [],
+        "events": []
+      }
+    },
+    {
+      "name": "beforeDiscardEast",
+      "frameIndex": 121,
+      "frameType": "draw",
+      "elapsedMs": 99445,
+      "eventTile": 111,
+      "discardToCompare": 111,
+      "view": {
+        "id": "local-listening-164068-round2",
+        "code": "164068",
+        "rules": {
+          "id": "nj-garden-b-v3",
+          "rounds": 8,
+          "turnSeconds": 10,
+          "minimumFlowers": 4,
+          "flowerDouble": true,
+          "seaBottom": true,
+          "twoBankrupt": true,
+          "protectWinner": true,
+          "biXiaHu": "next",
+          "doubleSidePayments": true,
+          "successorDouble": true,
+          "fourWinds": true,
+          "discardPenalties": true
+        },
+        "phase": "playing",
+        "revision": 121,
+        "round": 2,
+        "dealer": 1,
+        "turn": 0,
+        "me": 0,
+        "players": [
+          {
+            "id": "local-seat-0",
+            "name": "本例玩家",
+            "hand": [
+              1,
+              5,
+              6,
+              7,
+              10,
+              46,
+              48,
+              111
+            ],
+            "handCount": 8,
+            "flowers": [
+              137,
+              143,
+              135
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  69,
+                  71,
+                  68
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  108,
+                  109,
+                  110
+                ],
+                "from": 3,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              107,
+              101,
+              63,
+              123,
+              90,
+              39,
+              74,
+              28
+            ],
+            "score": 68,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-1",
+            "name": "玩家甲",
+            "hand": [],
+            "handCount": 1,
+            "flowers": [
+              128,
+              126,
+              141,
+              130,
+              132
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  58,
+                  59,
+                  57
+                ],
+                "from": 0,
+                "concealed": false
+              },
+              {
+                "type": "kong",
+                "tiles": [
+                  32,
+                  33,
+                  35,
+                  34
+                ],
+                "from": 2,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  17,
+                  19,
+                  18
+                ],
+                "from": 0,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  72,
+                  75,
+                  73
+                ],
+                "from": 2,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              118,
+              105,
+              106,
+              55,
+              104,
+              92,
+              87,
+              15,
+              61,
+              30
+            ],
+            "score": 100,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-2",
+            "name": "玩家乙",
+            "hand": [],
+            "handCount": 1,
+            "flowers": [
+              142,
+              138,
+              139
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  65,
+                  67,
+                  64
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  41,
+                  43,
+                  40
+                ],
+                "from": 1,
+                "concealed": false
+              },
+              {
+                "type": "kong",
+                "tiles": [
+                  80,
+                  81,
+                  82,
+                  83
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  8,
+                  9,
+                  11
+                ],
+                "from": 1,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              122,
+              96,
+              114,
+              93,
+              49,
+              21,
+              89,
+              36,
+              116,
+              121,
+              4
+            ],
+            "score": 112,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-3",
+            "name": "玩家丙",
+            "hand": [],
+            "handCount": 7,
+            "flowers": [
+              131,
+              124,
+              134,
+              140,
+              136
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  25,
+                  26,
+                  24
+                ],
+                "from": 2,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  77,
+                  78,
+                  79
+                ],
+                "from": 1,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              115,
+              13,
+              29,
+              20,
+              117,
+              62,
+              119,
+              53,
+              70
+            ],
+            "score": 80,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          }
+        ],
+        "remaining": 35,
+        "roundMultiplier": 1,
+        "actions": [],
+        "selfKongs": [
+          111
+        ],
+        "canDiscard": true,
+        "earthlyWaits": [],
+        "globalAnchorDiscards": [],
+        "history": [],
+        "events": [],
+        "lastDraw": 111
+      }
+    },
+    {
+      "name": "afterDiscardEast",
+      "frameIndex": 122,
+      "frameType": "discard",
+      "elapsedMs": 107865,
+      "eventTile": 111,
+      "discardToCompare": null,
+      "view": {
+        "id": "local-listening-164068-round2",
+        "code": "164068",
+        "rules": {
+          "id": "nj-garden-b-v3",
+          "rounds": 8,
+          "turnSeconds": 10,
+          "minimumFlowers": 4,
+          "flowerDouble": true,
+          "seaBottom": true,
+          "twoBankrupt": true,
+          "protectWinner": true,
+          "biXiaHu": "next",
+          "doubleSidePayments": true,
+          "successorDouble": true,
+          "fourWinds": true,
+          "discardPenalties": true
+        },
+        "phase": "playing",
+        "revision": 122,
+        "round": 2,
+        "dealer": 1,
+        "turn": 0,
+        "me": 0,
+        "players": [
+          {
+            "id": "local-seat-0",
+            "name": "本例玩家",
+            "hand": [
+              1,
+              5,
+              6,
+              7,
+              10,
+              46,
+              48
+            ],
+            "handCount": 7,
+            "flowers": [
+              137,
+              143,
+              135
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  69,
+                  71,
+                  68
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  108,
+                  109,
+                  110
+                ],
+                "from": 3,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              107,
+              101,
+              63,
+              123,
+              90,
+              39,
+              74,
+              28,
+              111
+            ],
+            "score": 68,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-1",
+            "name": "玩家甲",
+            "hand": [],
+            "handCount": 1,
+            "flowers": [
+              128,
+              126,
+              141,
+              130,
+              132
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  58,
+                  59,
+                  57
+                ],
+                "from": 0,
+                "concealed": false
+              },
+              {
+                "type": "kong",
+                "tiles": [
+                  32,
+                  33,
+                  35,
+                  34
+                ],
+                "from": 2,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  17,
+                  19,
+                  18
+                ],
+                "from": 0,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  72,
+                  75,
+                  73
+                ],
+                "from": 2,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              118,
+              105,
+              106,
+              55,
+              104,
+              92,
+              87,
+              15,
+              61,
+              30
+            ],
+            "score": 100,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-2",
+            "name": "玩家乙",
+            "hand": [],
+            "handCount": 1,
+            "flowers": [
+              142,
+              138,
+              139
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  65,
+                  67,
+                  64
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  41,
+                  43,
+                  40
+                ],
+                "from": 1,
+                "concealed": false
+              },
+              {
+                "type": "kong",
+                "tiles": [
+                  80,
+                  81,
+                  82,
+                  83
+                ],
+                "from": 3,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  8,
+                  9,
+                  11
+                ],
+                "from": 1,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              122,
+              96,
+              114,
+              93,
+              49,
+              21,
+              89,
+              36,
+              116,
+              121,
+              4
+            ],
+            "score": 112,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          },
+          {
+            "id": "local-seat-3",
+            "name": "玩家丙",
+            "hand": [],
+            "handCount": 7,
+            "flowers": [
+              131,
+              124,
+              134,
+              140,
+              136
+            ],
+            "melds": [
+              {
+                "type": "pung",
+                "tiles": [
+                  25,
+                  26,
+                  24
+                ],
+                "from": 2,
+                "concealed": false
+              },
+              {
+                "type": "pung",
+                "tiles": [
+                  77,
+                  78,
+                  79
+                ],
+                "from": 1,
+                "concealed": false
+              }
+            ],
+            "discards": [
+              115,
+              13,
+              29,
+              20,
+              117,
+              62,
+              119,
+              53,
+              70
+            ],
+            "score": 80,
+            "externalScore": 0,
+            "ready": true,
+            "connected": true,
+            "trustee": false,
+            "bot": false
+          }
+        ],
+        "remaining": 35,
+        "roundMultiplier": 1,
+        "actions": [],
+        "selfKongs": [],
+        "canDiscard": false,
+        "earthlyWaits": [],
+        "globalAnchorDiscards": [],
+        "history": [],
+        "events": []
+      }
+    }
+  ]
+}

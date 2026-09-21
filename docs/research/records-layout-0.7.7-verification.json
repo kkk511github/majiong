@@ -1,0 +1,47 @@
+{
+  "version": "0.7.7",
+  "build": 43,
+  "regression": "Installed build42 requests RecordsPanel-!~{005}~.js (404) because renderChunk encrypted an unresolved Rollup hash placeholder.",
+  "fix": "Obfuscate emitted JS in writeBundle after final file names are written. Reject unresolved placeholders before encoding.",
+  "verification": {
+    "oldInstalledBundleFailureReproduced": [
+      "Chrome",
+      "WebKit"
+    ],
+    "newFrozenNativeFeaturesPassed": [
+      "records",
+      "match details",
+      "read marker",
+      "summary",
+      "replay",
+      "club",
+      "points",
+      "table permissions"
+    ],
+    "unitTestsPassed": 337,
+    "nativeBrowserChecksPassed": 4,
+    "frameAt844x390": {
+      "x": 0,
+      "y": 0,
+      "width": 844,
+      "height": 390
+    },
+    "floatingButtons": 5,
+    "desktopSourceMatchesFrozenSnapshot": true,
+    "browserRegressionChecksPassed": 88,
+    "browserPreview": {
+      "observedWindow": {
+        "width": 884,
+        "height": 800
+      },
+      "cause": "1280×590 SHOW_ALL fixed landscape aspect ratio; about 196 pixels top and bottom at the observed desktop window",
+      "displayedLandscapePreview": {
+        "width": 844,
+        "height": 390
+      },
+      "runtimeScalingPolicyChanged": false
+    }
+  },
+  "sourceManifestSha256": "036dcbd7b705a7b0e86fc6a5230e15cc4e9396485317fe089d5aaa9c99fcdb4d",
+  "buttonAssetSha256": "82c6c22054aef3fd86dca1c963b1f5dc4a0dd9b069d98e78a465de8ce7f8d706"
+}

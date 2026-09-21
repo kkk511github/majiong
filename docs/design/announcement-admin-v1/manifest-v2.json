@@ -1,0 +1,34 @@
+{
+  "mode": "built-in image_gen",
+  "stage": "visual design only; not implemented or deployed",
+  "modules": [
+    "公告管理",
+    "版本管理",
+    "人员管理"
+  ],
+  "files": [
+    {
+      "path": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/nanjing-mahjong/docs/design/announcement-admin-v1/announcement-admin-v2.png",
+      "source": "/Users/kk/.codex/generated_images/01a0ad10-9fd7-7182-a980-41909ca4cb95/exec-20e7645d-bab6-4cf5-93f9-c53f1500c180.png",
+      "sha256": "bc93b018a4ea79815926136c861d7d51da4fff3375f814fffb6ddea2b85bfa84",
+      "bytes": 1664332
+    },
+    {
+      "path": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/nanjing-mahjong/docs/design/announcement-admin-v1/version-admin-v2.png",
+      "source": "/Users/kk/.codex/generated_images/01a0ad10-9fd7-7182-a980-41909ca4cb95/exec-1ab7bd92-82d3-4cc7-a75f-aa1c265de71c.png",
+      "sha256": "119323b26b252e76f92d49d7f081273ff5edc71d5436f9c7e0835ee54519db82",
+      "bytes": 1621977
+    },
+    {
+      "path": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/nanjing-mahjong/docs/design/announcement-admin-v1/personnel-admin-v1.png",
+      "source": "/Users/kk/.codex/generated_images/01a0ad10-9fd7-7182-a980-41909ca4cb95/exec-2957dcd4-dd5a-4d0f-8f75-e2040abc790e.png",
+      "sha256": "475f56e6ba3cccbf6553b7ff82fe867af6661f3f3da0880a6de3a1b3eb11514e",
+      "bytes": 1518285
+    },
+    {
+      "path": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/nanjing-mahjong/docs/design/announcement-admin-v1/app-dialogs-v1.png",
+      "sha256": "93ab9cc1109b21216c635c4fc5e2f107125ec46fea3f3277845f255f1632be08",
+      "bytes": 1685942
+    }
+  ]
+}

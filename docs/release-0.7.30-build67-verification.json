@@ -1,0 +1,121 @@
+{
+  "version": "0.7.30",
+  "build": 67,
+  "platform": "android",
+  "sourceHash": {
+    "android/app/src/main/java/com/jinling/mahjong/AppUpdatePlugin.java": "a41fd850892ad52532a88cc6e47558dde154da22a2f7e19bcd9eef8dfb22451d",
+    "android/app/build.gradle": "f800001b5c9bd742d906dfddbcef475a05b6fb154722899abdcecb17973c0b69",
+    "src/app-update.ts": "5ca82fe67cd3178aa2f54ef28c595d13b07227d5c89cab7d2b1a01331ad1d34c",
+    "src/AppUpdate.tsx": "d4d91d14376e25a15468c13053222244001811281cd09778f94079a73a7fa424",
+    "android/app/src/main/res/xml/network_security_config.xml": "171c855c95515049606f0021a5abc0ccb629b2cc9da3168414d453772b6a4b46",
+    "android/app/src/main/AndroidManifest.xml": "f58000c607fd30828a1565d91bdd9c7a1c3bcbd37576402b890f2cafe7d6092a"
+  },
+  "deliveredFile": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.30-build67.apk",
+  "apk": "372cba5189499e7c3011a53967f78c3c3a7616733c5cc1065e9178d3a641421e",
+  "bytes": 121875043,
+  "commonPackageVersion": "0.7.29",
+  "iosChanged": false,
+  "webResourcesBaseBuild": 66,
+  "webFilesMatched": 257,
+  "jsUpdateContractTestsPassed": 11,
+  "nativeDeviceVerification": "passed on dedicated Android11/API30 emulator with patched signed QA65 to published66",
+  "published": true,
+  "designIncluded": false,
+  "nativeJsonTestsPassed": 4,
+  "nativeJsonTestLog": "output/android-update-bridge-qa/json-instrumentation.log",
+  "recordingUIAuditReuse": {
+    "sourceBuild": 66,
+    "reason": "all 257 bundled web resources exactly match the audited build66 native snapshot"
+  },
+  "nativeVerification": {
+    "date": "2026-09-20",
+    "productionSourceFrozen": true,
+    "jsonInstrumentation": {
+      "passed": 4,
+      "failed": 0,
+      "realAndroidJson": true,
+      "oldGetterResult": null,
+      "newGetterResult": 121874939
+    },
+    "realBridgeInstrumentation": {
+      "passed": 1,
+      "failed": 0,
+      "durationSeconds": 44.292,
+      "api": "Capacitor.nativePromise"
+    },
+    "emulator": {
+      "serial": "emulator-5580",
+      "api": 30,
+      "architecture": "arm64",
+      "readOnlyClone": true,
+      "closed": true
+    },
+    "source": {
+      "build": 65,
+      "variant": "debug",
+      "signature": "formal release certificate",
+      "patchedPlugin": true
+    },
+    "target": {
+      "build": 66,
+      "version": "0.7.29",
+      "package": "com.jinling.mahjong",
+      "bytes": 121874939,
+      "sha256": "fafd32adb7b99f8893f0e6c2cb35f2fceb0919040cb11e9efc94bd0632a1f1d4"
+    },
+    "checks": {
+      "systemTlsAndPins": true,
+      "downloadComplete": true,
+      "sha256": true,
+      "package": true,
+      "version": true,
+      "signature": true,
+      "systemInstaller": true,
+      "actualUpgrade": true,
+      "sharedPreferencesPreserved": true
+    },
+    "userDeviceTouched": false,
+    "productionAccountSubmitted": false,
+    "productionAppPublishedByThisTask": false
+  },
+  "nativeReport": "output/android-update-bridge-qa/REPORT.md",
+  "publishedAt": "2026-09-20T05:13:08.736120+00:00",
+  "distribution": {
+    "androidId": "247db54dd42a67ad48643ed5",
+    "apkSHA256": "372cba5189499e7c3011a53967f78c3c3a7616733c5cc1065e9178d3a641421e",
+    "bytes": 121875043,
+    "iosUnchanged": true,
+    "uploadedIPA": false,
+    "gameServiceChanged": false,
+    "serviceRestarted": false,
+    "url": "https://212.189.31.46/app/jinling-mahjong?platform=android"
+  },
+  "publicationVerification": {
+    "completedAt": "2026-09-20T05:15:04.378433+00:00",
+    "publishedAndroidVersion": "0.7.30",
+    "publishedAndroidBuild": 67,
+    "id": "247db54dd42a67ad48643ed5",
+    "bytes": 121875043,
+    "sha256": "372cba5189499e7c3011a53967f78c3c3a7616733c5cc1065e9178d3a641421e",
+    "fullPublicDownloadVerified": true,
+    "TLSVerified": true,
+    "fixedAndroidPage": "https://212.189.31.46/app/jinling-mahjong?platform=android",
+    "fixedAndroidDownload": "https://212.189.31.46/download/247db54dd42a67ad48643ed5.apk",
+    "ios66Unchanged": true,
+    "ios66SHA256": "f0a3f19b60e63d75b9087edda319a35cbb552c1342d51a339e768b58c8ca78a5",
+    "noStagingFilesRemaining": true,
+    "oldAndroid66BackupVerified": true,
+    "noGameServiceChanges": true,
+    "noServiceRestart": true,
+    "noIPAUpload": true,
+    "sshControlClosed": true,
+    "failedFirstAttemptOriginalStderrUnavailable": true,
+    "observedFailureEvidence": "ssh-before-reconnect.stderr.log: control socket did not exist; reconnected and retried successfully",
+    "futureUploadErrorsRetainOriginalStderr": true
+  },
+  "publicArtifactVerified": true,
+  "sshSessionClosed": true,
+  "designPreview": "output/two-bankrupt-design-20260920/concept-v1.png",
+  "designStatus": "preview only; not included in APK",
+  "qaReleaseOutputRestoredToPublishedArtifact": true
+}

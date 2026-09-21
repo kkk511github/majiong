@@ -1,0 +1,66 @@
+{
+  "version": "0.7.29",
+  "build": 66,
+  "sourceBaseCommit": "bc2d2452c1a9db4361f5decf7efae6dbc9ce8331",
+  "sourceCommitted": false,
+  "ruleChange": "只有牌墙最后一张的自摸才计海底；摸后余牌=0",
+  "unitTestsPassed": 925,
+  "targetedTestsPassed": 125,
+  "newRealActionTestsPassed": 15,
+  "sameWebAssetsBothPlatforms": true,
+  "iosPublishAllowed": false,
+  "packages": {
+    "android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.29-build66.apk",
+      "bytes": 121874939,
+      "sha256": "fafd32adb7b99f8893f0e6c2cb35f2fceb0919040cb11e9efc94bd0632a1f1d4",
+      "signatureVerified": true,
+      "matchedWebFiles": 257
+    },
+    "ios": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.29-build66-待企业签名.ipa",
+      "bytes": 122018064,
+      "sha256": "3aac0576af417bdfd873a573fca73c5cf81690678bc080159c0627457b863657",
+      "signatureVerified": true,
+      "matchedWebFiles": 257
+    }
+  },
+  "ruleTestReport": "output/sea-last-tile-20260920/REPORT.md",
+  "productionReport": "output/sea-last-tile-build66/production-check.json",
+  "productionVerification": {
+    "release": "0.7.29-last-tile-20260920",
+    "backend": {
+      "image": "jinling-mahjong:0.7.29-last-tile-20260920",
+      "imageId": "sha256:53dda669dc6a01c57a0b5e625f7b785b6337fe98fdaec5ba4bd4002525ed123c",
+      "health": "healthy",
+      "tables": {
+        "rooms": 7,
+        "phases": {
+          "waiting": 7
+        },
+        "active": 0,
+        "onlineHumans": 0
+      }
+    },
+    "publicHealth": {
+      "ok": true,
+      "service": "jinling-mahjong",
+      "version": "0.7.29"
+    },
+    "databaseSchemaChanged": false,
+    "dataMountUnchanged": true,
+    "productionTestGamesCreated": 0,
+    "web": {
+      "activated": true,
+      "release": "0.7.29-last-tile-20260920",
+      "previous": "0.7.28-snapshot-hu-20260920",
+      "verifiedFiles": 257,
+      "publicFilesVerified": {
+        "index.html": "3e62bbffdfa923c6e9ad696b4c13a48ec7d12afa1426eff7a1d08846ef22ddbe",
+        "assets/index-83-UFA70.js": "b3126ef3d6e72b98eb0ad0c2a01a9cca88d94181ebf83a3480eaccd3ef2f47f3",
+        "audio/phrases/female/chat_01.mp3": "d2932f5c52c4fdc5357ad2889f0c025fc844936c1713a7884a0733d5a35c7d3f",
+        "audio/phrases/male/chat_01.mp3": "26b7d8f3b2887cbc83ad85df2b723b036c1f9361cbe27aade7d59d0fcf5cf2b2"
+      }
+    }
+  }
+}

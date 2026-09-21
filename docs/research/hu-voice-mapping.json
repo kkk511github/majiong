@@ -1,0 +1,40 @@
+{
+  "source": "用户提供的胡了.wav",
+  "sourceAsset": "/audio/hu-male-user-v1.wav",
+  "sourceSha256": "c47d4d1ae4bc4557f680b46577846be4d25bbdfa90b406c71a590d52a71d80dc",
+  "decision": "男声使用用户提供的胡了；女声使用用户试听确认的 AI 女声 v2；胡牌和自摸按所选语音包播放。",
+  "femaleApproval": "2026-09-16 用户确认：可以就这样，女声用这个。此前已确认声音复刻授权。",
+  "processing": "Approved male/female clip PCM copied exactly; no additional pitch, speed or volume changes.",
+  "packs": {
+    "male": {
+      "file": "/audio/nanjing-male-hu-c47d4d1a.wav",
+      "cue": [
+        25.333583333333333,
+        0.8152916666666666
+      ],
+      "aliases": [
+        "胡了",
+        "自摸",
+        "定章"
+      ],
+      "voice": "male",
+      "sourceAsset": "/audio/hu-male-user-v1.wav",
+      "sourceSha256": "c47d4d1ae4bc4557f680b46577846be4d25bbdfa90b406c71a590d52a71d80dc"
+    },
+    "female": {
+      "file": "/audio/nanjing-female-hu-0f9d7c10.wav",
+      "cue": [
+        27.434208333333334,
+        0.6166666666666667
+      ],
+      "aliases": [
+        "胡了",
+        "自摸",
+        "定章"
+      ],
+      "voice": "female",
+      "sourceAsset": "/audio/hu-female-ai-v2.wav",
+      "sourceSha256": "0f9d7c1034355818633e5face7c2c7761352d114196e0b9af97522abd195b9d0"
+    }
+  }
+}

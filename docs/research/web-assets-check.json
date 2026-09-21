@@ -1,0 +1,102 @@
+{
+  "at": "2026-09-21T08:17:50.817Z",
+  "kind": "web-build-public-assets",
+  "checked": 245,
+  "groups": {
+    "android-icon-foreground.png": {
+      "files": 1,
+      "bytes": 2103627
+    },
+    "avatars.png": {
+      "files": 1,
+      "bytes": 2750141
+    },
+    "brand-icon.png": {
+      "files": 1,
+      "bytes": 1968659
+    },
+    "felt.svg": {
+      "files": 1,
+      "bytes": 373
+    },
+    "icon.svg": {
+      "files": 1,
+      "bytes": 582
+    },
+    "lobby-scene.png": {
+      "files": 1,
+      "bytes": 2462077
+    },
+    "meld-source-dart.png": {
+      "files": 1,
+      "bytes": 625751
+    },
+    "meld-source-gold.png": {
+      "files": 1,
+      "bytes": 1095733
+    },
+    "qinhuai-table-reference-v3.png": {
+      "files": 1,
+      "bytes": 2099375
+    },
+    "qinhuai-table-v1.png": {
+      "files": 1,
+      "bytes": 2512943
+    },
+    "qinhuai-table-v2.png": {
+      "files": 1,
+      "bytes": 2369110
+    },
+    "table-frame.svg": {
+      "files": 1,
+      "bytes": 1350
+    },
+    "tile-catalog.html": {
+      "files": 1,
+      "bytes": 16975
+    },
+    "tile-material-study.html": {
+      "files": 1,
+      "bytes": 4278
+    },
+    "tile-study-carved.png": {
+      "files": 1,
+      "bytes": 2088003
+    },
+    "ui": {
+      "files": 1,
+      "bytes": 1672651
+    },
+    "tiles": {
+      "files": 63,
+      "bytes": 27171311
+    },
+    "icon-preview": {
+      "files": 5,
+      "bytes": 1946736
+    },
+    "fonts": {
+      "files": 9,
+      "bytes": 99701
+    },
+    "cocos-table": {
+      "files": 96,
+      "bytes": 39015915
+    },
+    "audio": {
+      "files": 34,
+      "bytes": 10757921
+    },
+    "art": {
+      "files": 22,
+      "bytes": 21330157
+    }
+  },
+  "runtime": {
+    "sha256": "1f16f486faf1a8b7fc862e22cee3bae5441f8c706f7c4742a6964250fd48047a",
+    "files": 96,
+    "bytes": 39015915
+  },
+  "archiveBytes": 36848776,
+  "note": "Local stored sizes; not measured download, memory or launch timing."
+}

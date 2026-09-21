@@ -1,0 +1,39 @@
+{
+  "file": "/Users/kk/Downloads/signed_金陵麻将-0.7.9-build46-AdHoc.ipa",
+  "sha256": "333b8fff71ac0180c0ffe83e0779b042807848c69a79fa645453f3507121a668",
+  "bytes": 121102651,
+  "bundleId": "com.jinling.mahjong",
+  "version": "0.7.9",
+  "build": "46",
+  "profileName": "Universal Distribution 2026",
+  "teamName": "Chowbus, Inc.",
+  "teamId": [
+    "22788Y94CY"
+  ],
+  "enterprise": true,
+  "debuggable": false,
+  "profileExpires": "2027-03-10T19:44:14Z",
+  "applicationIdentifier": "22788Y94CY.com.chowbus.posEnt",
+  "signatureVerified": true,
+  "signatureError": "",
+  "webFiles": 220,
+  "webResourcesIdentical": true,
+  "changedFiles": [
+    "Payload/App.app/_CodeSignature/CodeResources",
+    "Payload/App.app/App",
+    "Payload/App.app/Frameworks/Capacitor.framework/_CodeSignature/CodeResources",
+    "Payload/App.app/Frameworks/Capacitor.framework/Capacitor",
+    "Payload/App.app/Frameworks/Cordova.framework/_CodeSignature/CodeResources",
+    "Payload/App.app/Frameworks/Cordova.framework/Cordova",
+    "Payload/App.app/embedded.mobileprovision",
+    "Payload/App.app/Info.plist"
+  ],
+  "addedFiles": [
+    "Payload/App.app/Frameworks/CoreMediaServices.framework/CoreMediaServices",
+    "Payload/App.app/Frameworks/CoreMediaServices.framework/Info.plist",
+    "Payload/App.app/Frameworks/CoreMediaServices.framework/_CodeSignature/CodeResources",
+    "Payload/App.app/cat.dylib",
+    "Payload/App.app/silence.wav"
+  ],
+  "removedFiles": []
+}

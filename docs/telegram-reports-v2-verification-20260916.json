@@ -1,0 +1,116 @@
+{
+  "release": "20260916-v2",
+  "backup": "/opt/jinling-mahjong/telegram-reports/backups/pre-v2-20260916T145618Z",
+  "imageId": "sha256:18587eb8f7b2a67f919bb006ff014dba7fc8c6be248885b3eeed68aff72765fb",
+  "healthy": true,
+  "schedules": [
+    "team-1:weeklyTables",
+    "team-2:weeklyTables",
+    "team-3:dailyScore",
+    "team-3:weeklyTables",
+    "team-4:dailyScore",
+    "team-4:weeklyTables"
+  ],
+  "config": {
+    "chatId": "-5075928633",
+    "chatTitle": "麻将统计",
+    "timezone": "Asia/Shanghai",
+    "countUnit": "completedTables",
+    "schedules": [
+      {
+        "teamId": "team-1",
+        "teamName": "一生所爱战队",
+        "days": 7,
+        "firstEnd": "2026-09-23T00:00:00+08:00",
+        "kind": "weeklyTables"
+      },
+      {
+        "teamId": "team-2",
+        "teamName": "冰茉莉战队",
+        "days": 7,
+        "firstEnd": "2026-09-23T00:00:00+08:00",
+        "kind": "weeklyTables"
+      },
+      {
+        "teamId": "team-3",
+        "teamName": "日结丁战队",
+        "days": 1,
+        "firstEnd": "2026-09-17T00:00:00+08:00",
+        "kind": "dailyScore"
+      },
+      {
+        "teamId": "team-4",
+        "teamName": "日结冰战队",
+        "days": 1,
+        "firstEnd": "2026-09-17T00:00:00+08:00",
+        "kind": "dailyScore"
+      },
+      {
+        "teamId": "team-3",
+        "teamName": "日结丁战队",
+        "days": 7,
+        "firstEnd": "2026-09-23T00:00:00+08:00",
+        "kind": "weeklyTables"
+      },
+      {
+        "teamId": "team-4",
+        "teamName": "日结冰战队",
+        "days": 7,
+        "firstEnd": "2026-09-23T00:00:00+08:00",
+        "kind": "weeklyTables"
+      }
+    ]
+  },
+  "heartbeat": {
+    "at": 1789570579402,
+    "needsAttention": 0,
+    "error": ""
+  },
+  "sourceReadOnly": true,
+  "restartPolicy": "unless-stopped",
+  "previousSetupTestPreserved": true,
+  "gameUnchanged": true,
+  "gameStartedAt": "2026-09-16T12:28:50.350802266Z",
+  "runtimeHashes": {
+    "server/telegram-reports.ts": "e6eb10e23bb68c156ce039fb610a176957776713848af5ee2cc47a0cfd01e38f",
+    "server/telegram-report-worker.ts": "7dcfee5f33b75c812899800ec618bd1301bf6926710810f1ae14a783afbf706d",
+    "tests/telegram-reports.test.ts": "a0481089fa9eb1973ebe2b03ba2aee220553ec714bd0cc10f0482e3c52f72d30"
+  },
+  "localTestsPassed": 19,
+  "linuxTestsPassed": 19,
+  "typecheckPassed": true,
+  "independentReconciliationPassed": true,
+  "spreadsheetValueChecksPassed": 6,
+  "spreadsheetVisualChecksPassed": 6,
+  "example333069": [
+    {
+      "hands": 5,
+      "rawScore": 10,
+      "fee": 10,
+      "netScore": 0,
+      "points": 0
+    },
+    {
+      "hands": 5,
+      "rawScore": 70,
+      "fee": 10,
+      "netScore": 60,
+      "points": 30
+    },
+    {
+      "hands": 5,
+      "rawScore": -90,
+      "fee": 10,
+      "netScore": -100,
+      "points": -50
+    },
+    {
+      "hands": 5,
+      "rawScore": 10,
+      "fee": 10,
+      "netScore": 0,
+      "points": 0
+    }
+  ],
+  "gitCommitCreated": false
+}

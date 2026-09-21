@@ -1,0 +1,40 @@
+{
+  "consent": "User confirmed 已获得声音复刻授权 on 2026-09-16",
+  "model": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-4bit",
+  "license": "Apache-2.0",
+  "method": "Local inference only; original voice was not uploaded",
+  "reference": "南京麻将_njyz/girl/chat_05_乖乖，我手气好的一塌带一麻，又自摸了！.mp3",
+  "referenceSha256": "c1dee4adf6b666d885d31f2acbbeb9b379fb2e4312ab04fd64a2b231e575a3df",
+  "refText": "乖乖，我手气好的一塌带一麻，又自摸了！",
+  "text": "胡了！",
+  "candidates": [
+    {
+      "file": "hu-female-ai-v1.wav",
+      "seed": 42,
+      "temperature": 0.75,
+      "sampleRate": 24000,
+      "seconds": 0.5117916666666666,
+      "peak": 0.3222760558128357,
+      "elapsedSeconds": 14.9,
+      "sha256": "a99b228a344e9397d251dfa31bfb68c53f7b4ffa10f470d6ad924f67ae09bbd9"
+    },
+    {
+      "file": "hu-female-ai-v2.wav",
+      "seed": 73,
+      "temperature": 0.85,
+      "sampleRate": 24000,
+      "seconds": 0.6166666666666667,
+      "peak": 0.4648120701313019,
+      "elapsedSeconds": 3.6,
+      "sha256": "0f9d7c1034355818633e5face7c2c7761352d114196e0b9af97522abd195b9d0"
+    }
+  ],
+  "selection": {
+    "file": "hu-female-ai-v2.wav",
+    "status": "AI合成试听候选，未接入游戏",
+    "asr": "本地 Whisper base 无提示转写为糊了（与胡了同音）；无法代替人工试听评价音色和情绪",
+    "discardedCandidate": "v1 自动转写为哭了，不交付该版本",
+    "processing": "Trim leading/trailing silence, keep 50/120ms padding, gain <=1.5, 3ms fade; no pitch/speed change",
+    "mlxAudioVersion": "0.5.4"
+  }
+}

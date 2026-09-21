@@ -1,0 +1,18 @@
+{
+  "release": "20260917-v4",
+  "imageId": "sha256:1d18a4ccb20170b7e05a987081c120e574d92f432e31863cb3fa36a372d1fc4b",
+  "backup": "/opt/jinling-mahjong/telegram-reports/backups/pre-v4-20260917T042343Z",
+  "healthy": true,
+  "sourceReadOnly": true,
+  "historyPreserved": true,
+  "sentRuns": 1,
+  "scheduleConfigUnchanged": true,
+  "gameContainerUnchanged": true,
+  "gameStartedAt": "2026-09-17T02:21:27.27887982Z",
+  "heartbeat": {
+    "at": 1789619024697,
+    "needsAttention": 0,
+    "error": ""
+  },
+  "deployedAt": "2026-09-17T04:23:49.722728+00:00"
+}

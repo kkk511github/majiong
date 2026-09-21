@@ -1,0 +1,140 @@
+{
+  "date": "2026-09-16",
+  "change": "每日 1 份日结丁+日结冰；每周 3 份：一生所爱、日结丁、冰茉莉+日结冰",
+  "localTests": {
+    "passed": 24,
+    "typescript": "passed"
+  },
+  "serverImageTests": {
+    "passed": 24
+  },
+  "independentLiveDatabaseReconciliation": true,
+  "previewAsOf": 1789573062449,
+  "spreadsheetImportAndVisualReview": true,
+  "reports": [
+    {
+      "id": "daily-ding-ice",
+      "filename": "日结丁战队+日结冰战队20260916日清算.csv",
+      "previewRows": 3
+    },
+    {
+      "id": "weekly-love",
+      "filename": "一生所爱战队20260916-20260922周结算.csv",
+      "previewRows": 3
+    },
+    {
+      "id": "weekly-ding",
+      "filename": "日结丁战队20260916-20260922周结算.csv",
+      "previewRows": 2
+    },
+    {
+      "id": "weekly-jasmine-ice",
+      "filename": "冰茉莉战队+日结冰战队20260916-20260922周结算.csv",
+      "previewRows": 2
+    }
+  ],
+  "deployed": {
+    "release": "20260916-v3",
+    "backup": "/opt/jinling-mahjong/telegram-reports/backups/pre-v3-20260916T153817Z",
+    "imageId": "sha256:f0148a24053b874499f366a517bdc1902aabb3ced9d437715d18ead64cb1ad94",
+    "healthy": true,
+    "schedules": [
+      "daily-ding-ice",
+      "weekly-ding",
+      "weekly-jasmine-ice",
+      "weekly-love"
+    ],
+    "config": {
+      "chatId": "-5075928633",
+      "chatTitle": "麻将统计",
+      "timezone": "Asia/Shanghai",
+      "countUnit": "completedTables",
+      "schedules": [
+        {
+          "id": "daily-ding-ice",
+          "name": "日结丁战队+日结冰战队",
+          "teams": [
+            {
+              "id": "team-3",
+              "name": "日结丁战队"
+            },
+            {
+              "id": "team-4",
+              "name": "日结冰战队"
+            }
+          ],
+          "kind": "dailyScore",
+          "days": 1,
+          "firstEnd": "2026-09-17T00:00:00+08:00"
+        },
+        {
+          "id": "weekly-love",
+          "name": "一生所爱战队",
+          "teams": [
+            {
+              "id": "team-1",
+              "name": "一生所爱战队"
+            }
+          ],
+          "kind": "weeklyTables",
+          "days": 7,
+          "firstEnd": "2026-09-23T00:00:00+08:00"
+        },
+        {
+          "id": "weekly-ding",
+          "name": "日结丁战队",
+          "teams": [
+            {
+              "id": "team-3",
+              "name": "日结丁战队"
+            }
+          ],
+          "kind": "weeklyTables",
+          "days": 7,
+          "firstEnd": "2026-09-23T00:00:00+08:00"
+        },
+        {
+          "id": "weekly-jasmine-ice",
+          "name": "冰茉莉战队+日结冰战队",
+          "teams": [
+            {
+              "id": "team-2",
+              "name": "冰茉莉战队"
+            },
+            {
+              "id": "team-4",
+              "name": "日结冰战队"
+            }
+          ],
+          "kind": "weeklyTables",
+          "days": 7,
+          "firstEnd": "2026-09-23T00:00:00+08:00"
+        }
+      ]
+    },
+    "heartbeat": {
+      "at": 1789573099114,
+      "needsAttention": 0,
+      "error": ""
+    },
+    "sourceReadOnly": true,
+    "restartPolicy": "unless-stopped",
+    "previousSetupTestPreserved": true,
+    "gameUnchanged": true,
+    "gameStartedAt": "2026-09-16T12:28:50.350802266Z"
+  },
+  "runtimeFileHashes": {
+    "server/telegram-reports.ts": "925a70a98309ccdfcabef5f96b6c7930dc46e4f3124e4761b1a045055ab3665c",
+    "server/telegram-report-worker.ts": "b091e30a641b87d5a5a14678d2b6217b29ab106d758f1971bbd70d24aaa5e7eb",
+    "tests/telegram-reports.test.ts": "62bf3dedb0af4337bb31228805f0ecfc027c0c3c935c8ddcf74e3e8467e95fa4"
+  },
+  "latestHeartbeat": {
+    "at": 1789573129121,
+    "needsAttention": 0,
+    "error": ""
+  },
+  "formalReportsQueuedAtVerification": 0,
+  "additionalTelegramTestUploads": 0,
+  "gameServiceUnchanged": true,
+  "gitCommitCreated": false
+}

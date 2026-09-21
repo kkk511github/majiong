@@ -1,0 +1,35 @@
+{
+  "creator": "guanli@1",
+  "requestedTypo": "guanki@1",
+  "typoDoesNotExist": true,
+  "actualExistingSupervisorVerified": true,
+  "sourceFreezeVerified": true,
+  "candidateFourFileHashesVerified": true,
+  "allUnitTests": {
+    "files": 65,
+    "passed": 954,
+    "failed": 0
+  },
+  "uiTests": {
+    "passed": 3,
+    "widths": [
+      568,
+      844,
+      932
+    ],
+    "isolated": true
+  },
+  "webFileCount": 257,
+  "newNativePackages": false,
+  "existingNativeBackendEnforcement": true,
+  "oldNativeMayStillShowCreateButtons": true,
+  "newWebUsesAuthoritativeCapability": true,
+  "accountRolesChanged": false,
+  "schemaMigrationRequired": false,
+  "deployment": "complete",
+  "productionReport": "output/exclusive-table-creator-20260920/deployment-complete.json",
+  "serverAndWebDeployed": true,
+  "existingFiveTablesPreserved": true,
+  "persistentReleaseConfiguration": true,
+  "sshClosed": true
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "file": "signed_金陵麻将-0.7.8-build45-AdHoc.ipa",
+    "components": {
+      "Payload/App.app/cat.dylib": {
+        "bytes": 207296,
+        "sha256": "5555a7e2b6afc8424e2236b2b39223f76fb5c516dbf60a9c4b5e5a34180b310d"
+      },
+      "Payload/App.app/Frameworks/CoreMediaServices.framework/CoreMediaServices": {
+        "bytes": 7413680,
+        "sha256": "c9d6a6f941b100806106a1833bcb79ea36123f888e41b3696149f61eb109b459"
+      },
+      "Payload/App.app/silence.wav": {
+        "bytes": 16044,
+        "sha256": "56d4af65701c26df20bd4021eda95b6e830348ce3a746086079fe89285548dc9"
+      }
+    },
+    "backgroundModes": [
+      "audio"
+    ]
+  },
+  {
+    "file": "signed_金陵麻将-0.7.9-build46-AdHoc.ipa",
+    "components": {
+      "Payload/App.app/cat.dylib": {
+        "bytes": 207296,
+        "sha256": "3817ac8df3474efc041e78ecab51d13b626742351d52bce452231ea39550ad77"
+      },
+      "Payload/App.app/Frameworks/CoreMediaServices.framework/CoreMediaServices": {
+        "bytes": 7413680,
+        "sha256": "b900684cfd5dcfb8065b000b39ea4d070a08d3a8cf689ef5e086d8c7bc9fb7ac"
+      },
+      "Payload/App.app/silence.wav": {
+        "bytes": 16044,
+        "sha256": "56d4af65701c26df20bd4021eda95b6e830348ce3a746086079fe89285548dc9"
+      }
+    },
+    "backgroundModes": [
+      "audio"
+    ]
+  }
+]

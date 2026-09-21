@@ -1,0 +1,15 @@
+{
+  "release": "0.7.9-build46",
+  "activatedAt": "2026-09-17T02:21:28Z",
+  "imageId": "sha256:c11749ba5680475d8b9fd9e2dd536d0f960c3028aeb5625dcb658635e18b4b8b",
+  "health": "healthy",
+  "linuxUnitTestsPassed": 443,
+  "historicalTablesVerified": 17,
+  "historicalDigestsIdentical": true,
+  "oldRoomLedgerUnchanged": true,
+  "backupSha256": "6c8d50626f20a52c3485eb8b37a3cfdc0edf22884f0c92ea5d843a86060da13d",
+  "auditDirectory": "/opt/jinling-mahjong/database-backups/0.7.9-build46-deploy",
+  "telegramUnchanged": true,
+  "telegramHealthy": true,
+  "archiveSha256": "64365853e188c8c89e90eb6464e25b620b13424dd10fb88152a48c134c89bdea"
+}

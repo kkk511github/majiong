@@ -1,0 +1,39 @@
+{
+  "before": {
+    "index-H63ADBKq.js": {
+      "bytes": 260951,
+      "gzip": 85947
+    },
+    "vendor-CvqekFzR.js": {
+      "bytes": 263279,
+      "gzip": 80501
+    }
+  },
+  "after": {
+    "TablePermissions-LL48Fj4y.js": {
+      "bytes": 3933,
+      "gzip": 1748
+    },
+    "RecordsPanel-2Sj5VIFn.js": {
+      "bytes": 25717,
+      "gzip": 8402
+    },
+    "ReplayPanel-Bas7ZRV5.js": {
+      "bytes": 7931,
+      "gzip": 3460
+    },
+    "index-jvrCGaZ-.js": {
+      "bytes": 214753,
+      "gzip": 72498
+    },
+    "vendor-DsfoZh4J.js": {
+      "bytes": 263294,
+      "gzip": 80438
+    },
+    "ClubManagement-fTXRk1-M.js": {
+      "bytes": 11306,
+      "gzip": 4249
+    }
+  },
+  "note": "JavaScript file bytes and gzip estimates only; not measured startup time or on-device memory."
+}

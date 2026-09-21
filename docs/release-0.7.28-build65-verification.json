@@ -1,0 +1,56 @@
+{
+  "version": "0.7.28",
+  "build": 65,
+  "sourceBaseCommit": "bc2d2452c1a9db4361f5decf7efae6dbc9ce8331",
+  "sourceCommitted": false,
+  "snapshotDisplay": "胡",
+  "snapshotDetailItem": "快照加分",
+  "threeMouthRule": "必须头三嘴同一家；第四嘴任意供牌；累计提议已撤回",
+  "scoringEngineUnchanged": true,
+  "savedRecordsModified": false,
+  "unitTestsPassed": 910,
+  "displayBrowserChecksPassed": 4,
+  "basicPatternCasesPassed": 37,
+  "existingHandCasesRescored": 533,
+  "sameWebAssetsBothPlatforms": true,
+  "iosPublishAllowed": false,
+  "installPackagesUploaded": false,
+  "packages": {
+    "android": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.28-build65.apk",
+      "bytes": 121874391,
+      "sha256": "97a8450c86b84eb7da0f551e844ddedb574001a51cb733169c7b76b9a2755e77",
+      "signatureVerified": true,
+      "matchedWebFiles": 257,
+      "phraseRecordings": 24
+    },
+    "ios": {
+      "file": "/Users/kk/Documents/Codex/2026-09-13/new-chat/outputs/金陵麻将-0.7.28-build65-待企业签名.ipa",
+      "bytes": 122017517,
+      "sha256": "2ae441d18724b4953e561b7d5780fa29dcec063ebf7b7badc0f48388e5d3ea4b",
+      "signatureVerified": true,
+      "matchedWebFiles": 257,
+      "phraseRecordings": 24
+    }
+  },
+  "webProductionReport": "output/snapshot-hu-build65/web-production-check.json",
+  "ruleAudit": "docs/规则核查与外包案例-20260920.md",
+  "replayUrl": "http://127.0.0.1:5180/tests/previews/round-498046.html",
+  "localReplayChecks": {
+    "engines": [
+      "Chromium",
+      "WebKit"
+    ],
+    "viewports": [
+      1440,
+      844,
+      568
+    ],
+    "checksPassed": 6,
+    "originalFrames": 70,
+    "gameApiRequests": 0,
+    "websocketRequests": 0,
+    "accountIdsRemoved": true,
+    "report": "output/round-498046-replay/verification.json"
+  }
+}

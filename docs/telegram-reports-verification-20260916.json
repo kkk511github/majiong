@@ -1,0 +1,117 @@
+{
+  "release": "20260916-v1",
+  "imageId": "sha256:adbae66370d4172f6ce2704d638a6e172267ec31b8c32329cf7748f4b73c4fa4",
+  "container": "jinling-mahjong-reports-telegram-reports-1",
+  "running": true,
+  "health": "healthy",
+  "restartPolicy": "unless-stopped",
+  "heartbeat": {
+    "at": 1789565044635,
+    "needsAttention": 0,
+    "error": ""
+  },
+  "testDelivery": {
+    "username": "JinlingMahjongStats20260916Bot",
+    "chatId": "-5075928633",
+    "title": "麻将统计",
+    "filename": "接入测试_日结丁战队_2026-09-16.csv",
+    "from": 1789488000000,
+    "to": 1789564963149,
+    "rows": 1,
+    "status": "sent",
+    "messageId": 4,
+    "sentAt": 1789564963953
+  },
+  "groupObservedInTelegram": true,
+  "config": {
+    "chatId": "-5075928633",
+    "chatTitle": "麻将统计",
+    "timezone": "Asia/Shanghai",
+    "countUnit": "completedTables",
+    "schedules": [
+      {
+        "teamId": "team-1",
+        "teamName": "一生所爱战队",
+        "days": 7,
+        "firstEnd": "2026-09-23T00:00:00+08:00"
+      },
+      {
+        "teamId": "team-2",
+        "teamName": "冰茉莉战队",
+        "days": 7,
+        "firstEnd": "2026-09-23T00:00:00+08:00"
+      },
+      {
+        "teamId": "team-3",
+        "teamName": "日结丁战队",
+        "days": 1,
+        "firstEnd": "2026-09-17T00:00:00+08:00"
+      },
+      {
+        "teamId": "team-4",
+        "teamName": "日结冰战队",
+        "days": 1,
+        "firstEnd": "2026-09-17T00:00:00+08:00"
+      }
+    ]
+  },
+  "mounts": {
+    "/reports": {
+      "readOnly": false,
+      "type": "volume"
+    },
+    "/source": {
+      "readOnly": true,
+      "type": "volume"
+    },
+    "/app/data": {
+      "readOnly": false,
+      "type": "volume"
+    },
+    "/run/report-config.json": {
+      "readOnly": true,
+      "type": "bind"
+    },
+    "/run/secrets/telegram-bot-token": {
+      "readOnly": true,
+      "type": "bind"
+    }
+  },
+  "sourceHashes": {
+    "server/telegram-reports.ts": "16bdfe25c3d9b81f4567216512e15e42428a6156c243fa9b0553923ebbd3ffac",
+    "server/telegram-report-worker.ts": "26f42c25733a02a20dc1968e9239325e7a612f8fab5b19da5898284df62b3770",
+    "tests/telegram-reports.test.ts": "49625438f46650df6b0d125da6c41e571c87a21e6027f10a4e81bde3efaa0584",
+    "compose.telegram.yaml": "cb4ea7f30bfc20b76228224fcebf1a4d550b5914b4c47a3c91926ea5523c4cd4",
+    "Dockerfile.telegram": "de371bd177a0b846c511996022841945f0934587a94ff2fbf20332cdee84099c",
+    "docs/TELEGRAM-REPORTS.md": "4a86d2ee5b12336f232a3883a6efaf26e9162b6b048ab01696ef608d31557045"
+  },
+  "gameContainer": {
+    "healthy": true,
+    "startedAt": "2026-09-16T12:28:50.350802266Z",
+    "image": "jinling-mahjong:0.7.7-build43-csv-tables-20260916"
+  },
+  "localTestsPassed": 13,
+  "linuxTestsPassed": 13,
+  "typecheckPassed": true,
+  "spreadsheetImportAndValueChecksPassed": 4,
+  "real333069HandsPerPlayer": [
+    5,
+    5,
+    5,
+    5
+  ],
+  "reported333069TablesPerPlayer": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "reported333069PointsPerPlayer": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "appDataReadOnly": true,
+  "gitCommitCreated": false
+}

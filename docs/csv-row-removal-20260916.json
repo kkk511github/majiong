@@ -1,0 +1,28 @@
+{
+  "release": "0.7.7-build43-csv-20260916",
+  "change": "Remove only the CSV metadata row labelled 口径; retain dates, headers and score data.",
+  "patch": {
+    "server/records.ts": "14370dc421e7c0d30a7cd5811f0057585c9b88fa195acda2265e5ecf98b4384e"
+  },
+  "localTestsPassed": 7,
+  "linuxTestsPassed": 7,
+  "verified333069Points": [
+    -50,
+    30,
+    0,
+    0
+  ],
+  "basisRowAbsent": true,
+  "columnHeaderIsSecondRow": true,
+  "original333069LedgerUnchanged": true,
+  "publicCheck": {
+    "ok": true,
+    "version": "0.7.7",
+    "backend": "https://212.189.31.194/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-16T12:07:17.185Z"
+  },
+  "nativePackageUpdateRequired": false
+}

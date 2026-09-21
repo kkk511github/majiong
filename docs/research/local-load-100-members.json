@@ -1,0 +1,31 @@
+{
+  "at": "2026-09-16T06:35:49.217Z",
+  "environment": "Single local server process; separate Node WebSocket client process; temporary on-disk SQLite WAL",
+  "concurrentClients": 100,
+  "rooms": 25,
+  "completedRounds": 100,
+  "acceptedOperations": 8247,
+  "receivedStates": 33238,
+  "serverErrors": 0,
+  "unexpectedDisconnects": 0,
+  "targets": {
+    "completedRooms": 25,
+    "serverErrors": 0,
+    "unexpectedDisconnects": 0,
+    "localStateConfirmationP95Ms": 500
+  },
+  "targetMet": true,
+  "serverResidentMemoryMB": {
+    "samples": 48,
+    "peak": 261.1,
+    "last": 261.0625
+  },
+  "elapsedSeconds": 48.1,
+  "stateConfirmationMs": {
+    "p50": 33.88,
+    "p95": 137.93,
+    "p99": 200.81,
+    "max": 292.3979169999984
+  },
+  "limitations": "Local loopback, pre-provisioned authenticated members, 100ms think time, four rounds per room. Latency ends at matching game state, not ACK. RSS is sampled server memory, not client/GPU memory. Does not establish WAN, recovery, registration or long-duration production capacity."
+}

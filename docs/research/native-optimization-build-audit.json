@@ -1,0 +1,878 @@
+{
+  "at": "2026-09-16T07:28:14.201Z",
+  "kind": "native-web-build-only",
+  "root": "/Users/kk/Documents/Codex/2026-09-13/new-chat/work/native-optimization-audit-dist",
+  "files": {
+    "android-icon-foreground.png": {
+      "bytes": 1236925,
+      "sha256": "3c222e896198391a7d4b14dc6ef1386423da0a7e55ee18616cd8b6d2239acd82"
+    },
+    "avatars.png": {
+      "bytes": 2750141,
+      "sha256": "93e8ad07d28afcb27842c89afbce3d0ddbc1f9f1a6be536a8545246c8ede741d"
+    },
+    "brand-icon.png": {
+      "bytes": 1863583,
+      "sha256": "810e7c868811fb7030364c8544997a753290e9873580448376891ec6d9f41462"
+    },
+    "felt.svg": {
+      "bytes": 373,
+      "sha256": "fb44440235c871c72b019a7c6cf5d5b9df99da852faae864ffea9edcfeb28fe4"
+    },
+    "icon.svg": {
+      "bytes": 582,
+      "sha256": "eba2fa924b2e8917d0054646516452be73e1b431aa1737ea3aed1bac8541e4af"
+    },
+    "index.html": {
+      "bytes": 838,
+      "sha256": "8f426221bfbdd26a07cb1c3e93b299adc335ae9aeb01e9aee987c71b517da331"
+    },
+    "lobby-scene.png": {
+      "bytes": 2462077,
+      "sha256": "634432d41a6b267ff5199095e4abaec219bc34504eea062e96dc6ee95dea14bc"
+    },
+    "meld-source-dart.png": {
+      "bytes": 625751,
+      "sha256": "23ee83110800305de085ea31aea41ce4fdbc79762f55562e37c0b79ce578c395"
+    },
+    "meld-source-gold.png": {
+      "bytes": 1095733,
+      "sha256": "af698ae80f575cb9f53f24ce78626f5013ef03ed38502e21b3dfefb37fc3a66b"
+    },
+    "qinhuai-table-reference-v3.png": {
+      "bytes": 2099375,
+      "sha256": "95e0d1cde17d17ce96d408a0ba43076bc8502ee941829b49bfa7493c0ce890ba"
+    },
+    "qinhuai-table-v1.png": {
+      "bytes": 2512943,
+      "sha256": "4ed57f8e267e83cb4d02d8e72602a99e2a8a9bda218345bc38d19480ed3d8ad1"
+    },
+    "qinhuai-table-v2.png": {
+      "bytes": 2369110,
+      "sha256": "ac468acc8253c259cf13e1df26fe4b77b15a935e4625d6814b31beffd75a1542"
+    },
+    "table-frame.svg": {
+      "bytes": 1350,
+      "sha256": "c41c2ff0e2e41dc5498e4ab208e5d8308300a9f8fda455e264593768d8e9ff69"
+    },
+    "tile-catalog.html": {
+      "bytes": 16975,
+      "sha256": "f2d8ac848bb254075e90b0e550710583bd7a34c46af6799e07cf85dc36f67f97"
+    },
+    "tile-material-study.html": {
+      "bytes": 4278,
+      "sha256": "28eb6d2ebf1c4e53c3efe02b4bc1af0cb6d07099b2d97537d42307be339e9e23"
+    },
+    "tile-study-carved.png": {
+      "bytes": 2088003,
+      "sha256": "cfda3181cf5653cf2ea6c467872b9761490cc3832a57e2a9ea30768890135340"
+    },
+    "tiles/0.svg": {
+      "bytes": 12170,
+      "sha256": "de9edbdefd31d89e9a24a8a6030ab296697fc91bebee52ac2eb846c6d50e0645"
+    },
+    "tiles/1.svg": {
+      "bytes": 12886,
+      "sha256": "d27ae44a0bade6e362bcef4af08a75d98dfe7078c3ca7fafedc70655bda89f3a"
+    },
+    "tiles/10.svg": {
+      "bytes": 3709,
+      "sha256": "fb82cc9b4c39dce3aa143d6bc824ee2067f3b3c59c80f3bdccdfa5d669133091"
+    },
+    "tiles/11.svg": {
+      "bytes": 4458,
+      "sha256": "433cbd3beeb592e6c35ed7d32f790c257c1507c2126911b39a4db8e73890efea"
+    },
+    "tiles/12.svg": {
+      "bytes": 5107,
+      "sha256": "895109ecc94fe5f6b4a157ccc8a731578894972e9de82e435d5d05ce75ff5f3c"
+    },
+    "tiles/13.svg": {
+      "bytes": 5708,
+      "sha256": "fb0c65f6b52e01aaa7ce6c62212ab6c0e6a1d0db43d6d9d11f3e5dd63a9d79ef"
+    },
+    "tiles/14.svg": {
+      "bytes": 6051,
+      "sha256": "e20071f8ca4391e52a4fb89a060249c99ed4e24a79d55041a1976e7dc3f846f7"
+    },
+    "tiles/15.svg": {
+      "bytes": 6932,
+      "sha256": "2072ba0b72088c40f60e10f236b4d184c0ee6aacb65923a7d9a1773a84e58923"
+    },
+    "tiles/16.svg": {
+      "bytes": 7239,
+      "sha256": "a25dae0e5285a82529ac9d8cfeb9f92d0a97e921f49471671fe5d187aa6a4fc5"
+    },
+    "tiles/17.svg": {
+      "bytes": 8145,
+      "sha256": "0641fa599d782c7de94882126dd615adae8ca3bb6efd154c8ec7daaab29b3762"
+    },
+    "tiles/18.svg": {
+      "bytes": 4973,
+      "sha256": "b6cbde60c24aa39b8a11a0621df8ee9e580a3287a57cca5c62f6a1350a6723f0"
+    },
+    "tiles/19.svg": {
+      "bytes": 3735,
+      "sha256": "52cbd54555b8b1e5a6649445f35bc2c89873347ce1742a54bc3b9af1f276ddb4"
+    },
+    "tiles/2.svg": {
+      "bytes": 13312,
+      "sha256": "a8144c1d9386b61e17f80ae839ce9f50fc1294b274534d1195bf1bd5109f998e"
+    },
+    "tiles/20.svg": {
+      "bytes": 4350,
+      "sha256": "1eced76a069d0676ed78af4f2bff33084a721ea9d73b3d1da215636352585de6"
+    },
+    "tiles/21.svg": {
+      "bytes": 4959,
+      "sha256": "4dced214ced19688673d55b7d89f0b0d82f10b431face7eda487649be28bb48f"
+    },
+    "tiles/22.svg": {
+      "bytes": 5568,
+      "sha256": "08b8fa33881c0ff00e714503dcc4c7a9ce4ac2e4dd3ec214736cae2bf0237e78"
+    },
+    "tiles/23.svg": {
+      "bytes": 6183,
+      "sha256": "00f64ee264e1478d3c047a8d4891670e8d225e92712478949bd7f4ddd7a5070a"
+    },
+    "tiles/24.svg": {
+      "bytes": 6792,
+      "sha256": "daeb1a8bb92fb4abda2b1c3dc03c560f30fbf0129bf60f80b2ede4bbfdaf4808"
+    },
+    "tiles/25.svg": {
+      "bytes": 7403,
+      "sha256": "03617b7823f50c95e49d9a8442f934e3d83d8d7ee3c8e9db9d7cfc73e2e014ed"
+    },
+    "tiles/26.svg": {
+      "bytes": 8007,
+      "sha256": "19753e4d721624e4cd251b48a7a42e699ec2b34d24b5497514eee8f80bcf79ac"
+    },
+    "tiles/27.svg": {
+      "bytes": 9407,
+      "sha256": "856fbce27743fd8d66a3126b68fd871099509f43091a93eb06787bb42c12368b"
+    },
+    "tiles/28.svg": {
+      "bytes": 9083,
+      "sha256": "4ceb2aa5674b5a4cde7d0ca18259ef09bff4e92a52fc511a4217afaa73e5da4f"
+    },
+    "tiles/29.svg": {
+      "bytes": 7934,
+      "sha256": "768b63a0f70fa8268a3f059610a5492c5ecfa2b1bf049489ba88f73a82c17fb7"
+    },
+    "tiles/3.svg": {
+      "bytes": 15030,
+      "sha256": "5df8ab1e41136c2a175d6e24d5d84de9a6886a1376474210d1394cba3f02098a"
+    },
+    "tiles/30.svg": {
+      "bytes": 7106,
+      "sha256": "072f0c4b69577d45a8cf72163b12b0a99aeff6b4ea8eda9e01e2929897cc075c"
+    },
+    "tiles/31.svg": {
+      "bytes": 6325,
+      "sha256": "5463ba1237d74529e927cdcbd471275fa4b4d4622b88408e21db5da4267283c3"
+    },
+    "tiles/32.svg": {
+      "bytes": 13109,
+      "sha256": "53d89937c74b89ed51181b031717a0feeffe08d727da68c0929a4f06b0473f26"
+    },
+    "tiles/33.svg": {
+      "bytes": 3144,
+      "sha256": "32a84a6f9cd407f05ddfe014066a65158183155e77b05bc8f6565c7c928838de"
+    },
+    "tiles/34.svg": {
+      "bytes": 15349,
+      "sha256": "2d9e47ad94c7d32bb7516d68ed947a5145f6e347edc2aff0b39012023a3d0461"
+    },
+    "tiles/35.svg": {
+      "bytes": 11422,
+      "sha256": "f2adf1100c8f4858d294fa32b1bef6cba1feb0d534f0151dc0f8f26cb0d37881"
+    },
+    "tiles/36.svg": {
+      "bytes": 11648,
+      "sha256": "b977b8e0fd5fc159759036dfdfca2537d4c88801935b47d4db490b174cecfa21"
+    },
+    "tiles/37.svg": {
+      "bytes": 16416,
+      "sha256": "31e358d021ea8888cefe0907313dc7f264ff964e339723f8cfda087f3ca66c2a"
+    },
+    "tiles/38.svg": {
+      "bytes": 16636,
+      "sha256": "f74a1ab0c27fc592ea1f8506cb57707084bd41f2b44503394bf83c90714ce249"
+    },
+    "tiles/39.svg": {
+      "bytes": 17552,
+      "sha256": "4a5d90a5b8c493b18b8c007237c63cd7947ca6ead531b2050c820c66ce75a86f"
+    },
+    "tiles/4.svg": {
+      "bytes": 15253,
+      "sha256": "29453f49150f97d67eb644eefcf8735333810ec829d9adba5c15a127163514a1"
+    },
+    "tiles/40.svg": {
+      "bytes": 12938,
+      "sha256": "0495c6177449e0c3ab85cc19ff543b05b3a527d7970dbfb8027d0868e51e63f8"
+    },
+    "tiles/41.svg": {
+      "bytes": 18281,
+      "sha256": "49c0a7085ae2258f22c53d3ebcc2ef1d9d7fbe9c19031850032b81b5faa71ef0"
+    },
+    "tiles/5.svg": {
+      "bytes": 14132,
+      "sha256": "8248e0d941453a9078b8571b208af23f0cad233e7b103cab6ef6a4966061d624"
+    },
+    "tiles/6.svg": {
+      "bytes": 13281,
+      "sha256": "d0e43cc2f46381861b9f8d52c313883c32adb045266ad8ebccb41b78aac542f1"
+    },
+    "tiles/7.svg": {
+      "bytes": 13327,
+      "sha256": "561b63e31b21872f618cac7055fcfb6b248b5ab9a85d4330f060fe305f8850e5"
+    },
+    "tiles/8.svg": {
+      "bytes": 14254,
+      "sha256": "10aa6f680e879ccab020ccfdd5981b826e71620e83fdec4dc789d0e7937fcf74"
+    },
+    "tiles/9.svg": {
+      "bytes": 6098,
+      "sha256": "b333c8be3f8a7e503137313e329467d6a4326c0bbbb5f4bfdcc13b6a796ba6ec"
+    },
+    "tiles/back-side.svg": {
+      "bytes": 4422,
+      "sha256": "5812e9d20286cfa5283f9d71df03a4c84f1fca40f9c1540996ef4ef31f17dcf5"
+    },
+    "tiles/back.svg": {
+      "bytes": 4349,
+      "sha256": "2061ae3c58bdb6f101f9df4abf66f3fd1d510254dc7535e1a078dd02b43f2f00"
+    },
+    "tiles/manifest.json": {
+      "bytes": 3315,
+      "sha256": "44f10ca56ea5cf76fbc38740342c6d65fd7ca901761362af824aad3284591683"
+    },
+    "tiles/tile-mask.svg": {
+      "bytes": 217,
+      "sha256": "e4e4e0670ef2104270212cb2c5175635b0905f2b9684367dc3ebf4a1059c1e96"
+    },
+    "tiles/tile-material.png": {
+      "bytes": 1262862,
+      "sha256": "5b54e054561a09ed877a42ff51c60dc714adfee56b41626a513ca38ddd690027"
+    },
+    "tiles/vivid/back-top.png": {
+      "bytes": 21497,
+      "sha256": "fa1fa43b962dc08367c3c87d0e977edb0e9c82a0d852664b495784cdf5fce34f"
+    },
+    "tiles/vivid/own.png": {
+      "bytes": 1661773,
+      "sha256": "e6674581db4ce79260136435d53681427d4815b5eaa00361500d1d3be44f8352"
+    },
+    "tiles/sculpted/bamboo-eight.png": {
+      "bytes": 1734655,
+      "sha256": "079e9b27025edb1636e78db0653743ce54404b1961dc1e00dc8f20abf85e7e66"
+    },
+    "tiles/sculpted/bamboo-seven.png": {
+      "bytes": 1769948,
+      "sha256": "17bc3d2d3497f25adea8d8957e2e4c6c9358363c0846e6017545dde066a421c3"
+    },
+    "tiles/sculpted/bamboo-six-corrected.png": {
+      "bytes": 1699883,
+      "sha256": "fcdd5192e12e24fa92cea6018086c1d7b1ed20e002d3f3d88ca97fcbb4ae2877"
+    },
+    "tiles/sculpted/bamboo.png": {
+      "bytes": 2087300,
+      "sha256": "04c6bc163cfd94069603313d0971010cf753a3f82564f232aaabddeaa944be2b"
+    },
+    "tiles/sculpted/dots.png": {
+      "bytes": 2133956,
+      "sha256": "9407f90ac0e17c0de080006a3d1929da0d971f48f7554fbf94cd9c7d001bca13"
+    },
+    "tiles/sculpted/flowers.png": {
+      "bytes": 2496919,
+      "sha256": "fe5bf096795a2df5c3bbdd5e653d53409ddfde574f0fddd796b59d44df9f4b1a"
+    },
+    "tiles/sculpted/honors.png": {
+      "bytes": 2024644,
+      "sha256": "2ea59929c1844efae73636a14345530d21bf617557e499a5b044180f99be7c73"
+    },
+    "tiles/sculpted/manifest.json": {
+      "bytes": 6559,
+      "sha256": "f4d286d3c59c982fa4e115fa032a7db1856dec6f7cf06111d2ed025df66484f0"
+    },
+    "tiles/sculpted/wan.png": {
+      "bytes": 1984794,
+      "sha256": "0a72f862f33010cf33f8ecf143d5da522ffe72dde3ce58814cd4b49fdcf2d396"
+    },
+    "tiles/reference/bamboo.png": {
+      "bytes": 1511065,
+      "sha256": "3edbd2131aac0405895109fae66446694ca35251c1234866e547293d29a11c4b"
+    },
+    "tiles/reference/dots.png": {
+      "bytes": 1599557,
+      "sha256": "131859e56debef6731c507072b9a1b4488eb2c19d681fdb61c14171bae06d573"
+    },
+    "tiles/reference/flowers.png": {
+      "bytes": 1735715,
+      "sha256": "ff181f9589ac8fda81912d53a7af4f42979c9ffc440c995512b0de78325a83a2"
+    },
+    "tiles/reference/honors.png": {
+      "bytes": 1373520,
+      "sha256": "1c73fec6e2029f78067a16d0fc420271ac7bbabe8bcf1a56b4ff1e1f466be8f9"
+    },
+    "tiles/reference/wan.png": {
+      "bytes": 1648949,
+      "sha256": "21ed5389f15bc8c340a28c9fbed20ae4db8d51dbe7437d89d63140105bdeb972"
+    },
+    "icon-preview/adaptive.png": {
+      "bytes": 77739,
+      "sha256": "f502ffcf38259f1b3626e16e058717838263a33ead86a7c10f35a59f4dd2c3d1"
+    },
+    "icon-preview/monochrome.png": {
+      "bytes": 2888,
+      "sha256": "b554ce9e560d1062ec2e041a3c080f530cef13e0988b7cd791874c1f56f39c92"
+    },
+    "fonts/MaShanZheng-OFL.txt": {
+      "bytes": 4397,
+      "sha256": "d7bdb1cee215b689e23c2f95672a6084c790542170648267a55114103d756a08"
+    },
+    "fonts/OFL.txt": {
+      "bytes": 4350,
+      "sha256": "5e0da210fb04058a8c0087985d2d456b931c2579811a49655721d3cf0c36b6d6"
+    },
+    "fonts/YujiSyuku-OFL.txt": {
+      "bytes": 4386,
+      "sha256": "ef7c85c72ae94381c8bc4832ae4e6fbabdeafa2bb8a31313cd75dce95a690256"
+    },
+    "fonts/mahjong-brush-traditional.ttf": {
+      "bytes": 17404,
+      "sha256": "dc0ea546803409f60c343bd79c3cc00ec6ec58e213054cc1f801377ce104f856"
+    },
+    "fonts/mahjong-brush.ttf": {
+      "bytes": 25676,
+      "sha256": "45484685a82f7f7f50375878a12c7a1cbbce84ae09c982be6c0c244a0e1f6041"
+    },
+    "fonts/mahjong-ink.ttf": {
+      "bytes": 8284,
+      "sha256": "07b7b85ffcd4dd4ed54a76d21f0612c3e9240c9a1780f56100bdb1883b4b1be9"
+    },
+    "fonts/noto-serif-title.ttf": {
+      "bytes": 3656,
+      "sha256": "ad184665e343fd9e214a6cf280e00f80097e7b2595527b8713b3b8420e9448d4"
+    },
+    "cocos-table/application.js": {
+      "bytes": 3302,
+      "sha256": "359f85dd922e2568aa991af95a5c356a0102042c8918252987bfbd37f2153eb2"
+    },
+    "cocos-table/build-manifest.json": {
+      "bytes": 109,
+      "sha256": "2c3307c61102003ad4b1c6883619516fb48e07f36f2bb350fde2ff1ed7ffdfd3"
+    },
+    "cocos-table/index.html": {
+      "bytes": 2097,
+      "sha256": "f6fe74f3368162fe1cd6d29add116f667ec1dcde7d7b7b0bfa328c5a62dd0c25"
+    },
+    "cocos-table/index.js": {
+      "bytes": 818,
+      "sha256": "4317cb547b4d105f69346b925d961df7f951002fd5a4aaae807a361aa1ad49cd"
+    },
+    "cocos-table/style.css": {
+      "bytes": 1222,
+      "sha256": "338fc9d734af60103e6d303333e28b413f477b295fd7dd233dc7022320c56e48"
+    },
+    "cocos-table/src/effect.bin": {
+      "bytes": 5755,
+      "sha256": "b0d92f8307e3109abe8af8a863d68feb58cf4f49cf000b1d48fbb3dc3ad45556"
+    },
+    "cocos-table/src/import-map.json": {
+      "bytes": 40,
+      "sha256": "2be73d8f2e7e1d814627714ace691b6e1a9d445c779426a224e7f3685f0fa278"
+    },
+    "cocos-table/src/polyfills.bundle.js": {
+      "bytes": 14750,
+      "sha256": "f1e4ced3322168d6b9915e782e4c1cf1055d75f66f2b38e7fcd60f48cf89082b"
+    },
+    "cocos-table/src/settings.json": {
+      "bytes": 21379,
+      "sha256": "21c3906aadddac72b0811abb147e3a82355189491511420b83bda06adc082671"
+    },
+    "cocos-table/src/system.bundle.js": {
+      "bytes": 12259,
+      "sha256": "90f192f3b04f7fcb5bba9c15745cdd1a798d9b855f752c5ee7e48bb526dd543d"
+    },
+    "cocos-table/src/chunks/bundle.js": {
+      "bytes": 10116,
+      "sha256": "676505eab615bbe3437148994a411977623dbdd52c4336a00f17df52f3527e26"
+    },
+    "cocos-table/cocos-js/_virtual_cc-BLqquksy.js": {
+      "bytes": 1741712,
+      "sha256": "e87b0b4e8add5db90d48033e6d00424c184eff5ed475b25d7e0a26cfdcefc84d"
+    },
+    "cocos-table/cocos-js/cc.js": {
+      "bytes": 7057,
+      "sha256": "3b75baaacbaa2c5a04bf1900664883a5ac27fb2114195528f637aa1ed20877d9"
+    },
+    "cocos-table/cocos-js/spine-BGFFnNyc.js": {
+      "bytes": 119,
+      "sha256": "df3e7ef18435df7ceea12c8c235d1cef37fc9c6cb9ab6a3b4bc735c7d134c7f6"
+    },
+    "cocos-table/cocos-js/spine.asm-BCCB8IGt.js": {
+      "bytes": 362717,
+      "sha256": "d2f9198f41d75218ae88e4f256987dabac2abb6b4988280ee2e57314c38ee4de"
+    },
+    "cocos-table/cocos-js/spine.js-CPHn08RU.js": {
+      "bytes": 125,
+      "sha256": "b9c5485f282af04d7848ca17b78e421128de8d215e9698ba8bf1a18cccc8bf0d"
+    },
+    "cocos-table/cocos-js/spine.wasm-D5FBASL9.js": {
+      "bytes": 22167,
+      "sha256": "f570cdd72a1e1b9ff631dfbad1c77e49a3d5275e866f94ae8d581058ceb46cd6"
+    },
+    "cocos-table/cocos-js/assets/spine-CC34fKUR.wasm": {
+      "bytes": 205175,
+      "sha256": "b3d705bd391da35dcf0980c1d8c526f609ad64ac12652dd8c0bf3b20a626f2f2"
+    },
+    "cocos-table/cocos-js/assets/spine.js.mem-pbmhlDdv.bin": {
+      "bytes": 19998,
+      "sha256": "7a22a12630af3de76efe992d68fdcc25f072d663ccb569d7369cbe2d91e8147e"
+    },
+    "cocos-table/assets/resources/config.json": {
+      "bytes": 4361,
+      "sha256": "ac04e3245fab46ba1065d0a9bd0637c4a6e7e3491182495eb038e347f7a7a404"
+    },
+    "cocos-table/assets/resources/index.js": {
+      "bytes": 605,
+      "sha256": "51a07ab61ee49561d29734ff6ee095b0d8a47998bbe30a6f1973bf3c8b7faa25"
+    },
+    "cocos-table/assets/resources/native/f3/f3273211-e1a7-4cb1-b09b-84085a286988.png": {
+      "bytes": 498712,
+      "sha256": "d491d5d7bb99ffd65691fe20724fd85dc22776a5522991860c54b04bda4351f2"
+    },
+    "cocos-table/assets/resources/native/f2/f2d13637-6d1c-4f27-8978-47d7c41723fe.png": {
+      "bytes": 21497,
+      "sha256": "fa1fa43b962dc08367c3c87d0e977edb0e9c82a0d852664b495784cdf5fce34f"
+    },
+    "cocos-table/assets/resources/native/ed/edfee4b1-41b6-454a-92b2-fcfd0122bcec.png": {
+      "bytes": 1092470,
+      "sha256": "0e1088f8f8d3894a57c4cede23b6361214771609b24ece4093866516cb86f0a3"
+    },
+    "cocos-table/assets/resources/native/c5/c5c94ad0-1930-4c0a-8961-13b5ed7bd418.png": {
+      "bytes": 1853082,
+      "sha256": "5f5bc4d4f03e3ccd17a90e84b6c738249819dc65d2604b96128b72b208ee09ff"
+    },
+    "cocos-table/assets/resources/native/c2/c2585996-c2db-41ae-a2e1-4ba42f35d66a.png": {
+      "bytes": 1095733,
+      "sha256": "af698ae80f575cb9f53f24ce78626f5013ef03ed38502e21b3dfefb37fc3a66b"
+    },
+    "cocos-table/assets/resources/native/b8/b80994c4-645e-472f-82f9-04993cb73710.png": {
+      "bytes": 25509,
+      "sha256": "f9fc45c6a60d6d470e3a9d82393f843ac578241b86c68250414bb1bfb79c31cd"
+    },
+    "cocos-table/assets/resources/native/b5/b534bc67-eaa6-46be-b97c-a9ca30493c61.png": {
+      "bytes": 20159,
+      "sha256": "b14bd6da5044a7e3a10ae5f2de2ab4e74e3683a2334cbb082055d93b77d294f5"
+    },
+    "cocos-table/assets/resources/native/aa/aa30c8be-5b77-4e8d-a829-602af20d0662.png": {
+      "bytes": 20255,
+      "sha256": "4c93710bb7f566eb80fa590f0082afa94699088cc607b7c2e6159f193e46f99a"
+    },
+    "cocos-table/assets/resources/native/a9/a952f862-e866-427e-af1f-3dd9679c42af.png": {
+      "bytes": 1068917,
+      "sha256": "f2ef720028e025f18eb03ea4cdabe07a54eee3354070b7581224409506cc350f"
+    },
+    "cocos-table/assets/resources/native/a9/a9c3a190-052f-4e7d-9a29-3723e67e28d0.png": {
+      "bytes": 1090046,
+      "sha256": "4305e18b53bcef39402bdd82fcdc18883a687a5f5eadb50667af20a768a5527c"
+    },
+    "cocos-table/assets/resources/native/a7/a7a76a9c-1511-4f6c-8fe7-9d889d6a4960.png": {
+      "bytes": 1093209,
+      "sha256": "508f3089c11ed5f31c56e14b6ffbe500bee31efda749526311f22b96466d99c7"
+    },
+    "cocos-table/assets/resources/native/a6/a6be1a65-67f3-48ad-bc71-34625975628b.png": {
+      "bytes": 1228717,
+      "sha256": "fbcf2b623cfd1bb6866cd8f42da33ee406486880318212da99c320d246cb9f81"
+    },
+    "cocos-table/assets/resources/native/9c/9c7bd165-b14e-46d0-aeef-6d024e6cb742.png": {
+      "bytes": 1946011,
+      "sha256": "3001b6d73409f8ce4812735569d972f5a564c610018a80390626634bf2dc748d"
+    },
+    "cocos-table/assets/resources/native/8c/8cf99b1b-8329-4a70-9cf6-e44fc34a4187.png": {
+      "bytes": 1057102,
+      "sha256": "b39cec8c79e100ecba50997157f5ca4ef355570e5aee7fcba3b58b9a65c759e3"
+    },
+    "cocos-table/assets/resources/native/89/89af3b0b-585f-4cd1-93cc-76184d86aaeb.png": {
+      "bytes": 625751,
+      "sha256": "23ee83110800305de085ea31aea41ce4fdbc79762f55562e37c0b79ce578c395"
+    },
+    "cocos-table/assets/resources/native/7d/7d7efe63-0e64-4776-a590-da44e35c3c23.png": {
+      "bytes": 26913,
+      "sha256": "e9527d2412ad39257b6bc53abda83d134ad0d8fa8138e6a7573f32331d89a857"
+    },
+    "cocos-table/assets/resources/native/76/76214433-14ea-4c8d-92db-a613cfeb5600.png": {
+      "bytes": 25509,
+      "sha256": "f9fc45c6a60d6d470e3a9d82393f843ac578241b86c68250414bb1bfb79c31cd"
+    },
+    "cocos-table/assets/resources/native/68/6849928c-bb2d-45eb-b9cf-efd650c90be8.png": {
+      "bytes": 1228513,
+      "sha256": "884b426e2894a0549123daa7f4c1ca62207eff33f061b2bf9fd420754fd6fa5b"
+    },
+    "cocos-table/assets/resources/native/5c/5cdba121-3dac-43f8-b712-391b53f55f8c.png": {
+      "bytes": 2507563,
+      "sha256": "b6b4e418cf2805beb2d4555634b2b15b70d7684e4e5d42cde816f61e595c98c6"
+    },
+    "cocos-table/assets/resources/native/5b/5b544de5-ec87-4c87-902e-2f3429859b2f.png": {
+      "bytes": 1067797,
+      "sha256": "3e72c201f48f5d9b61580ed74b52aa2cce2965f843135465465636ea78eeeca7"
+    },
+    "cocos-table/assets/resources/native/4f/4ff4cfd3-af9f-40dc-808c-ab86d6896e28.png": {
+      "bytes": 1694841,
+      "sha256": "da2734dde763547f830f2aa828c34d471813e3f87ed65cdcd09102450546346a"
+    },
+    "cocos-table/assets/resources/native/4b/4bdba21c-9642-4299-9a60-5d7abb3e33d1.png": {
+      "bytes": 2750141,
+      "sha256": "93e8ad07d28afcb27842c89afbce3d0ddbc1f9f1a6be536a8545246c8ede741d"
+    },
+    "cocos-table/assets/resources/native/4a/4a03cf39-2869-46dc-90eb-394662c99a87.png": {
+      "bytes": 1797899,
+      "sha256": "214a3c49676571bcee0102d169429f9a95df065c8c144dc0f27ffc0338459b95"
+    },
+    "cocos-table/assets/resources/native/4a/4af7b381-3a5e-4f4e-bf9c-ce2111cf81c9.png": {
+      "bytes": 1661773,
+      "sha256": "e6674581db4ce79260136435d53681427d4815b5eaa00361500d1d3be44f8352"
+    },
+    "cocos-table/assets/resources/native/48/488c976b-386b-4cdf-8c40-5c1868fcbd00.png": {
+      "bytes": 1766662,
+      "sha256": "c84d462aafb65a44a4b10693dc3ed67537ec19ca13917e3845ee9f9783e0488b"
+    },
+    "cocos-table/assets/resources/native/44/4451ffa9-90be-48ae-bef3-e2d60abb9826.png": {
+      "bytes": 1089678,
+      "sha256": "986348b66046cd9182093e34cee422b6f9edac1693b739153a5f0c322205d4bc"
+    },
+    "cocos-table/assets/resources/native/3f/3fb96643-3d8b-4ef9-90d3-73580fcbd32d.png": {
+      "bytes": 1057140,
+      "sha256": "5ec41c830c1321ce3046a8284c4e690b8e6491c8bd1ba00b9b66345a95fe1264"
+    },
+    "cocos-table/assets/resources/native/38/38ad0ff4-0e86-4474-badc-3231e524219d.png": {
+      "bytes": 1125783,
+      "sha256": "bc1601cc7e8a195a0dc4c8e11238bef40b385664b761b0dbf0af6f1922db19b2"
+    },
+    "cocos-table/assets/resources/native/30/30ff700f-eadc-42d7-8f9c-824f90f15cfc.png": {
+      "bytes": 2792367,
+      "sha256": "fbec5db1ecd1b3eaf77dfc30e77d667a6768272671c276d87cca63531b890c71"
+    },
+    "cocos-table/assets/resources/native/23/238ac43a-f15b-4b6c-a193-2578efd37deb.png": {
+      "bytes": 1773522,
+      "sha256": "96f3c724c671f8ab056f6aa6404e8f31c981a4a5dc936d770fbc3beaa6052ec6"
+    },
+    "cocos-table/assets/resources/native/1f/1f380cce-4200-40ba-ac8b-8bb4b049d96d.png": {
+      "bytes": 1125783,
+      "sha256": "bc1601cc7e8a195a0dc4c8e11238bef40b385664b761b0dbf0af6f1922db19b2"
+    },
+    "cocos-table/assets/resources/native/07/0712720b-1ce6-4a74-b270-522e0f4d8335.png": {
+      "bytes": 26999,
+      "sha256": "874f2b5448499965c305258bb7197c2d7e7550d4c27301ffeeee61014c3d11ab"
+    },
+    "cocos-table/assets/resources/import/f3/f3273211-e1a7-4cb1-b09b-84085a286988.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/f2/f2d13637-6d1c-4f27-8978-47d7c41723fe.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/ed/edfee4b1-41b6-454a-92b2-fcfd0122bcec.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/c5/c5c94ad0-1930-4c0a-8961-13b5ed7bd418.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/c2/c2585996-c2db-41ae-a2e1-4ba42f35d66a.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/b8/b80994c4-645e-472f-82f9-04993cb73710.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/b5/b534bc67-eaa6-46be-b97c-a9ca30493c61.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/aa/aa30c8be-5b77-4e8d-a829-602af20d0662.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/a9/a952f862-e866-427e-af1f-3dd9679c42af.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/a9/a9c3a190-052f-4e7d-9a29-3723e67e28d0.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/a7/a7a76a9c-1511-4f6c-8fe7-9d889d6a4960.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/a6/a6be1a65-67f3-48ad-bc71-34625975628b.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/9c/9c7bd165-b14e-46d0-aeef-6d024e6cb742.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/8c/8cf99b1b-8329-4a70-9cf6-e44fc34a4187.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/89/89af3b0b-585f-4cd1-93cc-76184d86aaeb.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/7d/7d7efe63-0e64-4776-a590-da44e35c3c23.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/76/76214433-14ea-4c8d-92db-a613cfeb5600.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/68/6849928c-bb2d-45eb-b9cf-efd650c90be8.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/5c/5cdba121-3dac-43f8-b712-391b53f55f8c.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/5b/5b544de5-ec87-4c87-902e-2f3429859b2f.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/4f/4ff4cfd3-af9f-40dc-808c-ab86d6896e28.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/4b/4bdba21c-9642-4299-9a60-5d7abb3e33d1.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/4a/4a03cf39-2869-46dc-90eb-394662c99a87.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/4a/4aa5f58d-4dfc-46bc-afd0-293f086b09fd.json": {
+      "bytes": 20873,
+      "sha256": "cdfeecf5c09b2ace626f39bc7352cdc080f948114e02de00b94ecf46d9e823fa"
+    },
+    "cocos-table/assets/resources/import/4a/4af7b381-3a5e-4f4e-bf9c-ce2111cf81c9.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/48/488c976b-386b-4cdf-8c40-5c1868fcbd00.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/44/4451ffa9-90be-48ae-bef3-e2d60abb9826.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/3f/3fb96643-3d8b-4ef9-90d3-73580fcbd32d.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/38/38ad0ff4-0e86-4474-badc-3231e524219d.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/35/35885cb6-f2c6-42b4-8152-daed68e619f0.json": {
+      "bytes": 5642,
+      "sha256": "676b82c160a1fb5fa0924bc89a7664c3b24c3eb00fda96af14f61e7e4a2d105d"
+    },
+    "cocos-table/assets/resources/import/30/30ff700f-eadc-42d7-8f9c-824f90f15cfc.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/23/238ac43a-f15b-4b6c-a193-2578efd37deb.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/1f/1f380cce-4200-40ba-ac8b-8bb4b049d96d.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/resources/import/0b/0b5cbbce8.json": {
+      "bytes": 1409,
+      "sha256": "4d1525d1d068d4a1bea3d91915bd056d2eaadf6306352548190ea0514392b664"
+    },
+    "cocos-table/assets/resources/import/07/0712720b-1ce6-4a74-b270-522e0f4d8335.json": {
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    "cocos-table/assets/main/config.json": {
+      "bytes": 568,
+      "sha256": "836fe2d3e45ec4a861397802e646249ad085bf771ea6ac81ea27e669cce0b548"
+    },
+    "cocos-table/assets/main/index.js": {
+      "bytes": 170553,
+      "sha256": "6c06b3ecb7c16182a782c27a7773c15e02a3490048d71704369d4266aba0253c"
+    },
+    "cocos-table/assets/main/import/fd/fd8ec536-a354-4a17-9c74-4f3883c378c8.json": {
+      "bytes": 480,
+      "sha256": "c2eee4552a460ed97591f527e127b95c811d5f796b9448f3f705974af9beba9d"
+    },
+    "cocos-table/assets/main/import/ba/ba21476f-2866-4f81-9c4d-6e359316e448.json": {
+      "bytes": 192,
+      "sha256": "0a34e9263b215bb661d6334db6a255497c6cdac1f1c40b130f50bf9d91f4dd39"
+    },
+    "cocos-table/assets/main/import/4d/4d10b45c-7965-4b01-9596-0ab41bcdf002.json": {
+      "bytes": 1579,
+      "sha256": "f87f73ad4ddbaaae6b5ad05edf2e6d542aa69624861d4eb952710b9052c8d6c7"
+    },
+    "cocos-table/assets/internal/config.json": {
+      "bytes": 2102,
+      "sha256": "bef2b97968d426fd366f79d4a20fd5c2b8010b830f738b328b26d2af9169f11e"
+    },
+    "cocos-table/assets/internal/index.js": {
+      "bytes": 45110,
+      "sha256": "19bd675acfdd6f12d4bfec92fa4fa354b57c1dee7256325dce20ebfc5657b58c"
+    },
+    "cocos-table/assets/internal/import/04/04f923b60.json": {
+      "bytes": 193541,
+      "sha256": "d860f037f5101cfbd140fd33a4defdc7a0b22bfeecf1217aca5d474bfc78de21"
+    },
+    "audio/mahjong-lobby.m4a": {
+      "bytes": 2082510,
+      "sha256": "a8b504c41e30504f3268794ca71509f8ee0da38eca92e7a3240d6b022ae350a7"
+    },
+    "audio/mahjong-table.m4a": {
+      "bytes": 1013393,
+      "sha256": "7fafed8fe7e09085e6eab38858d954c13a3ed32c50380086a06b4677e6b53dc6"
+    },
+    "audio/nanjing-female.wav": {
+      "bytes": 1316886,
+      "sha256": "2b2173db255260b3aa885f1f25e13abeadc308ffee31247cb0bf32e74358aa12"
+    },
+    "audio/nanjing-male.wav": {
+      "bytes": 1216056,
+      "sha256": "4475027f30207e4dc5332016ed38d2641ecffd377a6892a69b797ebc346853d0"
+    },
+    "audio/qinhuai-evening.m4a": {
+      "bytes": 2115733,
+      "sha256": "828c04ac0955b74da626220c336ac2842854bbcac30e2b83071cb449158825b2"
+    },
+    "assets/ClubManagement-OO-2VKaA.css": {
+      "bytes": 6040,
+      "sha256": "9b5bbe63b741b6611c10a7af4a56f529351172e0caceacd683ce167c3022788c"
+    },
+    "assets/ClubManagement-XMcVvdaZ.js": {
+      "bytes": 25475,
+      "sha256": "2060b248098c250f1869c095ffb04eeeeeb0b115d6732d193353e890c3043de5"
+    },
+    "assets/RecordsPanel-Cko_DZzb.js": {
+      "bytes": 39435,
+      "sha256": "cc7e95012c057bfed572aa93033e2ae55c867d548c09d23a4f7793d114c52f26"
+    },
+    "assets/RecordsPanel-Dead3pa6.css": {
+      "bytes": 26434,
+      "sha256": "7051cb94566119f21913399983f21ff424e0df8a7e06f7b13c243a7215006808"
+    },
+    "assets/ReplayPanel-Ck9yE-sh.js": {
+      "bytes": 17871,
+      "sha256": "497170e37ab474996a24805b31294b94d0cfe52187d0c464399b177a8fe0bc7f"
+    },
+    "assets/ReplayPanel-wSydO0mN.css": {
+      "bytes": 10715,
+      "sha256": "f6d626142abc43540ae6877fdae62e54e8b9b04c655437c9b1b29ad599275461"
+    },
+    "assets/TablePermissions-B7C8s6yW.css": {
+      "bytes": 3288,
+      "sha256": "340092c7ba7d26e4a64fe08eafa55a74ce48cd3ca809df68142beb92f2ce9fa2"
+    },
+    "assets/TablePermissions-CwNc33sI.js": {
+      "bytes": 9847,
+      "sha256": "5cc0faa6c51c2fd3092f6acede7d4b4927d373d3102759210f9e67e2175da280"
+    },
+    "assets/index-CownSpnB.css": {
+      "bytes": 262242,
+      "sha256": "061dca26146cdd8a5f2c413945f2e2a6df7d8e08106201e9ccbedad7593bfaf6"
+    },
+    "assets/index-DjoLFn6F.js": {
+      "bytes": 432916,
+      "sha256": "757e7c8ec0346abf0aa1e41b8a536d89b4fd1e973001aaf2acd9222cf58ffea9"
+    },
+    "assets/vendor-DsfoZh4J.js": {
+      "bytes": 263294,
+      "sha256": "5090ef6198a6162882a3d0e60c9ac616bb965000abc9bbe8164ddcfbeb4de2e4"
+    },
+    "art/hu-badge-v1.webp": {
+      "bytes": 31300,
+      "sha256": "b2eb0852dfc40682f7854df401cc99ab243810a47cbcc494e5b66116304631a7"
+    },
+    "art/table-felt-v1.png": {
+      "bytes": 2231945,
+      "sha256": "af74bb99fd638ec15261e39c2531aa78cf1bb53e57f88e50e1499b613218a044"
+    },
+    "art/table-reference-v2.png": {
+      "bytes": 1848017,
+      "sha256": "03f44c6f722a60b71e0a69d0f33e62a37b44f7ee35829836e0eb00ddd75fc58f"
+    },
+    "art/table-reference-v3.png": {
+      "bytes": 1742789,
+      "sha256": "cc4672b230309424a0f3a80264125b35e40cc01dcbaa6e6a3d6d6b0770cc0096"
+    },
+    "art/table-straight-v4.png": {
+      "bytes": 1946011,
+      "sha256": "3001b6d73409f8ce4812735569d972f5a564c610018a80390626634bf2dc748d"
+    },
+    "art/effects/concealed-kong-gold-v1.png": {
+      "bytes": 1694841,
+      "sha256": "da2734dde763547f830f2aa828c34d471813e3f87ed65cdcd09102450546346a"
+    },
+    "art/effects/discard-pointer-gold-v1.png": {
+      "bytes": 498712,
+      "sha256": "d491d5d7bb99ffd65691fe20724fd85dc22776a5522991860c54b04bda4351f2"
+    },
+    "art/effects/hu-gold-v1.png": {
+      "bytes": 1853082,
+      "sha256": "5f5bc4d4f03e3ccd17a90e84b6c738249819dc65d2604b96128b72b208ee09ff"
+    },
+    "art/effects/kong-gold-v1.png": {
+      "bytes": 1773522,
+      "sha256": "96f3c724c671f8ab056f6aa6404e8f31c981a4a5dc936d770fbc3beaa6052ec6"
+    },
+    "art/effects/pung-gold-v1.png": {
+      "bytes": 1766662,
+      "sha256": "c84d462aafb65a44a4b10693dc3ed67537ec19ca13917e3845ee9f9783e0488b"
+    },
+    "art/effects/self-draw-gold-v1.png": {
+      "bytes": 1797899,
+      "sha256": "214a3c49676571bcee0102d169429f9a95df065c8c144dc0f27ffc0338459b95"
+    },
+    "art/effects/upgrade-kong-gold-v1.png": {
+      "bytes": 2507563,
+      "sha256": "b6b4e418cf2805beb2d4555634b2b15b70d7684e4e5d42cde816f61e595c98c6"
+    }
+  },
+  "exactPublicCopies": 199,
+  "protectedCocosEntry": "cocos-table/assets/main/index.js",
+  "toolchain": {
+    "xcode": "26.6",
+    "java": "Temurin 21.0.12.1",
+    "androidSdk": "../../work/toolchain/android-sdk"
+  },
+  "connectedPhysicalDevices": 0,
+  "webGate": {
+    "unitFiles": 37,
+    "unitTests": 329,
+    "browserTests": 74,
+    "browsers": [
+      "Chrome",
+      "WebKit"
+    ],
+    "log": "../../work/optimization-release-gate-current.log"
+  },
+  "limits": [
+    "No new APK or IPA built by this audit",
+    "No physical audio, keyboard, network-switch or thermal acceptance",
+    "No server deployment or git commit"
+  ]
+}

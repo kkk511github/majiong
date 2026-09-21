@@ -1,0 +1,40 @@
+{
+  "release": "0.7.7-build43-csv-tables-20260916",
+  "change": "Remove the exported CSV hand-count column; the previously removed 口径 row remains absent.",
+  "csvColumns": [
+    "战队",
+    "会员账号",
+    "昵称",
+    "会员ID",
+    "桌数（8局/桌）",
+    "积分"
+  ],
+  "patch": {
+    "server/records.ts": "e01ac58546c6804ce9ea0f6e2b2f1f090b5d591ad68a2e5506ca85973c650e7f",
+    "tests/club.test.ts": "dac2c0a1ef8d75564315b6677878d180de7c4ca43733c8be7a7f117d5fd82267"
+  },
+  "localTestsPassed": 7,
+  "linuxTestsPassed": 7,
+  "verified333069Points": [
+    -50,
+    30,
+    0,
+    0
+  ],
+  "verified333069ActualTables": 1,
+  "handCountColumnAbsent": true,
+  "basisRowAbsent": true,
+  "columnHeaderIsSecondRow": true,
+  "scoreCalculationUnchanged": true,
+  "original333069LedgerAndSnapshotsUnchanged": true,
+  "publicCheck": {
+    "ok": true,
+    "version": "0.7.7",
+    "backend": "https://212.189.31.194/mahjong",
+    "anonymousEndpointsProtected": true,
+    "nativeCors": true,
+    "anonymousWebSocketRejected": true,
+    "at": "2026-09-16T12:30:41.799Z"
+  },
+  "nativePackageUpdateRequired": false
+}

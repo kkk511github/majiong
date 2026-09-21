@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "version": "0.7.8",
+  "backend": "https://212.189.31.194/mahjong",
+  "anonymousEndpointsProtected": true,
+  "nativeCors": true,
+  "anonymousWebSocketRejected": true,
+  "at": "2026-09-16T18:39:58.654Z"
+}

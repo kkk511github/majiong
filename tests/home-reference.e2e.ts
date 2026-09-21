@@ -70,12 +70,13 @@ for (const role of ["admin", "member", "authorized"] as const)
         });
       });
       await page.goto("/");
-      await expect(page.locator(".home-table")).toHaveCount(1);
+      await expect(page.locator(".home-table")).toHaveCount(2);
       await expect(page.locator(".home-table").first()).toContainText("0/4 人");
-      await expect(page.locator(".home-table-join")).toHaveCount(1);
+      await expect(page.locator(".home-table").nth(1)).toContainText("2/4 人");
+      await expect(page.locator(".home-table-join")).toHaveCount(2);
       await expect(
         page.getByRole("article", { name: /600136/ }),
-      ).toHaveCount(0);
+      ).toBeVisible();
       await expect(
         page.getByRole("article", { name: /600144/ }),
       ).toHaveCount(0);
@@ -165,7 +166,7 @@ for (const blocked of [false, true]) {
     await expect(page.locator(".admission-notice")).toContainText(
       blocked ? "权限已暂停" : "分配战队",
     );
-    await expect(page.locator(".home-table-join")).toHaveCount(1);
+    await expect(page.locator(".home-table-join")).toHaveCount(2);
     for (const button of await page.locator(".home-table-join").all())
       await expect(button).toBeDisabled();
   });

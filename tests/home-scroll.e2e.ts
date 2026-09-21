@@ -36,8 +36,8 @@ for (const [width, height] of [
     });
     await page.goto("/");
     await expect(page.locator(".home-table")).toHaveCount(12);
-    await expect(page.locator(".home-live-footer")).toContainText("共 12 张空桌");
-    const list = page.getByRole("region", { name: "空桌，可上下滑动" });
+    await expect(page.locator(".home-live-footer")).toContainText("共 12 桌可加入");
+    const list = page.getByRole("region", { name: "可加入牌桌，可上下滑动" });
     const metrics = await list.evaluate((el) => ({
       height: el.clientHeight,
       content: el.scrollHeight,

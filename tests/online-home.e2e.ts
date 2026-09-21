@@ -66,7 +66,7 @@ for (const [width, height, left, right] of [
     await page.goto("/");
     await expect(page.locator(".home-table")).toHaveCount(1);
     await expect(page.locator(".home-live-heading")).toContainText(
-      "1 张空桌",
+      "1 桌可加入",
     );
     await expect(page.locator(".home-table").first()).toContainText("等待入座");
     const primary = page.getByRole("button", {
@@ -114,10 +114,10 @@ for (const [width, height, left, right] of [
     populated = false;
     await page.reload();
     await expect(page.locator(".home-empty")).toContainText(
-      "暂时没有空桌",
+      "暂时没有可加入牌桌",
     );
     await expect(page.locator(".home-live-heading")).toContainText(
-      "0 张空桌",
+      "0 桌可加入",
     );
     await expect(page.locator(".home-table-join")).toHaveCount(0);
     await page.screenshot({
@@ -157,7 +157,7 @@ test("牌桌大厅按0人、1至3人、不可加入排序并使用紧凑卡片",
   expect((await page.locator(".table-card").first().boundingBox())!.height).toBeLessThanOrEqual(100);
   await page.screenshot({ path: `${poolCaptures}/lobby-compact-sorted.png` });
 });
-test("首页只展示0人桌，已有三人后从约局大厅入座开局", async ({
+test("首页展示所有未满桌，完全空桌优先，已有三人仍可直接入座开局", async ({
   page,
   browser,
 }) => {
@@ -209,10 +209,12 @@ test("首页只展示0人桌，已有三人后从约局大厅入座开局", asyn
       name: `${tableName} 房号 ${code}`,
       exact: true,
     });
-    await expect(featured).toHaveCount(0);
+    await expect(featured).toBeVisible();
+    await expect(page.locator(".home-live-heading")).toContainText(
+      "桌可加入",
+    );
     await page.screenshot({ path: `${captures}/online-home-live.png` });
-    await page.getByRole("button", { name: "全部牌桌", exact: true }).click();
-    await page.locator(".table-card").filter({ hasText: tableName })
+    await featured
       .getByRole("button", { name: `${code} 北位入座`, exact: true })
       .click();
     await page.getByRole("button", { name: "我准备好了", exact: true }).click();
@@ -250,7 +252,7 @@ test("首页断线不显示陈旧空位为在线，恢复后自动更新", async
   await expect(page.locator(".home-table-join")).toHaveCount(1);
   disconnect!();
   await expect(page.locator(".home-live-heading")).not.toContainText(
-    "1 张空桌",
+    "1 桌可加入",
   );
   await expect(page.locator(".home-table-join")).toHaveCount(0);
   await expect(page.locator(".home-table-join")).toHaveCount(1, {
@@ -425,7 +427,7 @@ for (const [width, height] of [
     );
     await expect(page.locator(".home-table")).toHaveCount(0);
     await expect(page.locator(".home-empty")).toContainText(
-      "暂时没有空桌",
+      "暂时没有可加入牌桌",
     );
     cut!();
     await expect(page.locator(".home-refresh-status")).toHaveCount(0);

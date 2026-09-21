@@ -109,15 +109,20 @@ export function OnlineHome({
   const refreshing = connected && state.tablesLoading;
   const live = connected && !state.tablesLoading;
   const busy = !live || !!state.submitting;
-  const empty = state.tables.filter(
-    (t) => t.phase === "waiting" && t.seats.every((p) => !p),
+  const joinable = state.tables.filter(
+    (t) => t.phase === "waiting" && t.seats.some((p) => !p),
   );
-  const visibleTables = [...empty].sort(
-    (a, b) =>
-      a.seats.filter(Boolean).length - b.seats.filter(Boolean).length ||
+  const visibleTables = [...joinable].sort((a, b) => {
+    const occupied = (table: TableSummary) =>
+      table.seats.filter(Boolean).length;
+    const emptyRank = (table: TableSummary) => (occupied(table) === 0 ? 0 : 1);
+    return (
+      emptyRank(a) - emptyRank(b) ||
+      occupied(b) - occupied(a) ||
       a.number - b.number ||
-      a.code.localeCompare(b.code),
-  );
+      a.code.localeCompare(b.code)
+    );
+  });
   return (
     <section className="online-home" aria-label="联机首页">
       <div className="home-welcome">
@@ -187,7 +192,7 @@ export function OnlineHome({
         <div className="home-live-heading">
           <div>
             <span className={`home-live-dot ${connected ? "live" : ""}`} />
-            <h2>空桌等你入座</h2>
+            <h2>有空位的牌桌</h2>
           </div>
           <div className="home-live-tools">
             <span
@@ -198,7 +203,7 @@ export function OnlineHome({
               {refreshing
                 ? "更新中…"
                 : live
-                  ? `${empty.length} 张空桌`
+                  ? `${joinable.length} 桌可加入`
                   : state.connecting || state.tablesLoading
                     ? "连接中…"
                     : "连接已断开"}
@@ -221,7 +226,7 @@ export function OnlineHome({
         <div
           className="home-live-body"
           role="region"
-          aria-label="空桌，可上下滑动"
+          aria-label="可加入牌桌，可上下滑动"
           tabIndex={0}
           aria-busy={!live}
           data-refreshing={refreshing || undefined}
@@ -267,7 +272,7 @@ export function OnlineHome({
                     ? state.connecting || state.tablesLoading
                       ? "正在连接牌桌"
                       : "暂时连接不上牌桌"
-                    : "暂时没有空桌"}
+                    : "暂时没有可加入牌桌"}
               </strong>
               <p>
                 {refreshing
@@ -295,7 +300,7 @@ export function OnlineHome({
             {refreshing
               ? "正在更新空位 · 稍后即可入座"
               : live && visibleTables.length
-                ? `共 ${visibleTables.length} 张空桌`
+                ? `共 ${visibleTables.length} 桌可加入`
                 : "好友联机 · 四人同桌"}
           </span>
         </div>

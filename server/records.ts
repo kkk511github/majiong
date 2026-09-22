@@ -9,11 +9,14 @@ import type {
 import { membership } from "./teams";
 import type { PointSummary, PointSummaryPage } from "../shared/types";
 import { AuthError } from "./accounts";
-import { roundNet } from "../shared/settlement";
+import { roundNet, settlementRows } from "../shared/settlement";
 import { gzipSync, gunzipSync } from "node:zlib";
 import type { RoundReplay } from "../shared/types";
 
-export function createRecords(db: DatabaseSync, avatarFor: (id: string) => string | undefined = () => undefined) {
+export function createRecords(
+  db: DatabaseSync,
+  avatarFor: (id: string) => string | undefined = () => undefined,
+) {
   db.exec(`CREATE TABLE IF NOT EXISTS round_replays (
     id TEXT PRIMARY KEY, payload BLOB NOT NULL);`);
   db.exec(`CREATE TABLE IF NOT EXISTS round_records (
@@ -98,7 +101,11 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
         JSON.stringify(record),
       );
       // Only completed online hands count; practice remains viewable history.
-      if (g.code !== "练习桌" && !record.experience && record.result.reason !== "dissolved") {
+      if (
+        g.code !== "练习桌" &&
+        !record.experience &&
+        record.result.reason !== "dissolved"
+      ) {
         record.playerIds!.forEach((id, seat) => {
           if (!id || !db.prepare("SELECT 1 FROM accounts WHERE id=?").get(id))
             return;
@@ -305,20 +312,29 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
       }
     }
     const clause = where.length ? " WHERE " + where.join(" AND ") : "";
-    const dates = db
-      .prepare(
-        "SELECT strftime('%Y-%m-%d', at / 1000, 'unixepoch', '+8 hours') AS date, COUNT(*) AS count FROM " +
-          source +
-          dateClause +
-          " GROUP BY date ORDER BY date DESC LIMIT 180",
-      )
-      .all(...dateArgs)
-      .map((row) => ({ date: String(row.date), count: Number(row.count) }));
-    const dateTotal = Number(
-      db
-        .prepare("SELECT COUNT(*) AS total FROM " + source + dateClause)
-        .get(...dateArgs)!.total,
-    );
+    const dates =
+      query.get("calendar") === "0"
+        ? undefined
+        : db
+            .prepare(
+              "SELECT strftime('%Y-%m-%d', at / 1000, 'unixepoch', '+8 hours') AS date, COUNT(*) AS count FROM " +
+                source +
+                dateClause +
+                " GROUP BY date ORDER BY date DESC LIMIT 180",
+            )
+            .all(...dateArgs)
+            .map((row) => ({
+              date: String(row.date),
+              count: Number(row.count),
+            }));
+    const dateTotal =
+      query.get("calendar") === "0"
+        ? undefined
+        : Number(
+            db
+              .prepare("SELECT COUNT(*) AS total FROM " + source + dateClause)
+              .get(...dateArgs)!.total,
+          );
     const total = Number(
       db
         .prepare("SELECT COUNT(*) AS total FROM " + source + clause)
@@ -332,12 +348,58 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
           " ORDER BY at DESC, id DESC LIMIT ? OFFSET ?",
       )
       .all(...args, pageSize, (page - 1) * pageSize);
+    const totals = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        memberId?: string;
+        points: number;
+        rounds: number;
+      }
+    >();
+    // Only calculate a day-level total for a bounded date query. Using the
+    // complete filtered set keeps the figure correct beyond the first page.
+    if (query.has("from") && query.has("to")) {
+      const scoreRows = db
+        .prepare("SELECT record, player_ids FROM " + source + clause)
+        .all(...args);
+      for (const row of scoreRows) {
+        const record = JSON.parse(String(row.record)) as RoundRecord;
+        record.playerIds = JSON.parse(String(row.player_ids)) as string[];
+        for (const player of settlementRows(record)) {
+          const id = player.id;
+          if (!id || (!admin && id !== viewer)) continue;
+          const current = totals.get(id);
+          if (current) {
+            current.points += player.recorded;
+            current.rounds += 1;
+          } else {
+            const number = db
+              .prepare(
+                "SELECT member_id FROM account_numbers WHERE account_id=?",
+              )
+              .get(id);
+            totals.set(id, {
+              id,
+              name: player.name,
+              memberId: number ? String(number.member_id) : undefined,
+              points: player.recorded,
+              rounds: 1,
+            });
+          }
+        }
+      }
+    }
     return {
       total,
       page,
       pageSize,
       dates,
       dateTotal,
+      scoreTotals: [...totals.values()].sort(
+        (a, b) => b.points - a.points || a.name.localeCompare(b.name),
+      ),
       records: rows.map((row) => present(row, viewer, showTeams)),
     };
   }
@@ -348,13 +410,18 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
   ): StoredRound {
     const original = JSON.parse(String(row.record)) as RoundRecord;
     // Never trust cached team fields: permission is enforced at every read.
-    const { teamNames: _teams, memberIds: _numbers, avatars: _avatars, ...clean } = original;
+    const {
+      teamNames: _teams,
+      memberIds: _numbers,
+      avatars: _avatars,
+      ...clean
+    } = original;
     const record: RoundRecord = clean;
     const ids =
       record.playerIds ?? (JSON.parse(String(row.player_ids)) as string[]);
     const me = ids.indexOf(viewer);
     record.playerIds = ids;
-    record.avatars = ids.map((id) => id ? avatarFor(id) : undefined);
+    record.avatars = ids.map((id) => (id ? avatarFor(id) : undefined));
     record.memberIds = ids.map((id) => {
       const number = db
         .prepare("SELECT member_id FROM account_numbers WHERE account_id=?")
@@ -376,7 +443,9 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
       );
       record.playerIds = ids.map((id, i) => (i === me ? id : ""));
       record.memberIds = record.memberIds.map((id, i) => (i === me ? id : ""));
-      record.avatars = record.avatars.map((avatar, i) => i === me ? avatar : undefined);
+      record.avatars = record.avatars.map((avatar, i) =>
+        i === me ? avatar : undefined,
+      );
     }
     return {
       game: String(row.game_id),
@@ -425,10 +494,10 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
     // Keep unmatched legacy ledger rows, but exclude identified practice and
     // dissolved hands even when an older import already wrote their points.
     const where: string[] = [
-      "COALESCE(r.code,'')<>'练习桌'",
-      "COALESCE(json_extract(r.record,'$.experience'),0)=0",
-      "COALESCE(json_extract(r.record,'$.result.reason'),'')<>'dissolved'",
-    ],
+        "COALESCE(r.code,'')<>'练习桌'",
+        "COALESCE(json_extract(r.record,'$.experience'),0)=0",
+        "COALESCE(json_extract(r.record,'$.result.reason'),'')<>'dissolved'",
+      ],
       args: (string | number)[] = [];
     const from = query.has("from") ? Number(query.get("from")) : 0;
     const to = query.has("to") ? Number(query.get("to")) : 8640000000000000;
@@ -479,8 +548,13 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
     // Legacy records retain their saved baseline and multiplier (or 0 fee / 1x).
     const initial = "COALESCE(json_extract(r.record,'$.initialScore'),0)";
     const baseline = `COALESCE(json_extract(r.record,'$.settlementBase'),${initial})`;
-    const divisor = "COALESCE(NULLIF(json_extract(r.record,'$.scoreDivisor'),0),1)";
-    const feeNotPreviouslyCleared = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='record_clear_fee_carryover'").get()
+    const divisor =
+      "COALESCE(NULLIF(json_extract(r.record,'$.scoreDivisor'),0),1)";
+    const feeNotPreviouslyCleared = db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='record_clear_fee_carryover'",
+      )
+      .get()
       ? "AND NOT EXISTS (SELECT 1 FROM record_clear_fee_carryover carry WHERE carry.game_id=p.game_id AND carry.account_id=p.account_id)"
       : "";
     const recorded = `(p.points + CASE WHEN p.record_id=(
@@ -574,7 +648,9 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
     // Lookup deliberately has no participant/admin restriction. Only completed
     // round_records qualify; live engine snapshots never leave this endpoint.
     const row = db
-      .prepare("SELECT record,code,private_names,player_ids FROM round_records WHERE id=?")
+      .prepare(
+        "SELECT record,code,private_names,player_ids FROM round_records WHERE id=?",
+      )
       .get(id);
     if (!row)
       throw new AuthError("未找到已结束的牌局，请检查 ID 或等待本局结束", 404);
@@ -625,8 +701,11 @@ export function createRecords(db: DatabaseSync, avatarFor: (id: string) => strin
     if (row.private_names) {
       data.names = data.names.map((_, seat) => `牌友${seat + 1}`);
     } else {
-      const ids = record.playerIds ?? JSON.parse(String(row.player_ids)) as string[];
-      const avatars = data.names.map((_, seat) => ids[seat] ? avatarFor(ids[seat]) : undefined);
+      const ids =
+        record.playerIds ?? (JSON.parse(String(row.player_ids)) as string[]);
+      const avatars = data.names.map((_, seat) =>
+        ids[seat] ? avatarFor(ids[seat]) : undefined,
+      );
       if (avatars.some(Boolean)) data.avatars = avatars;
     }
     return data;

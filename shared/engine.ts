@@ -16,7 +16,7 @@ import {
   type ShuffleRandom,
 } from "./tiles";
 import { scoreHand, type WinContext } from "./scoring";
-import { structuralWaits, threeMouths } from "./scoring-nanjing";
+import { pureMouthSuit, structuralWaits, threeMouths } from "./scoring-nanjing";
 import {
   flowerFactor,
   isGarden,
@@ -750,8 +750,44 @@ function scoreForWin(g: Game, seat: Seat, tile?: Tile, robbed = false) {
     robbed,
   });
 }
-function canClaimHuFrom(g: Game, from: Seat) {
-  return !g.rules.twoBankrupt || g.players[from]!.score > 0;
+function canClaimHuFrom(g: Game, from: Seat, seat: Seat, tile: Tile, robbed = false) {
+  if (!g.rules.twoBankrupt || g.players[from]!.score > 0) return true;
+  // Three-mouth liability is paid outside the table balance, including zero.
+  if (!isGarden(g.rules) || robbed || threeMouths(g.players[seat]!, seat) === undefined)
+    return false;
+  return !!scoreForWin(g, seat, tile)?.items.some((i) => ["对对胡", "全球独钓"].includes(i.label));
+}
+function externalLiabilityAmount(g: Game): number {
+  return (g.ruleState?.multiplier ?? 1) > 1 ? 100 : 50;
+}
+/** A completed fourth mouth can settle immediately as three-mouth or three-pure liability. */
+function settleFourthMouth(g: Game, seat: Seat, tile: Tile, from: Seat | undefined, now: number): boolean {
+  const p = g.players[seat]!;
+  if (!isGarden(g.rules) || p.melds.length !== 4) return false;
+  const threeMouthPayer = threeMouths(p, seat);
+  const pureSuit = pureMouthSuit(p);
+  const fourth = p.melds[3]!;
+  const fourthIsPure =
+    from !== undefined &&
+    !fourth.concealed &&
+    pureSuit !== undefined &&
+    fourth.tiles.every(
+      (candidate) =>
+        kind(candidate) < 27 && Math.floor(kind(candidate) / 9) === pureSuit,
+    );
+  if (threeMouthPayer === undefined && !fourthIsPure) return false;
+  const score = scoreHand(p, g.rules, { seat, snapshot: true, multiplier: g.ruleState?.multiplier ?? 1 });
+  if (!score) throw Error("第四嘴外包牌型无效");
+  const payer = threeMouthPayer ?? from!;
+  const reason = threeMouthPayer === undefined ? "清一色承包" : "三口承包";
+  const mouth = p.melds[3]!;
+  captureReplay(g, mouth.type === "pung" ? "pung" : mouth.concealed ? "concealedKong" : "kong", now, seat, tile);
+  flushConcealed(g, [seat]);
+  const amount = externalLiabilityAmount(g);
+  transferExternal(g, { from: payer, to: seat, amount, reason, scope: "external" });
+  note(g, `${p.name} ${reason}结束 · 桌外记分 ${amount} 分`);
+  finish(g, { reason: "hu", winners: [seat], from, winningTile: tile, details: { [seat]: score }, deltas: [] }, now);
+  return true;
 }
 function settle(
   g: Game,
@@ -790,7 +826,7 @@ function settle(
   ) => {
     if (isGarden(g.rules)) {
       // User-confirmed fixed external payment: 50 normally, 100 on a 比下胡 hand.
-      const amount = (g.ruleState?.multiplier ?? 1) > 1 ? 100 : 50;
+      const amount = externalLiabilityAmount(g);
       externalBills.push({ from, to, amount, reason, scope: "external" });
     } else bill(from, to, total * 3, reason);
   };
@@ -815,19 +851,8 @@ function settle(
             p.melds.length === 4 &&
             p.melds.filter((m) => !m.concealed && m.from === s).length >= 3,
         );
-    const firstThree = p.melds.slice(0, 3);
-    const pure =
-      firstThree.length === 3 &&
-      firstThree.every(
-        (m) =>
-          !m.concealed &&
-          m.tiles.every(
-            (t) =>
-              kind(t) < 27 &&
-              Math.floor(kind(t) / 9) ===
-                Math.floor(kind(firstThree[0].tiles[0]) / 9),
-          ),
-      );
+    const pureSuit = pureMouthSuit(p);
+    const pure = pureSuit !== undefined;
     // Three-pure liability requires a same-suit winning discard; self draws
     // and concealed kongs do not create a fourth supplier.
     const purePayer =
@@ -835,9 +860,8 @@ function settle(
       from !== undefined &&
       !robbed &&
       score.items.some((i) => i.label === "清一色") &&
-      kind(g.pending!.tile) < 27 &&
-      Math.floor(kind(g.pending!.tile) / 9) ===
-        Math.floor(kind(firstThree[0].tiles[0]) / 9)
+      kind(result.winningTile!) < 27 &&
+      Math.floor(kind(result.winningTile!) / 9) === pureSuit
         ? from
         : undefined;
     if (score.allIn) {
@@ -932,7 +956,7 @@ function offerClaims(
       const p = g.players[seat]!,
         options: Claim[] = [],
         winning = !p.passedHu && !!scoreForWin(g, seat, tile, robbed),
-        payable = canClaimHuFrom(g, from);
+        payable = canClaimHuFrom(g, from, seat, tile, robbed);
       if (winning && payable) options.push("hu");
       // A winning tile discarded by a bankrupt player cannot be claimed, but
       // it still starts passed-Hu. Only this player's own discard clears it.
@@ -997,9 +1021,8 @@ function resolveClaims(g: Game, now: number) {
   )
     return;
   // Persisted claims from an older server must obey the current payer limit too.
-  const winners = canClaimHuFrom(g, pending.from)
-    ? seats.filter((s) => pending.replies[s] === "hu")
-    : [];
+  const winners = seats.filter((s) => pending.replies[s] === "hu" &&
+    canClaimHuFrom(g, pending.from, s, pending.tile, pending.kind === "robKong"));
   if (winners.length) {
     settle(g, winners, pending.from, now, pending.kind === "robKong");
     return;
@@ -1031,13 +1054,14 @@ function resolveClaims(g: Game, now: number) {
     from: pending.from,
     concealed: false,
   });
-  if (!isKong) armGlobalAnchor(g, chosen);
   g.players[pending.from]!.discards.pop();
   g.turn = chosen;
   g.canSelfWin = false;
   g.lastDraw = undefined;
   g.replacement = undefined;
   note(g, `${p.name} ${isKong ? "杠" : "碰"} ${tileName(pending.tile)}`);
+  if (settleFourthMouth(g, chosen, pending.tile, pending.from, now)) return;
+  armGlobalAnchor(g, chosen);
   if (isKong) {
     transfer(
       g,
@@ -1080,7 +1104,7 @@ export function act(
       pending.replies[seat] !== undefined
     )
       throw Error("该操作已失效");
-    if (action.type === "hu" && !canClaimHuFrom(g, pending.from))
+    if (action.type === "hu" && !canClaimHuFrom(g, pending.from, seat, pending.tile, pending.kind === "robKong"))
       throw Error("不能胡桌内余额已归零的玩家");
     pending.replies[seat] = action.type as Claim;
     if (
@@ -1143,6 +1167,11 @@ export function act(
       if (tiles.length === 4) {
         remove(p, tiles);
         p.melds.push({ type: "kong", tiles, from: seat, concealed: true });
+        if (settleFourthMouth(g, seat, action.tile, undefined, now)) {
+          g.revision++;
+          return g;
+        }
+        armGlobalAnchor(g, seat);
         for (const other of seats) {
           if (other === seat) continue;
           const amount = isNanjingV2(g.rules)
@@ -1224,7 +1253,7 @@ export function viewFor(g: Game, me: Seat): View {
       g.phase === "claiming"
         ? pending!.replies[me] === undefined
           ? (pending!.offers[me] ?? []).filter(
-              (claim) => claim !== "hu" || canClaimHuFrom(g, pending!.from),
+              (claim) => claim !== "hu" || canClaimHuFrom(g, pending!.from, me, pending!.tile, pending!.kind === "robKong"),
             )
           : []
         : g.phase === "playing" &&
@@ -1239,10 +1268,20 @@ export function viewFor(g: Game, me: Seat): View {
     lastDraw: g.turn === me ? lastDraw : undefined,
   });
 }
-/** Trustee uses the same legal decision strategy as computer players. */
+/** A trustee only keeps the turn moving: draw and discard, or pass a claim. */
 export function trusteeAction(g: Game, seat: Seat): Action | null {
-  if (!g.players[seat]) return null;
-  return botAction(g, seat);
+  const p = g.players[seat];
+  if (!p) return null;
+  if (g.phase === "claiming")
+    return g.pending?.offers[seat]?.includes("pass") &&
+      g.pending.replies[seat] === undefined
+      ? { type: "pass" }
+      : null;
+  if (g.phase !== "playing" || g.turn !== seat || !p.hand.length) return null;
+  const tile = g.lastDraw !== undefined && p.hand.includes(g.lastDraw)
+    ? g.lastDraw
+    : p.hand[0];
+  return { type: "discard", tile };
 }
 
 export function botAction(g: Game, seat: Seat): Action | null {

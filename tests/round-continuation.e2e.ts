@@ -85,7 +85,7 @@ for (const [width, height] of [
   [844, 390],
   [932, 430],
 ]) {
-  test(`下一局 ${width}：四家准备状态清楚，离线等待准确，慢网不能重复准备`, async ({
+  test(`下一局 ${width}：四家准备状态清楚，离线计时继续，慢网不能重复准备`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height });
@@ -104,7 +104,7 @@ for (const [width, height] of [
       return g;
     });
     await expect(
-      dialog.getByLabel("钟山：已离线", { exact: true }),
+      dialog.getByLabel("钟山：离线·计时继续", { exact: true }),
     ).toBeVisible();
     await expect(
       dialog.getByLabel("莫愁：托管就绪", { exact: true }),
@@ -119,8 +119,12 @@ for (const [width, height] of [
     ).toBeVisible();
     expect(f.readyCount()).toBe(1);
     await expect(dialog.locator(".result-next-info")).toContainText(
-      "等待钟山回桌后开局",
+      "全员就绪，正在发牌",
     );
+    f.update((g) => { g.players[2]!.trustee = true; return g; });
+    await expect(dialog.getByLabel("钟山：离线·托管", { exact: true })).toBeVisible();
+    await expect(dialog.locator(".result-next-info")).toContainText("全员就绪，正在发牌");
+    f.update((g) => { g.players[2]!.trustee = false; return g; });
     const hidden = await dialog
       .locator(
         ".reveal-tiles .tile,.reveal-scores,.result-next-info,.result-footer button,.modal-head button",
@@ -160,7 +164,7 @@ for (const [width, height] of [
       dialog.locator('.settlement-readiness[data-state="syncing"]'),
     ).toHaveCount(4);
     await expect(
-      dialog.getByLabel("钟山：已离线", { exact: true }),
+      dialog.getByLabel("钟山：离线·计时继续", { exact: true }),
     ).toBeVisible({ timeout: 12000 });
     f.update((g) => {
       g.players[2]!.online = true;
@@ -174,7 +178,31 @@ for (const [width, height] of [
       return startRound(g, Date.now());
     });
     await expect(dialog).not.toBeVisible();
-    await expect(page.getByLabel("我的手牌")).toBeVisible();
-    await expect(page.locator(".game-topbar")).toContainText("第 2 / 4 局");
+    await expect(page.getByRole("main", { name: "南京麻将牌桌" })).toBeVisible();
+    const frame = await page.locator("iframe").elementHandle();
+    const table = await frame!.contentFrame();
+    await expect.poll(() => table!.evaluate(async () => {
+      const cc = await (window as any).System.import("cc");
+      const scene = cc.director.getScene()?.getChildByName("Canvas")?.getComponent("TableScene");
+      return scene && {
+        round: scene.state.round,
+        hand: scene.state.players.find((p: any) => p.seat === scene.state.me)?.hand.length,
+      };
+    })).toMatchObject({ round: 2, hand: 13 });
   });
 }
+
+test("重新打开App时原桌已结束归档，自动展示战绩", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(async () => {
+    const { client } = await import("/src/game-client.ts" as string);
+    return client.state.account && client.state.connected;
+  });
+  await page.evaluate(async () => {
+    const { client, storage } = await import("/src/game-client.ts" as string);
+    storage.set(`activeRoom:${client.state.account.id}`, "archived-offline-table");
+  });
+  await page.reload();
+  await expect(page.getByRole("region", { name: "战绩中心" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "战绩", exact: true })).toBeVisible();
+});

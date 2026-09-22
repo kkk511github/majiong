@@ -21,9 +21,9 @@ test('实际外包：必须选择胡牌，普通50、比下胡100；过不扣分
  for(const [label,amount] of [['普通局','50'],['比下胡 ×2','100']]){await page.getByRole('button',{name:label,exact:true}).click();await establish(page);await page.getByRole('button',{name:'乙打出五条',exact:true}).click();await page.getByRole('button',{name:'甲选择胡牌',exact:true}).click();await expect(page.locator('.anchor-bill strong')).toHaveText(amount+' 分');await expect(page.locator('.anchor-bill')).toContainText('（桌外）');}
  await page.screenshot({path:'output/global-anchor-settlement-'+info.project.name+'.png',fullPage:true});
 });
-test('改支同步去黄，暗杠补牌不架牌；可回到前一步复查',async({page},info)=>{
+test('改支同步去黄，暗杠补牌后出牌架牌；可回到前一步复查',async({page},info)=>{
  await ready(page);await page.getByRole('button',{name:/改支：摸3筒/}).click();await establish(page);await page.getByRole('button',{name:'继续至甲摸3筒',exact:true}).click();await expect.poll(()=>yellow(page)).toHaveLength(1);await page.getByRole('button',{name:'打出5万 · 改听3筒',exact:true}).click();await expect.poll(()=>yellow(page)).toEqual([]);await expect(page.locator('.anchor-cleared')).toContainText('外包已清除');
  await page.getByRole('button',{name:'打6条架牌',exact:true}).click();await expect.poll(()=>yellow(page)).toHaveLength(1);
- await page.getByRole('button',{name:/例外：三碰后暗杠/}).click();await page.getByRole('button',{name:'暗杠1筒，补6条',exact:true}).click();await page.getByRole('button',{name:'打出6条',exact:true}).click();await expect.poll(()=>yellow(page)).toEqual([]);await page.screenshot({path:'output/global-anchor-concealed-'+info.project.name+'.png',fullPage:true});
+ await page.getByRole('button',{name:/暗杠：三碰后暗杠/}).click();await page.getByRole('button',{name:'暗杠1筒，补6条',exact:true}).click();await page.getByRole('button',{name:'打出6条',exact:true}).click();await expect.poll(()=>yellow(page)).toEqual([{tile:92,seat:0,color:"ffe16a"}]);await page.screenshot({path:'output/global-anchor-concealed-'+info.project.name+'.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});await expect(page.getByRole('button',{name:'乙打出五条',exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);await page.screenshot({path:'output/global-anchor-mobile-'+info.project.name+'.png',fullPage:true});
 });

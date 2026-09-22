@@ -4,6 +4,9 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Home, LayoutGrid, History, Users } from "lucide-react";
 import { RecordsPanel } from "../../src/RecordsPanel";
+import { TableLobby } from "../../src/TableLobby";
+import { createGame as createLobbyGame } from "../../shared/engine";
+import { DEFAULT_TABLE_SETTINGS, tableSummary } from "../../shared/table-settings";
 import { client } from "../../src/game-client";
 import { recordDate, recordDayRange } from "../../src/record-dates";
 import type {
@@ -29,6 +32,9 @@ import "../../src/landscape.css";
 import "../../src/accounts.css";
 import "../../src/tables.css";
 import "../../src/table-redesign.css";
+import "../../src/web-browser.css";
+
+document.documentElement.dataset.runtime = "web";
 
 const matches = new Map<string, MatchDetails>(),
   replays = new Map<string, RoundReplay>();
@@ -136,16 +142,22 @@ const member: Account = {
   mustChangePassword: false,
 };
 function Preview() {
+  const [lobby, setLobby] = useState(false);
   const [admin, setAdmin] = useState(false),
     [version, setVersion] = useState(0);
+  const account = { ...member, role: admin ? "admin" as const : "member" as const };
+  const table = createLobbyGame("123456", "preview");
+  table.table = { creatorId: member.id, groupId: "preview", number: 1, createdAt: 1, settings: { ...DEFAULT_TABLE_SETTINGS } };
+  table.players[0] = newPlayer(member.id, member.name);
+  const summary = tableSummary(table, member.id, () => `/api/avatars/${"a".repeat(36)}/${"b".repeat(64)}.jpg`);
   return (
-    <div className="app classic polished" data-page="history">
+    <div className="app classic polished" data-page={lobby ? "tables" : "history"}>
       <main className="lobby">
-        <RecordsPanel
+        {lobby ? <TableLobby name={member.name} state={{ ...client.state, account, tables: [summary], connected: true }} joinByCode={() => {}} /> : <RecordsPanel
           key={`${admin}-${version}`}
           account={{ ...member, role: admin ? "admin" : "member" }}
           onBack={() => setVersion((n) => n + 1)}
-        />
+        />}
       </main>
       <nav className="bottom-nav" aria-label="演示导航">
         <button onClick={() => (location.href = "/")}>
@@ -156,7 +168,7 @@ function Preview() {
           <Users />
           {admin ? "会员视角" : "管理视角"}
         </button>
-        <button className="active" onClick={() => setVersion((n) => n + 1)}>
+        <button className="active" onClick={() => { setLobby(false); setVersion((n) => n + 1); }}>
           <History />
           战绩
         </button>
@@ -171,9 +183,9 @@ function Preview() {
         >
           本地预览 · 演示数据
         </span>
-        <button onClick={() => (location.href = "./opening.html")}>
+        <button onClick={() => setLobby(true)}>
           <LayoutGrid />
-          开桌预览
+          约局
         </button>
       </nav>
     </div>

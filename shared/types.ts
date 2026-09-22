@@ -71,6 +71,7 @@ export interface TableSummary {
   managed: boolean;
   seats: ({
     name: string;
+    avatar?: string;
     online: boolean;
     ready: boolean;
     isMe: boolean;
@@ -274,6 +275,14 @@ export interface StoredRound {
 }
 export interface RecordsPage {
   records: StoredRound[];
+  /** Net points over the complete filtered date, not just this page. */
+  scoreTotals?: {
+    id: string;
+    name: string;
+    memberId?: string;
+    points: number;
+    rounds: number;
+  }[];
   total: number;
   page: number;
   pageSize: number;
@@ -410,7 +419,10 @@ export interface RoundReplay {
   summaryOnly?: boolean;
 }
 
-export interface GlobalAnchorDiscard { seat: Seat; tile: Tile }
+export interface GlobalAnchorDiscard {
+  seat: Seat;
+  tile: Tile;
+}
 export interface NanjingRuleState {
   multiplier: number;
   nextMultiplier: number;
@@ -426,14 +438,20 @@ export interface NanjingRuleState {
   kongOccurred: boolean;
   /** Never send this private wait information in a public view. */
   deferredConcealed?: ScoreTransfer[];
-  /** Armed only by a resolved fourth pung following three exposed pungs. */
+  /** Resolved fourth pung/kong, awaiting first discard; legacy persisted field name. */
   pendingGlobalPung?: Partial<Record<Seat, true>>;
   globalAnchors?: Partial<
-    Record<Seat, {
-      discardKind: number; waitKind: number; changed: boolean;
-      /** Absent in old snapshots whose formation route was never recorded. */
-      source?: "fourth-pung"; discardTile?: Tile;
-    }>
+    Record<
+      Seat,
+      {
+        discardKind: number;
+        waitKind: number;
+        changed: boolean;
+        /** Absent in old snapshots whose formation route was never recorded. */
+        source?: "fourth-pung" | "fourth-meld";
+        discardTile?: Tile;
+      }
+    >
   >;
 }
 export type ClientMessage = (
@@ -453,7 +471,11 @@ export type ClientMessage = (
   | { type: "ready" }
   | { type: "addBot" }
   | { type: "action"; action: Action; revision: number }
-  | { type: "phrase"; game: string; phrase: import("./room-phrases").RoomPhraseId }
+  | {
+      type: "phrase";
+      game: string;
+      phrase: import("./room-phrases").RoomPhraseId;
+    }
   | { type: "trustee"; enabled: boolean }
   | { type: "leave" }
   | { type: "dissolve"; agree: boolean }

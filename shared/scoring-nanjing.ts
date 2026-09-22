@@ -28,7 +28,7 @@ function scoreNanjingBase(
     !!ctx.snapshot &&
     ctx.tile === undefined &&
     p.melds.length === 4 &&
-    hand.length === 2;
+    (hand.length === 2 || (hand.length === 1 && p.melds.at(-1)?.type === "kong"));
   const candidates: Shape[] = snapshot
     ? [
         {
@@ -187,6 +187,14 @@ export function threeMouths(p: Player, seat: Seat): Seat | undefined {
       first.every((m) => m.concealed || m.from === s),
   );
 }
+/** Three same-suit mouths may have any suppliers and may include concealed kongs. */
+export function pureMouthSuit(p: Pick<Player, "melds">): number | undefined {
+  const first = p.melds.slice(0, 3);
+  if (first.length !== 3) return undefined;
+  const suit = Math.floor(kind(first[0].tiles[0]) / 9);
+  return suit < 3 && first.every(m => m.tiles.every(t => kind(t) < 27 && Math.floor(kind(t) / 9) === suit))
+    ? suit : undefined;
+}
 /** Quick-shot is evaluated on a copy: a shared winning discard must never be duplicated. */
 export function scoreNanjingHand(
   p: Player,
@@ -205,15 +213,7 @@ export function scoreNanjingHand(
   const hand = tile === undefined ? [...p.hand] : [...p.hand, tile];
   if (hand.length !== 5) return best;
   const mouth = threeMouths(p, seat);
-  const exposed = p.melds.flatMap((m) => m.tiles).map(kind);
-  const suit =
-    p.melds.every((m) => !m.concealed) &&
-    exposed.length &&
-    exposed.every(
-      (k) => k < 27 && Math.floor(k / 9) === Math.floor(exposed[0] / 9),
-    )
-      ? Math.floor(exposed[0] / 9)
-      : -1;
+  const suit = pureMouthSuit(p) ?? -1;
   const winning = tile ?? ctx.winTile;
   if (winning === undefined) return best;
   for (let a = 0; a < hand.length; a++)

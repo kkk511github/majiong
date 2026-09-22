@@ -11,7 +11,7 @@ export const WAIT_BAMBOO = 88;
 export const CHANGE_DRAW = 44;
 
 /** Four disjoint hands and a complete 144-tile inventory, using real engine actions. */
-export function anchorGame(scenario: AnchorScenario = "original", multiplier = 1, waitKind?: number): Game {
+export function anchorGame(scenario: AnchorScenario = "original", multiplier = 1, waitKind?: number, priorKongs: { index: number; concealed: boolean }[] = []): Game {
   let g = createGame("619826", `anchor-${scenario}`, newGameRules({ turnSeconds: 0 }));
   g.players = seats.map(s => newPlayer(`anchor-${s}`, ["甲 · 架牌方", "乙 · 出牌方", "丙", "丁"][s]));
   g.phase = "playing"; g.round = 1; g.turn = scenario === "concealed" ? 0 : 3;
@@ -22,6 +22,12 @@ export function anchorGame(scenario: AnchorScenario = "original", multiplier = 1
   const rawWait = (waitKind ?? (scenario === "win" ? 22 : 4)) * 4;
   const wait = rawWait === ANCHOR_TILE ? rawWait + 2 : rawWait;
   g.players[0]!.melds = [0,12,18].map((k,i)=>({type:"pung",tiles:[k*4,k*4+1,k*4+2],from:(i+1) as Seat,concealed:false}));
+  for (const { index, concealed } of priorKongs) {
+    const meld = g.players[0]!.melds[index];
+    meld.type = "kong";
+    meld.concealed = concealed;
+    meld.tiles.push(meld.tiles[0] + 3);
+  }
   g.players[0]!.hand = scenario === "concealed" ? [36,37,38,39,wait] :
     scenario === "open" ? [36,37,38,wait] : [36,37,wait,ANCHOR_TILE];
   // Every selectable test discard is physically in the opponent's hand.

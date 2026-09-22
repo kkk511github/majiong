@@ -253,6 +253,13 @@ export function App() {
     }
     previousRoom.current = v;
   }, [v]);
+  useEffect(() => {
+    if (state.recordsReturn) {
+      setPage("history");
+      setModal(null);
+      setDismissedResult("");
+    }
+  }, [state.recordsReturn]);
   const riverRef = useRef<HTMLDivElement>(null);
   const submittedRevision = useRef<number | null>(null);
   const roomErrorRef = useRef<HTMLParagraphElement>(null);
@@ -1333,8 +1340,8 @@ export function App() {
                       {v.players.filter((p) => p?.ready || p?.bot).length}/4
                       已确认
                     </>
-                  ) : v.players.some((p) => p && !p.bot && !p.online) ? (
-                    "等待离线牌友回桌后发牌"
+                  ) : nextRound ? (
+                    nextRound.message
                   ) : (
                     "正在发下一把…"
                   )}

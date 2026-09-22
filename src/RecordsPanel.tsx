@@ -9,22 +9,23 @@ import {
   History,
   RefreshCw,
   Search,
-  ShieldCheck,
-  Volume2,
-  VolumeX,
+  SlidersHorizontal,
 } from "lucide-react";
-import { client, storage } from "./game-client";
-import { gameAudio } from "./audio";
+import { client } from "./game-client";
 import { useLiveRecords } from "./useLiveRecords";
 import { RECORDS_HIGHLIGHT_MS } from "./records-live";
 import { Dialog } from "./Dialog";
 import { MatchRecordDetails, RecordPlayers } from "./MatchRecordDetails";
+import { settlementRows, signedScore } from "../shared/settlement";
 import "./records-match.css";
 import "./records-workspace.css";
 import "./records-redesign.css";
 import "./records-live.css";
+import "./records-compact.css";
 import { DeferredFeature } from "./DeferredFeature";
-const ReplayPanel = lazy(() => import("./ReplayPanel").then(m => ({ default: m.ReplayPanel })));
+const ReplayPanel = lazy(() =>
+  import("./ReplayPanel").then((m) => ({ default: m.ReplayPanel })),
+);
 import {
   recordClock,
   recordDate,
@@ -68,6 +69,7 @@ export function RecordsPanel({
   );
   const [readFilter, setReadFilter] = useState(saved?.readFilter ?? "all");
   const readChanged = useRef(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(saved?.page ?? 1),
     [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<RecordsPage>({
@@ -82,35 +84,58 @@ export function RecordsPanel({
   const [replayId, setReplayId] = useState<string | null>(null);
   const [liveRefresh, setLiveRefresh] = useState(0);
   const [newGames, setNewGames] = useState<Set<string>>(new Set());
-  const [soundEnabled, setSoundEnabled] = useState(() => storage.get(`recordsSound:${memoryKey}`, true));
-  const soundPreference = useRef(soundEnabled);
-  soundPreference.current = soundEnabled;
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const loadEpoch = useRef(0);
   const successfulLoadKey = useRef<string | null>(null);
   const listRequestPending = useRef(false);
   const today = recordDate(Date.now());
   // A refresh becomes a background read only after this exact user request
   // succeeds. Starting an earlier request does not validate its cached rows.
-  const requestKey = JSON.stringify([tab, page, filter, readFilter, account?.id, today, refresh]);
-  useEffect(() => { setSoundEnabled(storage.get(`recordsSound:${memoryKey}`, true)); }, [memoryKey]);
+  const requestKey = JSON.stringify([
+    tab,
+    page,
+    filter,
+    readFilter,
+    account?.id,
+    today,
+    refresh,
+  ]);
   useEffect(() => () => clearTimeout(highlightTimer.current), []);
-  const onLiveSnapshot = useCallback((next: RecordsPage, arrivals: string[], notify: boolean) => {
-    if (!listRequestPending.current) {
-      if (page === 1 && readFilter === "all" && !filter.code && !filter.date && !filter.member) {
-        loadEpoch.current++;
-        successfulLoadKey.current = requestKey;
-        setData(next); setBusy(false); setError("");
-      } else setLiveRefresh(value => value + 1);
-    }
-    if (arrivals.length) {
-      setNewGames(previous => new Set([...previous, ...arrivals]));
-      clearTimeout(highlightTimer.current);
-      highlightTimer.current = setTimeout(() => setNewGames(new Set()), RECORDS_HIGHLIGHT_MS);
-      if (notify && soundPreference.current) gameAudio.play("records");
-    }
-  }, [page, readFilter, filter.code, filter.date, filter.member, requestKey]);
-  const live = useLiveRecords(tab === "admin" && showTeams, account?.id, onLiveSnapshot);
+  const onLiveSnapshot = useCallback(
+    (next: RecordsPage, arrivals: string[]) => {
+      if (!listRequestPending.current) {
+        if (
+          page === 1 &&
+          readFilter === "all" &&
+          !filter.code &&
+          !filter.date &&
+          !filter.member
+        ) {
+          loadEpoch.current++;
+          successfulLoadKey.current = requestKey;
+          setData(next);
+          setBusy(false);
+          setError("");
+        } else setLiveRefresh((value) => value + 1);
+      }
+      if (arrivals.length) {
+        setNewGames((previous) => new Set([...previous, ...arrivals]));
+        clearTimeout(highlightTimer.current);
+        highlightTimer.current = setTimeout(
+          () => setNewGames(new Set()),
+          RECORDS_HIGHLIGHT_MS,
+        );
+      }
+    },
+    [page, readFilter, filter.code, filter.date, filter.member, requestKey],
+  );
+  const live = useLiveRecords(
+    tab === "admin" && showTeams,
+    account?.id,
+    onLiveSnapshot,
+  );
   const list = useRef<HTMLDivElement>(null);
   const initialScroll = useRef(saved?.scroll ?? 0);
   const latestMemory = useRef<WorkspaceMemory>({
@@ -189,11 +214,33 @@ export function RecordsPanel({
       const filtered = all.filter(
         (r) => !range || (r.record.at >= range.from && r.record.at < range.to),
       );
+      const totals = new Map<
+        string,
+        { id: string; name: string; points: number; rounds: number }
+      >();
+      if (filter.date && filter.date !== "recent")
+        for (const item of filtered) {
+          for (const player of settlementRows(item.record)) {
+            const id = player.id || String(player.seat);
+            const previous = totals.get(id);
+            if (previous) {
+              previous.points += player.recorded;
+              previous.rounds += 1;
+            } else
+              totals.set(id, {
+                id,
+                name: player.name,
+                points: player.recorded,
+                rounds: 1,
+              });
+          }
+        }
       setData({
         records: filtered.slice((page - 1) * 20, page * 20),
         total: filtered.length,
         page,
         pageSize: 20,
+        scoreTotals: [...totals.values()].sort((a, b) => b.points - a.points),
         dateTotal: all.length,
         dates: [...dates]
           .map(([date, count]) => ({ date, count }))
@@ -204,7 +251,7 @@ export function RecordsPanel({
       setBusy(false);
       return;
     }
-    const query = new URLSearchParams({ page: String(page) });
+    const query = new URLSearchParams({ page: String(page), calendar: "0" });
     if (tab === "admin") query.set("read", readFilter);
     if (filter.code) query.set("code", filter.code);
     if (tab === "admin" && filter.member) query.set("member", filter.member);
@@ -215,14 +262,75 @@ export function RecordsPanel({
     }
     client
       .loadRecords(tab === "admin", query)
+      .then(async (next) => {
+        if (!filter.date || filter.date === "recent" || next.scoreTotals)
+          return next;
+        if (cancelled || epoch !== loadEpoch.current) return next;
+        setData(next);
+        setBusy(false);
+        // Older live servers do not yet return scoreTotals. Fetch the complete
+        // authorized day in the background so a native preview is still exact.
+        const pages = [next];
+        for (let p = 1; p <= Math.ceil(next.total / next.pageSize); p++) {
+          if (cancelled || epoch !== loadEpoch.current) return next;
+          if (p === page) continue;
+          const otherQuery = new URLSearchParams(query);
+          otherQuery.set("page", String(p));
+          try {
+            pages.push(await client.loadRecords(tab === "admin", otherQuery));
+          } catch {
+            // A missing legacy total must not discard the already loaded page.
+            return next;
+          }
+        }
+        const totals = new Map<
+          string,
+          {
+            id: string;
+            name: string;
+            memberId?: string;
+            points: number;
+            rounds: number;
+          }
+        >();
+        for (const group of pages)
+          for (const item of group.records) {
+            for (const player of settlementRows(item.record)) {
+              if (tab !== "admin" && player.seat !== item.me) continue;
+              const id =
+                player.id ||
+                (tab === "admin"
+                  ? `seat:${item.game}:${player.seat}`
+                  : memoryKey);
+              const existing = totals.get(id);
+              if (existing) {
+                existing.points += player.recorded;
+                existing.rounds += 1;
+              } else
+                totals.set(id, {
+                  id,
+                  name: player.name,
+                  memberId: item.record.memberIds?.[player.seat],
+                  points: player.recorded,
+                  rounds: 1,
+                });
+            }
+          }
+        return {
+          ...next,
+          scoreTotals: [...totals.values()].sort((a, b) => b.points - a.points),
+        };
+      })
       .then((next) => {
         if (!cancelled && epoch === loadEpoch.current) {
           successfulLoadKey.current = requestKey;
-          setData(next); setError("");
+          setData(next);
+          setError("");
         }
       })
       .catch((e) => {
-        if (!cancelled && epoch === loadEpoch.current && !background) setError((e as Error).message);
+        if (!cancelled && epoch === loadEpoch.current && !background)
+          setError((e as Error).message);
       })
       .finally(() => {
         if (!cancelled && epoch === loadEpoch.current) {
@@ -255,7 +363,11 @@ export function RecordsPanel({
     { id: "online", name: "我的对局" },
   ] as const;
   return (
-    <section className="records-panel records-workspace" aria-label="战绩中心" data-scope={tab}>
+    <section
+      className="records-panel records-workspace"
+      aria-label="战绩中心"
+      data-scope={tab}
+    >
       <div className="records-heading">
         <button className="records-back" onClick={onBack} aria-label="返回大厅">
           <ArrowLeft size={23} />
@@ -317,85 +429,115 @@ export function RecordsPanel({
             <Search size={18} />
           </button>
         </form>
-        <button className="replay-open" aria-label="牌局回放" onClick={() => setReplayId("")}>
+        <button
+          className="replay-open"
+          aria-label="牌局回放"
+          onClick={() => setReplayId("")}
+        >
           <History size={17} />
           <span>牌局回放</span>
         </button>
       </div>
       <div className="records-workspace-body">
-        <div className="record-dates" aria-label="按日期查看战绩">
-          <div className="record-date-list">
-            {[
-              { date: "", label: "全部" },
-              { date: today, label: "今天" },
-              { date: yesterday, label: "昨天" },
-              { date: "recent", label: "近7天" },
-            ].map(({ date, label }) => (
-              <button className="record-date" key={date} aria-pressed={filter.date === date} onClick={() => chooseDate(date)}>{label}</button>
-            ))}
-          </div>
-          <div className="record-calendar">
-            <button aria-label="前一天战绩" onClick={() => chooseDate(recordDate(recordDayRange(filter.date && filter.date !== "recent" ? filter.date : today).from - 86400000))}><ArrowLeft size={16} /></button>
-            <label className="record-date-picker">
-              <CalendarDays size={17} />
-              <span>{filter.date && filter.date !== "recent" ? recordCalendarLabel(filter.date, today) : "选择日期"}</span>
-              <input type="date" aria-label="选择战绩日期" value={filter.date === "recent" ? "" : filter.date} max={today} onChange={(e) => chooseDate(e.target.value)} />
-            </label>
-            <button aria-label="后一天战绩" disabled={!filter.date || filter.date === "recent" || filter.date >= today} onClick={() => chooseDate(recordDate(recordDayRange(filter.date).from + 86400000))}><ArrowRight size={16} /></button>
-          </div>
-          <div className="record-admin-filters">
-          {tab === "admin" && (
-            <label className="record-read-filter">
-              <span className="sr-only">战绩阅读状态</span>
-              <select
-                aria-label="战绩阅读状态"
-                value={readFilter}
-                onChange={(e) => {
-                  setReadFilter(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="all">全部战绩</option>
-                <option value="unread">只看未读</option>
-                <option value="read">只看已读</option>
-              </select>
-            </label>
-          )}
-          {tab === "admin" && (
-            <select
-              className="record-query-mode"
-              aria-label="战绩查询方式"
-              value={searchMode}
-              onChange={(e) => {
-                setSearchMode(e.target.value);
-                setCode("");
-              }}
+        <div className="records-toolbar">
+          <div className="record-dates" aria-label="按日期查看战绩">
+            <div className="record-date-list">
+              {[
+                { date: "", label: "全部" },
+                { date: today, label: "今天" },
+                { date: yesterday, label: "昨天" },
+                { date: "recent", label: "近7天" },
+              ].map(({ date, label }) => (
+                <button
+                  className="record-date"
+                  key={date}
+                  aria-pressed={filter.date === date}
+                  onClick={() => chooseDate(date)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              className="record-filters-toggle"
+              aria-label="筛选战绩"
+              aria-haspopup="dialog"
+              onClick={() => setFiltersOpen(true)}
+              data-active={Boolean(
+                (filter.date &&
+                  filter.date !== today &&
+                  filter.date !== yesterday &&
+                  filter.date !== "recent") ||
+                (tab === "admin" && readFilter !== "all"),
+              )}
             >
-              <option value="code">房号</option>
-              <option value="member">会员ID</option>
-            </select>
-          )}
+              <SlidersHorizontal size={16} />
+              {filter.date &&
+              ![today, yesterday, "recent"].includes(filter.date)
+                ? recordCalendarLabel(filter.date, today)
+                : "筛选"}
+            </button>
           </div>
-        </div>
-        <div className="records-results">
           <div className="records-results-heading">
             <span>
-              <b>{recordDateLabel(filter.date, today)}</b>
-              {!busy && !error && ` · 共 ${data.total} 桌`}
+              <b className="records-range-label">
+                {recordDateLabel(filter.date, today)}
+              </b>
+              {tab === "online" &&
+                filter.date &&
+                filter.date !== "recent" &&
+                data.scoreTotals &&
+                !busy &&
+                !error && (
+                  <span className="records-day-total" aria-label="个人当日战绩">
+                    {recordDateLabel(filter.date, today)}{" "}
+                    <em>{data.scoreTotals[0]?.rounds ?? 0} 局</em>
+                    <b
+                      className={
+                        (data.scoreTotals?.[0]?.points ?? 0) > 0
+                          ? "positive"
+                          : (data.scoreTotals?.[0]?.points ?? 0) < 0
+                            ? "negative"
+                            : ""
+                      }
+                    >
+                      {signedScore(data.scoreTotals?.[0]?.points ?? 0)} 分
+                    </b>
+                  </span>
+                )}
+              {!busy && !error && (
+                <span className="records-total">共 {data.total} 桌</span>
+              )}
               {filter.code && ` · 房间 ${filter.code}`}
               {tab === "admin" && filter.member && ` · 会员 ${filter.member}`}
             </span>
             <div>
-              {tab === "admin" && <div className="records-live-controls">
-                <span className={`records-live-status records-live-${live.phase}`} role="status" title={live.updatedAt ? `最近同步：${recordClock(live.updatedAt, true)}` : undefined}><i/>{live.phase === "live" ? "实时更新" : live.phase === "retrying" ? "更新重试中" : live.phase === "paused" ? "更新已暂停" : "正在连接"}</span>
-                <button type="button" className="records-live-sound" aria-label="新战绩提示音" aria-pressed={soundEnabled} title="新整桌战绩提示音，跟随应用音效设置" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); storage.set(`recordsSound:${memoryKey}`, next); if (next) gameAudio.unlock(); }}>{soundEnabled ? <Volume2 size={15}/> : <VolumeX size={15}/>}<span>提示音{soundEnabled ? "开" : "关"}</span></button>
-                {newGames.size > 0 && <span className="records-arrivals" aria-live="polite">新增 {newGames.size} 桌</span>}
-              </div>}
               {tab === "admin" && (
-                <span className="records-admin">
-                  <ShieldCheck size={14} />
-                  战队仅管理员可见
-                </span>
+                <div className="records-live-controls">
+                  <span
+                    className={`records-live-status records-live-${live.phase}`}
+                    role="status"
+                    title={
+                      live.updatedAt
+                        ? `最近同步：${recordClock(live.updatedAt, true)}`
+                        : undefined
+                    }
+                  >
+                    <i />
+                    {live.phase === "live"
+                      ? "实时更新"
+                      : live.phase === "retrying"
+                        ? "更新重试中"
+                        : live.phase === "paused"
+                          ? "更新已暂停"
+                          : "正在连接"}
+                  </span>
+                  {newGames.size > 0 && (
+                    <span className="records-arrivals" aria-live="polite">
+                      新增 {newGames.size} 桌
+                    </span>
+                  )}
+                </div>
               )}
               {(filter.code || (tab === "admin" && filter.member)) && (
                 <button
@@ -440,6 +582,8 @@ export function RecordsPanel({
               </button>
             </div>
           </div>
+        </div>
+        <div className="records-results">
           <div
             className="records-list"
             aria-busy={busy}
@@ -503,16 +647,20 @@ export function RecordsPanel({
                   <span className="match-card-header">
                     <b>
                       房间 {item.code}
-                      <span> · {item.record.tableName ?? "好友桌"}</span>
+                      <span className="record-table-name">
+                        {item.record.tableName ?? "好友桌"}
+                      </span>
                     </b>
-                    <time dateTime={new Date(item.record.at).toISOString()}>
-                      <Clock3 size={16} />
-                      {recordClock(item.record.at, !filter.date)}
-                    </time>
-                    <span className="record-round-count">
-                      <Layers3 size={16} />
-                      {item.record.round}/
-                      {item.record.totalRounds ?? item.record.round} 把
+                    <span className="record-card-meta">
+                      <time dateTime={new Date(item.record.at).toISOString()}>
+                        <Clock3 size={16} />
+                        {recordClock(item.record.at, !filter.date)}
+                      </time>
+                      <span className="record-round-count">
+                        <Layers3 size={16} />
+                        {item.record.round}/
+                        {item.record.totalRounds ?? item.record.round} 把
+                      </span>
                     </span>
                   </span>
                   <RecordPlayers record={item.record} showTeams={showTeams} />
@@ -551,11 +699,110 @@ export function RecordsPanel({
           </div>
         </div>
       </div>
+      {filtersOpen && (
+        <Dialog
+          title="筛选战绩"
+          variant="record-filters-dialog"
+          close={() => setFiltersOpen(false)}
+        >
+          <p className="record-filter-label">指定日期</p>
+          <div className="record-calendar">
+            <button
+              aria-label="前一天战绩"
+              onClick={() =>
+                chooseDate(
+                  recordDate(
+                    recordDayRange(
+                      filter.date && filter.date !== "recent"
+                        ? filter.date
+                        : today,
+                    ).from - 86400000,
+                  ),
+                )
+              }
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <label className="record-date-picker">
+              <CalendarDays size={17} />
+              <span>
+                {filter.date && filter.date !== "recent"
+                  ? recordCalendarLabel(filter.date, today)
+                  : "选择日期"}
+              </span>
+              <input
+                type="date"
+                aria-label="选择战绩日期"
+                value={filter.date === "recent" ? "" : filter.date}
+                max={today}
+                onChange={(e) => chooseDate(e.target.value)}
+              />
+            </label>
+            <button
+              aria-label="后一天战绩"
+              disabled={
+                !filter.date || filter.date === "recent" || filter.date >= today
+              }
+              onClick={() =>
+                chooseDate(
+                  recordDate(recordDayRange(filter.date).from + 86400000),
+                )
+              }
+            >
+              <ArrowRight size={16} />
+            </button>
+          </div>
+          <div className="record-admin-filters">
+            {tab === "admin" && (
+              <label className="record-read-filter">
+                <span className="sr-only">战绩阅读状态</span>
+                <select
+                  aria-label="战绩阅读状态"
+                  value={readFilter}
+                  onChange={(e) => {
+                    setReadFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="all">全部战绩</option>
+                  <option value="unread">只看未读</option>
+                  <option value="read">只看已读</option>
+                </select>
+              </label>
+            )}
+            {tab === "admin" && (
+              <select
+                className="record-query-mode"
+                aria-label="战绩查询方式"
+                value={searchMode}
+                onChange={(e) => {
+                  setSearchMode(e.target.value);
+                  setCode("");
+                }}
+              >
+                <option value="code">房号</option>
+                <option value="member">会员ID</option>
+              </select>
+            )}
+          </div>
+
+          <button
+            className="record-filters-done"
+            onClick={() => setFiltersOpen(false)}
+          >
+            完成
+          </button>
+        </Dialog>
+      )}
       {selected && (
         <Dialog
           title={`房间 ${selected.code} · 战绩详情`}
           variant="match-record-dialog"
-          headerAside={<div className="record-detail-total" aria-label="整桌总战绩"><RecordPlayers record={selected.record} showTeams={showTeams} /></div>}
+          headerAside={
+            <div className="record-detail-total" aria-label="整桌总战绩">
+              <RecordPlayers record={selected.record} showTeams={showTeams} />
+            </div>
+          }
           close={() => {
             setSelected(null);
             if (
@@ -578,7 +825,9 @@ export function RecordsPanel({
         </Dialog>
       )}
       {replayId !== null && (
-        <DeferredFeature label="回放" modal close={() => setReplayId(null)}><ReplayPanel initialId={replayId} close={() => setReplayId(null)} /></DeferredFeature>
+        <DeferredFeature label="回放" modal close={() => setReplayId(null)}>
+          <ReplayPanel initialId={replayId} close={() => setReplayId(null)} />
+        </DeferredFeature>
       )}
     </section>
   );

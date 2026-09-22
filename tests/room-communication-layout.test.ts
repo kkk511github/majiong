@@ -7,7 +7,7 @@ describe("短句单入口实际牌桌布局", () => {
     const layout = roomCommunicationLayout(frame, frame);
     const { scale, left, top, rail, panel, players } = layout;
     expect(rail.top).toBeGreaterThanOrEqual(top + (players[1].plateY + players[1].h / 2) * scale);
-    expect(rail.top + rail.height).toBeLessThanOrEqual(top + (players[0].plateY - players[0].h / 2) * scale);
+    expect(rail.top + rail.height).toBeLessThanOrEqual(layout.handTop);
     expect(rail.left + rail.width).toBeLessThanOrEqual(width - layout.safeRight);
     expect(layout.size).toBeGreaterThanOrEqual(44);
     expect(rail.width).toBe(layout.size);

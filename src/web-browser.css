@@ -102,6 +102,9 @@
   :root[data-runtime="web"] .table-lobby-header,
   :root[data-runtime="web"] .table-lobby-tools { flex-wrap: wrap; }
   :root[data-runtime="web"] .table-list { grid-template-columns: 1fr; }
+  :root[data-runtime="web"] .table-card { grid-template-columns: minmax(0, 1fr) auto; }
+  :root[data-runtime="web"] .table-card-seats { grid-column: 1 / -1; grid-row: 2; }
+  :root[data-runtime="web"] .table-card-actions { grid-column: 2; grid-row: 1; }
   :root[data-runtime="web"] .polished .club-dialog .modal-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   :root[data-runtime="web"] .club-tabs { flex-direction: row; overflow-x: auto; border: 0; padding: 0; flex-shrink: 0; }
   :root[data-runtime="web"] .club-tabs button { width: auto; flex-shrink: 0; padding-inline: 12px; }

@@ -82,6 +82,7 @@ export interface ClientState {
   phraseMessages: RoomPhraseMessage[];
   phrasesAvailable: boolean;
   announcementVersion?: number;
+  recordsReturn?: number;
 }
 const base = import.meta.env.VITE_GAME_SERVER_URL as string | undefined;
 export const avatarURL = (path?: string) =>
@@ -641,10 +642,22 @@ export class GameClient {
       : [];
     return [...online, ...practice].sort((a, b) => b.record.at - a.record.at);
   }
+  private pendingRecords = new Map<string, Promise<RecordsPage>>();
   async loadRecords(admin: boolean, query: URLSearchParams) {
-    return this.api<RecordsPage>(
-      (admin ? "/api/admin/records" : "/api/records") + "?" + query.toString(),
-    );
+    const normalized = new URLSearchParams(query);
+    if (normalized.get("read") === "all") normalized.delete("read");
+    normalized.sort();
+    const path = (admin ? "/api/admin/records" : "/api/records") + "?" + normalized.toString();
+    const key = JSON.stringify([this.state.account?.id, storage.get("token", ""), path]);
+    const pending = this.pendingRecords.get(key);
+    if (pending) return pending;
+    const request = this.api<RecordsPage>(path);
+    this.pendingRecords.set(key, request);
+    try {
+      return await request;
+    } finally {
+      this.pendingRecords.delete(key);
+    }
   }
   async loadReplay(id: string): Promise<RoundReplay> {
     const saved = storage
@@ -841,6 +854,9 @@ export class GameClient {
           this.timeSync = msg.timeSync === true;
           this.updateNetwork({ serverVersion: typeof msg.serverVersion === "string" && msg.serverVersion.length <= 64 ? msg.serverVersion : null });
           storage.set("token", msg.token);
+          const previousRoom = storage.get<string | null>(`activeRoom:${msg.id}`, null);
+          const completedWhileAway = !msg.roomCode && !!previousRoom;
+          if (!msg.roomCode) storage.set(`activeRoom:${msg.id}`, null);
           storage.set("onlineActive", !!msg.roomCode);
           this.attempt = 0;
           this.awaitingRoom = msg.roomCode;
@@ -860,6 +876,7 @@ export class GameClient {
             tableLobby: msg.tableLobby === true,
             ...(msg.account ? { account: msg.account } : {}),
             ...(!msg.roomCode ? { view: null } : {}),
+            ...(completedWhileAway ? { recordsReturn: (this.state.recordsReturn ?? 0) + 1 } : {}),
           });
           if (this.timeSync) {
             this.syncTime(true);
@@ -971,6 +988,8 @@ export class GameClient {
           const restored = this.awaitingRoom !== undefined;
           if (restored && msg.state.code !== this.awaitingRoom) return;
           const before = this.state.view, next = msg.state;
+          const accountId = this.state.account?.id ?? next.players[next.me]?.id;
+          if (accountId) storage.set(`activeRoom:${accountId}`, next.id);
           // Detect the live start at the packet boundary. React may batch the
           // waiting and playing packets, and the final auto-ready entrant may
           // receive only the first playing snapshot. Restores never replay it.
@@ -1025,6 +1044,8 @@ export class GameClient {
           });
         } else if (msg.type === "left") {
           storage.set("onlineActive", false);
+          const accountId = this.state.account?.id ?? this.state.view?.players[this.state.view.me]?.id;
+          if (accountId) storage.set(`activeRoom:${accountId}`, null);
           this.finishCommand();
           if (msg.lobby) {
             this.lobbyWanted = true;

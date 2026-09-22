@@ -50,6 +50,7 @@ const APP_VERSION = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 ).version as string;
 import {
+  decisionDeadline,
   overtimeExpired,
   refreshReadyDeadline,
   unreadyExpired,
@@ -309,7 +310,7 @@ export function makeServer(
           a.table!.number - b.table!.number ||
           a.table!.createdAt - b.table!.createdAt,
       )
-      .map((g) => tableSummary(g, id));
+      .map((g) => tableSummary(g, id, accounts.getAvatar));
     const signature = JSON.stringify(tables);
     if (force || lobbySent.get(id) !== signature) {
       send(ws, { type: "tables", tables });
@@ -545,12 +546,13 @@ export function makeServer(
         if (p && !p.bot) {
           p.joinedAt = Date.now() + g.table.settings.resultSeconds * 1000;
           p.trusteeRounds = p.trustee ? (p.trusteeRounds ?? 0) + 1 : 0;
-          if (g.table.settings.trusteeMode === "round" && p.trustee) {
+          if (g.table.settings.trusteeMode === "round" && p.trustee && p.online) {
             p.trustee = false;
             p.awaitingReady = true;
             p.ready = false;
           }
           if (
+            p.online &&
             g.table.settings.trusteeMode === "afterRounds" &&
             p.trusteeRounds >= g.table.settings.trusteeRounds
           ) {
@@ -582,10 +584,14 @@ export function makeServer(
     )
       return g;
     const settings = g.table?.settings;
-    if (g.phase === "ended" && settings?.continuousRounds) {
+    const continuing = g.phase === "ended" && !!g.table;
+    if (continuing && settings?.continuousRounds) {
       if (
         !g.players.every(
-          (p) => p && (p.bot || p.online || settings.offlineStart),
+          (p) =>
+            playerPreparation(p, settings, {
+              continuing,
+            }).available,
         )
       )
         return g;
@@ -594,13 +600,39 @@ export function makeServer(
         p!.awaitingReady = false;
       }
     }
-    if (!g.players.every((p) => playerPreparation(p, settings).canStart))
+    if (
+      !g.players.every(
+        (p) =>
+          playerPreparation(p, settings, {
+            continuing,
+          }).canStart,
+      )
+    )
       return g;
     for (const p of g.players) {
       p!.ready = true;
-      if (!p!.online) p!.trustee = true;
+      if (!continuing && !p!.online) p!.trustee = true;
     }
     return startRound(g, Date.now(), { index: (limit) => randomInt(limit) });
+  }
+  function markDisconnected(g: Game, seat: Seat, now: number) {
+    const p = g.players[seat];
+    if (!p || p.bot) return;
+    p.online = false;
+    p.disconnectedAt = now;
+    ensureOfflineClock(g, seat, now);
+  }
+  function ensureOfflineClock(g: Game, seat: Seat, now: number): boolean {
+    const p = g.players[seat];
+    const active = (g.phase === "playing" && g.turn === seat) ||
+      (g.phase === "claiming" && g.pending?.offers[seat] && g.pending.replies[seat] === undefined);
+    if (!p || p.bot || p.online || p.trustee || !active || p.resumedDeadline !== undefined)
+      return false;
+    // Unlimited online tables still give a disconnected seat a bounded turn.
+    // Ordinary tables retain the original deadline and cumulative balance.
+    p.resumedDeadline = now + 10_000;
+    g.overtimeCharged = g.overtimeCharged?.filter((s) => s !== seat);
+    return true;
   }
   const findRoom = (id: string) => {
     const g = [...games.values()].find((g) =>
@@ -729,7 +761,11 @@ export function makeServer(
     }
     if (await controlReleases.handle(req, res, url)) return;
     if (await control.handle(req, res, url)) return;
-    if (await accounts.handle(req, res, url.pathname)) return;
+    if (await accounts.handle(req, res, url.pathname)) {
+      if (url.pathname === "/api/auth/avatar" && req.method === "POST" && res.statusCode < 400)
+        broadcastTables();
+      return;
+    }
     if (await club.handle(req, res, url)) return;
     if (
       req.method === "POST" &&
@@ -1036,7 +1072,14 @@ export function makeServer(
           );
           let room = findRoom(nextSession.id);
           if (room) {
-            const p = room.players[seatFor(room, nextSession.id)]!;
+            const seat = seatFor(room, nextSession.id);
+            const p = room.players[seat]!;
+            // Unlimited online play resumes on return, but time consumed while
+            // offline remains spent for any subsequent disconnection.
+            if (!room.rules.turnSeconds) {
+              if (!p.online && !p.trustee) chargeOvertime(room, seat, Date.now());
+              p.resumedDeadline = undefined;
+            }
             p.online = true;
             p.disconnectedAt = undefined;
             p.name = nextSession.name;
@@ -1440,8 +1483,7 @@ export function makeServer(
         lobbySent.delete(session.id);
         const g = findRoom(session.id);
         if (g) {
-          g.players[seatFor(g, session.id)]!.online = false;
-          g.players[seatFor(g, session.id)]!.disconnectedAt = Date.now();
+          markDisconnected(g, seatFor(g, session.id), Date.now());
           g.revision++;
           try {
             publish(g);
@@ -1468,10 +1510,14 @@ export function makeServer(
           if (!p || p.bot) continue;
           const online = clients.get(p.id)?.readyState === WebSocket.OPEN;
           if (p.online !== online) {
-            p.online = online;
-            p.disconnectedAt = online ? undefined : now;
+            if (online) {
+              p.online = true;
+              p.disconnectedAt = undefined;
+            } else markDisconnected(g, seatFor(g, p.id), now);
             presenceChanged = true;
           }
+          if (ensureOfflineClock(g, seatFor(g, p.id), now))
+            presenceChanged = true;
         }
         if (presenceChanged) {
           g.revision++;
@@ -1567,7 +1613,7 @@ export function makeServer(
           broadcastTables();
           continue;
         }
-        // Repair ready rooms persisted by older versions; never deal while a human is offline.
+        // Initial dealing still checks presence; existing tables can continue under trusteeship.
         const started = startIfReady(g);
         if (started !== g) {
           g = started;
@@ -1592,9 +1638,9 @@ export function makeServer(
             )
               continue;
             if (p.bot || p.trustee || overtimeExpired(g, seat, now)) {
-              if (!p.bot && !p.trustee && g.table?.settings.overtimeSeconds) {
+              if (!p.bot && !p.trustee && (!p.online || g.table?.settings.overtimeSeconds)) {
                 chargeOvertime(g, seat, now);
-                if (g.table.settings.trusteeMode === "dissolve") {
+                if (p.online && g.table?.settings.trusteeMode === "dissolve") {
                   g = dissolveGame(g, now);
                   g.table!.endReason = "累计超时用完，按设置结束本桌";
                   publish(g);
@@ -1620,7 +1666,7 @@ export function makeServer(
           if (p.bot || p.trustee || overtimeExpired(g, g.turn, now)) {
             if (!p.bot && !p.trustee && overtimeExpired(g, g.turn, now)) {
               chargeOvertime(g, g.turn, now);
-              if (g.table?.settings.trusteeMode === "dissolve") {
+              if (p.online && g.table?.settings.trusteeMode === "dissolve") {
                 g = dissolveGame(g, now);
                 g.table!.endReason = "出牌超时，按设置结束本桌";
                 publish(g);

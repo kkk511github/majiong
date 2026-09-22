@@ -7,13 +7,17 @@ export function roundReadiness(
   seconds: number,
 ) {
   const seats = view.players.map((p) => {
-    const readiness = playerPreparation(p, view.table?.settings);
+    const readiness = playerPreparation(p, view.table?.settings, {
+      continuing: view.phase === "ended" && !!view.table,
+    });
     if (!connected) return { ...readiness, label: "待同步", state: "syncing" };
     if (!p) return { ...readiness, label: "空位", state: "waiting" };
     if (!p.bot && !p.online)
       return {
         ...readiness,
-        label: readiness.canStart ? "离线可开局" : "已离线",
+        label: readiness.canStart
+          ? p.trustee ? "离线·托管" : view.phase === "ended" ? "离线·计时继续" : "离线可开局"
+          : "已离线",
         state: "offline",
       };
     if (p.awaitingReady && !p.ready)

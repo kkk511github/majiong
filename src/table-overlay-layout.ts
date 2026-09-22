@@ -9,24 +9,28 @@ export function tableOverlayLayout(
   const left = frame.left - host.left + (frame.width - 1280 * scale) / 2;
   const top = frame.top - host.top + (frame.height - 590 * scale) / 2;
   const handTop = top + 491 * scale;
-  // The local avatar/status plate starts at canvas x=1148. Keep an 8px gap.
   const players=[0,1,2,3].map(offset=>layoutPlayerHud(offset,safeArea));
-  const actionEdge = left + (players[0].x-50) * scale - 8;
+  // Claim buttons stay on the lower-right rail. The local portrait now lives
+  // on the lower-left beside the hand, so it must not define this edge.
+  const actionEdge = left + Math.min(1140, 1280 - (safeArea?.right ?? 0)) * scale - 8;
   // The public source cue lives in the empty lower-left bay. Its right edge
   // stays before the side hand; small screens keep a readable, compact height.
   const sourceLeft = Math.max(8, left + Math.max(24, (safeArea?.left ?? 0) + 8) * scale);
-  const sourceHeight = Math.max(52, Math.min(76, 76 * scale));
+  const sourceHeight = Math.max(44, Math.min(76, 76 * scale));
+  const localTop=top+(players[0].plateY-players[0].h/2)*scale;
   return {
     scale, left, top, handTop, actionEdge,players,
     sourceLeft,
-    sourceTop: Math.min(top + 350 * scale, handTop - sourceHeight - 8),
+    sourceTop: Math.min(top + 350 * scale, localTop - sourceHeight - 4),
     sourceWidth: Math.max(0, Math.min(196 * scale, left + 224 * scale - sourceLeft)),
     sourceHeight,
-    contentRight:left+Math.min(1140,players[0].x-58)*scale,
+    contentRight:left+1140*scale,
     safeLeft:Math.max(8,left+(safeArea?.left??0)*scale),
     safeRight:Math.max(8,host.width-left-(1280-(safeArea?.right??0))*scale),
     actionBottom: Math.max(8, host.height - handTop + 8),
-    actionRight: Math.max(8, host.width - actionEdge),
-    actionMaxWidth: Math.max(0, actionEdge - Math.max(8, left + 116 * scale)),
+    // Keep the geometric boundary inside the available pixel after floating
+    // point scaling on narrow canvases.
+    actionRight: Math.max(8, host.width - actionEdge + 1e-6),
+    actionMaxWidth: Math.max(0, actionEdge - Math.max(8, left + (players[0].x + players[0].w / 2) * scale + 8)),
   };
 }

@@ -2,6 +2,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameClient } from "../src/game-client";
 import { completedRound } from "./fixtures/completed-round";
 let client: GameClient;
+it("战绩列表合并相同的并发请求，完成后重新拉取", async () => {
+  client = new GameClient();
+  const result = { records: [], total: 0, page: 1, pageSize: 20 };
+  let release!: (value: typeof result) => void;
+  const api = vi.spyOn(client, "api").mockImplementation(() => new Promise(resolve => { release = resolve as typeof release; }));
+  const first = client.loadRecords(true, new URLSearchParams({ page: "1", read: "all" }));
+  const second = client.loadRecords(true, new URLSearchParams({ page: "1" }));
+  expect(api).toHaveBeenCalledTimes(1);
+  release(result);
+  expect(await first).toEqual(result);
+  expect(await second).toEqual(result);
+  api.mockResolvedValue(result);
+  await client.loadRecords(true, new URLSearchParams({ page: "1" }));
+  expect(api).toHaveBeenCalledTimes(2);
+});
 afterEach(() => {
   client?.disconnect();
   vi.useRealTimers();
@@ -70,6 +85,37 @@ function online(ack = true) {
 }
 afterEach(() => vi.unstubAllGlobals());
 describe("联机校时与操作隔离", () => {
+  it("重连旧桌已归档时转战绩，仍在桌内时恢复牌桌，记录按账号隔离", () => {
+    const data = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+    });
+    const { ws, g } = online();
+    expect(data.get("jinling:activeRoom:me")).toBe(JSON.stringify(g.id));
+    const session = { type: "session" as const, id: "me", token: "test-token", name: "测试" };
+    ws.receive({ ...session, roomCode: g.code });
+    ws.receive({ type: "state", state: viewFor(g, 0) });
+    expect(client.state.recordsReturn).toBeUndefined();
+    ws.receive({ ...session, id: "someone-else" });
+    expect(client.state.recordsReturn).toBeUndefined();
+    ws.receive(session);
+    expect(client.state.view).toBeNull();
+    expect(client.state.recordsReturn).toBe(1);
+    ws.receive(session);
+    expect(client.state.recordsReturn).toBe(1);
+  });
+  it("主动离桌清除返回标记，随后登录不强行跳战绩", () => {
+    const data = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+    });
+    const { ws } = online();
+    ws.receive({ type: "left", lobby: true });
+    ws.receive({ type: "session", id: "me", token: "test-token", name: "测试" });
+    expect(client.state.recordsReturn).toBeUndefined();
+  });
   it("诊断保留服务端版本，旧服务未提供时清除上一连接版本", () => {
     const { ws } = online();
     const session = { type: "session" as const, id: "me", token: "test-token", name: "测试" };

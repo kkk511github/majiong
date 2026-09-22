@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import { mayCreateTables } from "../shared/permissions";
 import { Dialog } from "./Dialog";
-import { client, storage, type ClientState } from "./game-client";
+import { LobbyRecordSound } from "./LobbyRecordSound";
+import { avatarURL, client, storage, type ClientState } from "./game-client";
 import { DEFAULT_TABLE_SETTINGS } from "../shared/table-settings";
+import "./avatar.css";
 import { DEFAULT_NEW_RULES, newGameRules, ruleDisplayName } from "../shared/nanjing-rules";
 import type {
   Rules,
@@ -736,6 +738,7 @@ export function TableLobby({
         </div>
       </div>
       <div className="table-lobby-tools">
+        {admin && <LobbyRecordSound key={state.account!.id} accountId={state.account!.id} />}
         <div role="group" aria-label="筛选牌桌">
           {[
             { id: "all", text: "全部牌桌" },
@@ -818,6 +821,9 @@ export function TableLobby({
                   <div className={`lobby-seat occupied avatar-${i}`} key={i}>
                     <span className={`avatar avatar-${i}`}>
                       <span className="portrait-art" aria-hidden="true" />
+                      {avatarURL(p.avatar) && (
+                        <img key={p.avatar} className="user-avatar" src={avatarURL(p.avatar)} alt={`${p.name}的头像`} onError={event => { event.currentTarget.style.visibility = "hidden"; }} />
+                      )}
                     </span>
                     <strong>{p.isMe ? "我" : p.name}</strong>
                     <small>

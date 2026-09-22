@@ -41,6 +41,35 @@ function source() {
   return { db, records, hand, archive, ledger };
 }
 
+it("按日期汇总整天积分，不受分页影响且会员只看到自己", () => {
+  const { db, records } = source();
+  for (let index = 0; index < 21; index++) {
+    const record: RoundRecord = {
+      id: `match-${index}`, at: 1000 + index, round: 1,
+      names: ["正式成员", "仅练习成员"], playerIds: ["member", "practice-only"],
+      scores: [103, 97], settlementBase: 100, scoreDivisor: 1,
+      result: { reason: "hu", winners: [0], details: {}, deltas: [3, -3] },
+    };
+    db.prepare("INSERT INTO match_records VALUES (?,?,?,?,?,?,?)").run(
+      record.id, record.id, "123456", record.at, JSON.stringify(record.playerIds), 0, JSON.stringify(record),
+    );
+  }
+  const query = new URLSearchParams({ from: "0", to: "86400000", page: "1" });
+  const member = records.list(query, "member");
+  expect(member.records).toHaveLength(20);
+  expect(member.scoreTotals).toMatchObject([{ id: "member", points: 63 }]);
+  query.set("calendar", "0");
+  const compact = records.list(query, "member");
+  expect(compact.records).toEqual(member.records);
+  expect(compact.total).toBe(member.total);
+  expect(compact.scoreTotals).toEqual(member.scoreTotals);
+  expect(compact.dates).toBeUndefined();
+  expect(compact.dateTotal).toBeUndefined();
+  expect(records.list(query, "member", true).scoreTotals).toMatchObject([
+    { id: "member", points: 63 }, { id: "practice-only", points: -63 },
+  ]);
+});
+
 it("练习桌即使使用正式账号也只保存战绩，实时捕获和旧牌桌恢复不生成统计账本", () => {
   const { db, records, hand } = source();
   const game = createGame("练习桌", "practice-capture");

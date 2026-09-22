@@ -4,8 +4,15 @@ type TimedGame = Pick<
   Game,
   "table" | "phase" | "turn" | "deadline" | "overtimeCharged"
 > & {
-  players: ({ overtimeUsedMs?: number; resumedDeadline?: number } | null)[];
+  players: ({ online?: boolean; overtimeUsedMs?: number; resumedDeadline?: number } | null)[];
 };
+const OFFLINE_OVERTIME_MS = 90_000;
+function overtimeLimit(g: TimedGame, seat: Seat): number {
+  const configured = (g.table?.settings.overtimeSeconds ?? 0) * 1000;
+  return g.players[seat]?.online === false
+    ? configured || OFFLINE_OVERTIME_MS
+    : configured;
+}
 export function decisionDeadline(g: TimedGame, seat: Seat): number {
   return g.players[seat]?.resumedDeadline ?? g.deadline;
 }
@@ -14,7 +21,7 @@ export function overtimeRemaining(
   seat: Seat,
   now: number,
 ): number {
-  const limit = (g.table?.settings.overtimeSeconds ?? 0) * 1000;
+  const limit = overtimeLimit(g, seat);
   const p = g.players[seat];
   const deadline = decisionDeadline(g, seat);
   const elapsed =
@@ -37,7 +44,7 @@ export function overtimeExpired(
 /** Charge an active clock once; act() clones state so invalid input cannot consume time. */
 export function chargeOvertime(g: Game, seat: Seat, now: number): void {
   const p = g.players[seat],
-    limit = (g.table?.settings.overtimeSeconds ?? 0) * 1000;
+    limit = overtimeLimit(g, seat);
   const active =
     g.phase === "playing"
       ? g.turn === seat
@@ -49,7 +56,7 @@ export function chargeOvertime(g: Game, seat: Seat, now: number): void {
     p.bot ||
     !limit ||
     !active ||
-    !g.deadline ||
+    !decisionDeadline(g, seat) ||
     g.overtimeCharged?.includes(seat)
   )
     return;
@@ -124,7 +131,7 @@ export function decisionCountdown(
   const seat = v.phase === "claiming" && v.actions.length ? v.me : v.turn;
   const deadline = decisionDeadline(v, seat);
   const overtime =
-    !!v.table?.settings.overtimeSeconds && deadline > 0 && now >= deadline;
+    overtimeLimit(v, seat) > 0 && deadline > 0 && now >= deadline;
   return {
     overtime,
     seconds: Math.max(

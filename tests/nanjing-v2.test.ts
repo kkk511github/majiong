@@ -1200,23 +1200,31 @@ describe("规则图架牌、改支与照直", () => {
   });
 });
 
-it("图示三嘴后第四嘴暗杠，外包胡时不再收现场暗杠费", () => {
+it("前三嘴不是同一家时，第四嘴暗杠继续补牌，不误算三口外包", () => {
   let g = fixture([[27, 27, 27, 27, 28], [], [], []]);
-  g.players[0]!.melds = [0, 9, 18].map((k) => ({
+  g.players[0]!.melds = [0, 9, 18].map((k, i) => ({
     type: "pung",
     tiles: [k * 4, k * 4 + 1, k * 4 + 2],
-    from: 1,
+    from: ([1, 2, 3] as Seat[])[i],
     concealed: false,
   }));
   g.wall = [116, 120, 113];
   g = act(g, 0, { type: "selfKong", tile: 108 });
-  expect(g.roundTransfers).toEqual([]);
-  expect(g.ruleState!.deferredConcealed).toHaveLength(3);
-  g = act(g, 0, { type: "hu" });
+  expect(g.phase).toBe("playing");
   expect(g.roundTransfers).toEqual([
-    { from: 1, to: 0, amount: 50, reason: "三口承包", scope: "external" },
+    { from: 1, to: 0, amount: 6, reason: "暗杠" },
+    { from: 2, to: 0, amount: 6, reason: "暗杠" },
+    { from: 3, to: 0, amount: 6, reason: "暗杠" },
   ]);
-  expect(g.ruleState!.deferredConcealed).toEqual([]);
+  expect(g.ruleState!.deferredConcealed ?? []).toEqual([]);
+  expect(g.wall).toEqual([116, 120]);
+  expect(g.players[0]!.hand).toEqual([112, 113]);
+  expect(g.result).toBeUndefined();
+  expect(viewFor(g, 0).globalAnchorDiscards).toEqual([]);
+  g = act(g, 0, { type: "hu" });
+  expect(g.result!.details[0]!.items.some(i => i.label === "全球独钓")).toBe(true);
+  expect(g.result!.externalDeltas).toEqual([0, 0, 0, 0]);
+  expect(g.result!.transfers!.some(t => t.reason === "三口承包" || t.reason === "全球独钓承包")).toBe(false);
   ledger(g);
 });
 

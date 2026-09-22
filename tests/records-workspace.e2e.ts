@@ -122,6 +122,9 @@ async function fixture(page: Page, member = false) {
             { date: old, count: 1 },
           ],
           dateTotal: 30,
+          scoreTotals: q.has("from") ? (member
+            ? [{ id: "member", name: "秦淮月", points: 42 }]
+            : [{ id: "member", name: "秦淮月", memberId: "100001", points: 42 }, { id: "other", name: "月白", memberId: "100002", points: -12 }]) : [],
         },
       });
     },
@@ -178,10 +181,12 @@ for (const [width, height] of [
     await page.getByRole("button", { name: "战绩", exact: true }).click();
     await expect(page.locator(".match-card")).toHaveCount(20);
     await expect(page.locator(".record-read")).toHaveCount(0);
+    await page.getByRole("button", { name: "筛选战绩", exact: true }).click();
     for (const label of ["战绩查询方式", "战绩阅读状态"]) {
       const bounds = await page.getByLabel(label).boundingBox();
       expect(bounds!.height).toBeGreaterThanOrEqual(44);
     }
+    await page.getByRole("button", { name: "完成", exact: true }).click();
     mkdirSync("test-results/screenshots", { recursive: true });
     await page.screenshot({
       path: `test-results/screenshots/records-all-${width}.png`,
@@ -192,16 +197,23 @@ for (const [width, height] of [
       first.y + first.height,
       "一整桌的四人分数必须在列表可视高度内完整显示",
     ).toBeLessThanOrEqual(list.y + list.height + 1);
+    if (width >= 844) {
+      const third = (await page.locator(".match-card").nth(2).boundingBox())!;
+      expect(third.y + third.height, "横屏首屏完整展示至少三桌").toBeLessThanOrEqual(list.y + list.height + 1);
+    }
     const before = await page.locator(".record-dates").boundingBox();
     await page
       .locator(".records-list")
       .evaluate((el) => el.scrollTo(0, el.scrollHeight));
     expect(await page.locator(".record-dates").boundingBox()).toEqual(before);
+    await page.getByRole("button", { name: "筛选战绩", exact: true }).click();
     await page.getByLabel("选择战绩日期").fill(old);
     await expect(page.locator(".match-card")).toHaveCount(1);
-    await expect(page.locator(".record-date-picker")).toContainText(
+    await expect(page.getByLabel("个人当日战绩")).toHaveCount(0);
+    await expect(page.locator(".record-filters-toggle")).toContainText(
       "8月25日",
     );
+    await page.getByRole("button", { name: "完成", exact: true }).click();
     expect(queries.at(-1)).toContain("from=" + recordDayRange(old).from);
     expect(
       await page.locator(".records-list").evaluate((el) => el.scrollTop),
@@ -296,7 +308,7 @@ for (const [width, height] of [
     await expect(page.getByLabel("第 1 把明细")).toBeVisible();
     await expect(button.locator(".record-read")).toContainText("✅ 已读");
     await dialog.getByRole("button", { name: "关闭", exact: true }).click();
-    await expect(page.locator(".record-date-picker")).toContainText(
+    await expect(page.locator(".record-filters-toggle")).toContainText(
       "8月25日",
     );
     await page.getByRole("button", { name: "刷新战绩", exact: true }).click();
@@ -304,6 +316,7 @@ for (const [width, height] of [
     await page.screenshot({
       path: `test-results/screenshots/records-read-${width}.png`,
     });
+    await page.getByRole("button", { name: "筛选战绩", exact: true }).click();
     const readFilter = page.getByRole("combobox", { name: "战绩阅读状态" });
     await readFilter.selectOption("unread");
     await expect(page.locator(".match-card")).toHaveCount(0);
@@ -311,6 +324,7 @@ for (const [width, height] of [
     await readFilter.selectOption("read");
     await expect(page.locator(".match-card")).toHaveCount(1);
     expect(queries.at(-1)).toContain("read=read");
+    await page.getByRole("button", { name: "完成", exact: true }).click();
     await page.getByRole("button", { name: "返回大厅", exact: true }).click();
     await expect(page.locator(".records-workspace")).toHaveCount(0);
   });
@@ -330,7 +344,10 @@ test("普通会员可看 ID 和每把回放 ID，战队名不显示；房间查�
   await page.screenshot({
     path: "test-results/screenshots/records-member-1280.png",
   });
+  await page.getByRole("button", { name: "筛选战绩", exact: true }).click();
   await page.getByLabel("选择战绩日期").fill(old);
+  await page.getByRole("button", { name: "完成", exact: true }).click();
+  await expect(page.getByLabel("个人当日战绩")).toContainText("+42");
   await page.getByLabel("战绩房间号").fill("582644");
   await page.getByRole("button", { name: "查询战绩", exact: true }).click();
   await expect.poll(() => queries.at(-1)).toContain("code=582644");
@@ -384,7 +401,9 @@ test("管理员会员查询与返回列表位置保留", async ({ page }) => {
   const queries = await fixture(page);
   await page.goto("/");
   await page.getByRole("button", { name: "战绩", exact: true }).click();
+  await page.getByRole("button", { name: "筛选战绩", exact: true }).click();
   await page.getByLabel("战绩查询方式").selectOption("member");
+  await page.getByRole("button", { name: "完成", exact: true }).click();
   await page.getByLabel("战绩会员ID").fill("100002");
   await page.getByRole("button", { name: "查询战绩", exact: true }).click();
   await expect.poll(() => queries.at(-1)).toContain("member=100002");

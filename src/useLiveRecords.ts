@@ -40,7 +40,7 @@ export function useLiveRecords(
         // status must never be mistaken for a newly completed table.
         const page = await client.loadRecords(
           true,
-          new URLSearchParams({ page: "1" }),
+          new URLSearchParams({ page: "1", calendar: "0" }),
         );
         if (disposed) return;
         const games = arrivals.observe(page.records);

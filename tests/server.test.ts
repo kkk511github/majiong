@@ -358,13 +358,16 @@ describe("真实 WebSocket 房间服务", () => {
         return {
           ...rest,
           players: players.map((p) => {
-            const { online, disconnectedAt, ...player } = p!;
+            const { online, disconnectedAt, trustee, trusteeLocked, resumedDeadline, ...player } = p!;
             return player;
           }),
         };
       };
-      expect(gameplay(after)).toEqual(gameplay(before));
+      expect(JSON.parse(JSON.stringify(gameplay(after)))).toEqual(
+        JSON.parse(JSON.stringify(gameplay(before))),
+      );
       expect(after.players.every((p) => !p!.online)).toBe(true);
+      expect(after.players.every((p) => !p!.trustee)).toBe(true);
       if (phase !== "ended")
         expect(after.deadline - Date.now()).toBeGreaterThan(55000);
       const back = await Promise.all(
@@ -374,7 +377,9 @@ describe("真实 WebSocket 房间服务", () => {
         expect(back[i].session.roomCode).toBe(state.code);
         const restored = (await back[i].read("state")).state;
         expect(restored.me).toBe(i);
-        expect(restored.players[i]!.hand).toEqual(before.players[i]!.hand);
+        expect(restored.players[i]!.trustee).toBe(false);
+        if (phase !== "ended")
+          expect(restored.players[i]!.hand).toEqual(before.players[i]!.hand);
         if (phase !== "ended")
           for (let j = 0; j < 4; j++)
             if (i !== j) expect(restored.players[j]!.hand).toEqual([]);
@@ -382,10 +387,7 @@ describe("真实 WebSocket 房间服务", () => {
       const current = resumed.s.games.get(state.code)!;
       if (phase === "ended") {
         for (const p of back) p.send({ type: "ready" });
-        const next = await back[0].read(
-          "state",
-          (m) => m.state.round === before.round + 1,
-        );
+        const next = await back[0].read("state", (m) => m.state.round === before.round + 1);
         expect(next.state.history).toEqual(before.history);
       } else {
         const seat = (

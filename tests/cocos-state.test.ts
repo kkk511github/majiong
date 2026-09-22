@@ -3,9 +3,19 @@ import { expect, it } from 'vitest';
 import { createGame, newPlayer, seats, startRound, viewFor } from '../shared/engine';
 import { seededRandom } from '../shared/tiles';
 import { cocosState } from '../src/cocos-state';
-import { scenePlayerStatus, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics } from '../shared/table-scene';
+import { scenePlayerStatus, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics, layoutPlayerHud } from '../shared/table-scene';
 
 const ui = { connected:true, disabled:false, practice:false, countdown:'30', selected:null, inspectedKind:null, hintKinds:[], hintLabel:'可胡', effects:[] };
+it('自己的头像在左下手牌外侧，并避开灵动岛安全区',()=>{
+ const normal=layoutPlayerHud(0);
+ expect(normal.x+normal.w/2).toBeLessThan(224);
+ expect(normal.plateY+normal.h/2).toBeLessThan(476);
+ const island=layoutPlayerHud(0,{left:59,right:0,top:0,bottom:0});
+ expect(island.x-island.w/2).toBeGreaterThanOrEqual(67);
+ expect(island.x+island.w/2).toBeLessThanOrEqual(224);
+ const bottom=layoutPlayerHud(0,{left:0,right:0,top:0,bottom:34});
+ expect(bottom.plateY+bottom.h/2).toBeLessThanOrEqual(556);
+});
 function fixture() {
   const g=createGame('123456','test');
   g.players=seats.map(s=>({...newPlayer(`p${s}`,`牌友${s}`),ready:true}));

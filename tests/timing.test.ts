@@ -85,6 +85,16 @@ describe("建桌指定参数", () => {
   });
 });
 describe("每次10秒后接着使用个人超时余额", () => {
+  it("离线座位即使关闭在线托管，也保留10秒正常时间和90秒累计额度", () => {
+    const g = table();
+    g.table!.settings.trusteeMode = "disabled";
+    g.table!.settings.overtimeSeconds = 0;
+    g.players[g.turn]!.online = false;
+    g.players[g.turn]!.resumedDeadline = 10000;
+    expect(overtimeRemaining(g, g.turn, 10000)).toBe(90000);
+    expect(overtimeExpired(g, g.turn, 99999)).toBe(false);
+    expect(overtimeExpired(g, g.turn, 100000)).toBe(true);
+  });
   it("三次超时按90→87→50秒递减，每次仍先给10秒且耗尽才托管", () => {
     let g = table();
     const seat = g.turn;
@@ -384,23 +394,23 @@ describe("已核实玩法开关", () => {
 
 
 describe("真人托管自动打牌", () => {
-  it.each([true, false])("有无额外超时配置 %s 都自动自摸及暗杠", (configured) => {
+  it.each([true, false])("有无额外超时配置 %s 都只摸切，不自摸或暗杠", (configured) => {
     const g = table();
     if (!configured) g.table = undefined;
     const p = g.players[g.turn]!;
     p.hand = [0, 4, 8, 36, 40, 44, 72, 76, 80, 108, 109, 110, 112, 113];
     g.lastDraw = 113; p.trustee = true;
     expect(viewFor(g,g.turn).actions).toContain("hu");
-    expect(trusteeAction(g,g.turn)).toEqual({type:"hu"});
+    expect(trusteeAction(g,g.turn)).toEqual({type:"discard",tile:113});
     p.hand=[0,1,2,3,4,8,36,40,44,72,76,84,112,113];g.lastDraw=3;
     expect(viewFor(g,g.turn).selfKongs).toHaveLength(1);
-    expect(trusteeAction(g,g.turn)).toMatchObject({type:"selfKong"});
+    expect(trusteeAction(g,g.turn)).toEqual({type:"discard",tile:3});
   });
-  it("有胡牌或抢杠胡机会优先胡，已响应后不再操作", () => {
+  it("碰杠胡和抢杠胡一律过，已响应后不再操作", () => {
     const g=table();g.phase="claiming";
     for (const kind of ["discard","robKong"] as const){
       g.pending={openedAtRevision:g.revision,from:0,tile:0,kind,offers:{1:["pass","pung","kong","hu"]},replies:{}};
-      expect(trusteeAction(g,1)).toEqual({type:"hu"});
+      expect(trusteeAction(g,1)).toEqual({type:"pass"});
       g.pending.replies[1]="pass";
       expect(trusteeAction(g,1)).toBeNull();
     }

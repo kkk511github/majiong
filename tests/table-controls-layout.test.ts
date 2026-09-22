@@ -10,10 +10,11 @@ describe("外置碰杠控件的留白", () => {
     expect(layout.sourceLeft + layout.sourceWidth).toBeLessThanOrEqual(layout.left + 224 * layout.scale);
     const avatar = layout.players[3];
     expect(layout.sourceTop).toBeGreaterThan(layout.top + (avatar.plateY + avatar.h / 2) * layout.scale);
-    expect(layout.sourceHeight).toBeGreaterThanOrEqual(52);
+    expect(layout.sourceHeight).toBeGreaterThanOrEqual(44);
+    expect(bottom).toBeLessThan(layout.top+(layout.players[0].plateY-layout.players[0].h/2)*layout.scale);
     expect(layout.sourceWidth).toBeGreaterThanOrEqual(80);
     const controlsRight = width - layout.actionRight;
-    expect(controlsRight).toBeLessThanOrEqual(layout.left + (layout.players[0].x - 50) * layout.scale - 8);
+    expect(controlsRight).toBeLessThanOrEqual(layout.left + 1140 * layout.scale - 8);
   });
 
   it("横屏刘海使来源卡收窄，并保持与本家头像的距离", () => {
@@ -22,6 +23,6 @@ describe("外置碰杠控件的留白", () => {
     const layout = tableOverlayLayout(frame, frame, safe);
     expect(layout.sourceLeft).toBeGreaterThanOrEqual(safe.left * layout.scale);
     expect(layout.sourceLeft + layout.sourceWidth).toBeLessThanOrEqual(224 * layout.scale);
-    expect(frame.width - layout.actionRight).toBeLessThanOrEqual((layout.players[0].x - 50) * layout.scale - 8);
+    expect(frame.width - layout.actionRight).toBeLessThanOrEqual(1140 * layout.scale - 8);
   });
 });

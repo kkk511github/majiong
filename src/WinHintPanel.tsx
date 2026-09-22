@@ -26,10 +26,12 @@ export function WinHintPanel({
       const f=tableOverlayLayout(parent,rect,s.safeArea),k=f.scale;
       const hu=s.actions.some(a=>a.id==="hu") && (s.pending || s.hintDiscard === undefined),count=hu?1:s.hintKinds.length;
       const meta=hu?26:12;
-      const available=Math.max(80,Math.min(parent.width-f.safeLeft-f.safeRight,1020*k));
-      const width=Math.min(available,Math.max(hu?200:0,meta+count*Math.max(40,52*k)));
+      const local=f.players[0];
+      const hintLeft=Math.max(f.safeLeft,f.left+(local.x+local.w/2)*k+8);
       const right=Math.min(parent.width-f.safeRight,f.contentRight);
-      const left=Math.max(f.safeLeft,Math.min(f.left+624*k,right-width));
+      const available=Math.max(0,Math.min(right-hintLeft,1020*k));
+      const width=Math.min(available,Math.max(hu?200:0,meta+count*Math.max(40,52*k)));
+      const left=Math.max(hintLeft,Math.min(f.left+624*k,right-width));
       const own=s.players?.length ? layoutTable(s).filter(t=>t.seat===s.me&&t.area==="hand") : [];
       const under=own.filter(t=>f.left+(t.x+t.w/2)*k>left&&f.left+(t.x-t.w/2)*k<left+width);
       const handTop=under.length?Math.min(...under.map(t=>t.y-t.h/2)):491;

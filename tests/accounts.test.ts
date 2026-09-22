@@ -1157,6 +1157,10 @@ describe("四位密码与个人头像", () => {
     expect(saved.status).toBe(200);
     const path = saved.body.account.avatar;
     expect(path).toMatch(/^\/api\/avatars\/[a-f0-9-]{36}\/[a-f0-9]{64}\.jpg$/);
+    let lobby = await peer.read("tables");
+    while (!lobby.tables.find((table: any) => table.code === code)?.seats.some((seat: any) => seat?.avatar === path))
+      lobby = await peer.read("tables");
+    expect(lobby.tables.find((table: any) => table.code === code).seats.some((seat: any) => seat?.avatar === path)).toBe(true);
     const live = await peer.read("state");
     expect(live.state.players[live.state.me].avatar).toBe(path);
     const photo = await fetch(base + path);

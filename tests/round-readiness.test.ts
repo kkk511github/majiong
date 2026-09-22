@@ -22,6 +22,16 @@ function table() {
   return g;
 }
 describe("结算后准备状态", () => {
+  it("首局离线托管不能开桌，已开桌的离线托管可以继续", () => {
+    const g = table();
+    g.players.forEach((p) => { p!.ready = true; });
+    const p = g.players[2]!;
+    p.online = false;
+    p.trustee = true;
+    expect(playerPreparation(p, g.table!.settings).canStart).toBe(false);
+    expect(roundReadiness(viewFor(g, 0), true, 0).seats[2]).toMatchObject({ label: "离线·托管", canStart: true });
+    expect(roundReadiness(viewFor(g, 0), true, 0).message).toBe("全员就绪，正在发牌…");
+  });
   it("手动准备与托管、自动准备、暂停托管使用同一开局条件", () => {
     const g = table(),
       p = g.players[0]!,
@@ -43,6 +53,7 @@ describe("结算后准备状态", () => {
   });
   it("全员准备但有人离线，不会谎称正在发牌；允许离线的桌按其配置执行", () => {
     const g = table();
+    g.phase = "waiting";
     g.players.forEach((p) => (p!.ready = true));
     g.players[2]!.online = false;
     const blocked = roundReadiness(viewFor(g, 0), true, 0);
@@ -55,6 +66,15 @@ describe("结算后准备状态", () => {
     const allowed = roundReadiness(viewFor(g, 0), true, 0);
     expect(allowed.message).toBe("全员就绪，正在发牌…");
     expect(allowed.seats[2].label).toBe("离线可开局");
+  });
+  it("局间离线者不阻止续局，但未耗尽计时不能显示为已托管", () => {
+    const g = table();
+    g.players.forEach((p) => (p!.ready = true));
+    g.players[2]!.online = false;
+    g.players[2]!.ready = false;
+    expect(roundReadiness(viewFor(g, 0), true, 0).seats[2]).toMatchObject({
+      label: "离线·计时继续", canStart: true,
+    });
   });
   it("结算展示、待准备和失去连接各自有真实提示", () => {
     const g = table();

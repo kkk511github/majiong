@@ -1,8 +1,10 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+const simulatorDemo = process.env.MAHJONG_SIMULATOR_DEMO === "1";
 const config: CapacitorConfig = {
-  appId: "com.jinling.mahjong",
-  appName: "金陵麻将",
+  appId: simulatorDemo ? "com.jinling.mahjong.demo" : "com.jinling.mahjong",
+  appName: simulatorDemo ? "金陵麻将演示" : "金陵麻将",
   webDir: "dist",
+  ...(simulatorDemo ? { server: { url: "http://127.0.0.1:5181", cleartext: true } } : {}),
   backgroundColor: "#082820",
   ios: {
     contentInset: "never",

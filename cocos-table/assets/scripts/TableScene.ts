@@ -523,17 +523,28 @@ export class TableScene extends Component {
 
    if(o===2){const x=info.x,y=info.y;this.plate(h,x,y,166,56,'#0b332ed9',border).name=`player-panel-${p.seat}`;if(status.active)this.plate(h,x-58,y,50,50,'#154b45',border,5);marker(x+10,y+41,104);const avatar=this.avatar(p.avatar,p.seat,x-58,y,44,44,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x+13,y-12,91,24,18);this.text(h,`${p.score} 分`,x+13,y+11,92,22,18,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+70,y-16,24,23,17,'#ffd374');continue;}
    const x=info.x,y=info.y;
+   if(o===0){
+    const avatarX=x-info.w/2+27,textWidth=info.w-58,textX=x-info.w/2+54+textWidth/2;
+    this.plate(h,x,y,info.w,info.h,'#0b332ed9',border).name=`player-panel-${p.seat}`;
+    if(status.active)this.plate(h,avatarX,y,50,50,'#154b45',border,5);
+    const avatar=this.avatar(p.avatar,p.seat,avatarX,y,44,44,h);
+    if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));
+    this.text(h,p.name,textX,y-12,textWidth,24,18);
+    this.text(h,`${p.score} 分${status.label?' · '+status.label:''}`,textX,y+12,textWidth,24,18,status.label?statusColor:GOLD).name=`player-status-${p.seat}`;
+    if(p.seat===s.dealer)this.text(h,'庄',avatarX+20,y-17,20,20,16,'#ffd374');
+    continue;
+   }
    this.plate(h,x,y+25,100,126,'#0b332ed9',border).name=`player-panel-${p.seat}`;if(status.active)this.plate(h,x,y,58,58,'#154b45',border,5);marker(x,y-37,100);const avatar=this.avatar(p.avatar,p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
   }
   const prompt=claimPrompt(s);
   if(prompt&&!s.externalControls){
    // Keep the compass and counters untouched; the left lower rail is clear
    // of hand tiles, all three river columns, flowers and action controls.
-   const card=this.plate(h,112,393,180,86,'#123c33f5','#adac79',10);card.name='claim-prompt';
-   this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,99,363,144,20,15);
-   this.image('own-'+tileKind(prompt.tile),59,402,35,52,h).name='claim-prompt-tile';
-   this.text(h,prompt.name,136,390,100,25,22,GOLD);
-   this.text(h,'可'+prompt.labels.join(' / '),136,417,106,24,17);
+   const card=this.plate(h,112,360,180,86,'#123c33f5','#adac79',10);card.name='claim-prompt';
+   this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,99,330,144,20,15);
+   this.image('own-'+tileKind(prompt.tile),59,369,35,52,h).name='claim-prompt-tile';
+   this.text(h,prompt.name,136,357,100,25,22,GOLD);
+   this.text(h,'可'+prompt.labels.join(' / '),136,384,106,24,17);
   }
   const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));
   // Counter positions remain fixed during claims.

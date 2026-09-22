@@ -6,11 +6,11 @@ export function canDeclareZhaozhi(g: Game, seat: Seat): boolean {
   // Retained protocol field for old clients; mobile rules do not support this declaration.
   return false;
 }
-/** Called only after the server has resolved a pung, never merely from hand size. */
+/** Called when the fourth meld completes, before a kong's replacement draw. */
 export function armGlobalAnchor(g: Game, seat: Seat) {
   const p = g.players[seat];
-  if (!isNanjingV2(g.rules) || !g.ruleState || !p || p.hand.length !== 2 ||
-      p.melds.length !== 4 || !p.melds.every(m => m.type === "pung" && !m.concealed)) return;
+  if (!isNanjingV2(g.rules) || !g.ruleState || !p || p.melds.length !== 4 ||
+      p.hand.length !== (p.melds[3].type === "kong" ? 1 : 2)) return;
   (g.ruleState.pendingGlobalPung ??= {})[seat] = true;
 }
 /** Server-only wait tracking; changing the wait deletes both colour and liability. */
@@ -25,10 +25,9 @@ export function recordGlobalAnchor(g: Game, seat: Seat, discarded: Tile) {
     if (!activeGlobalAnchor(g, seat)) delete anchors[seat];
     return;
   }
-  if (armed && p.melds.length === 4 && p.hand.length === 1 &&
-      p.melds.every(m => m.type === "pung" && !m.concealed))
+  if (armed && p.melds.length === 4 && p.hand.length === 1)
     anchors[seat] = {
-      source: "fourth-pung",
+      source: p.melds[3].type === "pung" ? "fourth-pung" : "fourth-meld",
       discardTile: discarded,
       discardKind: kind(discarded),
       waitKind: kind(p.hand[0]),
@@ -38,7 +37,7 @@ export function recordGlobalAnchor(g: Game, seat: Seat, discarded: Tile) {
 function activeGlobalAnchor(g: Game, seat: Seat) {
   const anchor = g.ruleState?.globalAnchors?.[seat], p = g.players[seat];
   if (!isNanjingV2(g.rules) || !anchor || anchor.changed ||
-      anchor.source !== "fourth-pung" || anchor.discardTile === undefined ||
+      !["fourth-pung", "fourth-meld"].includes(anchor.source ?? "") || anchor.discardTile === undefined ||
       kind(anchor.discardTile) !== anchor.discardKind || !p || p.melds.length !== 4 ||
       ![1, 2].includes(p.hand.length) || !p.hand.some(t => kind(t) === anchor.waitKind)) return;
   return anchor;

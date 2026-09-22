@@ -10,7 +10,7 @@ export function roomCommunicationLayout(host: Bounds, frame: Bounds, safe?: Tabl
   const { scale, left, top, players, handTop } = table;
   const size = Math.max(44, Math.min(56, 52 * scale));
   const railTop = top + (players[1].plateY + players[1].h / 2) * scale + 6;
-  const railBottom = top + (players[0].plateY - players[0].h / 2) * scale - 6;
+  const railBottom = handTop - 12;
   const compact = host.width < 720;
   const width = size;
   const height = size;
@@ -34,13 +34,9 @@ export function roomPhrasePosition(layout: ReturnType<typeof roomCommunicationLa
   const { left, top, scale, players } = layout;
   const p = players[offset];
   const width = Math.min(238, 340 * scale);
+  if (offset === 0) return { left: left + (p.x + p.w / 2 + 12) * scale, top: Math.min(top + 401 * scale, layout.handTop - 2 * Math.max(11, Math.min(15, 15 * scale)) * 1.4 - 24), width };
   if (offset === 3) return { left: left + (p.x + p.w / 2 + 12) * scale, top: top + 182 * scale, width };
   const rightEdge = left + (p.x - p.w / 2 - 12) * scale;
   if (offset === 2) return { left: rightEdge - width, top: top + 66 * scale, width };
-  if (offset === 0) {
-    const line = Math.max(11, Math.min(15, 15 * scale)) * 1.4;
-    const edge = layout.compact ? Math.min(rightEdge, layout.rail.left - 10) : rightEdge;
-    return { left: edge - width, top: Math.min(top + 401 * scale, layout.handTop - 2 * line - 24), width };
-  }
   return { left: rightEdge - width, top: top + 167 * scale, width };
 }

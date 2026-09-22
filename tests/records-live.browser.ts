@@ -67,6 +67,8 @@ async function setup(page: Page) {
   await page.route("**/api/**", (route) => {
     const url = new URL(route.request().url()),
       q = url.searchParams;
+    if (url.pathname.startsWith("/api/avatars/"))
+      return route.fulfill({ path: "public/avatars.png", contentType: "image/png" });
     if (
       url.pathname === "/api/admin/records" ||
       url.pathname === "/api/records"
@@ -152,13 +154,74 @@ async function cues(page: Page) {
   return page.evaluate(() => (window as unknown as Probes).recordCues.length);
 }
 
-test("only new completed tables notify once; filters, pagination, details and mute remain stable", async ({
+test("lobby sound is admin-only, deduplicated and remembers mute; avatars render", async ({ page }) => {
+  const state = await setup(page);
+  await page.getByRole("button", { name: "约局", exact: true }).click();
+  const sound = page.getByRole("button", { name: "新战绩提示音", exact: true });
+  await expect(sound).toHaveAttribute("aria-pressed", "true");
+  await tick(page);
+  expect(await cues(page)).toBe(0);
+  state.records.unshift(match(100, Date.now()));
+  await tick(page);
+  expect(await cues(page)).toBe(1);
+  await tick(page);
+  expect(await cues(page)).toBe(1);
+  await sound.click();
+  state.records.unshift(match(101, Date.now() + 1));
+  await tick(page);
+  expect(await cues(page)).toBe(1);
+  for (const [width, height] of [[1280, 720], [390, 844], [568, 320]]) {
+    await page.setViewportSize({ width, height });
+    await expect(sound).toBeInViewport();
+    const avatar = page.locator(".lobby-seat .user-avatar");
+    await expect(avatar).toBeVisible();
+    expect(await avatar.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    mkdirSync("output/records-live-20260921", { recursive: true });
+    await page.screenshot({ path: `output/records-live-20260921/lobby-${width}x${height}.png` });
+  }
+  await page.getByRole("button", { name: "会员视角", exact: true }).click();
+  await expect(sound).toHaveCount(0);
+  const calls = state.adminCalls;
+  await tick(page);
+  expect(state.adminCalls).toBe(calls);
+  await page.getByRole("button", { name: "管理视角", exact: true }).click();
+  await expect(sound).toHaveAttribute("aria-pressed", "false");
+});
+
+test("legacy day totals do not block the first page", async ({ page }) => {
+  await setup(page);
+  await page.getByRole("button", { name: "我的对局", exact: true }).click();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let waiting = false;
+  await page.route("**/api/records*", async route => {
+    const query = new URL(route.request().url()).searchParams;
+    if (query.has("from") && query.get("page") === "2") {
+      waiting = true;
+      await gate;
+    }
+    return route.fallback();
+  });
+  await page.getByRole("button", { name: "今天", exact: true }).click();
+  await expect.poll(() => waiting).toBe(true);
+  await expect(page.locator(".match-card")).toHaveCount(20);
+  await expect(page.locator(".records-list")).toHaveAttribute("aria-busy", "false");
+  await expect(page.getByLabel("个人当日战绩")).toHaveCount(0);
+  release();
+  await expect(page.getByLabel("个人当日战绩")).toContainText("+1260");
+  await expect(page.getByLabel("个人当日战绩")).toContainText("30 局");
+});
+
+test("records stay silent while filters, pagination and details remain stable", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   const state = await setup(page);
   expect(await cues(page)).toBe(0);
+  await page.getByRole("button", { name: "筛选战绩", exact: true }).click();
   await page.getByLabel("战绩阅读状态").selectOption("unread");
+  await page.getByRole("button", { name: "完成", exact: true }).click();
   await page.getByRole("button", { name: "下一页战绩" }).click();
   await expect(page.locator(".match-card")).toHaveCount(10);
   await tick(page);
@@ -168,15 +231,17 @@ test("only new completed tables notify once; filters, pagination, details and mu
   state.records.unshift(match(100, Date.now()));
   await tick(page);
   await expect(page.locator(".match-record-dialog")).toBeVisible();
-  expect(await cues(page)).toBe(1);
+  expect(await cues(page)).toBe(0);
   await tick(page);
-  expect(await cues(page)).toBe(1);
+  expect(await cues(page)).toBe(0);
   await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: "筛选战绩", exact: true }).click();
   await page.getByLabel("战绩阅读状态").selectOption("all");
+  await page.getByRole("button", { name: "完成", exact: true }).click();
   await expect(
     page.locator('.match-card[data-game="live-match-100"]'),
   ).toHaveClass(/record-card-new/);
-  await page.getByRole("button", { name: "新战绩提示音" }).click();
+  await expect(page.getByRole("button", { name: "新战绩提示音" })).toHaveCount(0);
   state.records.unshift(match(101, Date.now() + 1));
   await tick(page);
   await expect(
@@ -185,10 +250,9 @@ test("only new completed tables notify once; filters, pagination, details and mu
   await expect(
     page.locator('.match-card[data-game="live-match-101"] .record-team'),
   ).toHaveText(["一生所爱", "冰茉莉", "日结丁", "日结冰"]);
-  expect(await cues(page)).toBe(1);
-  await page.getByRole("button", { name: "新战绩提示音" }).click();
+  expect(await cues(page)).toBe(0);
   await tick(page);
-  expect(await cues(page)).toBe(1);
+  expect(await cues(page)).toBe(0);
   await page.getByRole("button", { name: "我的对局", exact: true }).click();
   await expect(page.locator(".records-live-controls")).toHaveCount(0);
   const calls = state.adminCalls;
@@ -196,7 +260,7 @@ test("only new completed tables notify once; filters, pagination, details and mu
   expect(state.adminCalls).toBe(calls);
 });
 
-test("poll failures retain records and a recovered new table produces one cue", async ({
+test("poll failures retain records and recovery stays silent on records page", async ({
   page,
 }) => {
   const state = await setup(page);
@@ -212,7 +276,7 @@ test("poll failures retain records and a recovered new table produces one cue", 
   await expect(
     page.locator('.match-card[data-game="live-match-100"]'),
   ).toBeVisible();
-  expect(await cues(page)).toBe(1);
+  expect(await cues(page)).toBe(0);
 });
 
 test("polls preserve pending filter/manual failures and do not replace an in-flight background read", async ({
@@ -330,8 +394,8 @@ for (const [width, height] of [
     expect(metrics.width).toBeLessThanOrEqual(metrics.viewport);
     await expect(
       page.getByRole("button", { name: "新战绩提示音" }),
-    ).toBeInViewport();
-    await expect(page.getByLabel("战绩阅读状态")).toBeVisible();
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "筛选战绩", exact: true })).toBeVisible();
     const scores = page
       .locator(".match-card")
       .first()

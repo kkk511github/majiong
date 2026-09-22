@@ -1,19 +1,27 @@
 import type { Game, Player, TableSettings, TableSummary } from "./types";
 
-/** Shared by dealing and the between-round UI: ready alone does not override an offline seat. */
+/** Presence blocks the first deal only; absent seats continue their own clocks in later rounds. */
 export function playerPreparation(
   player: Pick<
     Player,
     "ready" | "online" | "bot" | "trustee" | "awaitingReady"
   > | null,
   settings?: TableSettings,
+  options?: { continuing?: boolean },
 ) {
   const available =
-    !!player && !!(player.bot || player.online || settings?.offlineStart);
+    !!player &&
+    !!(
+      player.bot ||
+      player.online ||
+      settings?.offlineStart ||
+      options?.continuing
+    );
   const prepared =
     !!player &&
     !!(
       player.ready ||
+      (options?.continuing && !player.online) ||
       (!player.awaitingReady &&
         (player.trustee || settings?.readyMode === "auto"))
     );
@@ -123,7 +131,7 @@ export function normalizeTableSettings(
   return s;
 }
 
-export function tableSummary(g: Game, viewer: string): TableSummary {
+export function tableSummary(g: Game, viewer: string, avatarFor: (id: string) => string | undefined = () => undefined): TableSummary {
   const table = g.table!;
   return {
     code: g.code,
@@ -142,6 +150,9 @@ export function tableSummary(g: Game, viewer: string): TableSummary {
               table.settings.privacy !== "open" && p.id !== viewer
                 ? `牌友${i + 1}`
                 : p.name,
+            avatar: !p.bot && (table.settings.privacy === "open" || p.id === viewer)
+              ? avatarFor(p.id)
+              : undefined,
             online: p.online,
             ready: p.ready,
             isMe: p.id === viewer,

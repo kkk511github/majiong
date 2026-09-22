@@ -17,7 +17,7 @@ const examples:[AnchorScenario,string,string][]=[
  ["original","原例：打6条，听5万","黄色成立 · 不等于能胡范围内所有牌"],
  ["win","实收：打6条，听5条","范围命中 + 选择胡牌 → 外包"],
  ["change","改支：摸3筒，打5万","换听的同一刻，颜色与责任一起取消"],
- ["concealed","例外：三碰后暗杠","补牌再出6条，不建立架牌"],
+ ["concealed","暗杠：三碰后暗杠","补牌再出6条，建立架牌"],
 ];
 function Preview(){
  const [scenario,setScenario]=useState<AnchorScenario>("original"),[multiple,setMultiple]=useState(1);
@@ -31,13 +31,13 @@ function Preview(){
  const scene={...cocosState(v,{connected:true,disabled:true,practice:false,countdown:"演示",selected:null,
   drawn:v.lastDraw,inspectedKind:null,hintKinds:[],hintLabel:"",effects:[]}),presentation:"replay" as const};
  const transfers=g.result?.transfers??[],outside=transfers.filter(t=>t.reason==="全球独钓承包");
- const stateLabel=g.result?(outside.length?"外包已结算":"普通胡牌结算"):active?"黄色架牌生效":scenario==="change"&&step>=4?"已改支 · 架牌取消":scenario==="concealed"&&step>=2?"暗杠形成 · 无架牌":"尚未建立架牌";
+ const stateLabel=g.result?(outside.length?"外包已结算":"普通胡牌结算"):active?"黄色架牌生效":scenario==="change"&&step>=4?"已改支 · 架牌取消":"尚未建立架牌";
  function reset(next:AnchorScenario=scenario,m=multiple){const initial=anchorGame(next,m);setScenario(next);setMultiple(m);setGame(initial);setTimeline([initial]);setStep(0);setNotice("");setError("");setCandidate(22);}
  function update(next:Game,nextStep:number,message=""){setGame(next);setTimeline([...timeline.slice(0,step+1),next]);setStep(nextStep);setNotice(message);setError("");}
  function run(action:()=>void){try{action();}catch(e){setError((e as Error).message);}}
  function next(){run(()=>{
-  if(step===0)update(claimFourth(g,scenario),1,scenario==="concealed"?"暗杠即时收分按现有规则；它不会产生黄色架牌。":"第四次碰牌已完成，还要打出一张牌才建立架牌。");
-  else if(step===1)update(discardAnchor(g),2,scenario==="concealed"?"虽已剩一张手牌，但来源是暗杠补牌，不产生架牌。":"甲打出的这张6条标黄，风险范围为4～8条。");
+  if(step===0)update(claimFourth(g,scenario),1,scenario==="concealed"?"暗杠正常收分并补牌，首次出牌后建立架牌。":"第四次碰牌已完成，还要打出一张牌才建立架牌。");
+  else if(step===1)update(discardAnchor(g),2,"甲打出的这张6条标黄，风险范围为4～8条。");
   else if(scenario==="change"&&step===2)update(advanceToAnchorDraw(g),3,"甲摸到3筒。只是摸牌，旧听牌仍保留，黄色暂不取消。");
   else if(scenario==="change"&&step===3)update(finishAnchorClaims(act(g,0,{type:"discard",tile:WAIT_WAN},6000)),4,"打出5万、留下3筒：服务器已同步清除原架牌和对应外包责任。");
  });}
@@ -63,7 +63,7 @@ function Preview(){
     {error&&<p role="alert">{error}</p>}
    </aside>
   </main>
-  <footer className="anchor-footer"><span>只记录第四次碰牌之后打出的那一张 · 同点数的其他牌不染色</span><span>暗杠补牌不架牌 / 摸切不取消 / 主动换听立即取消</span></footer>
+  <footer className="anchor-footer"><span>只记录第四组碰杠之后首次打出的那一张 · 同点数的其他牌不染色</span><span>明杠暗杠均可架牌 / 摸切不取消 / 主动换听立即取消</span></footer>
  </div>;
 }
 document.documentElement.dataset.runtime="web";

@@ -8,8 +8,34 @@ import {anchorGame,claimFourth,discardAnchor,advanceToAnchorDraw,opponentDiscard
 const ui={connected:true,disabled:false,practice:false,countdown:"10",selected:null,inspectedKind:null,hintKinds:[],hintLabel:"",effects:[]};
 const established=(scenario:"original"|"win"|"change"|"concealed"|"open"="original",multiple=1,k?:number)=>discardAnchor(claimFourth(anchorGame(scenario,multiple,k),scenario));
 
-describe("第四碰架牌与统一有效状态",()=>{
- it("只在第四碰之后首次出牌建立，公开物理牌不泄漏单钓手牌",()=>{
+describe("第四组碰杠架牌与统一有效状态",()=>{
+ it.each([
+  { name: "暗杠", kongs: [{ index: 1, concealed: true }] },
+  { name: "明杠", kongs: [{ index: 1, concealed: false }] },
+  { name: "暗杠和明杠", kongs: [{ index: 0, concealed: true }, { index: 1, concealed: false }] },
+ ])("前三组包含$name，第四嘴碰后仍建立架牌并结算外包",({kongs})=>{
+  for (const multiple of [1, 2]) {
+   const start=anchorGame("win",multiple,22,kongs);
+   const claimed=claimFourth(start,"win");
+   expect(claimed.result).toBeUndefined();
+   expect(viewFor(claimed,1).globalAnchorDiscards).toEqual([]);
+   const g=discardAnchor(JSON.parse(JSON.stringify(claimed)));
+   const tiles=[...g.wall,...g.players.flatMap(p=>[...p!.hand,...p!.discards,...p!.flowers,...p!.melds.flatMap(m=>m.tiles)])];
+   expect(tiles).toHaveLength(144);expect(new Set(tiles).size).toBe(144);
+   expect(viewFor(g,1).globalAnchorDiscards).toEqual([{seat:0,tile:ANCHOR_TILE}]);
+   expect(layoutTable(cocosState(viewFor(g,1),ui)).filter(t=>t.globalAnchor).map(t=>t.tile)).toEqual([ANCHOR_TILE]);
+   const won=finishAnchorClaims(opponentDiscard(g,22),{0:"hu"});
+   expect(won.result!.transfers).toEqual([{scope:"external",from:1,to:0,reason:"全球独钓承包",amount:50*multiple}]);
+   expect(won.result!.externalDeltas).toEqual([50*multiple,-50*multiple,0,0]);
+   const drawn=advanceToAnchorDraw(g);
+   const kept=act(drawn,0,{type:"discard",tile:drawn.lastDraw!});
+   expect(viewFor(kept,1).globalAnchorDiscards).toHaveLength(1);
+   const changed=act(drawn,0,{type:"discard",tile:88});
+   expect(viewFor(changed,1).globalAnchorDiscards).toEqual([]);
+   expect(globalLiability(changed,0,89)).toBe(false);
+  }
+ });
+ it("第四碰之后首次出牌建立，公开物理牌不泄漏单钓手牌",()=>{
   const start=anchorGame(),claimed=claimFourth(start,"original");
   expect(viewFor(claimed,1).globalAnchorDiscards).toEqual([]);
   expect(claimed.players[0]!.hand).toEqual([WAIT_WAN,ANCHOR_TILE]);
@@ -58,19 +84,57 @@ describe("第四碰架牌与统一有效状态",()=>{
   changed.players[0]!.hand=[WAIT_WAN];recordGlobalAnchor(changed,0,CHANGE_DRAW);
   expect(changed.ruleState!.globalAnchors?.[0]).toBeUndefined();
  });
- it.each(["concealed","open"] as const)("%s杠补牌后出牌不架牌，胡风险范围内牌仍无此外包",route=>{
-  const g=established(route,1,22);
-  expect(g.players[0]!.hand).toEqual([88]);
-  expect(viewFor(g,1).globalAnchorDiscards).toEqual([]);
-  expect(globalLiability(g,0,89)).toBe(false);
-  const won=finishAnchorClaims(opponentDiscard(g,22),{0:"hu"});
-  expect(won.result!.transfers!.some(t=>t.reason==="全球独钓承包")).toBe(false);
+ it.each(["concealed","open"] as const)("第四组%s杠正常收费补牌，首次弃牌架牌，点胡结算50/100",route=>{
+  for (const multiple of [1,2]) {
+   const claimed=claimFourth(anchorGame(route,multiple,22),route);
+   expect(claimed.result).toBeUndefined();
+   expect(claimed.players[0]!.hand).toEqual([88,ANCHOR_TILE]);
+   expect(viewFor(claimed,1).globalAnchorDiscards).toEqual([]);
+   const fees=claimed.roundTransfers!.filter(t=>t.reason===(route==="concealed"?"暗杠":"直杠"));
+   expect(fees).toHaveLength(route==="concealed"?3:1);
+   expect(fees.every(t=>t.amount===(route==="concealed"?5:10)*multiple)).toBe(true);
+   const g=discardAnchor(JSON.parse(JSON.stringify(claimed)));
+   expect(g.players[0]!.hand).toEqual([88]);
+   expect(viewFor(g,1).globalAnchorDiscards).toEqual([{seat:0,tile:ANCHOR_TILE}]);
+   expect(g.replay!.frames.find(f=>f.type==="discard"&&f.tile===ANCHOR_TILE)?.globalAnchorDiscards).toEqual([{seat:0,tile:ANCHOR_TILE}]);
+   expect(globalLiability(g,0,89)).toBe(true);
+   const offered=opponentDiscard(g,22);
+   expect(finishAnchorClaims(offered).result).toBeUndefined();
+   const won=finishAnchorClaims(offered,{0:"hu"});
+   expect(won.result!.transfers!.filter(t=>t.scope==="external")).toEqual([{scope:"external",from:1,to:0,reason:"全球独钓承包",amount:50*multiple}]);
+   expect(won.result!.transfers!.filter(t=>t.reason===(route==="concealed"?"暗杠":"直杠"))).toEqual(fees);
+   const drawn=advanceToAnchorDraw(g);
+   expect(viewFor(act(drawn,0,{type:"discard",tile:drawn.lastDraw!}),1).globalAnchorDiscards).toHaveLength(1);
+   const changed=act(drawn,0,{type:"discard",tile:88});
+   expect(viewFor(changed,1).globalAnchorDiscards).toEqual([]);
+   changed.players[0]!.hand=[88];recordGlobalAnchor(changed,0,CHANGE_DRAW);
+   expect(globalLiability(changed,0,89)).toBe(false);
+  }
  });
  it("不能凭四组牌或旧版无操作来源状态建立/保留架牌",()=>{
   const g=established("concealed");
   g.ruleState!.globalAnchors={0:{discardKind:23,waitKind:4,changed:false}};
   expect(viewFor(g,1).globalAnchorDiscards).toEqual([]);expect(globalLiability(g,0,88)).toBe(false);
   recordGlobalAnchor(g,0,92);expect(g.ruleState!.globalAnchors).toEqual({});
+ });
+ it.each(["concealed","open"] as const)("第四组%s杠连续补花后仍在首次弃牌架牌",route=>{
+  const start=anchorGame(route,1,22);
+  const flower=start.wall.splice(start.wall.indexOf(124),1)[0];
+  start.wall.push(flower);
+  const claimed=claimFourth(start,route);
+  expect(claimed.players[0]!.flowers).toContain(124);
+  expect(claimed.players[0]!.hand).toEqual([88,ANCHOR_TILE]);
+  expect(viewFor(claimed,1).globalAnchorDiscards).toEqual([]);
+  const g=discardAnchor(claimed);
+  expect(viewFor(g,1).globalAnchorDiscards).toEqual([{seat:0,tile:ANCHOR_TILE}]);
+  const won=finishAnchorClaims(opponentDiscard(g,22),{0:"hu"});
+  expect(won.result!.transfers!.some(t=>t.reason==="全球独钓承包"&&t.amount===50)).toBe(true);
+ });
+ it("旧明碰架牌存档仍有效",()=>{
+  const g=JSON.parse(JSON.stringify(established("win")));
+  g.ruleState.globalAnchors[0].source="fourth-pung";
+  expect(viewFor(g,1).globalAnchorDiscards).toEqual([{seat:0,tile:ANCHOR_TILE}]);
+  expect(globalLiability(g,0,89)).toBe(true);
  });
  it("换把清空架牌和待出牌标记",()=>{
   const won=finishAnchorClaims(opponentDiscard(established("win"),22),{0:"hu"});

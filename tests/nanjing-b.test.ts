@@ -141,37 +141,54 @@ it.each([1, 2])("杠费修正不改变胡牌软花和门清，当前倍率%i", m
     expect(score.items.some(i => i.label === "门清")).toBe(!added);
   }
 });
-it("B档三嘴后第四嘴暗杠立即收三家各5分，随后外包胡不撤销杠费", () => {
+it("B档三嘴后第四嘴暗杠立即结束，只记外包不收暗杠费", () => {
   const p = player([27, 27, 27, 27, 28], 0, [0, 9, 18]);
   p.melds.forEach(m => m.from = 1);
   const g = game(p);
   g.wall = [116, 120, 113];
   const kong = act(g, 0, { type: "selfKong", tile: 108 }, 1000);
-  const transfers = [1, 2, 3].map(from => ({ from, to: 0, amount: 5, reason: "暗杠" }));
-  expect(kong.players.map(p => p!.score)).toEqual([105, 85, 85, 85]);
-  expect(kong.roundTransfers).toEqual(transfers);
-  expect(kong.ruleState!.deferredConcealed ?? []).toEqual([]);
-  const ended = act(kong, 0, { type: "hu" }, 2000);
-  expect(ended.players.map(p => p!.score)).toEqual([105, 85, 85, 85]);
-  expect(ended.result!.deltas).toEqual([15, -5, -5, -5]);
-  expect(ended.result!.externalDeltas).toEqual([50, -50, 0, 0]);
-  expect(ended.result!.transfers).toEqual([
-    ...transfers,
+  expect(kong.phase).toBe("ended");
+  expect(kong.players.map(p => p!.score)).toEqual([90, 90, 90, 90]);
+  expect(kong.roundTransfers).toEqual([
     { from: 1, to: 0, amount: 50, reason: "三口承包", scope: "external" },
   ]);
+  expect(kong.ruleState!.deferredConcealed ?? []).toEqual([]);
+  const ended = kong;
+  expect(ended.result!.deltas).toEqual([0, 0, 0, 0]);
+  expect(ended.result!.externalDeltas).toEqual([50, -50, 0, 0]);
+  expect(() => act(ended, 0, { type: "hu" }, 2000)).toThrow();
 });
-it("B档第四嘴暗杠使两家桌内归零，立即终桌且不再补牌", () => {
+it("B档前三嘴不同家，第四嘴暗杠收杠费并补牌，胡时算全球独钓而非外包", () => {
+  const g = game(player([27, 27, 27, 27, 28], 0, [0, 9, 18]), [1000, 1000, 1000, 1000]);
+  g.wall = [116, 120, 113];
+  const kong = act(g, 0, { type: "selfKong", tile: 108 }, 1000);
+  expect(kong.phase).toBe("playing");
+  expect(kong.result).toBeUndefined();
+  expect(kong.players.map(p => p!.score)).toEqual([1015, 995, 995, 995]);
+  expect(kong.roundTransfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 5, reason: "暗杠" })));
+  expect(kong.players[0]!.hand).toEqual([112, 113]);
+  expect(kong.wall).toEqual([116, 120]);
+  expect(viewFor(kong, 0).globalAnchorDiscards).toEqual([]);
+  const ended = act(kong, 0, { type: "hu" }, 2000);
+  expect(ended.result!.details[0]!.items.some(i => i.label === "全球独钓")).toBe(true);
+  expect(ended.result!.externalDeltas).toEqual([0, 0, 0, 0]);
+  expect(ended.result!.transfers!.filter(t => t.reason === "自摸")).toHaveLength(3);
+  expect(ended.result!.transfers!.some(t => t.reason === "三口承包" || t.reason === "全球独钓承包")).toBe(false);
+});
+it("B档第四嘴暗杠不收桌内杠费，也不补牌", () => {
   const p = player([27, 27, 27, 27, 28], 0, [0, 9, 18]);
   p.melds.forEach(m => m.from = 1);
   const g = game(p, [330, 5, 5, 20]);
   g.wall = [116, 120, 113];
   const ended = act(g, 0, { type: "selfKong", tile: 108 }, 1000);
-  expect(ended.phase).toBe("finished");
-  expect(ended.result!.reason).toBe("bankrupt");
-  expect(ended.players.map(p => p!.score)).toEqual([345, 0, 0, 15]);
-  expect(ended.result!.deltas).toEqual([15, -5, -5, -5]);
-  expect(ended.result!.externalDeltas).toEqual([0, 0, 0, 0]);
-  expect(ended.result!.transfers).toEqual([1, 2, 3].map(from => ({ from, to: 0, amount: 5, reason: "暗杠" })));
+  expect(ended.phase).toBe("ended");
+  expect(ended.result!.reason).toBe("hu");
+  expect(ended.players.map(p => p!.score)).toEqual([330, 5, 5, 20]);
+  expect(ended.result!.deltas).toEqual([0, 0, 0, 0]);
+  expect(ended.result!.externalDeltas).toEqual([50, -50, 0, 0]);
+  expect(ended.result!.transfers).toEqual([
+    { from: 1, to: 0, amount: 50, reason: "三口承包", scope: "external" },
+  ]);
   expect(ended.wall).toEqual(g.wall);
   expect(ended.players[0]!.hand).toEqual([112]);
 });

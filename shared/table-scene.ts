@@ -43,11 +43,16 @@ export interface TableSafeArea { left:number; right:number; top:number; bottom:n
 
 /** Move player information inside the cutout without scaling the table or tiles. */
 export function layoutPlayerHud(offset:number, safe?:TableSafeArea) {
- const x=offset===2?950:offset===0?1198:offset===3?68:1200;
- const y=offset===2?32:offset===0?508:207;
- const w=offset===2?166:100,h=offset===2?56:126,plateOffset=offset===2?0:25;
+ // The local plate sits above the hand, clear of its selection lift.
+ const horizontal=offset===0||offset===2;
+ const x=offset===2?950:offset===0?110:offset===3?68:1200;
+ const y=offset===2?32:offset===0?446:207;
  const edge=(value:number|undefined)=>value&&value>0?value+8:0;
  const left=edge(safe?.left),right=1280-edge(safe?.right);
+ // The previous player's standing tiles start beyond x=224. Shrink the text
+ // column on cutout phones while keeping the avatar itself at full size.
+ const w=offset===0?Math.min(166,Math.max(80,224-left)):horizontal?166:100;
+ const h=horizontal?56:126,plateOffset=horizontal?0:25;
  const top=edge(safe?.top),bottom=590-edge(safe?.bottom);
  const px=Math.max(left+w/2,Math.min(right-w/2,x));
  // Preserve the existing bottom alignment on screens with no lower inset.
@@ -218,7 +223,8 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
  for(const p of s.players) {
   const o=sceneOffset(p.seat,s.me), pose=poses[o];
   if(o===0) {
-   let x=110;
+   // Keep the full rack near the centre; melds and the draw slot share its anchor.
+   let x=230;
    const selectable=s.presentation!=='replay'&&s.connected&&!s.disabled&&!p.trustee&&['playing','claiming'].includes(s.phase);
    // Keep the selection glow while leaving the fixed claim strip unobstructed.
    const selectedLift=s.actions.length?2:15;

@@ -32,6 +32,7 @@ export const DEFAULT_TABLE_SETTINGS: TableSettings = {
   name: "南京好友桌",
   visibility: "public",
   readyMode: "manual",
+  openingAnimation: true,
   autoRenew: true,
   resultSeconds: 10,
   offlineStart: false,
@@ -77,6 +78,7 @@ export function normalizeTableSettings(
   }
   for (const key of [
     "autoRenew",
+    "openingAnimation",
     "offlineStart",
     "kickOffline",
     "kickUnready",

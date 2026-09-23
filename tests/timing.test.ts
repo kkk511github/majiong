@@ -40,6 +40,7 @@ describe("建桌指定参数", () => {
     expect(g.initialScore).toBe(90);
     expect(s).toMatchObject({
       readyMode: "manual",
+      openingAnimation: true,
       offlineStart: false,
       resultSeconds: 10,
       kickUnready: true,
@@ -56,6 +57,14 @@ describe("建桌指定参数", () => {
       .toBe(false);
     expect(normalizeTableSettings({ overtimePerTurn: false }).overtimePerTurn)
       .toBe(false);
+  });
+  it("开局动画默认开启，也可以在开桌时关闭", () => {
+    expect(normalizeTableSettings().openingAnimation).toBe(true);
+    expect(normalizeTableSettings({ openingAnimation: false }).openingAnimation)
+      .toBe(false);
+    expect(() =>
+      normalizeTableSettings({ openingAnimation: "yes" as never }),
+    ).toThrow("牌桌设置无效");
   });
   it.each([0.2, 0.5, 1] as const)(
     "记分倍率 %s 只乘累计输赢，负分不截断",

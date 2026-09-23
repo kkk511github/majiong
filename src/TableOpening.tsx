@@ -22,7 +22,13 @@ export function openingMatchesState(cue: OpeningCue, state: TableSceneState) {
     state.players.every(p => !p.discards.length && !p.melds.length);
 }
 
-export function TableOpening({ state, done, tableReady = true }: { state: TableSceneState; done: () => void; tableReady?: boolean }) {
+export function TableOpening({ state, done, tableReady = true, completed = false, waitingCount = 0 }: {
+  state: TableSceneState;
+  done: () => void;
+  tableReady?: boolean;
+  completed?: boolean;
+  waitingCount?: number;
+}) {
   const [ready, setReady] = useState(false);
   const [entered, setEntered] = useState(false);
   const [reduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -41,25 +47,49 @@ export function TableOpening({ state, done, tableReady = true }: { state: TableS
     const timer = setTimeout(() => setEntered(true), reduced ? 0 : OPENING_ENTER_DURATION);
     return () => clearTimeout(timer);
   }, [ready, reduced]);
-  const exiting = entered && tableReady;
+  const exiting = entered && tableReady && !completed;
   useEffect(() => {
     if (!exiting) return;
-    if (document.hidden) { done(); return; }
-    const timer = setTimeout(done, reduced ? 350 : OPENING_DURATION - OPENING_ENTER_DURATION);
-    const visibility = () => { if (document.hidden) done(); };
+    let remaining = reduced ? 350 : OPENING_DURATION - OPENING_ENTER_DURATION;
+    let startedAt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (startedAt)
+        remaining = Math.max(0, remaining - (Date.now() - startedAt));
+      clearTimeout(timer);
+      startedAt = 0;
+      if (!document.hidden) {
+        startedAt = Date.now();
+        timer = setTimeout(() => {
+          startedAt = 0;
+          remaining = 0;
+          done();
+        }, remaining);
+      }
+    };
+    const visibility = () => schedule();
     document.addEventListener("visibilitychange", visibility);
+    schedule();
     return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", visibility); };
   }, [exiting, done, reduced]);
-  return <section className={`table-opening${ready ? " opening-entered" : ""}${exiting ? " opening-exiting" : ""}${reduced ? " opening-reduced" : ""}`} aria-label={`第${state.round}把开局`}>
+  return <section className={`table-opening${ready ? " opening-entered" : ""}${exiting ? " opening-exiting" : ""}${completed ? " opening-waiting" : ""}${reduced ? " opening-reduced" : ""}`} aria-label={completed ? "等待其他牌友进入" : `第${state.round}把开局`}>
     <div className="opening-camera" aria-hidden="true">
       <img className="opening-scene" src={openingScene} alt="" draggable={false} />
       <div className="opening-light" />
     </div>
-    <div className="opening-call" role="status">
-      <img src={openingTitle} alt="开局" draggable={false} />
-      <p>四位就座 · 好戏开场</p>
-      <small>第 {state.round} 把 · {state.players[state.dealer]?.name}坐庄</small>
-    </div>
-    {tableReady && <button className="opening-skip" onClick={done}><SkipForward size={16} />进入牌局</button>}
+    {completed ? (
+      <div className="opening-call" role="status">
+        <strong>牌桌已就绪</strong>
+        <p>{waitingCount ? `还差 ${waitingCount} 位牌友进入` : "正在同步开局…"}</p>
+        <small>全员进入后统一开始计时</small>
+      </div>
+    ) : (
+      <div className="opening-call" role="status">
+        <img src={openingTitle} alt="开局" draggable={false} />
+        <p>四位就座 · 好戏开场</p>
+        <small>第 {state.round} 把 · {state.players[state.dealer]?.name}坐庄</small>
+      </div>
+    )}
+    {tableReady && !completed && <button className="opening-skip" onClick={done}><SkipForward size={16} />进入牌局</button>}
   </section>;
 }

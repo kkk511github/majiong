@@ -54,7 +54,7 @@ it("预置四队可改名且重启不重置；分队后可入座，禁赛仍允�
   expect(teams.map((t:any)=>t.name)).toEqual(["一生所爱战队","冰茉莉战队","日结丁战队","日结冰战队"]);
   await api("/api/admin/teams",{id:"team-1",name:"一生好友战队"},root.token);
   const player=await register("player"),ws=await peer(player.token),host=await peer(root.token);
-  host.send({type:"createTables",count:1,settings:{continuousRounds:true},creationId:"club-game"});const code=(await host.read("tablesCreated")).codes[0];
+  host.send({type:"createTables",count:1,settings:{continuousRounds:true,openingAnimation:false},creationId:"club-game"});const code=(await host.read("tablesCreated")).codes[0];
   ws.send({type:"join",code});expect((await ws.read("error")).message).toContain("分配战队");
   await assign(player.account.id);ws.send({type:"join",code});await ws.read("state");
   const g=server.games.get(code)!;

@@ -33,6 +33,7 @@ test("the built client resumes a server robot table without randomUUID or struct
       name: "原生兼容体验桌",
       visibility: "public",
       readyMode: "auto",
+      openingAnimation: true,
       autoRenew: false,
       resultSeconds: 5,
       offlineStart: false,

@@ -475,7 +475,8 @@ export function App() {
       setToast(`房间号：${v.code}`);
     }
   }
-  const commandsDisabled = !state.connected || !!state.submitting;
+  const commandsDisabled =
+    !state.connected || !!state.submitting || !!v?.openingGate;
   const resultKey = v?.result ? `${v.id}-${v.round}-${v.result.reason}` : "";
   useEffect(() => {
     setScoreDetailsKey("");
@@ -847,6 +848,10 @@ export function App() {
       {gameActive && v && mine && (
         <CocosTable
           opening={opening}
+          openingWaiting={v.openingGate
+            ? v.openingGate.waiting.filter((seat) => seat !== v.me).length
+            : undefined}
+          onOpeningComplete={(cue) => client.openingComplete(cue.game, cue.round)}
           onEntryBusyChange={setTableEntryBusy}
           readyDiscards={readyDiscards}
           winResult={showingWinEffect ? v.result : undefined}
@@ -854,7 +859,7 @@ export function App() {
           connectionQuality={state.mode === "online" && state.connected && (state.network.consecutiveTimeouts > 0 || (state.network.smoothedRttMs ?? 0) >= 600) ? networkLabel(state.network) : undefined}
           state={cocosState(v, {
             connected: state.connected, disabled: commandsDisabled || paused,
-            practice: state.mode === "local", countdown: !state.connected || paused || !timed ? "—" : waitingOthersOvertime ? "…" : String(countdown).padStart(2, "0"),
+            practice: state.mode === "local", countdown: !state.connected || paused || !timed ? "—" : v.openingGate || waitingOthersOvertime ? "…" : String(countdown).padStart(2, "0"),
             selected, drawn: drawnTile, inspectedKind, hintKinds, hintDiscard,
             hintLabel: hintDiscard !== undefined ? `打${tileName(hintDiscard)}后可胡` : "已听牌 · 可胡",
             effects: motion,

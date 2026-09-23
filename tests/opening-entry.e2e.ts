@@ -103,14 +103,17 @@ function onlineGame(): Game {
   return game;
 }
 
-async function controlledOnline(page: Page, initial: View) {
+async function controlledOnline(page: Page, initial: View, received: any[] = []) {
   let current = initial;
   let socket: WebSocketRoute;
   const push = () => socket.send(JSON.stringify({ type: "state", state: current, serverNow: Date.now() }));
   await page.routeWebSocket("**/ws", ws => {
     socket = ws;
     const server = ws.connectToServer();
-    ws.onMessage(message => server.send(message));
+    ws.onMessage(message => {
+      received.push(JSON.parse(String(message)));
+      server.send(message);
+    });
     server.onMessage(message => {
       const data = JSON.parse(String(message));
       if (data.type === "session") {
@@ -164,15 +167,25 @@ test("真实单人练习入口：牌桌慢加载期间直接呈现开局，载�
 test("真人准备倒计时后首把展示开局，下一把直接进入牌桌", async ({ page }) => {
   await observeEntry(page);
   const waiting = onlineGame();
-  const push = await controlledOnline(page, viewFor(waiting, 0));
+  const received: any[] = [];
+  const push = await controlledOnline(page, viewFor(waiting, 0), received);
   await page.goto("/");
   await expect(page.locator(".waiting-room")).toBeVisible();
   await expect(page.getByRole("timer", { name: /牌友4准备剩余/ })).toBeVisible();
   expect((await audit(page)).openings).toBe(0);
   waiting.players.forEach(player => { player!.ready = true; });
   const first = startRound(waiting, Date.now(), seededRandom(42));
+  first.openingGate = { round: 1, waiting: [0], expiresAt: Date.now() + 30000 };
+  first.deadline = 0;
   push(viewFor(first, 0));
   await expect(opening(page)).toBeVisible({ timeout: 1500 });
+  await expect.poll(() => received.filter(message => message.type === "openingComplete").length).toBe(1);
+  await expect(page.getByRole("region", { name: "等待其他牌友进入", exact: true })).toBeVisible();
+  expect((await scene(page)).state.disabled).toBe(true);
+  delete first.openingGate;
+  first.deadline = Date.now() + 10000;
+  first.revision++;
+  push(viewFor(first, 0));
   await expectPlayable(page);
   const count = (await audit(page)).openings;
   expect(count).toBe(1);

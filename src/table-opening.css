@@ -14,6 +14,9 @@
 .opening-call > img { display: block; width: 100%; height: auto; filter: drop-shadow(0 5px 18px #251c17a0); }
 .opening-call p { margin: -1% 0 10px; font-family: var(--display-font, serif); font-size: 27px; letter-spacing: 0; text-shadow: 0 2px 8px #00180a, 0 1px 3px #00180a; }
 .opening-call small { font-size: 15px; letter-spacing: 0; color: #f1e6bc; text-shadow: 0 2px 4px #072d22; }
+.opening-waiting .opening-call { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+.opening-waiting .opening-call > strong { display: block; margin-bottom: 14px; color: #ffe8a2; font-family: var(--display-font, serif); font-size: clamp(28px, 4vw, 48px); letter-spacing: .08em; text-shadow: 0 3px 14px #00180a; }
+.opening-waiting .opening-call p { margin: 0 0 10px; animation: opening-wait-pulse 1.4s ease-in-out infinite alternate; }
 .app.polished .opening-skip { position: absolute; top: max(16px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1px solid #e6d19880; border-radius: 24px; background: #103c30d9; color: #f8edcb; font-size: 13px; }
 @keyframes opening-camera-in { from { transform: scale(1) translateY(0); } to { transform: scale(1.1) translateY(-1%); } }
 @keyframes opening-camera-drift { from { transform: scale(1) translateY(0); } to { transform: scale(1.09) translateY(-1.2%); } }
@@ -23,6 +26,7 @@
 @keyframes opening-call-in { from { opacity: 0; transform: translate(-50%,-50%) scale(.72); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
 @keyframes opening-call-out { 0%,20% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 75%,100% { opacity: 0; transform: translate(-50%,-56%) scale(1.1); } }
 @keyframes opening-reveal { 0%,30% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes opening-wait-pulse { from { opacity: .72; } to { opacity: 1; } }
 /* Keep only a short opacity transition when the system reduces motion. The
    scoped important rules override classic.css's global animation reset. */
 .table-opening.opening-reduced { animation: opening-soft-in .25s ease both !important; }
@@ -31,6 +35,7 @@
 .opening-reduced .opening-light, .opening-reduced .opening-call > img { animation: none !important; }
 .opening-reduced .opening-light { display: none; }
 .opening-reduced .opening-call { animation: none !important; opacity: 1; transform: translate(-50%,-50%); }
+.opening-reduced.opening-waiting .opening-call p { animation: none; }
 .opening-reduced .opening-skip { display: none; }
 @keyframes opening-soft-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes opening-soft-out { from { opacity: 1; } to { opacity: 0; } }

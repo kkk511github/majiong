@@ -437,6 +437,16 @@ export function TableSetup({
                 change={(readyMode) => update({ readyMode })}
               />
             </Setting>
+            <Setting
+              label="开局动画"
+              help="开启后等待所有在线牌友完成第一把开桌动画，再统一开始计时；关闭后直接进入"
+            >
+              <Toggle
+                label="播放开局动画"
+                checked={settings.openingAnimation}
+                change={(openingAnimation) => update({ openingAnimation })}
+              />
+            </Setting>
             <Setting label="自动续桌" help="满一桌立即补一桌，始终保留所选数量的可加入桌">
               <Toggle
                 label="自动续桌"
@@ -607,6 +617,14 @@ export function TableSetup({
                     ? "满四人自动开局"
                     : "四人都准备后开局"}
                   {!settings.offlineStart ? " · 须在线" : ""}
+                </dd>
+              </div>
+              <div>
+                <dt>开局动画</dt>
+                <dd>
+                  {settings.openingAnimation
+                    ? "开启，全员完成动画后统一开始"
+                    : "关闭，牌桌加载完成后直接进入"}
                 </dd>
               </div>
               <div>
@@ -984,6 +1002,14 @@ export function TableSettingsSummary({
           <dd>
             {s.readyMode === "auto" ? "满四人自动准备" : "全员手动准备"} ·{" "}
             {s.offlineStart ? "允许离线开局" : "须全部在线"}
+          </dd>
+        </div>
+        <div>
+          <dt>开局动画</dt>
+          <dd>
+            {s.openingAnimation
+              ? "开启，全员完成动画后统一开始"
+              : "关闭，牌桌加载完成后直接进入"}
           </dd>
         </div>
         <div>

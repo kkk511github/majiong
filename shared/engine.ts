@@ -180,6 +180,7 @@ function finish(g: Game, result: Result, now: number) {
   if (g.table && (result.bankrupt || bankrupt(g)))
     g.table.endReason = "两家归零，本桌结束";
   g.pending = undefined;
+  g.openingGate = undefined;
   g.deadline = 0;
   g.result = result;
   g.dissolve = undefined;
@@ -1216,6 +1217,7 @@ export function viewFor(g: Game, me: Seat): View {
     ...rest
   } = g;
   const reveal = ["ended", "finished"].includes(g.phase);
+  const openingBlocked = !!g.openingGate;
   return clone({
     ...rest,
     globalAnchorDiscards: globalAnchorDiscards(g),
@@ -1250,7 +1252,9 @@ export function viewFor(g: Game, me: Seat): View {
         }
       : undefined,
     actions:
-      g.phase === "claiming"
+      openingBlocked
+        ? []
+        : g.phase === "claiming"
         ? pending!.replies[me] === undefined
           ? (pending!.offers[me] ?? []).filter(
               (claim) => claim !== "hu" || canClaimHuFrom(g, pending!.from, me, pending!.tile, pending!.kind === "robKong"),
@@ -1262,10 +1266,10 @@ export function viewFor(g: Game, me: Seat): View {
             scoreForWin(g, me)
           ? ["hu"]
           : [],
-    canZhaozhi: canDeclareZhaozhi(g, me),
-    selfKongs: selfKongs(g, me),
-    canDiscard: g.phase === "playing" && g.turn === me,
-    lastDraw: g.turn === me ? lastDraw : undefined,
+    canZhaozhi: !openingBlocked && canDeclareZhaozhi(g, me),
+    selfKongs: openingBlocked ? [] : selfKongs(g, me),
+    canDiscard: !openingBlocked && g.phase === "playing" && g.turn === me,
+    lastDraw: !openingBlocked && g.turn === me ? lastDraw : undefined,
   });
 }
 /** A trustee only keeps the turn moving: draw and discard, or pass a claim. */

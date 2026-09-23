@@ -25,6 +25,8 @@ export interface TableSettings {
   name: string;
   visibility: "public" | "code";
   readyMode: "auto" | "manual";
+  /** Show the first-hand table entrance and synchronize play behind it. */
+  openingAnimation: boolean;
   autoRenew: boolean;
   resultSeconds: 5 | 10;
   offlineStart: boolean;
@@ -315,6 +317,7 @@ export interface Game {
   dealer: Seat;
   turn: Seat;
   round: number;
+  openingGate?: OpeningGate;
   pending?: Pending;
   lastDiscard?: { tile: Tile; seat: Seat };
   lastDraw?: Tile;
@@ -454,6 +457,16 @@ export interface NanjingRuleState {
     >
   >;
 }
+/**
+ * Server-authoritative first-hand entrance barrier. The hand is already dealt,
+ * but clocks and gameplay stay paused until every listed human seat confirms
+ * its entrance (or the safety timeout expires).
+ */
+export interface OpeningGate {
+  round: number;
+  waiting: Seat[];
+  expiresAt: number;
+}
 export type ClientMessage = (
   | { type: "hello"; token?: string; name: string }
   | { type: "create"; rules?: Partial<Rules> }
@@ -470,6 +483,7 @@ export type ClientMessage = (
   | { type: "join"; code: string; seat?: Seat }
   | { type: "ready" }
   | { type: "addBot" }
+  | { type: "openingComplete"; game: string; round: number }
   | { type: "action"; action: Action; revision: number }
   | {
       type: "phrase";

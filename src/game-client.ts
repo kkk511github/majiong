@@ -148,6 +148,10 @@ export class GameClient {
   private heartbeatAt = 0;
   private openedAt = 0;
   private lastResumeAt = -Infinity;
+  private openingCompletion?: {
+    game: string;
+    round: number;
+  };
   now = () => (this.state.mode === "online" ? this.clock.now() : Date.now());
   syncTime = (fresh = false) => {
     if (
@@ -990,14 +994,26 @@ export class GameClient {
           const before = this.state.view, next = msg.state;
           const accountId = this.state.account?.id ?? next.players[next.me]?.id;
           if (accountId) storage.set(`activeRoom:${accountId}`, next.id);
-          // Detect the live start at the packet boundary. React may batch the
-          // waiting and playing packets, and the final auto-ready entrant may
-          // receive only the first playing snapshot. Restores never replay it.
-          const starting = !restored && !this.resumePending && this.state.connected &&
-            this.networkVisible && next.round === 1 && next.phase === "playing" &&
-            !next.result && !next.lastDiscard &&
+          const openingPending =
+            next.openingGate?.round === next.round &&
+            next.openingGate.waiting.includes(next.me);
+          const currentOpening =
+            this.state.openingCue?.game === next.id &&
+            this.state.openingCue.round === next.round;
+          const explicitOpeningProtocol =
+            typeof next.table?.settings.openingAnimation === "boolean";
+          // New servers explicitly identify clients that still need the first-
+          // hand entrance, including reconnects. The snapshot heuristic remains
+          // only for compatibility with servers that predate the opening gate.
+          const legacyStarting = !next.openingGate && !explicitOpeningProtocol &&
+            !restored &&
+            !this.resumePending && this.state.connected && this.networkVisible &&
+            next.round === 1 && next.phase === "playing" && !next.result &&
+            !next.lastDiscard &&
             next.players.every(p => p && !p.discards.length && !p.melds.length) &&
             (!before || before.id !== next.id || before.round === 0);
+          const starting = next.table?.settings.openingAnimation !== false &&
+            !currentOpening && (openingPending || legacyStarting);
           this.resumeViewSeen = this.resumePending;
           this.updateNetwork({
             lastSnapshotAt: Date.now(),
@@ -1012,13 +1028,20 @@ export class GameClient {
           this.emit({
             view: msg.state,
             ...(starting ? { openingCue: {
-              key: `${next.id}:${next.round}:${next.revision}:opening`,
+              key: `${next.id}:${next.round}:opening`,
               game: next.id, round: next.round, at: Date.now(),
             } } : {}),
             ...(restored
               ? { connected: true, connecting: false, notice: "" }
               : {}),
           });
+          if (
+            this.openingCompletion?.game === next.id &&
+            this.openingCompletion.round === next.round
+          ) {
+            if (openingPending) this.sendOpeningCompletion();
+            else this.openingCompletion = undefined;
+          } else if (this.openingCompletion) this.openingCompletion = undefined;
           if (restored && this.lobbyWanted) this.send({ type: "tables" });
           this.archive();
         } else if (msg.type === "ack") {
@@ -1173,6 +1196,40 @@ export class GameClient {
     } catch (error) {
       this.emit({ error: error instanceof Error ? error.message : "操作失败" });
     }
+  }
+  private sendOpeningCompletion() {
+    const completion = this.openingCompletion;
+    if (
+      !completion ||
+      !this.state.connected ||
+      this.socket?.readyState !== WebSocket.OPEN
+    )
+      return;
+    try {
+      this.socket.send(JSON.stringify({
+        type: "openingComplete",
+        game: completion.game,
+        round: completion.round,
+      } satisfies ClientMessage));
+    } catch {
+      // The completion stays pending and is retried after the next state sync.
+    }
+  }
+  openingComplete(game: string, round: number) {
+    if (!game || !Number.isInteger(round) || round < 1) return;
+    const gate = this.state.view?.openingGate;
+    if (
+      this.state.view?.id !== game ||
+      gate?.round !== round ||
+      !gate.waiting.includes(this.state.view.me)
+    )
+      return;
+    if (
+      this.openingCompletion?.game !== game ||
+      this.openingCompletion.round !== round
+    )
+      this.openingCompletion = { game, round };
+    this.sendOpeningCompletion();
   }
   ready() {
     if (this.local) {

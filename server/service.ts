@@ -49,6 +49,7 @@ import { mayCreateTables } from "../shared/permissions";
 const APP_VERSION = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 ).version as string;
+const OPENING_GATE_TIMEOUT_MS = 30_000;
 import {
   decisionDeadline,
   overtimeExpired,
@@ -568,6 +569,57 @@ export function makeServer(
     if (g.table?.closed) sendLeft(g, "管理员已解散这张牌桌");
     broadcastTables();
   }
+  function armOpeningGate(g: Game, now: number) {
+    if (
+      g.round !== 1 ||
+      g.phase !== "playing" ||
+      !g.table ||
+      g.table?.settings.openingAnimation === false ||
+      g.openingGate
+    )
+      return;
+    const waiting = seats.filter((seat) => {
+      const player = g.players[seat];
+      return !!player && !player.bot && player.online;
+    });
+    if (!waiting.length) return;
+    g.openingGate = {
+      round: g.round,
+      waiting,
+      expiresAt: now + OPENING_GATE_TIMEOUT_MS,
+    };
+    g.deadline = 0;
+    g.overtimeCharged = [];
+    for (const player of g.players)
+      if (player) player.resumedDeadline = undefined;
+  }
+  function releaseOpeningGate(g: Game, now: number) {
+    if (!g.openingGate) return false;
+    g.openingGate = undefined;
+    g.deadline = g.rules.turnSeconds
+      ? now + g.rules.turnSeconds * 1000
+      : 0;
+    g.overtimeCharged = [];
+    for (const player of g.players)
+      if (player) player.resumedDeadline = undefined;
+    if (g.replay?.id === `${g.id}-${g.round}`) {
+      g.replay.startedAt = now;
+      const start = g.replay.frames.find((frame) => frame.type === "start");
+      if (start) start.at = now;
+    }
+    g.revision++;
+    lastAuto.set(g.id, now);
+    return true;
+  }
+  function completeOpening(g: Game, seat: Seat, now: number) {
+    const gate = g.openingGate;
+    if (!gate || gate.round !== g.round || !gate.waiting.includes(seat))
+      return false;
+    gate.waiting = gate.waiting.filter((waitingSeat) => waitingSeat !== seat);
+    if (!gate.waiting.length) releaseOpeningGate(g, now);
+    else g.revision++;
+    return true;
+  }
   function startIfReady(g: Game): Game {
     if (
       !["waiting", "ended"].includes(g.phase) ||
@@ -613,7 +665,12 @@ export function makeServer(
       p!.ready = true;
       if (!continuing && !p!.online) p!.trustee = true;
     }
-    return startRound(g, Date.now(), { index: (limit) => randomInt(limit) });
+    const now = Date.now();
+    const started = startRound(g, now, {
+      index: (limit) => randomInt(limit),
+    });
+    armOpeningGate(started, now);
+    return started;
   }
   function markDisconnected(g: Game, seat: Seat, now: number) {
     const p = g.players[seat];
@@ -626,7 +683,15 @@ export function makeServer(
     const p = g.players[seat];
     const active = (g.phase === "playing" && g.turn === seat) ||
       (g.phase === "claiming" && g.pending?.offers[seat] && g.pending.replies[seat] === undefined);
-    if (!p || p.bot || p.online || p.trustee || !active || p.resumedDeadline !== undefined)
+    if (
+      g.openingGate ||
+      !p ||
+      p.bot ||
+      p.online ||
+      p.trustee ||
+      !active ||
+      p.resumedDeadline !== undefined
+    )
       return false;
     // Unlimited online tables still give a disconnected seat a bounded turn.
     // Ordinary tables retain the original deadline and cumulative balance.
@@ -1402,7 +1467,19 @@ export function makeServer(
             g = startIfReady(g);
             break;
           }
+          case "openingComplete":
+            if (
+              typeof msg.game !== "string" ||
+              !Number.isInteger(msg.round) ||
+              msg.round < 1
+            )
+              throw Error("开局确认格式不正确");
+            if (msg.game === g.id && msg.round === g.round)
+              completeOpening(g, seat, Date.now());
+            break;
           case "action":
+            if (g.openingGate)
+              throw Error("正在等待牌友进入牌局");
             if (
               !msg.action ||
               typeof msg.action !== "object" ||
@@ -1623,6 +1700,13 @@ export function makeServer(
           g.dissolve = undefined;
           g.revision++;
           publish(g);
+        }
+        if (g.openingGate) {
+          if (now >= g.openingGate.expiresAt) {
+            releaseOpeningGate(g, now);
+            publish(g);
+          }
+          continue;
         }
         if (
           !["playing", "claiming"].includes(g.phase) ||

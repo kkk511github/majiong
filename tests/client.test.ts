@@ -653,10 +653,14 @@ describe("后台保留连接、前台快速同步", () => {
 
 
 describe("首把开局提示",()=>{
-  function dealt(){
+  function dealt(options: { gate?: boolean; animation?: boolean; waiting?: (0|1|2|3)[] } = {}){
     const g=createGame("123456","opening-web");
     g.players=[0,1,2,3].map(s=>({...newPlayer(s===0?"me":`seat-${s}`,`牌友${s}`),ready:true}));
-    return startRound(g);
+    if(options.gate||options.animation!==undefined)g.table={creatorId:"me",groupId:"opening",number:1,createdAt:0,
+      settings:{...DEFAULT_TABLE_SETTINGS,openingAnimation:options.animation??true}};
+    const started=startRound(g);
+    if(options.gate){started.openingGate={round:1,waiting:options.waiting??[0,1,2,3],expiresAt:Date.now()+30000};started.deadline=0;}
+    return started;
   }
   it("新入座只收到开局状态也有提示，后续快照保留同一个提示",()=>{
     const {ws}=online();
@@ -684,6 +688,40 @@ describe("首把开局提示",()=>{
     ws.receive({type:"session",id:"me",token:"test-token",name:"测试"});
     g.players[0]!.discards.push(g.players[0]!.hand.pop()!);
     ws.receive({type:"state",state:viewFor(g,0)});
+    expect(client.state.openingCue).toBeNull();
+  });
+  it("服务端同步门未确认时，刷新恢复也继续显示；已确认座位不重播",()=>{
+    const {ws}=online();const pending=dealt({gate:true});
+    ws.receive({type:"session",id:"me",token:"test-token",name:"测试",roomCode:pending.code});
+    ws.receive({type:"state",state:viewFor(pending,0)});
+    expect(client.state.openingCue).toMatchObject({game:pending.id,round:1});
+
+    const confirmed=structuredClone(pending);
+    confirmed.openingGate!.waiting=[1,2,3];
+    client=new GameClient();
+    TestSocket.instances=[];
+    client.connect("测试");
+    const restored=TestSocket.instances[0];restored.onopen?.();
+    restored.receive({type:"session",id:"me",token:"test-token",name:"测试",roomCode:confirmed.code});
+    restored.receive({type:"state",state:viewFor(confirmed,0)});
+    expect(client.state.openingCue).toBeNull();
+  });
+  it("关闭动画时不生成提示；完成动画独立上报且不占用操作提交状态",()=>{
+    const {ws}=online();
+    const disabled=dealt({animation:false});
+    ws.receive({type:"state",state:viewFor(disabled,0)});
+    expect(client.state.openingCue).toBeNull();
+
+    const gated=dealt({gate:true});
+    ws.receive({type:"state",state:viewFor(gated,0)});
+    client.openingComplete(gated.id,1);
+    expect(ws.sent.at(-1)).toEqual({type:"openingComplete",game:gated.id,round:1});
+    expect(client.state.submitting).toBeNull();
+  });
+  it("显式同步协议已放行后不再用旧快照规则补播动画",()=>{
+    const {ws}=online();
+    const released=dealt({animation:true});
+    ws.receive({type:"state",state:viewFor(released,0)});
     expect(client.state.openingCue).toBeNull();
   });
 });

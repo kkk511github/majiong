@@ -26,6 +26,8 @@ export function CocosTable({
   winResult,
   onSurfaceInteraction,
   opening,
+  openingWaiting,
+  onOpeningComplete,
   onEntryBusyChange,
 }: {
   state: TableSceneState;
@@ -38,11 +40,23 @@ export function CocosTable({
   winResult?: Result;
   onSurfaceInteraction?: () => void;
   opening?: OpeningCue | null;
+  openingWaiting?: number;
+  onOpeningComplete?: (opening: OpeningCue) => void;
   onEntryBusyChange?: (busy: boolean) => void;
 }) {
   const [dismissedOpening, setDismissedOpening] = useState("");
   const [acceptedOpening, setAcceptedOpening] = useState("");
-  const dismissOpening = useCallback(() => setDismissedOpening(opening?.key ?? ""), [opening?.key]);
+  const completedOpenings = useRef(new Set<string>());
+  const openingComplete = useRef(onOpeningComplete);
+  openingComplete.current = onOpeningComplete;
+  const dismissOpening = useCallback(() => {
+    if (!opening) return;
+    setDismissedOpening(opening.key);
+    if (!completedOpenings.current.has(opening.key)) {
+      completedOpenings.current.add(opening.key);
+      openingComplete.current?.(opening);
+    }
+  }, [opening?.key]);
   const frame = useRef<HTMLIFrameElement>(null);
   const surfaceInteraction=useRef(onSurfaceInteraction);
   surfaceInteraction.current=onSurfaceInteraction;
@@ -62,9 +76,12 @@ export function CocosTable({
   const showingOpening = !embedded && status !== "error" && !!opening &&
     acceptedOpening === opening.key && dismissedOpening !== opening.key &&
     openingMatchesState(opening, state);
+  const waitingForOpening = !embedded && status !== "error" && !!opening &&
+    acceptedOpening === opening.key && dismissedOpening === opening.key &&
+    openingWaiting !== undefined && openingMatchesState(opening, state);
   useEffect(() => {
-    onEntryBusyChange?.(status !== "ready" || showingOpening);
-  }, [status, showingOpening, onEntryBusyChange]);
+    onEntryBusyChange?.(status !== "ready" || showingOpening || waitingForOpening);
+  }, [status, showingOpening, waitingForOpening, onEntryBusyChange]);
   useEffect(() => () => onEntryBusyChange?.(false), [onEntryBusyChange]);
   const latest = useRef({ state:viewState, onCommand });
   useEffect(() => {
@@ -242,7 +259,16 @@ export function CocosTable({
       {status === "ready" && !showingOpening && !embedded && <ScoreDebitOverlay state={viewState} events={scoreDebits} />}
       {status === "ready" && winResult && <TableWinEffect state={viewState} result={winResult} />}
       {status === "ready" && !showingOpening && children && <div className="cocos-voice">{typeof children === "function" ? children(viewState) : children}</div>}
-      {showingOpening && opening && <TableOpening key={opening.key} state={state} done={dismissOpening} tableReady={status === "ready"} />}
+      {(showingOpening || waitingForOpening) && opening && (
+        <TableOpening
+          key={opening.key}
+          state={state}
+          done={dismissOpening}
+          tableReady={status === "ready"}
+          completed={waitingForOpening}
+          waitingCount={openingWaiting}
+        />
+      )}
     </main>
   );
 }

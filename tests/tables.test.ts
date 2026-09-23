@@ -92,6 +92,7 @@ async function createTables(
       readyMode: "auto",
       continuousRounds: false,
       overtimePerTurn: false,
+      openingAnimation: false,
       ...settings,
     },
     // Keep lifecycle fixtures uncapped; B-profile bankruptcy has dedicated coverage.
@@ -114,6 +115,213 @@ async function fill(port: number, code: string) {
   }
   return players;
 }
+
+function openingGate(game: Pick<Game, "openingGate"> | undefined) {
+  return game?.openingGate;
+}
+
+function completeOpening(
+  player: Awaited<ReturnType<typeof peer>>,
+  game: string,
+  round: number,
+) {
+  player.send({
+    type: "openingComplete",
+    game,
+    round,
+  });
+}
+
+describe("开局动画服务端同步门", () => {
+  it("关闭动画时立即起钟并允许正常出牌", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "关闭动画管理员"),
+      [code] = await createTables(host, { openingAnimation: false }),
+      players = await fill(port, code);
+    const started = (
+      await players[0].read("state", (message) =>
+        message.state.phase === "playing"
+      )
+    ).state;
+
+    expect(openingGate(s.games.get(code)!)).toBeUndefined();
+    expect(started.deadline).toBeGreaterThan(Date.now());
+    expect(started.canDiscard).toBe(true);
+
+    const tile = started.players[0]!.hand[0];
+    players[0].send({
+      type: "action",
+      revision: started.revision,
+      action: { type: "discard", tile },
+    });
+    await players[0].read(
+      "state",
+      (message) => message.state.players[0]!.discards.includes(tile),
+    );
+  });
+
+  it("开启动画后等待所有真人确认，错误和重复确认不能提前放行", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "同步动画管理员"),
+      [code] = await createTables(host, { openingAnimation: true }),
+      players = await fill(port, code);
+    const started = (
+      await players[0].read("state", (message) =>
+        message.state.phase === "playing"
+      )
+    ).state;
+    const gameId = started.id;
+
+    expect(openingGate(s.games.get(code)!)).toMatchObject({
+      round: 1,
+      waiting: [0, 1, 2, 3],
+    });
+    expect(openingGate(s.games.get(code)!)!.expiresAt).toBeGreaterThan(
+      Date.now(),
+    );
+    expect(started.deadline).toBe(0);
+    expect(started.canDiscard).toBe(false);
+    expect(started.actions).toEqual([]);
+    expect(started.selfKongs).toEqual([]);
+
+    const tile = started.players[0]!.hand[0],
+      heldRevision = s.games.get(code)!.revision,
+      heldHand = [...s.games.get(code)!.players[0]!.hand];
+    players[0].send({
+      type: "action",
+      revision: heldRevision,
+      action: { type: "discard", tile },
+      requestId: "blocked-during-opening",
+    });
+    await players[0].read(
+      "error",
+      (message) => message.requestId === "blocked-during-opening",
+    );
+    expect(s.games.get(code)!.revision).toBe(heldRevision);
+    expect(s.games.get(code)!.players[0]!.hand).toEqual(heldHand);
+    expect(s.games.get(code)!.players[0]!.discards).toEqual([]);
+
+    completeOpening(players[0], "wrong-game", 1);
+    completeOpening(players[0], gameId, 2);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(openingGate(s.games.get(code)!)).toMatchObject({
+      round: 1,
+      waiting: [0, 1, 2, 3],
+    });
+    expect(s.games.get(code)!.revision).toBe(heldRevision);
+
+    completeOpening(players[0], gameId, 1);
+    await players[0].read(
+      "state",
+      (message) =>
+        openingGate(message.state)?.waiting.join(",") === "1,2,3",
+    );
+    const once = s.games.get(code)!.revision;
+    completeOpening(players[0], gameId, 1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(openingGate(s.games.get(code))!.waiting).toEqual([1, 2, 3]);
+    expect(s.games.get(code)!.revision).toBe(once);
+
+    for (const seat of [1, 2] as const) {
+      completeOpening(players[seat], gameId, 1);
+      await players[0].read(
+        "state",
+        (message) =>
+          openingGate(message.state)?.waiting.join(",") ===
+          (seat === 1 ? "2,3" : "3"),
+      );
+      expect(s.games.get(code)!.deadline).toBe(0);
+    }
+    completeOpening(players[3], gameId, 1);
+    const released = (
+      await players[0].read(
+        "state",
+        (message) =>
+          message.state.id === gameId &&
+          message.state.phase === "playing" &&
+          !openingGate(message.state) &&
+          message.state.deadline > 0,
+      )
+    ).state;
+    expect(openingGate(s.games.get(code)!)).toBeUndefined();
+    expect(released.deadline).toBeGreaterThan(Date.now());
+    expect(released.canDiscard).toBe(true);
+  });
+
+  it("机器人不会阻塞确认，也不会在真人动画结束前行动", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "体验动画管理员"),
+      [source] = await createTables(host, {
+        openingAnimation: true,
+        readyMode: "manual",
+        autoRenew: false,
+      });
+    host.send({ type: "createExperienceTable", sourceCode: source });
+    const code = (await host.read("tablesCreated")).codes[0];
+    host.send({ type: "join", code });
+    await host.read("state", (message) => message.state.code === code);
+    host.send({ type: "ready" });
+    const started = (
+      await host.read("state", (message) => message.state.phase === "playing")
+    ).state;
+    const game = s.games.get(code)!;
+
+    expect(openingGate(game)).toMatchObject({ round: 1, waiting: [0] });
+    expect(game.players.slice(1).every((player) => player?.bot)).toBe(true);
+
+    game.turn = 1;
+    const tile = game.wall.pop()!;
+    game.players[1]!.hand.push(tile);
+    game.lastDraw = tile;
+    game.canSelfWin = false;
+    const heldRevision = game.revision,
+      heldDiscards = game.players[1]!.discards.length;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(s.games.get(code)!.revision).toBe(heldRevision);
+    expect(s.games.get(code)!.players[1]!.discards).toHaveLength(heldDiscards);
+
+    completeOpening(host, started.id, 1);
+    await host.read(
+      "state",
+      (message) =>
+        message.state.id === started.id &&
+        message.state.phase === "playing" &&
+        !openingGate(message.state),
+    );
+    await host.read(
+      "state",
+      (message) => message.state.players[1]!.discards.length > heldDiscards,
+    );
+  });
+
+  it("有人未确认时到达兜底期限也会释放并重新起钟", async () => {
+    const { s, port } = await boot(),
+      host = await peer(port, "动画超时管理员"),
+      [code] = await createTables(host, { openingAnimation: true }),
+      players = await fill(port, code);
+    await players[0].read(
+      "state",
+      (message) => message.state.phase === "playing",
+    );
+    const game = s.games.get(code)!;
+    expect(openingGate(game)?.waiting).toEqual([0, 1, 2, 3]);
+    openingGate(game)!.expiresAt = Date.now() - 1;
+
+    const released = (
+      await players[0].read(
+        "state",
+        (message) =>
+          message.state.id === game.id &&
+          message.state.phase === "playing" &&
+          !openingGate(message.state) &&
+          message.state.deadline > 0,
+      )
+    ).state;
+    expect(openingGate(s.games.get(code)!)).toBeUndefined();
+    expect(released.deadline).toBeGreaterThan(Date.now());
+    expect(released.canDiscard).toBe(true);
+  });
+});
 async function win(
   s: ReturnType<typeof makeServer>,
   code: string,
@@ -1232,7 +1440,11 @@ describe("新版计时服务端执行", () => {
         host = await peer(port, "计时管理员");
       host.send({
         type: "createTables",
-        settings: { autoRenew: false, overtimePerTurn },
+        settings: {
+          autoRenew: false,
+          overtimePerTurn,
+          openingAnimation: false,
+        },
         count: 1,
         creationId: "default-settings",
       });

@@ -1,5 +1,5 @@
 import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp, EventTouch } from 'cc';
-import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
+import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type SceneTile } from './table-scene';
 import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type TileDragOrigin } from './tile-drag';
 const { ccclass } = _decorator;
 // Visual tokens for the straight-table skin.  Gameplay never reads these
@@ -77,11 +77,9 @@ export class TableScene extends Component {
     const texture=new Texture2D();texture.image=await load<ImageAsset>('tiles/'+pose,ImageAsset);
     data.rects.forEach((r,k)=>{const f=new SpriteFrame();f.texture=texture;f.rect=new Rect(r.x,r.y,r.w,r.h);this.frames.set(pose+'-'+k,f);});
    }));
-   await Promise.all(['table','avatars','pointer','meld-source-dart','table-tool-jade-v2'].map(async name=>{
+   await Promise.all(['table','avatars','pointer','table-tool-jade-v2'].map(async name=>{
     const img=await load<ImageAsset>('art/'+name,ImageAsset),tex=new Texture2D();tex.image=img;
     const f=new SpriteFrame();f.texture=tex;
-    // Trim transparent padding in the sprite UVs; preserve the generated PNG.
-    if(name==='meld-source-dart')f.rect=new Rect(190,161,867,902);
     this.frames.set(name,f);
     if(name==='avatars')for(let k=0;k<4;k++){const a=new SpriteFrame();a.texture=tex;a.rect=new Rect(k%2*img.width/2,Math.floor(k/2)*img.height/2,img.width/2,img.height/2);this.frames.set('avatar-'+k,a);}
    }));
@@ -331,7 +329,7 @@ export class TableScene extends Component {
   for(const [id,n]of this.nodes)if(!ids.has(id)){this.stopFlight(id);n.destroy();this.nodes.delete(id);this.shadows.get(id)?.destroy();this.shadows.delete(id);}
   this.drawRacks(s,tiles);
   for(const t of tiles)this.drawTile(t);
-  this.drawMarks(s,tiles);this.refreshHud(s);
+  this.drawMarks(tiles);this.refreshHud(s);
   // Sorting every individual sprite on every snapshot repeatedly invalidates
   // the whole scene hierarchy. Reorder only when its actual tile order changes.
   const orderKey=tiles.map(t=>t.id).join(',');
@@ -382,9 +380,11 @@ export class TableScene extends Component {
    g.moveTo(points[3][0]-640,295-points[3][1]-1);g.lineTo(points[2][0]-640,295-points[2][1]-1);g.strokeColor=new Color('#6bb89a85');g.lineWidth=1.5;g.stroke();
   }
  }
- private drawMarks(s:TableSceneState,tiles:SceneTile[]){
-  const claims=tiles.filter(t=>t.claimTarget),markers=layoutMeldSources(tiles,s.me);
-  const key=JSON.stringify([claims.map(t=>[t.id,t.x,t.y,t.w,t.h]),markers]);
+ private drawMarks(tiles:SceneTile[]){
+  // Supplier direction is carried by the turned physical tile. Do not draw
+  // a yellow arrow over meld faces; actionable claims keep their own outline.
+  const claims=tiles.filter(t=>t.claimTarget);
+  const key=JSON.stringify(claims.map(t=>[t.id,t.x,t.y,t.w,t.h]));
   if(this.marksKey===key){if(!this.animateTiles)for(const node of this.marks.children){Tween.stopAllByTarget(node);node.active=true;}return;}this.marksKey=key;
   for(const child of this.marks.children)Tween.stopAllByTarget(child);
   this.marks.destroy();this.marks=this.make('Tile markers',640,295,1280,590);
@@ -392,12 +392,6 @@ export class TableScene extends Component {
    const n=this.make('claim-target-'+t.id,t.x,t.y,t.w+8,t.h+8,this.marks),g=n.addComponent(Graphics);
    g.strokeColor=new Color('#ffdc65');g.lineWidth=3;
    g.roundRect(-t.w/2-3,-t.h/2-3,t.w+6,t.h+6,5);g.stroke();
-  }
-  for(const marker of markers){
-   const n=this.image('meld-source-dart',marker.x,marker.y,marker.size*867/902,marker.size,this.marks);
-   n.name=marker.id;n.setRotationFromEuler(0,0,marker.rotation);
-   const flight=this.tileFlights.get(marker.tileId);
-   if(flight){n.active=false;tween(n).delay(Math.max(0,(flight.endsAt-performance.now())/1000)).call(()=>{if(n.isValid)n.active=true;}).start();}
   }
  }
  private refreshHud(s:TableSceneState){

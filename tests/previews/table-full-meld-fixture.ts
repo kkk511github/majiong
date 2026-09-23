@@ -25,3 +25,18 @@ export function fullMeldFixture(kind: 'pung' | 'kong'): TableSceneState {
     players, actions: [], effects: [], trusteeDisabled: true,
   };
 }
+
+/** Deliberately over-capacity visual fixture: 27 discards per seat exercises
+ * all three ten-tile rows/columns. It is not a legal 144-tile game snapshot. */
+export function busyTableFixture(): TableSceneState {
+  const state = fullMeldFixture('pung');
+  state.key = 'busy-rivers-visual'; state.code = '每家27张弃牌';
+  state.drawn = 121; state.remaining = 0;
+  state.players = state.players.map(player => ({
+    ...player, melds: [],
+    hand: player.seat === 0 ? Array.from({ length: 14 }, (_, i) => 108 + i) : [],
+    handCount: player.seat === 0 ? 14 : 13,
+    discards: Array.from({ length: 27 }, (_, i) => player.seat * 27 + i),
+  }));
+  return state;
+}

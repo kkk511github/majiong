@@ -1,6 +1,29 @@
-import { test, expect } from "./browser-fixtures";
+import { test, expect, type Page } from "./browser-fixtures";
 import { replayedRound } from "./fixtures/replayed-round";
 import sharp from "sharp";
+
+async function clickReplayAvatar(page: Page, seat: number) {
+  const dialog = page.getByRole('dialog', { name: '牌局回放', exact: true });
+  const iframe = dialog.locator('.cocos-embedded iframe');
+  const box = (await iframe.boundingBox())!;
+  if (await dialog.locator('.replay-controls').isVisible())
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const frame = page.frames().find(frame => frame.url().includes('/cocos-table/index.html'))!;
+  const avatar = await frame.evaluate(async seat => {
+    const cc = await (window as any).System.import('cc');
+    const component = cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+    const ring = component.hud.getChildByName(`player-avatar-ring-${seat}`);
+    return ring && { x: ring.position.x + 640, y: 295 - ring.position.y, visible: ring.activeInHierarchy };
+  }, seat);
+  expect(avatar?.visible).toBe(true);
+  const scale = Math.min(box.width / 1280, box.height / 590);
+  await page.mouse.click(box.x + (box.width - 1280 * scale) / 2 + avatar!.x * scale,
+    box.y + (box.height - 590 * scale) / 2 + avatar!.y * scale);
+  await expect.poll(() => frame.evaluate(async () => {
+    const cc = await (window as any).System.import('cc');
+    return cc.director.getScene().getChildByName('Canvas').getComponent('TableScene').state.me;
+  })).toBe(seat);
+}
 
 test("回放加载上传头像，播放及切换视角后仍显示四家照片", async ({ page }) => {
   await page.setViewportSize({ width: 874, height: 402 });
@@ -28,12 +51,7 @@ test("回放加载上传头像，播放及切换视角后仍显示四家照片",
   await expect.poll(renderedPhotos, { timeout: 20000 }).toEqual([true, true, true, true]);
   await dialog.getByRole("button", { name: "下一步", exact: true }).click();
   await expect.poll(renderedPhotos).toEqual([true, true, true, true]);
-  await sceneFrame()!.evaluate(async () => {
-    const cc = await (window as any).System.import("cc");
-    const scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
-    const avatar = scene.state.players[1].avatar;
-    scene.hud.children.find((node: any) => node.name === avatar).emit(cc.Node.EventType.TOUCH_END);
-  });
+  await clickReplayAvatar(page, 1);
   await expect.poll(renderedPhotos).toEqual([true, true, true, true]);
   await page.screenshot({ path: `test-results/screenshots/replay-avatars-${test.info().project.name}.png` });
 });
@@ -90,7 +108,7 @@ for (const [width, height] of [
     });
     await page.goto("/");
     await page.getByRole("button", { name: "战绩", exact: true }).click();
-    await expect(page.locator(".records-heading h1")).toHaveText("我的战绩");
+    await expect(page.locator(".records-heading h1")).toHaveText("战绩");
     await expect(page.locator(".records-admin")).toHaveCount(0);
     const entry = page.getByRole("button", { name: "牌局回放", exact: true });
     const contrast = await entry.evaluate((el) => {
@@ -168,11 +186,7 @@ for (const [width, height] of [
       expect(ended.tiles.filter((t:any) => t.seat===i && t.area==='hand')).toHaveLength(p.hand.length);
     }
     for (let seat=0;seat<4;seat++) {
-      if(await dialog.locator('.replay-controls').isVisible())await page.mouse.click(width/2,height/2);
-      const prior=await scene(), offset=(seat-prior.state.me+4)%4;
-      const [x,y]=[[1198,508],[1200,207],[892,32],[68,207]][offset];
-      const box=(await canvas.boundingBox())!,scale=Math.min(box.width/1280,box.height/590);
-      await page.mouse.click(box.x+(box.width-1280*scale)/2+x*scale,box.y+(box.height-590*scale)/2+y*scale);
+      await clickReplayAvatar(page,seat);
       await expect.poll(async () => (await scene()).state.me).toBe(seat);
       const {tiles}=await scene(),collisions=[];
       for(let i=0;i<tiles.length;i++)for(let j=i+1;j<tiles.length;j++){

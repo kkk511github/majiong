@@ -95,10 +95,14 @@ test("the built client resumes a server robot table without randomUUID or struct
     }),
   );
   await page.goto("/");
+  // This standalone release config starts with a fresh WebView profile.
+  // Complete the real consent gate before expecting any account/table I/O.
+  await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
+  await page.getByRole('button', { name: '同意并进入', exact: true }).click();
+  await expect(page.locator("#cocos-table-board")).toBeVisible({ timeout: 45000 });
   await expect(page.locator(".cocos-loading")).toHaveCount(0, {
     timeout: 45000,
   });
-  await expect(page.locator("#cocos-table-board")).toBeVisible();
   await expect(
     page.frameLocator('iframe[title="金陵麻将牌桌"]').locator("canvas"),
   ).toBeVisible();

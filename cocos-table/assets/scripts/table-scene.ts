@@ -525,7 +525,9 @@ export function layoutTable(s:TableSceneState):SceneTile[] {
     const slot=i;
     // Next player's draw stays above their hand; previous player's draw follows
     // its last tile below, rather than an empty slot reserved for thirteen tiles.
-    const y=o===2?16:!extra?start+slot*pitch:o===1
+    // Keep the far hand's complete 46px body inside the canvas. Its bottom
+    // edge remains one pixel above the unchanged flower strip at y=47.
+    const y=o===2?23:!extra?start+slot*pitch:o===1
      ?start-drawDistance-(slot-capacity)*pitch
      :start+Math.max(0,regularCount-1)*pitch+drawDistance+(slot-capacity)*pitch;
     // The row and flower groove have the same vertical axis; every tile stands upright.

@@ -80,10 +80,7 @@ describe('four simultaneous full meld racks plus a remaining hand and separate d
     }
   });
 
-  // Known current limitation / 已知限制：对家手牌沿用 y=16、h=46，
-  // 顶部裁掉7px。本轮仅移动对家整排的X，不改变这个既有Y位置。
-  // Remove .fails once the visible top hand is intentionally placed in-bounds.
-  it.fails.each(cases)('known top-hand crop: view $me / $kind / revealed $revealed fits every body within the table', ({ me, kind, revealed }) => {
+  it.each(cases)('view $me / $kind / revealed $revealed fits every complete body within the table', ({ me, kind, revealed }) => {
     const tiles = layoutTable(fullRackFixture(me, kind, revealed));
     const outside = tiles.flatMap(tile => {
       const box = bounds([tile]);
@@ -114,7 +111,13 @@ describe('four simultaneous full meld racks plus a remaining hand and separate d
     expect(meldBox.left - handBox.right).toBeCloseTo(12, 8);
     expect(handBox.left - bounds(leftMeld).right).toBeGreaterThanOrEqual(6);
     expect(bounds([hand[1]]).left - bounds([hand[0]]).right).toBeCloseTo(12, 8);
-    for (const tile of hand) expect(tile).toMatchObject({ y: 16, w: 33, h: 46 });
+    for (const tile of hand) {
+      expect(tile).toMatchObject({ y: 23, w: 33, h: 46 });
+      expect(bounds([tile]).top).toBeGreaterThanOrEqual(0);
+      expect(bounds([tile]).bottom).toBeLessThanOrEqual(46);
+    }
+    const topFlowers = tiles.filter(tile => tile.seat === opposite && tile.area === 'flower');
+    expect(bounds(topFlowers).top - handBox.bottom).toBeGreaterThanOrEqual(1);
     for (const tile of meld) {
       const metric = TILE_POSE_METRICS[tile.pose];
       expect(tile.w / metric.w).toBeCloseTo(33 / 116, 8);

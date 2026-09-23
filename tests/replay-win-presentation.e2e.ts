@@ -44,11 +44,16 @@ for (const c of cases) test(`回放胡牌归属：${c.title}，切换视角与�
     const prior = await scene(page);
     if (prior.state.me !== perspective) {
       if (await dialog.locator(".replay-controls").isVisible()) await page.mouse.click(c.width / 2, c.height / 2);
-      const relative = (perspective - prior.state.me + 4) % 4;
-      const [x, y] = [[1198, 508], [1200, 207], [892, 32], [68, 207]][relative];
+      const avatar = await page.frames().find(f => f.url().includes("/cocos-table/index.html"))!.evaluate(async seat => {
+        const cc = await (window as any).System.import("cc");
+        const component = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
+        const ring = component.hud.getChildByName(`player-avatar-ring-${seat}`);
+        return ring && { x: ring.position.x + 640, y: 295 - ring.position.y, visible: ring.activeInHierarchy };
+      }, perspective);
+      expect(avatar?.visible).toBe(true);
       const frame = (await dialog.locator(".cocos-embedded iframe").boundingBox())!;
       const scale = Math.min(frame.width / 1280, frame.height / 590);
-      await page.mouse.click(frame.x + (frame.width - 1280 * scale) / 2 + x * scale, frame.y + (frame.height - 590 * scale) / 2 + y * scale);
+      await page.mouse.click(frame.x + (frame.width - 1280 * scale) / 2 + avatar!.x * scale, frame.y + (frame.height - 590 * scale) / 2 + avatar!.y * scale);
     }
     await expect.poll(async () => (await scene(page)).state.me).toBe(perspective);
   };

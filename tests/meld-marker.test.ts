@@ -101,6 +101,38 @@ it('turns only the supplier-facing pung tile sideways in the owner perspective',
  owner.melds=[{type:'kong',tiles:[12,13,14,15],from:1,concealed:true}];
  expect(layoutTable(s).filter(t=>t.area==='meld'&&t.seat===0).every(t=>t.rotation===0)).toBe(true);
 });
+it('keeps the supplier pose, physical order and arrow across every owner and viewer',()=>{
+ const normalPose=['meld-bottom','right','meld-bottom','left'];
+ const crossPose=['meld-bottom-cross','meld-cross-right','meld-bottom-cross','meld-cross-left'];
+ const arrowRotation=[180,-90,0,90];
+ const screenOrder=[[0,1,2],[2,1,0],[2,1,0],[0,1,2]];
+ for(let owner=0;owner<4;owner++)for(let viewer=0;viewer<4;viewer++)for(const relative of [1,2,3]){
+  const source=(owner+relative)%4,offset=(owner-viewer+4)%4;
+  const expectedSourceIndex=relative===1?2:relative===3?0:undefined;
+  const s=markerFixture(viewer);
+  for(const player of s.players)player.melds=[];
+  s.players[owner].melds=[{type:'pung',tiles:[0,1,2],from:source,concealed:false}];
+  const tiles=layoutTable(s),group=tiles.filter(t=>t.area==='meld'&&t.seat===owner);
+  const logical=[...group].sort((a,b)=>Number(a.id.split('-').at(-1))-Number(b.id.split('-').at(-1)));
+
+  expect(logical).toHaveLength(3);
+  expect(logical.map(tile=>tile.pose)).toEqual(logical.map((_,index)=>
+   index===expectedSourceIndex?crossPose[offset]:normalPose[offset]));
+  expect(logical.every(tile=>tile.rotation===0)).toBe(true);
+  const physical=[...group].sort((a,b)=>offset%2?a.y-b.y:a.x-b.x)
+   .map(tile=>Number(tile.id.split('-').at(-1)));
+  expect(physical).toEqual(screenOrder[offset]);
+
+  const markers=layoutMeldSources(tiles,viewer);
+  expect(markers).toHaveLength(1);
+  expect(markers[0]).toMatchObject({
+   source,
+   tileId:`meld-${owner}-0-1`,
+   rotation:arrowRotation[(source-viewer+4)%4],
+  });
+  expect(markers[0].x).toBe(logical[1].x);
+ }
+});
 it('keeps side meld faces upright and turns only the supplied face across the rail',()=>{
  const s=markerFixture(0);
  s.players[3].melds=[{type:'pung',tiles:[0,1,2],from:2,concealed:false}];

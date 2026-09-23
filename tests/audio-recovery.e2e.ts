@@ -1,4 +1,39 @@
-import { test, expect } from "./browser-fixtures";
+import { test, expect, type Page } from "./browser-fixtures";
+
+async function joinManagedExperienceTable(page: Page) {
+  await expect(page.getByRole("button", { name: "我的", exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const { client } = await import("/src/game-client.ts" as string);
+    client.createTables("音频回归", {
+      name: "音频本地测试桌", readyMode: "auto", autoRenew: false,
+      continuousRounds: false, overtimeSeconds: 90,
+    }, { rounds: 4, turnSeconds: 30 }, 1);
+  });
+  await expect.poll(() => page.evaluate(async () => {
+    const { client } = await import("/src/game-client.ts" as string);
+    return client.snapshot().createdTables?.length;
+  })).toBe(1);
+  const source = await page.evaluate(async () => {
+    const { client } = await import("/src/game-client.ts" as string);
+    const code = client.snapshot().createdTables![0];
+    client.send({ type: "createExperienceTable", sourceCode: code });
+    return code;
+  });
+  await expect.poll(() => page.evaluate(async sourceCode => {
+    const { client } = await import("/src/game-client.ts" as string);
+    const code = client.snapshot().createdTables?.[0];
+    return !!code && code !== sourceCode;
+  }, source)).toBe(true);
+  await page.evaluate(async () => {
+    const { client } = await import("/src/game-client.ts" as string);
+    client.joinTable("音频回归", client.snapshot().createdTables![0], 0);
+  });
+  await expect(page.locator("#cocos-table-board iframe")).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => {
+    const { client } = await import("/src/game-client.ts" as string);
+    return client.snapshot().view?.players.filter((player: any) => player?.bot).length;
+  })).toBe(3);
+}
 
 test("后台恢复的音频时钟卡死时只重建一次，保留静音偏好", async ({ page }) => {
   await page.goto("/");
@@ -48,11 +83,7 @@ test("后台恢复的音频时钟卡死时只重建一次，保留静音偏好",
 
 test("牌桌 iframe 内点击能重新解锁父页面音频", async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(async () => {
-    const { client } = await import("/src/game-client.ts" as string);
-    client.practice("音频回归", { rounds: 4, turnSeconds: 30 });
-  });
-  await expect(page.locator("#cocos-table-board iframe")).toBeVisible();
+  await joinManagedExperienceTable(page);
   await expect
     .poll(() =>
       page

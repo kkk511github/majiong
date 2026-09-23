@@ -1,5 +1,8 @@
-import { test, expect } from "./browser-fixtures";
+import { test, expect, type WebSocketRoute } from "./browser-fixtures";
 import { mkdirSync, readFileSync } from "node:fs";
+import { act, createGame, newPlayer, seats, viewFor } from "../shared/engine";
+import { normalizeTableSettings } from "../shared/table-settings";
+import type { Game } from "../shared/types";
 const voice = JSON.parse(readFileSync("src/nanjing-male.json", "utf8"));
 const female = JSON.parse(readFileSync("src/nanjing-female.json", "utf8"));
 
@@ -121,6 +124,25 @@ for (const [width, height] of [
   });
 }
 
+function voiceWinningGame(claim: boolean): Game {
+  const game=createGame("528613",claim?"voice-claim":"voice-self",{rounds:4,turnSeconds:0});
+  game.players=seats.map(seat=>newPlayer(seat===0?"me":`voice-${seat}`,`牌友${seat}`,seat!==0));
+  game.table={creatorId:"me",groupId:"voice-focus",number:1,createdAt:0,
+    settings:{...normalizeTableSettings({}),openingAnimation:false}};
+  game.phase="playing";game.round=1;game.turn=0;game.canSelfWin=true;
+  game.deadline=Date.now()+600000;
+  game.players[0]!.hand=[0,4,8,12,16,20,36,40,44,72,76,80,108,109];
+  game.lastDraw=109;
+  if(claim){
+    game.players[0]!.hand.pop();
+    game.turn=1;game.phase="claiming";
+    game.pending={tile:109,from:1,kind:"discard",openedAtRevision:0,
+      offers:{0:["hu","pass"]},replies:{}};
+    game.players[1]!.discards=[109];
+  }
+  return game;
+}
+
 test("父页面与牌桌切换焦点后，自摸和点炮胡都真正播放胡了录音", async ({page}) => {
   await page.addInitScript(() => {
     localStorage.setItem("jinling:music", "false");
@@ -134,6 +156,7 @@ test("父页面与牌桌切换焦点后，自摸和点炮胡都真正播放胡�
     window.AudioContext=class extends Base {
       constructor(options?:AudioContextOptions){
         super(options);
+        (window as any).__huContext=this;
         const analyser=this.createAnalyser(),destination=this.destination;
         const connect=AudioNode.prototype.connect;
         AudioNode.prototype.connect=function(this:AudioNode,...args:any[]){
@@ -149,17 +172,52 @@ test("父页面与牌桌切换焦点后，自摸和点炮胡都真正播放胡�
       }
     };
   });
-  await page.goto('/work/listening-preview.html');
-  const frame=page.frameLocator('iframe[title="可操作麻将牌桌"]');
-  await expect(frame.getByRole('navigation',{name:'牌桌工具'})).toBeVisible();
-  const table=page.frames().find(f=>f.url().endsWith('/work/listening-table.html'))!;
-  for(const [index,name] of ['播放自摸','播放点炮胡'].entries()){
-    await page.getByRole('button',{name,exact:true}).click();
-    // Focus returns from a parent control while the same visible table is active.
-    await expect(frame.getByRole('button',{name:index===0?'自摸':'胡',exact:true})).toBeVisible();
-    await table.evaluate(()=>window.dispatchEvent(new Event('focus')));
-    await expect(page.locator('#voice-state')).toHaveText('胡了已播放');
-    expect(await table.evaluate(()=>(window as any).__huStarts)).toEqual(Array.from({length:index+1},()=>[0,...voice.actions['胡了']]));
-    expect(await table.evaluate(()=>(window as any).__huPeak)).toBeGreaterThan(.001);
+  let game=voiceWinningGame(false),socket:WebSocketRoute;
+  const push=()=>socket.send(JSON.stringify({type:"state",state:viewFor(game,0),serverNow:Date.now()}));
+  await page.routeWebSocket("**/ws",ws=>{
+    socket=ws;
+    const server=ws.connectToServer();
+    ws.onMessage(raw=>{
+      const message=JSON.parse(String(raw));
+      if(message.type==="action"&&message.action?.type==="hu"){
+        game=act(game,0,{type:"hu"},Date.now());
+        ws.send(JSON.stringify({type:"ack",requestId:message.requestId}));
+        push();
+      }else server.send(raw);
+    });
+    server.onMessage(raw=>{
+      const message=JSON.parse(String(raw));
+      if(message.type==="session"){
+        ws.send(JSON.stringify({...message,roomCode:game.code}));
+        push();
+      }else ws.send(raw);
+    });
+  });
+  await page.goto("/");
+  const iframe=page.locator("#cocos-table-board iframe");
+  await expect(iframe).toBeVisible();
+  await expect(page.getByRole("navigation",{name:"牌桌工具"})).toBeVisible();
+  await expect.poll(()=>page.frames().find(frame=>frame.url().includes("/cocos-table/index.html"))
+    ?.evaluate(()=>!!(window as any).__JINLING_TABLE_READY__)).toBe(true);
+
+  for(const [index,claim] of [false,true].entries()){
+    if(claim){
+      game=voiceWinningGame(true);
+      push();
+    }
+    const hu=page.getByRole("button",{name:claim?"胡":"自摸",exact:true});
+    await expect(hu).toBeVisible();
+    await iframe.focus();
+    expect(await page.evaluate(()=>document.activeElement?.tagName)).toBe("IFRAME");
+    await hu.focus();
+    expect(await page.evaluate(()=>document.activeElement?.tagName)).toBe("BUTTON");
+    await hu.click();
+    await expect.poll(()=>page.evaluate(()=>(window as any).__huStarts.length)).toBe(index+1);
+    expect(await page.evaluate(()=>(window as any).__huStarts)).toEqual(
+      Array.from({length:index+1},()=>[0,...voice.actions["胡了"]]));
+    await expect.poll(()=>page.evaluate(()=>(window as any).__huPeak),
+      {intervals:[20,30,50]}).toBeGreaterThan(.001);
+    if(index===0) await page.evaluate(()=>{(window as any).__firstHuContext=(window as any).__huContext;});
+    else expect(await page.evaluate(()=>(window as any).__huContext===(window as any).__firstHuContext)).toBe(true);
   }
 });

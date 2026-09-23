@@ -718,6 +718,58 @@ describe("首把开局提示",()=>{
     expect(ws.sent.at(-1)).toEqual({type:"openingComplete",game:gated.id,round:1});
     expect(client.state.submitting).toBeNull();
   });
+  it("开局完成发送失败会立即重连，并在新状态同步后重发",()=>{
+    vi.useFakeTimers();
+    const {ws}=online();
+    const gated=dealt({gate:true,waiting:[0]});
+    ws.receive({type:"state",state:viewFor(gated,0)});
+    const send=ws.send.bind(ws);
+    let failed=false;
+    ws.send=(data:string)=>{
+      const message=JSON.parse(data) as ClientMessage;
+      if(!failed&&message.type==="openingComplete"){
+        failed=true;
+        throw new Error("socket write failed");
+      }
+      send(data);
+    };
+
+    client.openingComplete(gated.id,1);
+    expect(failed).toBe(true);
+    expect(client.state.connected).toBe(false);
+    vi.advanceTimersByTime(0);
+    const next=TestSocket.instances.at(-1)!;
+    expect(next).not.toBe(ws);
+    next.onopen?.();
+    next.receive({type:"session",id:"me",token:"test-token",name:"测试",roomCode:gated.code,commandAck:true});
+    next.receive({type:"state",state:viewFor(gated,0)});
+    expect(next.sent.filter(message=>message.type==="openingComplete")).toEqual([
+      {type:"openingComplete",game:gated.id,round:1},
+    ]);
+  });
+  it("恢复同步的状态先到时保留开局完成信号，并在pong恢复连接后重发",()=>{
+    const {ws}=online();
+    const gated=dealt({gate:true,waiting:[0]});
+    ws.receive({type:"session",id:"me",token:"test-token",name:"测试",roomCode:gated.code,
+      commandAck:true,timeSync:true,serverNow:Date.now()});
+    ws.receive({type:"state",state:viewFor(gated,0)});
+    const firstPing=ws.sent.filter((message):message is Extract<ClientMessage,{type:"ping"}>=>message.type==="ping").at(-1)!;
+    ws.receive({type:"pong",sentAt:firstPing.sentAt,serverNow:Date.now()});
+    client.openingComplete(gated.id,1);
+    expect(ws.sent.filter(message=>message.type==="openingComplete")).toHaveLength(1);
+
+    client.setNetworkVisible(false);
+    client.setNetworkVisible(true);
+    const resumePing=ws.sent.filter((message):message is Extract<ClientMessage,{type:"ping"}>=>message.type==="ping").at(-1)!;
+    expect(resumePing.sync).toBe(true);
+    expect(client.state.connected).toBe(false);
+    ws.receive({type:"state",state:viewFor(gated,0)});
+    expect(ws.sent.filter(message=>message.type==="openingComplete")).toHaveLength(1);
+    ws.receive({type:"pong",sentAt:resumePing.sentAt,serverNow:Date.now(),synced:true,roomCode:gated.code});
+    expect(client.state.connected).toBe(true);
+    expect(ws.sent.filter(message=>message.type==="openingComplete")).toHaveLength(2);
+    expect(ws.sent.at(-1)).toEqual({type:"openingComplete",game:gated.id,round:1});
+  });
   it("显式同步协议已放行后不再用旧快照规则补播动画",()=>{
     const {ws}=online();
     const released=dealt({animation:true});

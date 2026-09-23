@@ -49,7 +49,7 @@
   top: max(10px, var(--table-safe-top));
   right: max(10px, var(--table-safe-right));
   display: grid;
-  grid-template-columns: repeat(2, 44px);
+  grid-template-columns: 44px;
   gap: 8px;
 }
 .table-claim-actions {

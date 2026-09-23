@@ -72,7 +72,10 @@ export function CocosTable({
   useLayoutEffect(() => {
     if (!embedded && opening && canShowOpening(opening, state, Date.now()))
       setAcceptedOpening(opening.key);
-  }, [opening?.key, state.key, state.round, embedded]);
+    // Fast resume receives its state snapshot before the synced pong restores
+    // connected. A cue first seen during that gap must be reconsidered once
+    // the same game is connected; its key and round need not change again.
+  }, [opening?.key, state.key, state.round, state.connected, embedded]);
   const showingOpening = !embedded && status !== "error" && !!opening &&
     acceptedOpening === opening.key && dismissedOpening !== opening.key &&
     openingMatchesState(opening, state);
@@ -172,7 +175,9 @@ export function CocosTable({
     // page, then the ready handshake restores our latest authoritative view.
     const lost = (event: Event) => {
       event.preventDefault();
-      setDismissedOpening(opening?.key ?? "");
+      // A graphics interruption is not entrance completion. Preserve an
+      // unfinished opening; TableOpening pauses while tableReady is false
+      // and reports completion only after the replacement renderer is ready.
       setFailure("graphics");
       if (Date.now() - lastGraphicsRecovery.current < 30000) {
         setStatus("error");

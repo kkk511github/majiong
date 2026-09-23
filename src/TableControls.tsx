@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Bot, Settings, Check } from "lucide-react";
+import { Bot, Check } from "lucide-react";
 import {
   claimPrompt,
   sceneTileName,
@@ -121,14 +121,6 @@ export function TableControls({
           >
             {ended ? <Check size={18} aria-hidden="true" /> : <Bot size={18} aria-hidden="true" />}
             <span>{ended ? "结算" : me?.trustee ? "取消" : "托管"}</span>
-          </button>
-          <button
-            className="table-tool-settings"
-            aria-label="牌桌设置"
-            onClick={() => onCommand({ type: "menu", menu: "settings" })}
-          >
-            <Settings size={18} aria-hidden="true" />
-            <span>设置</span>
           </button>
         </div>
       </nav>

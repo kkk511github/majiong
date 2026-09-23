@@ -935,6 +935,7 @@ export class GameClient {
                 error: "",
                 ...(msg.synced && !msg.roomCode ? { view: null } : {}),
               });
+              this.sendOpeningCompletion();
               if (this.lobbyWanted) this.browseTables(this.name);
             }
           }
@@ -1199,8 +1200,12 @@ export class GameClient {
   }
   private sendOpeningCompletion() {
     const completion = this.openingCompletion;
+    const gate = this.state.view?.openingGate;
     if (
       !completion ||
+      this.state.view?.id !== completion.game ||
+      gate?.round !== completion.round ||
+      !gate.waiting.includes(this.state.view.me) ||
       !this.state.connected ||
       this.socket?.readyState !== WebSocket.OPEN
     )
@@ -1212,7 +1217,10 @@ export class GameClient {
         round: completion.round,
       } satisfies ClientMessage));
     } catch {
-      // The completion stays pending and is retried after the next state sync.
+      // Keep the idempotent completion pending, then obtain an authoritative
+      // snapshot before retrying it. Otherwise the last gated player can leave
+      // the table waiting until the server's opening timeout expires.
+      this.restartConnection("开局同步未完成，正在重新连接…", true);
     }
   }
   openingComplete(game: string, round: number) {

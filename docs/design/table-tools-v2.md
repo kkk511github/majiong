@@ -1,7 +1,7 @@
 # Table tools v2
 
-The table toolbar now exposes only trustee/result and settings. The top-left
-lobby button and the table/record toolbar entries were removed. Their underlying
+The table toolbar now exposes only trustee/result. The top-left lobby button,
+settings and the table/record toolbar entries were removed. Their underlying
 commands, game rules and score calculations were not changed.
 
 ## Artwork
@@ -11,8 +11,10 @@ commands, game rules and score calculations were not changed.
 - Cocos asset: `cocos-table/assets/resources/art/table-tool-jade-v2.png`.
 - Delivery preparation: resized to 256 × 256 with alpha preserved; no repainting.
 - Icons and Chinese labels remain live UI/vector elements, not baked text.
-- Web touch targets: two 44 × 44 buttons, one row, 8px separation.
-- Cocos fallback targets: `(1185, 35)` and `(1235, 35)`, both 44 × 44.
+- Web touch target: one 44 × 44 button aligned at the top-right.
+- Cocos fallback target: `(1235, 35)`, 44 × 44.
+- The original artwork prompt below mentioned two controls; the final approved
+  interface now reuses that same skin for the single trustee/result control.
 
 ## Generation prompt (verbatim)
 

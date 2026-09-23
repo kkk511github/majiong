@@ -34,7 +34,7 @@ test('取消托管单击生效，按下和抬起之间更新倒计时也不丢�
  expect(result).toEqual({same:true,trustee:false,label:'托管'});
 });
 
-test('独立牌桌只保留托管和设置，结算仍复用托管入口',async({page})=>{
+test('独立牌桌只保留托管，禁用态不响应且结算仍复用同一入口',async({page})=>{
  await page.setViewportSize({width:1280,height:590});
  await page.goto('/cocos-table/index.html');
  await page.waitForFunction(()=>!!(window as any).__JINLING_TABLE_READY__);
@@ -54,13 +54,18 @@ test('独立牌桌只保留托管和设置，结算仍复用托管入口',async(
   };
  });
  expect(toolbar.removed).toEqual([]);
- expect(toolbar.buttons.map((button:any)=>button.name).sort()).toEqual(['table-tool-settings','table-tool-trustee']);
+ expect(toolbar.buttons.map((button:any)=>button.name)).toEqual(['table-tool-trustee']);
  for(const button of toolbar.buttons){expect(button.w).toBeGreaterThanOrEqual(44);expect(button.h).toBeGreaterThanOrEqual(44);}
- const settings=toolbar.buttons.find((button:any)=>button.name==='table-tool-settings')!;
  const trustee=toolbar.buttons.find((button:any)=>button.name==='table-tool-trustee')!;
- await page.mouse.click(settings.x,settings.y);
  await page.mouse.click(trustee.x,trustee.y);
- await expect.poll(()=>page.evaluate(()=>(window as any).toolbarCommands)).toEqual([{type:'menu',menu:'settings'},{type:'trustee',enabled:true}]);
+ await expect.poll(()=>page.evaluate(()=>(window as any).toolbarCommands)).toEqual([{type:'trustee',enabled:true}]);
+ await page.evaluate(async()=>{
+  const cc=await (window as any).System.import('cc');
+  const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+  c.state.phase='playing';c.state.trusteeDisabled=true;c.state.players[c.state.me].trustee=false;c.draw();
+ });
+ await page.mouse.click(trustee.x,trustee.y);
+ await expect.poll(()=>page.evaluate(()=>(window as any).toolbarCommands)).toEqual([{type:'trustee',enabled:true}]);
  await page.evaluate(async()=>{
   const cc=await (window as any).System.import('cc');
   const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
@@ -68,7 +73,7 @@ test('独立牌桌只保留托管和设置，结算仍复用托管入口',async(
  });
  await page.mouse.click(trustee.x,trustee.y);
  await expect.poll(()=>page.evaluate(()=>(window as any).toolbarCommands)).toEqual([
-  {type:'menu',menu:'settings'},{type:'trustee',enabled:true},{type:'menu',menu:'result'},
+  {type:'trustee',enabled:true},{type:'menu',menu:'result'},
  ]);
 });
 

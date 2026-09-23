@@ -565,9 +565,8 @@ export class TableScene extends Component {
   node.setSiblingIndex(this.root.children.length-1);this.orderKey='';
  }
  private drawHud(s:TableSceneState){
-  const h=this.hud;if(s.presentation!=='replay'&&!s.externalControls){
-  this.toolButton(h,'settings',1235,35,{type:'menu',menu:'settings'});
-  }this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,78,150,30,18,INK);
+  const h=this.hud;
+  this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,78,150,30,18,INK);
   this.text(h,`${s.rulesName ? s.rulesName+' · ' : ''}${s.rounds ? s.round+' / '+s.rounds+' 把' : '第 '+s.round+' 把'}`,80,107,156,28,16,'#b9d1bf');
   if(s.roundMultiplier!==undefined)this.text(h,`${s.roundMultiplier>1?'比下胡':'本把'} × ${s.roundMultiplier}`,80,134,148,23,18,GOLD);
   if(s.presentation!=='replay'&&s.phase==='ended'&&s.nextRoundMultiplier!==undefined)
@@ -677,7 +676,7 @@ export class TableScene extends Component {
   // Keep the touch target alive across countdown/state pushes. Rebuilding it
   // between TOUCH_START and TOUCH_END used to swallow the first cancellation.
   if(!this.trusteeButton){
-   const n=this.toolButton(this.root,'trustee',1185,35,{type:'trustee',enabled:true});
+   const n=this.toolButton(this.root,'trustee',1235,35,{type:'trustee',enabled:true});
    this.trusteeButton=n;this.trusteeLabel=n.getChildByName('tool-caption')!.getComponent(Label)!;
    n.off(Node.EventType.TOUCH_END);
    n.on(Node.EventType.TOUCH_END,()=>{if(this.trusteeCommand&&(!this.state?.trusteeDisabled||this.trusteeCommand.type==='menu'))this.emit(this.trusteeCommand);});

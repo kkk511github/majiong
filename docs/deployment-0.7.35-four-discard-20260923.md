@@ -4,7 +4,7 @@
 
 - 生产镜像：`jinling-mahjong:0.7.35-build73-four-discard-20260923`
 - 基础镜像：`jinling-mahjong:0.7.35-build73-anchor-20260922`
-- 代码提交：`06a25dc`（`Fix four-player same-tile penalties`）
+- 生产构建提交：`06a25dc`；合入 `main` 后的同内容提交：`191e3df`（`Fix four-player same-tile penalties`）
 - 只覆盖运行时文件 `/app/shared/engine.ts`，没有重新构建或发布 Web、APK、IPA，也没有重启网关、安装包管理或 Telegram 报表服务。
 
 ## 生效规则

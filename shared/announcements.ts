@@ -29,4 +29,23 @@ export interface ControlAnnouncement {
   updatedAt: number;
   publishedAt: number | null;
   publishedBy: string | null;
+  readStats?: AnnouncementReadStats | null;
+}
+
+export interface AnnouncementReadStats {
+  revision: number;
+  readCount: number;
+  unreadCount: number;
+  totalCount: number;
+}
+
+export interface AnnouncementReadPage {
+  id: string;
+  title: string;
+  status: ControlAnnouncement['status'];
+  stats: AnnouncementReadStats;
+  readers: { id: string; memberId: string | null; name: string; username: string; readAt: number | null }[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

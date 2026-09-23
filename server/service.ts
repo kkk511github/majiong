@@ -1,4 +1,7 @@
 import { createExperienceTable, fillExperienceBots } from "./experience-table";
+import { createTableInvitations } from './table-invitations';
+import { clientVersionPolicy } from './client-version';
+import { createClientUpdateSettings } from './client-update-settings';
 import { readVoice } from "./room-voice";
 import { createPhraseGate } from "./room-phrases";
 import { isRoomPhraseId, type RoomPhraseMessage } from "../shared/room-phrases";
@@ -69,8 +72,11 @@ export function makeServer(
     port?: number;
     host?: string;
     tickMs?: number;
+    minimumClientVersion?: string;
   } = {},
 ) {
+  const initialMinimum = options.minimumClientVersion ?? process.env.MIN_CLIENT_VERSION;
+  clientVersionPolicy(initialMinimum); // Reject malformed startup configuration.
   const file = options.database ?? "data/mahjong.sqlite";
   if (file !== ":memory:") mkdirSync(dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
@@ -83,6 +89,11 @@ export function makeServer(
   const games = new Map<string, Game>(),
     clients = new Map<string, WebSocket>(),
     lastAuto = new Map<string, number>();
+  let invitations: ReturnType<typeof createTableInvitations> | undefined;
+  // Connection-scoped: reconnecting with an old app must not inherit support
+  // advertised by another connection for the same account.
+  const openingClients = new WeakSet<WebSocket>();
+  const clientVersions = new WeakMap<WebSocket, string | undefined>();
   const accounts = createAccounts(
     db,
     (id) => {
@@ -116,6 +127,13 @@ export function makeServer(
   const club = createClub(db, accounts, records);
   const control = createControl(db, accounts, () => {
     for (const ws of clients.values()) send(ws, { type: "announcementsChanged" });
+  }, {
+    get: () => updateSettings.get(),
+    save: (actor, body) => {
+      const settings = updateSettings.save(actor, body);
+      for (const [id, ws] of clients) enforceClientVersion(id, ws);
+      return settings;
+    },
   });
   const controlReleases = createControlReleaseProxy(control.requireSession);
   const lobbySubscribers = new Set<string>(),
@@ -568,8 +586,12 @@ export function makeServer(
     broadcast(g);
     if (g.table?.closed) sendLeft(g, "管理员已解散这张牌桌");
     broadcastTables();
+    if (g.phase === 'finished' || g.table?.closed) for (const player of g.players) {
+      const ws = player && clients.get(player.id);
+      if (player && ws) enforceClientVersion(player.id, ws, g);
+    }
   }
-  function armOpeningGate(g: Game, now: number) {
+  function armOpeningGate(g: Game, now: number, connecting?: { id: string; socket: WebSocket }) {
     if (
       g.round !== 1 ||
       g.phase !== "playing" ||
@@ -580,7 +602,9 @@ export function makeServer(
       return;
     const waiting = seats.filter((seat) => {
       const player = g.players[seat];
-      return !!player && !player.bot && player.online;
+      if (!player || player.bot || !player.online) return false;
+      const socket = connecting?.id === player.id ? connecting.socket : clients.get(player.id);
+      return !!socket && socket.readyState === WebSocket.OPEN && openingClients.has(socket);
     });
     if (!waiting.length) return;
     g.openingGate = {
@@ -620,7 +644,7 @@ export function makeServer(
     else g.revision++;
     return true;
   }
-  function startIfReady(g: Game): Game {
+  function startIfReady(g: Game, connecting?: { id: string; socket: WebSocket }): Game {
     if (
       !["waiting", "ended"].includes(g.phase) ||
       (g.phase === "ended" &&
@@ -635,6 +659,8 @@ export function makeServer(
       g.players.some((p) => p && !p.bot && !accounts.getAccount(p.id)?.canPlay)
     )
       return g;
+    if (g.phase === 'waiting' && g.players.some(p => p && !p.bot && !updateSettings.allowsExisting(
+      clientVersions.get(connecting?.id === p.id ? connecting.socket : clients.get(p.id)!), p.id, g))) return g;
     const settings = g.table?.settings;
     const continuing = g.phase === "ended" && !!g.table;
     if (continuing && settings?.continuousRounds) {
@@ -669,7 +695,7 @@ export function makeServer(
     const started = startRound(g, now, {
       index: (limit) => randomInt(limit),
     });
-    armOpeningGate(started, now);
+    armOpeningGate(started, now, connecting);
     return started;
   }
   function markDisconnected(g: Game, seat: Seat, now: number) {
@@ -707,6 +733,21 @@ export function makeServer(
   };
   const seatFor = (g: Game, id: string) =>
     g.players.findIndex((p) => p?.id === id) as Seat;
+  const updateSettings = createClientUpdateSettings(db, () => games.values(), initialMinimum);
+  function rejectClientVersion(ws: WebSocket) {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    const minimumVersion = updateSettings.get().minimumVersion;
+    send(ws, { type: 'error', code: 'UPDATE_REQUIRED', minimumVersion,
+      message: `当前版本已停止进入新牌桌，请更新至 ${minimumVersion} 或更高版本后继续。原有对局结束后也需更新。` });
+    ws.close(4006, 'Client update required');
+  }
+  function enforceClientVersion(id: string, ws: WebSocket, room?: Game) {
+    const version = clientVersions.get(ws);
+    if (updateSettings.accepts(version)) return true;
+    if (updateSettings.allowsExisting(version, id, room ?? findRoom(id))) return true;
+    rejectClientVersion(ws);
+    return false;
+  }
   const voiceUploads = new Map<string, { at: number; busy: boolean }>();
   const acceptPhrase = createPhraseGate();
   const api = createServer(async (req, res) => {
@@ -1070,6 +1111,31 @@ export function makeServer(
     res.writeHead(404);
     res.end('{"error":"Not found"}');
   });
+  invitations = createTableInvitations({
+    online: () => [...clients].filter(([, socket]) => socket.readyState === WebSocket.OPEN).map(([id]) => id),
+    account: accounts.getAccount,
+    room: findRoom,
+    table: code => games.get(code),
+    summary: (game, viewer) => tableSummary(game, viewer, accounts.getAvatar),
+    deliver: (id, invitations) => { const socket = clients.get(id); if (socket) send(socket, { type: 'tableInvitations', invitations }); },
+    join: (room, recipient) => {
+      if (!updateSettings.accepts(clientVersions.get(clients.get(recipient)!))) throw Error('请更新客户端后再加入新牌桌');
+      accounts.requirePlay(recipient);
+      if (findRoom(recipient)) throw Error('请先离开当前牌桌');
+      if (room.phase !== 'waiting' || room.table?.closed) throw Error('这张牌桌已开局或关闭');
+      const account = accounts.getAccount(recipient)!;
+      let joined = structuredClone(room);
+      const empty = joined.players.findIndex(player => !player);
+      if (empty < 0) throw Error('这张牌桌已满');
+      joined.players[empty] = newPlayer(recipient, account.name, false, joined.initialScore ?? 0);
+      joined.players[empty]!.joinedAt = Date.now();
+      if (joined.table?.settings.readyMode === 'auto') joined.players[empty]!.ready = true;
+      joined.revision++;
+      joined = startIfReady(joined);
+      publish(joined);
+      if (joined.table) repairTablePool(joined.table.groupId);
+    },
+  });
   const wss = new WebSocketServer({
     server: api,
     path: "/ws",
@@ -1100,6 +1166,8 @@ export function makeServer(
       /* close handler restores authoritative connection state */
     });
     ws.on("message", (raw) => {
+      // A rejected hello may have more messages queued in the same TCP frame.
+      if (ws.readyState !== WebSocket.OPEN) return;
       let requestId: string | undefined;
       try {
         if (Date.now() - rateAt > 1000) {
@@ -1130,7 +1198,12 @@ export function makeServer(
             ws.close(4003, "Authentication required");
             return;
           }
+          // Authenticate first: a protected seat must belong to this account,
+          // never to a client-supplied room or seat number.
+          clientVersions.set(ws, typeof msg.clientVersion === 'string' ? msg.clientVersion : undefined);
+          if (!enforceClientVersion(nextSession.id, ws)) return;
           connectionToken = token;
+          if (msg.capabilities?.openingComplete === true) openingClients.add(ws);
           db.prepare("UPDATE sessions SET last_seen=? WHERE id=?").run(
             Date.now(),
             nextSession.id,
@@ -1149,7 +1222,9 @@ export function makeServer(
             p.disconnectedAt = undefined;
             p.name = nextSession.name;
             room.revision++;
-            room = startIfReady(room);
+            // A legacy client cannot acknowledge even a persisted/existing gate.
+            if (!openingClients.has(ws)) completeOpening(room, seat, Date.now());
+            room = startIfReady(room, { id: nextSession.id, socket: ws });
             persist(room);
           }
           session = nextSession;
@@ -1166,6 +1241,7 @@ export function makeServer(
             roomCode: room?.code,
             commandAck: true,
             roomPhrases: true,
+            tableInvites: true,
             tableLobby: true,
             timeSync: true,
             serverVersion: APP_VERSION,
@@ -1179,6 +1255,7 @@ export function makeServer(
             send(ws, { type: "records", records: personal.records });
           if (room) broadcast(room);
           broadcastTables();
+          invitations!.sync(session.id, true);
           return;
         }
         const current = accounts.getSession(connectionToken);
@@ -1197,6 +1274,32 @@ export function makeServer(
           return;
         }
         session = current;
+        if (!enforceClientVersion(session.id, ws)) return;
+        if (!updateSettings.accepts(clientVersions.get(ws)) && (
+          ['create', 'join', 'createTables', 'createExperienceTable'].includes(msg.type) ||
+          (msg.type === 'respondInvite' && msg.accept))) {
+          // Do not disconnect a grandfathered player trying to open another
+          // table: deny that command while leaving the original match intact.
+          throw Error('当前仅允许完成原有牌桌，请更新客户端后再加入新牌桌');
+        }
+        if (msg.type === 'invitePeers' || msg.type === 'invitePlayer' || msg.type === 'respondInvite') {
+          if (!requestId) throw Error('邀请请求缺少标识');
+          if (msg.type === 'invitePeers') {
+            if (typeof msg.game !== 'string' || msg.game.length > 120) throw Error('牌桌标识无效');
+            send(ws, { type: 'invitationResult', requestId, peers: invitations!.peers(session.id, msg.game) });
+          } else if (msg.type === 'invitePlayer') {
+            if (typeof msg.game !== 'string' || msg.game.length > 120 || typeof msg.memberId !== 'string' || !/^\d{1,20}$/.test(msg.memberId))
+              throw Error('请选择有效的在线牌友');
+            invitations!.invite(session.id, msg.game, msg.memberId);
+            send(ws, { type: 'invitationResult', requestId });
+          } else {
+            if (typeof msg.invitation !== 'string' || msg.invitation.length > 80 || typeof msg.accept !== 'boolean')
+              throw Error('邀请回复无效');
+            invitations!.respond(session.id, msg.invitation, msg.accept);
+            send(ws, { type: 'invitationResult', requestId });
+          }
+          return;
+        }
         if (
           ["create", "createTables", "createExperienceTable"].includes(msg.type) &&
           !mayCreateTables(session.account)
@@ -1569,6 +1672,7 @@ export function makeServer(
             console.error("Room disconnect save failed", g.id, error);
           }
         }
+        invitations?.refresh();
       }
     });
   });
@@ -1775,6 +1879,8 @@ export function makeServer(
       nextPoolAudit = Date.now() + 1000;
       try { reconcileAllTablePools(); }
       catch (error) { console.error("Table pool audit failed", error); }
+      invitations?.refresh();
+      for (const [id, ws] of clients) enforceClientVersion(id, ws);
     }
   }, options.tickMs ?? 250);
   return {

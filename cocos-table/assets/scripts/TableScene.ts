@@ -1,5 +1,5 @@
 import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp, EventTouch } from 'cc';
-import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type SceneTile } from './table-scene';
+import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type TileDragOrigin } from './tile-drag';
 const { ccclass } = _decorator;
 // Visual tokens for the straight-table skin.  Gameplay never reads these
@@ -560,9 +560,11 @@ export class TableScene extends Component {
  }
  private drawHud(s:TableSceneState){
   const h=this.hud;
-  this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,78,150,30,18,INK);
-  this.text(h,`${s.rulesName ? s.rulesName+' · ' : ''}${s.rounds ? s.round+' / '+s.rounds+' 把' : '第 '+s.round+' 把'}`,80,107,156,28,16,'#b9d1bf');
-  if(s.roundMultiplier!==undefined)this.text(h,`${s.roundMultiplier>1?'比下胡':'本把'} × ${s.roundMultiplier}`,80,134,148,23,18,GOLD);
+  // The former lobby-button bay is now clear. Keep all room information in
+  // that upper bay, above the upstream status/portrait rather than behind it.
+  this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,24,150,28,18,INK).name='table-room-title';
+  this.text(h,`${s.rulesName ? s.rulesName+' · ' : ''}${s.rounds ? s.round+' / '+s.rounds+' 把' : '第 '+s.round+' 把'}`,80,51,156,22,16,'#b9d1bf').name='table-room-rules';
+  if(s.roundMultiplier!==undefined)this.text(h,`${s.roundMultiplier>1?'比下胡':'本把'} × ${s.roundMultiplier}`,80,77,148,24,18,GOLD).name='table-round-multiplier';
   if(s.presentation!=='replay'&&s.phase==='ended'&&s.nextRoundMultiplier!==undefined)
    this.text(h,`下把${s.nextRoundMultiplier>1?'比下胡':'恢复'} × ${s.nextRoundMultiplier}`,80,321,146,28,16,GOLD);
   for(const p of s.players){
@@ -601,7 +603,7 @@ export class TableScene extends Component {
     const score=this.text(h,`${p.score}`,x,top+76,68,18,16,GOLD);score.name=`player-score-${p.seat}`;
     // The flower tally is immediately below the score, in the same compact
     // translucent stack as the reference.  It never sits on the side rail.
-    const flowers=this.text(h,`✿ ×${p.flowers.length}`,x,top+101,60,15,12,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
+    const flowers=this.text(h,`✿ ×${p.flowers.length}`,x,top+99,68,24,18,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
     // The active ring is the status cue for the compact opposite rail. Keep a
     // named, non-painted status node for screen readers without adding text
     // over the first right-hand discard.
@@ -622,9 +624,9 @@ export class TableScene extends Component {
     if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));
     this.make(`player-name-plate-${p.seat}`,avatarX,avatarY+18,72,16,h);
     const name=this.text(h,p.name,avatarX,avatarY+18,68,14,10,INK);name.name=`player-name-${p.seat}`;
-    this.hudBadge(h,`player-flower-count-box-${p.seat}`,avatarX,y+27,82,50,'#063d3fb8','#d8c27a66',4);
+    this.hudBadge(h,`player-flower-count-box-${p.seat}`,avatarX,y+28,82,54,'#063d3fb8','#d8c27a66',4);
     const score=this.text(h,`${p.score}`,avatarX,y+12,72,22,18,GOLD);score.name=`player-score-${p.seat}`;
-    const flowers=this.text(h,`✿ ×${p.flowers.length}`,avatarX,y+41,72,21,13,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
+    const flowers=this.text(h,`✿ ×${p.flowers.length}`,avatarX,y+42,72,24,18,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
     if(status.label){const statusNode=this.text(h,status.label,avatarX,y+67,76,12,10,statusColor);statusNode.name=`player-status-${p.seat}`;statusNode.addComponent(UIOpacity).opacity=0;}
     if(p.seat===s.dealer)this.text(h,'庄',avatarX+27,avatarY-18,20,20,16,'#ffe08a');
     continue;
@@ -639,9 +641,9 @@ export class TableScene extends Component {
    if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));
    this.make(`player-name-plate-${p.seat}`,x,y+19,76,17,h);
    const name=this.text(h,p.name,x,y+19,72,15,11,INK);name.name=`player-name-${p.seat}`;
-   this.hudBadge(h,`player-flower-count-box-${p.seat}`,x,y+63,82,50,'#063d3fb8','#d8c27a66',4);
-   const score=this.text(h,`${p.score}`,x,y+46,74,22,18,GOLD);score.name=`player-score-${p.seat}`;
-   const flowers=this.text(h,`✿ ×${p.flowers.length}`,x,y+74,74,21,13,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
+   this.hudBadge(h,`player-flower-count-box-${p.seat}`,x,y+63,82,56,'#063d3fb8','#d8c27a66',4);
+   const score=this.text(h,`${p.score}`,x,y+47,74,22,18,GOLD);score.name=`player-score-${p.seat}`;
+   const flowers=this.text(h,`✿ ×${p.flowers.length}`,x,y+76,74,24,18,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
    if(p.seat===s.dealer)this.text(h,'庄',x+37,y-20,24,23,17,'#ffe08a');
   }
   const prompt=claimPrompt(s);

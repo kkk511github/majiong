@@ -28,7 +28,7 @@ const config = () => parseReportConfig({
 function source() {
   const db = database();
   db.exec(`CREATE TABLE teams(id TEXT PRIMARY KEY,name TEXT);
-    CREATE TABLE accounts(id TEXT PRIMARY KEY,username TEXT);
+    CREATE TABLE accounts(id TEXT PRIMARY KEY,username TEXT,name TEXT);
     CREATE TABLE account_numbers(account_id TEXT PRIMARY KEY,member_id INTEGER);
     CREATE TABLE team_memberships(account_id TEXT PRIMARY KEY,team_id TEXT,updated_at INTEGER);
     CREATE TABLE account_audit(id TEXT PRIMARY KEY,account_id TEXT,event TEXT,at INTEGER);
@@ -37,7 +37,7 @@ function source() {
     CREATE TABLE match_records(id TEXT PRIMARY KEY,game_id TEXT,at INTEGER,code TEXT DEFAULT '123456');
     CREATE TABLE point_records(record_id TEXT,game_id TEXT,at INTEGER,account_id TEXT,team_id TEXT,points REAL DEFAULT 0,PRIMARY KEY(record_id,account_id));
     INSERT INTO teams VALUES ('team-1','一生所爱战队'),('team-2','冰茉莉战队'),('team-3','日结丁战队'),('team-4','日结冰战队');
-    INSERT INTO accounts VALUES ('u1','zhangsan'),('u2','李四'),('u3','no-games');
+    INSERT INTO accounts VALUES ('u1','zhangsan','张三昵称'),('u2','李四','李四昵称'),('u3','no-games','未参赛');
     INSERT INTO account_numbers VALUES ('u1',100001),('u2',100002),('u3',100003);`);
   function table(id: string, at: number | null, hands: number, team = "team-3", reason = "selfDraw") {
     if (at !== null) db.prepare("INSERT INTO match_records (id,game_id,at) VALUES (?,?,?)").run(id, id, at);
@@ -61,11 +61,24 @@ it("三机器人体验桌即使存在旧积分流水也不进入日结和周结"
   expect(participationRows(db, "team-3", end - DAY_MS, end).map(r => r.rounds)).toEqual([1, 1]);
   expect(dailyScoreRows(db, "team-3", end - DAY_MS, end).map(r => r.score)).toEqual([20, 20]);
 });
+it('日结和周结都读取当前昵称而非登录账号，重名保留独立ID与金额', async () => {
+  const { db, table } = source(); table('nicknames', end-1000, 1);
+  db.exec("UPDATE accounts SET name='同名牌友'; UPDATE point_records SET points=CASE account_id WHEN 'u1' THEN 12 ELSE -6 END;");
+  const daily = dailyScoreRows(db, 'team-3', end-DAY_MS, end), weekly = participationRows(db, 'team-3', end-DAY_MS, end);
+  expect(daily.map(r => [r.userId,r.username,r.nickname,r.points])).toEqual([['100001','zhangsan','同名牌友',6],['100002','李四','同名牌友',-3]]);
+  expect(weekly.map(r => [r.userId,r.nickname,r.rounds,r.points])).toEqual([['100001','同名牌友',1,3],['100002','同名牌友',1,3]]);
+  const sheet = await readSheet(await buildScheduledReport(db, config().schedules[2], end-DAY_MS, end));
+  expect(sheet.getCell('C3').value).toBe('同名牌友'); expect(sheet.getCell('C4').value).toBe('同名牌友');
+  db.exec("UPDATE accounts SET name='新昵称' WHERE id='u1'");
+  expect(dailyScoreRows(db, 'team-3', end-DAY_MS, end)[0].nickname).toBe('新昵称');
+  expect(participationRows(db, 'team-3', end-DAY_MS, end)[0].nickname).toBe('新昵称');
+});
+
 it("a synthetic table finishes after five hands: each member receives one table and three points", () => {
   const { db, table } = source(); table("930069", end - 1000, 5);
   expect(participationRows(db, "team-3", end - DAY_MS, end)).toEqual([
-    { teamName: "日结丁战队", userId: "100001", username: "zhangsan", rounds: 1, points: 3 },
-    { teamName: "日结丁战队", userId: "100002", username: "李四", rounds: 1, points: 3 },
+    { teamName: "日结丁战队", userId: "100001", username: "zhangsan", nickname: '张三昵称', rounds: 1, points: 3 },
+    { teamName: "日结丁战队", userId: "100002", username: "李四", nickname: '李四昵称', rounds: 1, points: 3 },
   ]);
 });
 it("counts the table at its finish time, with a half-open day and no partial or empty table credits", () => {
@@ -118,8 +131,8 @@ it("daily net scores charge one saved table fee then divide by two, never by the
   db.exec(`UPDATE round_records SET record=json_set(record,'$.initialScore',90,'$.settlementBase',100,'$.scoreDivisor',5);
     UPDATE point_records SET points=CASE account_id WHEN 'u1' THEN 14 ELSE -18 END;`);
   expect(dailyScoreRows(db, "team-3", end - DAY_MS, end)).toEqual([
-    { teamName: "日结丁战队", userId: "100001", username: "zhangsan", score: 60, points: 30 },
-    { teamName: "日结丁战队", userId: "100002", username: "李四", score: -100, points: -50 },
+    { teamName: "日结丁战队", userId: "100001", username: "zhangsan", nickname: '张三昵称', score: 60, points: 30 },
+    { teamName: "日结丁战队", userId: "100002", username: "李四", nickname: '李四昵称', score: -100, points: -50 },
   ]);
   const doc = await buildScheduledReport(db, config().schedules[2], end - DAY_MS, end);
   const sheet = await readSheet(doc);
@@ -227,8 +240,8 @@ it("combines all of a final member's daily history, including former teams, char
     UPDATE point_records SET points=999 WHERE game_id='former-team';`);
   const rows = dailyScoreRows(db, ["team-3", "team-4"], end - DAY_MS, end);
   expect(rows).toEqual([
-    { teamName: "日结丁战队", userId: "100001", username: "zhangsan", score: 995, points: 497.5 },
-    { teamName: "日结丁战队", userId: "100002", username: "李四", score: 989, points: 494.5 },
+    { teamName: "日结丁战队", userId: "100001", username: "zhangsan", nickname: '张三昵称', score: 995, points: 497.5 },
+    { teamName: "日结丁战队", userId: "100002", username: "李四", nickname: '李四昵称', score: 989, points: 494.5 },
   ]);
   expect(dailyScoreRows(db, ["team-3", "team-4", "team-3"], end - DAY_MS, end)).toEqual(rows);
   const doc = await buildScheduledReport(db, config().schedules[2], end - DAY_MS, end);
@@ -334,7 +347,7 @@ it("renders template columns, dates and formulas; member text cannot become a fo
   const doc = await buildScheduledReport(db,config().schedules[3],end-DAY_MS,end+6*DAY_MS);
   const sh = await readSheet(doc);
   expect(sh.getCell("A1").value).toBe("日结丁战队工资总表2026.9.16-9.22");
-  expect(sh.getRow(2).values).toEqual([undefined,"战队名","玩家ID","用户名","50局数","50金额","总结算"]);
+  expect(sh.getRow(2).values).toEqual([undefined,"战队名","玩家ID","昵称","50局数","50金额","总结算"]);
   expect(sh.getCell("A3").value).toBe("日结丁战队");
   expect(sh.getCell("B3").value).toBe("100001");
   expect(sh.getCell("C3").type).toBe(ExcelJS.ValueType.String);

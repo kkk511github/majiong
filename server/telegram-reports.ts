@@ -25,10 +25,11 @@ export type ParticipationRow = {
   teamName: string;
   userId: string;
   username: string;
+  nickname?: string;
   rounds: number;
   points: number;
 };
-export type ScoreRow = { teamName: string; userId: string; username: string; score: number; points: number };
+export type ScoreRow = { teamName: string; userId: string; username: string; nickname?: string; score: number; points: number };
 // CSV remains readable for previously persisted delivery snapshots.
 export type ReportDocument = { filename: string; caption: string; csv?: string; xlsxBase64?: string };
 export function reportBytes(doc: ReportDocument) {
@@ -94,7 +95,7 @@ export function participationRows(db: DatabaseSync, teamIds: string | string[], 
   const teams = validateReportRange(db, teamIds, from, to);
   const rows = db.prepare(`
     ${finalRoster}
-    SELECT CAST(n.member_id AS TEXT) AS user_id, a.username, t.name AS team_name, COUNT(DISTINCT p.game_id) AS rounds
+    SELECT CAST(n.member_id AS TEXT) AS user_id, a.username, a.name AS nickname, t.name AS team_name, COUNT(DISTINCT p.game_id) AS rounds
     FROM match_records m
     JOIN point_records p ON p.game_id=m.game_id
     JOIN round_records r ON r.id=p.record_id
@@ -106,13 +107,13 @@ export function participationRows(db: DatabaseSync, teamIds: string | string[], 
       AND m.code<>'练习桌' AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
       AND COALESCE(json_extract(r.record,'$.experience'),0)=0
-    GROUP BY p.account_id, n.member_id, a.username, t.name
+    GROUP BY p.account_id, n.member_id, a.username, a.name, t.name
     ORDER BY t.name, n.member_id
   `).all(to, to, ...teams, from, to);
   return rows.map(row => {
     const rounds = Number(row.rounds);
     if (!Number.isSafeInteger(rounds * 3)) throw new Error("报表局数超出有效范围");
-    return { teamName: String(row.team_name), userId: String(row.user_id), username: String(row.username), rounds, points: rounds * 3 };
+    return { teamName: String(row.team_name), userId: String(row.user_id), username: String(row.username), nickname: String(row.nickname ?? ''), rounds, points: rounds * 3 };
   });
 }
 
@@ -140,7 +141,7 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
     : "";
   const rows = db.prepare(`
     ${finalRoster}
-    SELECT CAST(n.member_id AS TEXT) AS user_id, a.username, t.name AS team_name,
+    SELECT CAST(n.member_id AS TEXT) AS user_id, a.username, a.name AS nickname, t.name AS team_name,
       ROUND(SUM(p.points + CASE WHEN p.record_id=(
         SELECT first.record_id FROM point_records first
         JOIN round_records original ON original.id=first.record_id
@@ -160,14 +161,14 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
       AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
       AND COALESCE(json_extract(r.record,'$.experience'),0)=0
-    GROUP BY p.account_id,n.member_id,a.username,t.name
+    GROUP BY p.account_id,n.member_id,a.username,a.name,t.name
     ORDER BY t.name,n.member_id
   `).all(to, to, ...teams, from, to);
   return rows.map(row => {
     const score = Number(row.score);
     if (!Number.isFinite(score) || Math.abs(score) > Number.MAX_SAFE_INTEGER)
       throw new Error("报表分数超出有效范围");
-    return { teamName: String(row.team_name), userId: String(row.user_id), username: String(row.username), score, points: score / 2 };
+    return { teamName: String(row.team_name), userId: String(row.user_id), username: String(row.username), nickname: String(row.nickname ?? ''), score, points: score / 2 };
   });
 }
 

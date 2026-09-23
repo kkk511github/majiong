@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
+import type { AnnouncementReadPage } from '../shared/announcements';
 import type {
   ControlAccount,
   ControlAnnouncement,
@@ -76,6 +77,11 @@ async function setup(page: Page, customActor = actor) {
     failAnnouncement: false,
     failMember: false,
     failUpload: false,
+    updateSettings: { enabled: false, minimumVersion: '', revision: 0, updatedAt: 0, updatedBy: null as string | null },
+    failSettings: false,
+    receipts: [] as AnnouncementReadPage['readers'],
+    readQueries: [] as Record<string, string>[],
+    failReads: false,
   };
   await page.addInitScript(() => {
     sessionStorage.setItem("jinling.control.session.v1", "test-session");
@@ -95,9 +101,27 @@ async function setup(page: Page, customActor = actor) {
         body: JSON.stringify(body),
       });
     if (path === "/auth/session") return send({ account: customActor });
+    if (path === '/settings/client-update') {
+      if (request.method() === 'GET') return send(state.updateSettings);
+      const body = request.postDataJSON(); state.posts.push({ path, body });
+      if (state.failSettings) { state.failSettings = false; return send({ error: '设置已变化，请刷新后再保存' }, 409); }
+      state.updateSettings = { enabled: body.enabled, minimumVersion: body.minimumVersion, revision: state.updateSettings.revision + 1, updatedAt: Date.now(), updatedBy: customActor.id };
+      return send(state.updateSettings);
+    }
     if (path === "/auth/logout") return send({ ok: true });
     if (path === "/announcements" && request.method() === "GET")
       return send({ announcements: state.announcements });
+    if (path.startsWith('/announcements/') && path.endsWith('/readers')) {
+      const query = Object.fromEntries(url.searchParams); state.readQueries.push(query);
+      if (state.failReads) return send({ error: '公告版本已变化，请刷新公告列表后查看' }, 409);
+      const item = state.announcements.find(a => path.includes(a.id))!;
+      const readCount = state.receipts.filter(r => r.readAt !== null).length;
+      const stats = { revision: item.readStats!.revision, readCount, unreadCount: state.receipts.length - readCount, totalCount: state.receipts.length };
+      let rows = state.receipts.filter(r => query.status === 'all' || (query.status === 'read' ? r.readAt !== null : r.readAt === null));
+      if (query.q) rows = rows.filter(r => `${r.name} ${r.username} ${r.memberId}`.includes(query.q));
+      const page = Number(query.page || 1);
+      return send({ id: item.id, title: item.publishedTitle, status: item.status, stats, readers: rows.slice((page-1)*20, page*20), total: rows.length, page, pageSize: 20 });
+    }
     if (path.startsWith("/announcements") && request.method() === "POST") {
       const body = request.postDataJSON() as Record<string, unknown>;
       state.posts.push({ path, body });
@@ -258,6 +282,70 @@ async function setup(page: Page, customActor = actor) {
   ).toBeVisible();
   return state;
 }
+
+test('公告已读确认显示人数、名单、未读筛选、分页、刷新和版本冲突，不修改草稿或发送确认', async ({ page }) => {
+  const state = await setup(page);
+  state.announcements.push({ id: 'receipt-announcement', status: 'published', draftTitle: '阅读确认测试', draftBody: '内容', draftVersion: 1, revision: 1,
+    publishedTitle: '阅读确认测试', publishedBody: '内容', createdAt: 1780000000000, updatedAt: 1780000000000, publishedAt: 1780000000000, publishedBy: 'admin',
+    readStats: { revision: 1, readCount: 22, unreadCount: 2, totalCount: 24 } });
+  state.receipts = Array.from({ length: 24 }, (_, i) => ({ id: `reader-${i+1}`, memberId: String(100001+i), name: `确认牌友${i+1}`, username: `member${i+1}`, readAt: i < 22 ? 1780000000000+i*1000 : null }));
+  await page.getByRole('button', { name: '刷新公告列表' }).click();
+  const row = page.getByRole('row').filter({ hasText: '阅读确认测试' });
+  await expect(row).toContainText('已读 22 / 24 人');
+  await page.getByLabel(/^公告标题/).fill('未保存输入');
+  await row.getByRole('button', { name: '查看已读确认：阅读确认测试' }).click();
+  const dialog = page.getByRole('dialog', { name: '公告已读确认' });
+  await expect(dialog).toContainText('已读 22 人'); await expect(dialog).toContainText('未读 2 人');
+  await expect(dialog.getByRole('row')).toHaveCount(21);
+  await dialog.getByRole('button', { name: '下一页' }).click(); await expect(dialog).toContainText('确认牌友22');
+  await expect(dialog.getByRole('row')).toHaveCount(3);
+  await dialog.getByLabel('阅读状态').selectOption('unread'); await expect(dialog).toContainText('确认牌友23');
+  expect(state.readQueries.at(-1)?.page).toBe('1');
+  await dialog.getByLabel('搜索牌友').fill('100024'); await expect(dialog.getByRole('row')).toHaveCount(2);
+  await expect(dialog).toContainText('共 24 人');
+  state.receipts[23].readAt = 1780000100000;
+  await dialog.getByRole('button', { name: '刷新阅读记录' }).click(); await expect(dialog).toContainText('已读 23 人');
+  await expect(dialog).toContainText('没有符合搜索条件的牌友');
+  state.failReads = true; await dialog.getByRole('button', { name: '刷新阅读记录' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('公告版本已变化');
+  state.failReads = false; await dialog.getByRole('button', { name: '重试', exact: true }).click();
+  await dialog.getByLabel('搜索牌友').fill(''); await dialog.getByLabel('阅读状态').selectOption('read');
+  await expect(dialog.getByRole('row')).toHaveCount(21);
+  await page.screenshot({ path: 'output/qa/announcement-reads.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fits = await dialog.boundingBox(); expect(fits!.x).toBeGreaterThanOrEqual(0); expect(fits!.x + fits!.width).toBeLessThanOrEqual(390);
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(page.getByLabel(/^公告标题/)).toHaveValue('未保存输入');
+  await expect(row).toContainText('已读 23 / 24 人');
+  expect(state.posts).toEqual([]);
+});
+
+test('后台强更开关：确认发布后开启，失败保留输入，关闭后持久显示', async ({ page }) => {
+  const state = await setup(page);
+  await page.getByRole('button', { name: '后台设置', exact: true }).click();
+  const toggle = page.getByRole('switch', { name: '强制更新', exact: true });
+  await expect(toggle).not.toBeChecked();
+  await toggle.check();
+  const version = page.getByLabel('最低允许版本');
+  const save = page.getByRole('button', { name: '保存更新设置', exact: true });
+  await expect(save).toBeDisabled();
+  await version.fill('0.7.37'); await save.click();
+  const dialog = page.getByRole('dialog', { name: '确认启用强制更新' });
+  await expect(dialog).toContainText('整桌结束');
+  const confirm = dialog.getByRole('button', { name: '确认启用并保存' });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByRole('checkbox').check(); await confirm.click();
+  await expect(page.getByRole('status')).toContainText('已开启强制更新');
+  expect(state.updateSettings).toMatchObject({ enabled: true, minimumVersion: '0.7.37' });
+  await toggle.uncheck(); state.failSettings = true; await save.click();
+  await expect(page.getByRole('alert')).toContainText('设置已变化');
+  await expect(toggle).not.toBeChecked(); await expect(version).toHaveValue('0.7.37');
+  expect(state.updateSettings.enabled).toBe(true);
+  await save.click(); await expect(page.getByRole('status')).toContainText('已关闭强制更新');
+  await page.reload(); await page.getByRole('button', { name: '后台设置', exact: true }).click();
+  await expect(toggle).not.toBeChecked(); await expect(version).toHaveValue('0.7.37');
+  await page.screenshot({ path: 'output/qa/client-update-settings.png', fullPage: true });
+});
 
 test("announcement drafts keep the online version unchanged until explicit publication", async ({
   page,

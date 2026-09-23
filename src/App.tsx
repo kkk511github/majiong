@@ -7,6 +7,7 @@ import { networkLabel } from "./network-health";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
 import { NotificationCenter } from "./NotificationCenter";
+import { RequiredUpdate } from './RequiredUpdate';
 import { CocosTable } from "./CocosTable";
 import { useScoreDebits } from "./useScoreDebits";
 import { openingScene, openingTitle, type OpeningCue } from "./TableOpening";
@@ -74,6 +75,7 @@ import { listeningHints, readyDiscardTiles } from "./listening-hints";
 import { riverLayoutFor, tableRiverLayout } from "./river-layout";
 import { DiscardArrow } from "./DiscardArrow";
 import { TableLobby, TableSettingsSummary } from "./TableLobby";
+import { TableInvitations } from './TableInvitations';
 import { OnlineHome } from "./OnlineHome";
 import { resultWait } from "../shared/table-settings";
 import { gameAudio, gameCues, type AudioPreferences } from "./audio";
@@ -193,6 +195,7 @@ export function App() {
     }),
   );
   const [toast, setToast] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [roomError, setRoomError] = useState<{
     field: "name" | "code";
     message: string;
@@ -789,7 +792,7 @@ export function App() {
                       "等待准备"
                     )
                   ) : (
-                    "邀请一位朋友"
+                    v.table ? <button className="invite-empty-seat" disabled={!state.connected} onClick={() => setInviteOpen(true)}>邀请一位朋友</button> : <span>等待牌友加入</span>
                   )}
                 </span>
               </div>
@@ -809,6 +812,7 @@ export function App() {
                       : "全员准备，正在发牌…"}
             </p>
             <div className="waiting-actions">
+              {v.table && v.players.some(player => !player) && <button className="secondary invite-open-button" disabled={!state.connected} onClick={() => setInviteOpen(true)}><Users size={18} />邀请在线牌友</button>}
               <button
                 className="primary"
                 onClick={() => client.ready()}
@@ -892,10 +896,10 @@ export function App() {
         </CocosTable>
       )}
       <AudioRecovery />
-      <NotificationCenter key={state.account?.id ?? "guest"} client={client} accountId={state.account?.id}
+      {!state.updateRequired && <NotificationCenter key={state.account?.id ?? "guest"} client={client} accountId={state.account?.id}
         lobby={!v && page === "home"} idle={!v && modal === null}
         updateRequest={updateRequest} announcementRequest={announcementRequest} refreshKey={state.announcementVersion ?? 0}
-        onUnreadChange={setAnnouncementUnread} notice={setToast} />
+        onUnreadChange={setAnnouncementUnread} notice={setToast} />}
       {!v && (
         <nav className="bottom-nav" aria-label="主导航">
           {(
@@ -1498,6 +1502,8 @@ export function App() {
           </div>
         </Dialog>
       )}
+      {state.account && !state.updateRequired && <TableInvitations state={state} open={inviteOpen} close={() => setInviteOpen(false)} notice={setToast} />}
+      {state.updateRequired && <RequiredUpdate policy={state.updateRequired} retry={client.retryUpdate} />}
       {toast && (
         <div className="toast" role="status">
           <Check size={17} />

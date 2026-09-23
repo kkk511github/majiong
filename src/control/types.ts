@@ -15,20 +15,7 @@ export interface ControlAccount {
   playBlocked?: boolean;
 }
 
-export interface ControlAnnouncement {
-  id: string;
-  status: "draft" | "published" | "withdrawn";
-  draftTitle: string;
-  draftBody: string;
-  draftVersion: number;
-  revision: number;
-  publishedTitle: string | null;
-  publishedBody: string | null;
-  createdAt: number;
-  updatedAt: number;
-  publishedAt: number | null;
-  publishedBy: string | null;
-}
+export type { ControlAnnouncement } from '../../shared/announcements';
 
 export interface ControlTeam {
   id: string;

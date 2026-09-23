@@ -12,6 +12,7 @@ import {
   PackageOpen,
   ShieldCheck,
   UsersRound,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import {
   ControlApi,
@@ -24,14 +25,16 @@ import {
 import { Announcements } from "./Announcements";
 import { Members } from "./Members";
 import { Releases } from "./Releases";
+import { Settings } from './Settings';
 import type { ControlAccount } from "./types";
 import { ErrorNotice, Loading } from "./ui";
 
-type Page = "announcements" | "releases" | "members";
+type Page = "announcements" | "releases" | "members" | "settings";
 const pages = [
   { id: "announcements" as const, title: "公告管理", icon: Megaphone },
   { id: "releases" as const, title: "版本管理", icon: PackageOpen },
   { id: "members" as const, title: "人员管理", icon: UsersRound },
+  { id: 'settings' as const, title: '后台设置', icon: SettingsIcon },
 ];
 
 export function ControlApp() {
@@ -220,6 +223,7 @@ export function ControlApp() {
             <Members api={api} actor={account} onAccountChanged={setAccount} />
           </div>
         )}
+        {visited.has('settings') && <div hidden={page !== 'settings'}><Settings api={api} /></div>}
       </main>
     </div>
   );

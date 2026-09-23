@@ -7,6 +7,10 @@ import type { ParticipationRow, ReportDocument, ReportKind, ScoreRow } from "../
 export async function settlementWorkbook(kind: ReportKind, teamName: string, start: string, end: string,
   rows: (ParticipationRow | ScoreRow)[]): Promise<ReportDocument> {
   const daily = kind === "dailyScore";
+  // Rank the complete daily report by its signed numeric amount, not by team
+  // or formatted text. Copy first so callers and saved delivery snapshots stay intact.
+  const orderedRows = daily ? [...rows].sort((a, b) => b.points - a.points ||
+    a.userId.localeCompare(b.userId, 'en', { numeric: true })) : rows;
   const day = (date: string, year: boolean) => {
     const [y, m, d] = date.split("-").map(Number);
     return `${year ? y + "." : ""}${m}.${d}`;
@@ -24,21 +28,23 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
     if (["20分数", "20金额"].includes(sheet.getCell(2, c).text)) sheet.spliceColumns(c, 1);
   }
   const cols = 6;
+  sheet.getCell("C2").value = "昵称";
   sheet.getCell("E2").value = "50金额";
   sheet.mergeCells("A1:F1");
   const styles = Array.from({ length: cols }, (_, i) => structuredClone(sheet.getCell(3, i + 1).style));
   sheet.getCell("A1").value = title;
   wb.creator = "金陵麻将";
   wb.calcProperties.fullCalcOnLoad = true;
-  for (const [i, data] of rows.entries()) {
+  for (const [i, data] of orderedRows.entries()) {
     const r = i + 3;
     const line = sheet.getRow(r);
     line.height = 26;
     const points = data.points;
+    const nickname = data.nickname?.trim() ? data.nickname : data.username;
     line.values = daily
-      ? [data.teamName, data.userId, data.username, (data as ScoreRow).score,
+      ? [data.teamName, data.userId, nickname, (data as ScoreRow).score,
         { formula: `D${r}*0.5`, result: points }, { formula: `E${r}`, result: points }]
-      : [data.teamName, data.userId, data.username, (data as ParticipationRow).rounds,
+      : [data.teamName, data.userId, nickname, (data as ParticipationRow).rounds,
         { formula: `D${r}*3`, result: points }, { formula: `E${r}`, result: points }];
     for (let c = 1; c <= cols; c++) {
       const cell = line.getCell(c);
@@ -49,7 +55,7 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
       if (typeof number === "number") cell.numFmt = Number.isInteger(number) ? "0" : "0.#######";
     }
     line.getCell(3).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-    if (Array.from(data.username).length > 18) line.height = 42;
+    if (Array.from(nickname).length > 18) line.height = 42;
   }
   if (!rows.length) sheet.getCell("A3").value = "本期无结算记录";
   const last = String.fromCharCode(64 + cols);

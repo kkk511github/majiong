@@ -6,6 +6,7 @@ import { createAccounts, hashPassword } from "../server/accounts";
 import { createControl } from "../server/control";
 import { createAnnouncements } from "../server/announcements";
 import { createRecords } from "../server/records";
+import { createClientUpdateSettings } from '../server/client-update-settings';
 
 const secret = "Fixture-2026";
 let encoded: string;
@@ -38,9 +39,10 @@ async function fixture() {
       1000,
     );
   let changed = 0;
+  const updateSettings = createClientUpdateSettings(db, () => []);
   const control = createControl(db, accounts, () => {
     changed++;
-  });
+  }, updateSettings);
   const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     const url = new URL(req.url!, "http://localhost");
@@ -149,6 +151,21 @@ it("后台沿用APP单账号会话，每次请求核验管理员身份且不能�
   await f.call("/api/control/auth/logout", control, {});
   expect((await f.call("/api/control/auth/session", control)).status).toBe(401);
   expect((await f.call("/api/auth/session", app)).status).toBe(401);
+});
+
+it('后台更新开关仅限管理员，支持实时启停、版本校验、冲突保护与审计', async () => {
+  const f = await fixture();
+  const admin = await f.login(), member = await f.login('ordinary-member', false);
+  const path = '/api/control/settings/client-update';
+  expect((await f.call(path)).status).toBe(401);
+  expect((await f.call(path, member)).status).toBe(403);
+  expect((await f.call(path, member, { enabled: true, minimumVersion: '0.7.37', revision: 0 })).status).toBe(403);
+  expect((await f.call(path, admin)).body).toMatchObject({ enabled: false, revision: 0 });
+  expect((await f.call(path, admin, { enabled: true, minimumVersion: '', revision: 0 })).status).toBe(400);
+  expect((await f.call(path, admin, { enabled: true, minimumVersion: '0.7.37', revision: 0 })).body).toMatchObject({ enabled: true, revision: 1 });
+  expect((await f.call(path, admin, { enabled: false, minimumVersion: '0.7.37', revision: 0 })).status).toBe(409);
+  expect((await f.call(path, admin, { enabled: false, minimumVersion: '0.7.37', revision: 1 })).body).toMatchObject({ enabled: false, revision: 2 });
+  expect(f.db.prepare('SELECT * FROM client_update_audit').all()).toHaveLength(2);
 });
 
 it("公告草稿与线上分离，确认发布幂等且受并发保护，跨设备已读和撤回持续有效", async () => {
@@ -367,6 +384,65 @@ it("公告草稿与线上分离，确认发布幂等且受并发保护，跨设�
       )
       .get()!.n,
   ).toBe(3);
+});
+
+it('管理员可查询按当前发布版本去重的已读/未读人数、名单和确认时间，普通用户不能查询', async () => {
+  const f = await fixture(), admin = await f.login(), member = await f.login('ordinary-member', false);
+  const draft = (await f.call('/api/control/announcements', admin, { title: '已读统计', body: '确认内容', requestId: randomUUID() })).body.announcement;
+  const path = `/api/control/announcements/${draft.id}`;
+  expect((await f.call('/api/control/announcements', admin)).body.announcements[0].readStats).toBeNull();
+  expect((await f.call(path + '/readers?revision=0', admin)).status).toBe(409);
+  await f.call(path + '/publish', admin, { expectedRevision: 0, expectedDraftVersion: 1, requestId: randomUUID() });
+  await f.call('/api/announcements', member); // Opening the list is not confirmation.
+  expect((await f.call('/api/control/announcements', admin)).body.announcements[0].readStats)
+    .toEqual({ revision: 1, readCount: 0, unreadCount: 3, totalCount: 3 });
+  const readPath = `/api/announcements/${draft.id}/read`;
+  const first = await f.call(readPath, member, { revision: 1, accountId: 'guardian' });
+  expect((await f.call(readPath, member, { revision: 1 })).body).toEqual(first.body);
+  const query = path + '/readers?revision=1';
+  expect((await f.call(query)).status).toBe(401); expect((await f.call(query, member)).status).toBe(403);
+  const read = await f.call(query, admin);
+  expect(read.body.stats).toEqual({ revision: 1, readCount: 1, unreadCount: 2, totalCount: 3 });
+  expect(read.body.readers).toEqual([{ id: 'member', name: 'member', username: 'ordinary-member', memberId: expect.any(String), readAt: first.body.readAt }]);
+  const unread = await f.call(query + '&status=unread', admin);
+  expect(unread.body.total).toBe(2); expect(unread.body.readers.every((r: { readAt: unknown }) => r.readAt === null)).toBe(true);
+  expect((await f.call(query + '&q=missing', admin)).body).toMatchObject({ total: 0, readers: [], stats: { readCount: 1, totalCount: 3 } });
+  expect((await f.call(query + '&page=-1', admin)).status).toBe(400);
+  expect((await f.call(query + '&status=invalid', admin)).status).toBe(400);
+  expect((await f.call(path + '/readers?revision=2', admin)).status).toBe(409);
+  expect(f.db.prepare('SELECT COUNT(*) n FROM announcement_reads').get()!.n).toBe(1);
+
+  await f.call(path, admin, { title: '未发布的草稿', body: '修改', expectedDraftVersion: 1, requestId: randomUUID() });
+  expect((await f.call(query, admin)).body).toMatchObject({ title: '已读统计', stats: { revision: 1, readCount: 1 } });
+  await f.call(path + '/withdraw', admin, { expectedRevision: 1, requestId: randomUUID() });
+  expect((await f.call(query, admin)).body).toMatchObject({ status: 'withdrawn', stats: { revision: 1, readCount: 1 } });
+  await f.call(path + '/publish', admin, { expectedRevision: 2, expectedDraftVersion: 3, requestId: randomUUID() });
+  expect((await f.call('/api/control/announcements', admin)).body.announcements[0].readStats)
+    .toEqual({ revision: 3, readCount: 0, unreadCount: 3, totalCount: 3 });
+  expect((await f.call(query, admin)).status).toBe(409);
+  await f.call(readPath, member, { revision: 3 });
+  expect((await f.call(path + '/readers?revision=3', admin)).body.stats.readCount).toBe(1);
+  expect(f.db.prepare('SELECT COUNT(*) n FROM announcement_reads').get()!.n).toBe(2);
+});
+
+it('阅读统计明确排除不可登录/删除账号，包含新账号，分页和搜索不会改变总人数口径', async () => {
+  const f = await fixture(), admin = await f.login();
+  const service = createAnnouncements(f.db);
+  const { announcement: draft } = service.save('guardian', undefined, { title: '分页统计', body: '内容', requestId: randomUUID() });
+  service.publish('guardian', draft.id, { expectedRevision: 0, expectedDraftVersion: 1, requestId: randomUUID() });
+  for (let i = 0; i < 24; i++) f.db.prepare('INSERT INTO accounts VALUES (?,?,?,?,?,?,?)').run(`reader-${i}`, `reader${i}`, `昵称${i}`, encoded, 'member', 0, Date.now());
+  service.read('reader-0', draft.id, 1); service.read('reader-1', draft.id, 1);
+  f.db.prepare('INSERT INTO account_suspensions VALUES (?,?,?,?,?)').run('reader-0', 1, '', 'guardian', Date.now());
+  f.db.exec("UPDATE accounts SET must_change=1 WHERE id='reader-2'; DELETE FROM accounts WHERE id='reader-1';");
+  const path = `/api/control/announcements/${draft.id}/readers?revision=1&status=unread`;
+  const first = (await f.call(path, admin)).body, second = (await f.call(path + '&page=2', admin)).body;
+  expect(first.stats).toEqual({ revision: 1, readCount: 0, unreadCount: 24, totalCount: 24 });
+  expect(first.readers).toHaveLength(20); expect(second.readers).toHaveLength(4);
+  expect(new Set([...first.readers, ...second.readers].map(r => r.id)).size).toBe(24);
+  const search = (await f.call(path + '&q=' + encodeURIComponent('昵称23'), admin)).body;
+  expect(search.total).toBe(1); expect(search.stats.totalCount).toBe(24); expect(search.readers[0].username).toBe('reader23');
+  f.db.exec("UPDATE account_suspensions SET suspended=0 WHERE account_id='reader-0';");
+  expect(service.list().announcements[0].readStats).toEqual({ revision: 1, readCount: 1, unreadCount: 24, totalCount: 25 });
 });
 
 it("公告确认发布与审计及幂等收据为一个事务，失败保留草稿和线上内容", async () => {

@@ -12,6 +12,7 @@ import {
   type createAccounts,
 } from "./accounts";
 import { createAnnouncements } from "./announcements";
+import type { ClientUpdateSettings } from '../shared/client-update';
 
 type Accounts = ReturnType<typeof createAccounts>;
 
@@ -20,6 +21,7 @@ export function createControl(
   db: DatabaseSync,
   accounts: Accounts,
   onAnnouncementsChanged: () => void = () => {},
+  clientUpdates?: { get: () => ClientUpdateSettings; save: (actor: string, body: Record<string, unknown>) => ClientUpdateSettings },
 ) {
   const announcements = createAnnouncements(db, onAnnouncementsChanged);
   const bearer = (req: IncomingMessage) =>
@@ -238,7 +240,14 @@ export function createControl(
         return true;
       }
       if (req.method === "GET") {
-        if (path === "/api/control/announcements")
+        const readersPath = /^\/api\/control\/announcements\/([a-f0-9-]{36})\/readers$/.exec(path);
+        if (readersPath) {
+          res.end(JSON.stringify(announcements.readers(readersPath[1], url.searchParams)));
+          return true;
+        }
+        if (path === '/api/control/settings/client-update' && clientUpdates)
+          res.end(JSON.stringify(clientUpdates.get()));
+        else if (path === "/api/control/announcements")
           res.end(JSON.stringify(announcements.list()));
         else if (path === "/api/control/members")
           res.end(JSON.stringify(members(url.searchParams)));
@@ -269,6 +278,10 @@ export function createControl(
       );
       // Never trust an authorization check performed before an awaited body/hash.
       actor = requireSession(req);
+      if (path === '/api/control/settings/client-update' && clientUpdates) {
+        res.end(JSON.stringify(clientUpdates.save(actor.id, body)));
+        return true;
+      }
       if (path === "/api/control/announcements") {
         res.end(JSON.stringify(announcements.save(actor.id, undefined, body)));
         return true;

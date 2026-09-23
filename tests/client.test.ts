@@ -84,6 +84,55 @@ function online(ack = true) {
   return { ws, g };
 }
 afterEach(() => vi.unstubAllGlobals());
+it('hello explicitly advertises opening completion support', () => {
+  const { ws } = online();
+  expect(ws.sent.find(m => m.type === 'hello')).toMatchObject({ capabilities: { openingComplete: true } });
+  expect(ws.sent.find(m => m.type === 'hello')).toHaveProperty('clientVersion');
+});
+it('mandatory update blocks entry and automatic reconnection without clearing the account token', () => {
+  vi.useFakeTimers();
+  const saved = new Map<string, string>();
+  vi.stubGlobal('localStorage', { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => saved.set(key, value) });
+  const { ws } = online();
+  ws.receive({ type: 'error', code: 'UPDATE_REQUIRED', minimumVersion: '0.7.37', message: '请更新后继续' });
+  expect(client.state.updateRequired).toEqual({ minimumVersion: '0.7.37', message: '请更新后继续' });
+  expect(client.state.connected).toBe(false); expect(client.state.view).toBeNull();
+  expect(client.state.network.phase).toBe('blocked');
+  client.connect('测试'); client.retryNetwork();
+  vi.advanceTimersByTime(120_000);
+  expect(TestSocket.instances).toHaveLength(1);
+  expect(saved.get('jinling:token')).toBe(JSON.stringify('test-token'));
+});
+it('manual update recheck retries the server once; a still-enabled gate blocks again', () => {
+  const { ws } = online();
+  ws.receive({ type: 'error', code: 'UPDATE_REQUIRED', message: '请更新' });
+  client.retryUpdate();
+  expect(client.state.updateRequired).toBeUndefined();
+  expect(TestSocket.instances).toHaveLength(2);
+  const retry = TestSocket.instances[1]; retry.onopen?.();
+  retry.receive({ type: 'error', code: 'UPDATE_REQUIRED', message: '仍需更新' });
+  expect(client.state.updateRequired?.message).toBe('仍需更新');
+  expect(client.state.connected).toBe(false);
+});
+describe('online invitation request isolation', () => {
+  it('matches request replies without unlocking an outstanding game action', async () => {
+    const { ws, g } = online(); client.state.tableInvitesAvailable = true;
+    client.send({ type: 'ready' });
+    const request = client.onlineInvitePeers(g.id), message = ws.sent.at(-1)!;
+    expect(message.type).toBe('invitePeers');
+    ws.receive({ type: 'invitationResult', requestId: message.requestId!, peers: [] });
+    expect(await request).toEqual([]); expect(client.state.submitting).toBe('ready');
+  });
+  it('propagates a scoped invitation error and rejects disconnected requests', async () => {
+    const { ws, g } = online(); client.state.tableInvitesAvailable = true;
+    const request = client.invitePlayer(g.id, '100002');
+    const checked = expect(request).rejects.toThrow('该牌友已在牌桌中');
+    ws.receive({ type: 'error', requestId: ws.sent.at(-1)!.requestId, message: '该牌友已在牌桌中' });
+    await checked; expect(client.state.error).toBe('');
+    client.disconnect(); await expect(client.onlineInvitePeers(g.id)).rejects.toThrow('重连');
+    expect(client.state.tableInvitations).toEqual([]);
+  });
+});
 describe("联机校时与操作隔离", () => {
   it("重连旧桌已归档时转战绩，仍在桌内时恢复牌桌，记录按账号隔离", () => {
     const data = new Map<string, string>();

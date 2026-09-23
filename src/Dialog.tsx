@@ -9,6 +9,7 @@ export function Dialog({
   footer,
   headerAside,
   dismissOnBackdrop = true,
+  hideClose = false,
 }: {
   title: string;
   children: ReactNode;
@@ -17,6 +18,7 @@ export function Dialog({
   footer?: ReactNode;
   headerAside?: ReactNode;
   dismissOnBackdrop?: boolean;
+  hideClose?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -47,9 +49,9 @@ export function Dialog({
       <div className="modal-head">
         <h2 id={titleId}>{title}</h2>
         {headerAside}
-        <button aria-label="关闭" className="icon-button" onClick={close}>
+        {!hideClose && <button aria-label="关闭" className="icon-button" onClick={close}>
           <X size={22} />
-        </button>
+        </button>}
       </div>
       <div className="modal-body">{children}</div>
       {footer && <div className="modal-footer">{footer}</div>}

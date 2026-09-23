@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, Plus, RefreshCw, Save, Send } from "lucide-react";
 import { ControlApi, ControlApiError, errorMessage } from "./api";
 import {
@@ -8,6 +8,8 @@ import {
   displayTime,
 } from "./model";
 import { AppPreview, type PreviewContent } from "./Preview";
+import { AnnouncementReads } from './AnnouncementReads';
+import type { AnnouncementReadStats } from '../../shared/announcements';
 import type { ControlAnnouncement } from "./types";
 import { Empty, ErrorNotice, Loading, Modal, Notice, StatusBadge } from "./ui";
 
@@ -23,6 +25,10 @@ export function Announcements({ api }: { api: ControlApi }) {
   const [loadError, setLoadError] = useState("");
   const [reload, setReload] = useState(0);
   const [selected, setSelected] = useState<ControlAnnouncement | null>(null);
+  const [readTarget, setReadTarget] = useState<ControlAnnouncement | null>(null);
+  const updateReads = useCallback((id: string, stats: AnnouncementReadStats) => {
+    setItems(previous => previous.map(item => item.id === id && item.readStats?.revision === stats.revision ? { ...item, readStats: stats } : item));
+  }, []);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState<
@@ -386,6 +392,7 @@ export function Announcements({ api }: { api: ControlApi }) {
                   <th>标题</th>
                   <th>状态</th>
                   <th>发布时间</th>
+                  <th>已读确认</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -427,6 +434,12 @@ export function Announcements({ api }: { api: ControlApi }) {
                     <td className="control-table-date">
                       {displayTime(item.publishedAt)}
                     </td>
+                    <td>{item.readStats ? <>
+                      <button type="button" className="control-link" onClick={() => setReadTarget(item)} aria-label={`查看已读确认：${item.publishedTitle ?? item.draftTitle}`}>
+                        已读 {item.readStats.readCount} / {item.readStats.totalCount} 人
+                      </button>
+                      <small className="control-table-sub">未读 {item.readStats.unreadCount} 人 · v{item.readStats.revision}</small>
+                    </> : <span className="control-muted">{item.status === 'draft' ? '未发布' : '统计暂不可用'}</span>}</td>
                     <td>
                       <div className="control-row-actions">
                         <button
@@ -476,6 +489,7 @@ export function Announcements({ api }: { api: ControlApi }) {
           <AppPreview content={preview} />
         </Modal>
       )}
+      {readTarget && <AnnouncementReads api={api} item={readTarget} close={() => setReadTarget(null)} updated={updateReads} />}
       {publishTarget && (
         <Modal
           title="确认发布公告"

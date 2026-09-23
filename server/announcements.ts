@@ -5,6 +5,7 @@ import {
   ANNOUNCEMENT_TITLE_LIMIT,
   type Announcement,
   type ControlAnnouncement,
+  type AnnouncementReadPage,
 } from "../shared/announcements";
 import { AuthError } from "./accounts";
 
@@ -40,6 +41,7 @@ export function announcementSchema(db: DatabaseSync) {
     response TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(actor_id,request_id));
     CREATE INDEX IF NOT EXISTS announcements_published ON announcements(status,published_at);
     CREATE INDEX IF NOT EXISTS announcement_audit_target ON announcement_audit(announcement_id,at);`);
+  db.exec('CREATE INDEX IF NOT EXISTS announcement_reads_target ON announcement_reads(announcement_id,revision,read_at,account_id)');
 }
 
 function control(row: AnnouncementRow): ControlAnnouncement {
@@ -156,7 +158,58 @@ export function createAnnouncements(
         "SELECT * FROM announcements ORDER BY COALESCE(published_at,created_at) DESC,rowid DESC",
       )
       .all() as unknown as AnnouncementRow[];
-    return { announcements: rows.map(control) };
+    const total = audienceCount();
+    const counts = new Map(db.prepare(`SELECT r.announcement_id,r.revision,COUNT(*) AS n
+      FROM announcement_reads r JOIN accounts u ON u.id=r.account_id
+      LEFT JOIN account_suspensions s ON s.account_id=u.id WHERE ${audience}
+      GROUP BY r.announcement_id,r.revision`).all().map(r => [`${r.announcement_id}:${r.revision}`, Number(r.n)]));
+    return { announcements: rows.map(row => {
+      const revision = receiptRevision(row);
+      const readCount = revision === null ? 0 : counts.get(`${row.id}:${revision}`) ?? 0;
+      return { ...control(row), readStats: revision === null ? null : { revision, readCount, totalCount: total, unreadCount: total - readCount } };
+    }) };
+  }
+  // Count people eligible to sign in now, including admins. This is a current
+  // audience, not an immutable snapshot of membership at publication time.
+  const audience = 'u.must_change=0 AND COALESCE(s.suspended,0)=0';
+  function audienceCount() {
+    return Number(db.prepare(`SELECT COUNT(*) AS n FROM accounts u
+      LEFT JOIN account_suspensions s ON s.account_id=u.id WHERE ${audience}`).get()!.n);
+  }
+  function receiptRevision(row: AnnouncementRow) {
+    if (row.published_at === null) return null;
+    // Withdraw increments the concurrency revision but does not publish new
+    // content. Keep showing confirmations for the last published revision.
+    return row.status === 'withdrawn' ? row.revision - 1 : row.revision;
+  }
+  function readers(id: string, query: URLSearchParams): AnnouncementReadPage {
+    const row = get(id), revision = receiptRevision(row);
+    if (revision === null) throw new AuthError('草稿尚未发布，没有已读记录', 409);
+    const requested = query.get('revision');
+    if (!requested || !/^\d+$/.test(requested) || Number(requested) !== revision)
+      throw new AuthError('公告版本已变化，请刷新公告列表后查看', 409);
+    const status = query.get('status') ?? 'read', q = (query.get('q') ?? '').trim();
+    const page = Number(query.get('page') ?? 1), pageSize = 20;
+    if (!['read','unread','all'].includes(status) || q.length > 100 || !Number.isSafeInteger(page) || page < 1 || page > 100000)
+      throw new AuthError('阅读记录筛选或页码不正确');
+    const from = `FROM accounts u LEFT JOIN account_suspensions s ON s.account_id=u.id
+      LEFT JOIN account_numbers n ON n.account_id=u.id
+      LEFT JOIN announcement_reads r ON r.account_id=u.id AND r.announcement_id=? AND r.revision=?`;
+    const totals = db.prepare(`SELECT COUNT(*) AS total,COUNT(r.account_id) AS read_count ${from} WHERE ${audience}`).get(id, revision)!;
+    const where = [audience], args: (string | number)[] = [id, revision];
+    if (status !== 'all') where.push(`r.account_id IS ${status === 'read' ? 'NOT ' : ''}NULL`);
+    if (q) {
+      where.push('(instr(lower(u.username),lower(?))>0 OR instr(u.name,?)>0 OR instr(CAST(n.member_id AS TEXT),?)>0)');
+      args.push(q,q,q);
+    }
+    const clause = `${from} WHERE ${where.join(' AND ')}`;
+    const total = Number(db.prepare(`SELECT COUNT(*) AS n ${clause}`).get(...args)!.n);
+    const users = db.prepare(`SELECT u.id,u.name,u.username,CAST(n.member_id AS TEXT) AS member_id,r.read_at
+      ${clause} ORDER BY r.read_at DESC,n.member_id,u.id LIMIT ? OFFSET ?`).all(...args, pageSize, (page-1)*pageSize);
+    return { id, title: row.published_title!, status: row.status,
+      stats: { revision, readCount: Number(totals.read_count), totalCount: Number(totals.total), unreadCount: Number(totals.total) - Number(totals.read_count) },
+      readers: users.map(u => ({ id: String(u.id), name: String(u.name), username: String(u.username), memberId: u.member_id == null ? null : String(u.member_id), readAt: u.read_at == null ? null : Number(u.read_at) })),
+      total, page, pageSize };
   }
   function mutate(
     actorId: string,
@@ -280,5 +333,5 @@ export function createAnnouncements(
       },
     );
   }
-  return { published, read, list, save, publish, withdraw };
+  return { published, read, list, readers, save, publish, withdraw };
 }

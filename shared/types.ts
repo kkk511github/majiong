@@ -468,7 +468,7 @@ export interface OpeningGate {
   expiresAt: number;
 }
 export type ClientMessage = (
-  | { type: "hello"; token?: string; name: string }
+  | { type: "hello"; token?: string; name: string; clientVersion?: string; capabilities?: { openingComplete?: boolean } }
   | { type: "create"; rules?: Partial<Rules> }
   | {
       type: "createTables";
@@ -479,6 +479,9 @@ export type ClientMessage = (
     }
   | { type: "createExperienceTable"; sourceCode: string }
   | { type: "tables" }
+  | { type: "invitePeers"; game: string }
+  | { type: "invitePlayer"; game: string; memberId: string }
+  | { type: "respondInvite"; invitation: string; accept: boolean }
   | { type: "closeTable"; code: string }
   | { type: "join"; code: string; seat?: Seat }
   | { type: "ready" }
@@ -496,6 +499,8 @@ export type ClientMessage = (
   | { type: "ping"; sentAt?: number; sync?: boolean }
 ) & { requestId?: string };
 export type ServerMessage = (
+  | { type: "tableInvitations"; invitations: import('./table-invitations').TableInvitation[] }
+  | { type: "invitationResult"; requestId: string; peers?: import('./table-invitations').OnlineInvitePeer[] }
   | { type: "voice"; message: import("./room-voice").RoomVoiceMessage }
   | { type: "phrase"; message: import("./room-phrases").RoomPhraseMessage }
   | { type: "accountUpdated"; account: Account }
@@ -508,6 +513,7 @@ export type ServerMessage = (
       roomCode?: string;
       commandAck?: true;
       roomPhrases?: true;
+      tableInvites?: true;
       tableLobby?: true;
       timeSync?: true;
       serverVersion?: string;
@@ -518,7 +524,8 @@ export type ServerMessage = (
       type: "error";
       message: string;
       requestId?: string;
-      code?: "AUTH_REQUIRED";
+      code?: "AUTH_REQUIRED" | "UPDATE_REQUIRED";
+      minimumVersion?: string;
     }
   | { type: "ack"; requestId: string }
   | { type: "tables"; tables: TableSummary[] }

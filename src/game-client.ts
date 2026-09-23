@@ -11,8 +11,11 @@ import { isRoomPhraseId, isRoomPhraseMessage, ROOM_PHRASE_TTL_MS, ROOM_PHRASE_HI
 import { newGameRules } from "../shared/nanjing-rules";
 import { ServerClock } from "./server-clock";
 import type { OpeningCue } from "./TableOpening";
+import type { OnlineInvitePeer, TableInvitation } from '../shared/table-invitations';
 import { decisionDeadline, setTrustee } from "../shared/timing";
 import { Capacitor } from "@capacitor/core";
+import { App as NativeApp } from '@capacitor/app';
+import { version as webVersion } from '../package.json';
 import { isAvatarPath } from "../shared/account-profile";
 import {
   act,
@@ -60,6 +63,7 @@ export const storage = {
   },
 };
 export interface ClientState {
+  updateRequired?: { minimumVersion?: string; message: string };
   network: NetworkHealth;
   account: Account | null;
   authChecked: boolean;
@@ -81,6 +85,8 @@ export interface ClientState {
   voiceMessages: RoomVoiceMessage[];
   phraseMessages: RoomPhraseMessage[];
   phrasesAvailable: boolean;
+  tableInvitesAvailable: boolean;
+  tableInvitations: TableInvitation[];
   announcementVersion?: number;
   recordsReturn?: number;
 }
@@ -111,6 +117,8 @@ export class GameClient {
     voiceMessages: [],
     phraseMessages: [],
     phrasesAvailable: false,
+    tableInvitesAvailable: false,
+    tableInvitations: [],
     announcementVersion: 0,
   };
   private local?: Game;
@@ -152,6 +160,28 @@ export class GameClient {
     game: string;
     round: number;
   };
+  private inviteSequence = 0;
+  private inviteRequests = new Map<string, { resolve: (peers: OnlineInvitePeer[]) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+  private invitationRequest(message: Extract<ClientMessage, { type: 'invitePeers' | 'invitePlayer' | 'respondInvite' }>) {
+    if (!this.state.connected || this.socket?.readyState !== WebSocket.OPEN) return Promise.reject(new Error('正在重连，请稍后再试'));
+    if (!this.state.tableInvitesAvailable) return Promise.reject(new Error('在线邀请服务暂不可用，可先复制房号'));
+    const requestId = `invite-${Date.now()}-${++this.inviteSequence}`;
+    return new Promise<OnlineInvitePeer[]>((resolve, reject) => {
+      const timer = setTimeout(() => this.finishInvitation(requestId, new Error('邀请回复超时，请刷新状态后重试')), 8000);
+      this.inviteRequests.set(requestId, { resolve, reject, timer });
+      try { this.socket!.send(JSON.stringify({ ...message, requestId })); }
+      catch { this.finishInvitation(requestId, new Error('邀请未发送，请检查连接')); }
+    });
+  }
+  private finishInvitation(id: string, error?: Error, peers: OnlineInvitePeer[] = []) {
+    const pending = this.inviteRequests.get(id);
+    if (!pending) return;
+    clearTimeout(pending.timer); this.inviteRequests.delete(id);
+    if (error) pending.reject(error); else pending.resolve(peers);
+  }
+  onlineInvitePeers = (game: string) => this.invitationRequest({ type: 'invitePeers', game });
+  invitePlayer = (game: string, memberId: string) => this.invitationRequest({ type: 'invitePlayer', game, memberId });
+  respondInvite = (invitation: string, accept: boolean) => this.invitationRequest({ type: 'respondInvite', invitation, accept });
   now = () => (this.state.mode === "online" ? this.clock.now() : Date.now());
   syncTime = (fresh = false) => {
     if (
@@ -744,6 +774,10 @@ export class GameClient {
     }
   }
   connect(name: string, pending?: ClientMessage) {
+    if (this.state.updateRequired) {
+      this.emit({ error: this.state.updateRequired.message, tablesLoading: false });
+      return;
+    }
     if (
       this.state.authChecked &&
       (!this.state.account || this.state.account.mustChangePassword)
@@ -835,12 +869,21 @@ export class GameClient {
       () => this.restartConnection("连接牌桌超时，正在重试…"),
       10000,
     );
-    ws.onopen = () => {
+    ws.onopen = async () => {
       if (this.socket !== ws || this.stopped) return;
       this.updateNetwork({ phase: "authenticating" });
+      let clientVersion: string | undefined = webVersion;
+      if (Capacitor.isNativePlatform()) {
+        // Report the installed binary, not a remotely served preview's version.
+        try { clientVersion = (await NativeApp.getInfo()).version; }
+        catch { clientVersion = undefined; }
+        if (this.socket !== ws || this.stopped) return;
+      }
       ws.send(
         JSON.stringify({
           type: "hello",
+          capabilities: { openingComplete: true },
+          clientVersion,
           name: this.name,
           token: storage.get("token", undefined),
         }),
@@ -874,6 +917,8 @@ export class GameClient {
           this.emit({
             connected: !msg.roomCode,
             phrasesAvailable: msg.roomPhrases === true,
+            tableInvitesAvailable: msg.tableInvites === true,
+            tableInvitations: [],
             connecting: !!msg.roomCode,
             notice: msg.roomCode ? "正在同步牌桌…" : "",
             error: "",
@@ -1045,12 +1090,24 @@ export class GameClient {
           } else if (this.openingCompletion) this.openingCompletion = undefined;
           if (restored && this.lobbyWanted) this.send({ type: "tables" });
           this.archive();
+        } else if (msg.type === 'tableInvitations') {
+          this.emit({ tableInvitations: msg.invitations });
+        } else if (msg.type === 'invitationResult') {
+          this.finishInvitation(msg.requestId, undefined, msg.peers);
         } else if (msg.type === "ack") {
           if (msg.requestId === this.phraseRequest?.id) this.finishPhrase();
           if (msg.requestId === this.commandId) this.finishCommand();
         } else if (msg.type === "error") {
+          if (msg.code === 'UPDATE_REQUIRED') {
+            this.requireUpdate(msg.message, msg.minimumVersion);
+            return;
+          }
           if (msg.code === "AUTH_REQUIRED") {
             this.expireAuth();
+            return;
+          }
+          if (msg.requestId && this.inviteRequests.has(msg.requestId)) {
+            this.finishInvitation(msg.requestId, new Error(msg.message));
             return;
           }
           if (msg.requestId === this.phraseRequest?.id) {
@@ -1095,6 +1152,10 @@ export class GameClient {
       clearTimeout(this.connectTimer);
       this.finishTables();
       this.finishCommand();
+      if (event.code === 4006) {
+        this.requireUpdate('当前版本已停止进入牌桌，请更新应用后继续。');
+        return;
+      }
       if (event.code === 4003) {
         this.expireAuth();
         return;
@@ -1272,7 +1333,19 @@ export class GameClient {
       this.emit({ view: null, mode: null });
     }
   }
+  retryUpdate = () => {
+    if (!this.state.updateRequired) return;
+    this.emit({ updateRequired: undefined, error: '' });
+    this.connect(this.name);
+  };
+  private requireUpdate(message: string, minimumVersion?: string) {
+    const completed = this.state.view?.phase === 'finished' ? this.state.view : null;
+    this.disconnect();
+    this.updateNetwork({ phase: 'blocked' });
+    this.emit({ updateRequired: { message, minimumVersion }, error: message, notice: '', view: completed, openingCue: null });
+  }
   disconnect() {
+    for (const id of this.inviteRequests.keys()) this.finishInvitation(id, new Error('连接已关闭'));
     this.stopClock();
     this.finishTables();
     clearTimeout(this.connectTimer);
@@ -1297,6 +1370,8 @@ export class GameClient {
       connecting: false,
       tablesLoading: false,
       network: initialNetworkHealth(),
+      tableInvitesAvailable: false,
+      tableInvitations: [],
     });
   }
 }

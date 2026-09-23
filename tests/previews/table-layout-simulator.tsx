@@ -5,6 +5,7 @@ import { busyTableFixture, fullMeldFixture } from './table-full-meld-fixture';
 import './table-layout-simulator.css';
 
 const scenes = [
+  { id: 'hud', label: '比下胡 ×2', detail: '倍率避让头像，放大实际花数' },
   { id: 'pung', label: '四家满碰', detail: '每家4组碰牌＋余手牌＋摸牌' },
   { id: 'kong', label: '四家满明杠', detail: '每家4组明杠，四张并排' },
   { id: 'busy', label: '忙碌牌河', detail: '每家27张弃牌，检查第11／21张换行' },
@@ -12,11 +13,20 @@ const scenes = [
 type Scene = typeof scenes[number]['id'];
 
 function LayoutSimulator() {
-  const [scene, setScene] = useState<Scene>('pung');
-  const state = useMemo(() => ({
-    ...(scene === 'busy' ? busyTableFixture() : fullMeldFixture(scene)),
-    key: `native-layout-${scene}`, disabled: true, externalControls: true,
-  }), [scene]);
+  const [scene, setScene] = useState<Scene>('hud');
+  const state = useMemo(() => {
+    const snapshot = scene === 'busy' || scene === 'hud' ? busyTableFixture() : fullMeldFixture(scene);
+    if (scene === 'hud') {
+      snapshot.code = '花数与倍率'; snapshot.roundMultiplier = 2; snapshot.turn = 3;
+      snapshot.remaining = 42;
+      let flowerIndex = 124;
+      snapshot.players.forEach((player, index) => {
+        player.discards = player.discards.slice(0, 4);
+        player.flowers = Array.from({ length: [5, 2, 1, 12][index] }, () => flowerIndex++);
+      });
+    }
+    return { ...snapshot, key: `native-layout-${scene}`, disabled: true, externalControls: true };
+  }, [scene]);
   const selected = scenes.find(item => item.id === scene)!;
   return <main className="layout-simulator">
     <header>

@@ -45,7 +45,7 @@ async function stop(s: ReturnType<typeof makeServer>) {
   await s.close();
   active.splice(active.indexOf(s), 1);
 }
-async function peer(port: number, name: string, token?: string) {
+async function peer(port: number, name: string, token?: string, openingComplete: boolean | undefined = true) {
   token ??= await peerCredential(port, name);
   const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
   sockets.push(socket);
@@ -73,7 +73,7 @@ async function peer(port: number, name: string, token?: string) {
       `Timed out waiting for ${type}: ${messages.map((m) => m.type).join(",")}`,
     );
   }
-  send({ type: "hello", name, token });
+  send({ type: "hello", name, token, ...(openingComplete ? { capabilities: { openingComplete } } : {}) });
   const session = await read("session");
   return { socket, send, read, session, latest: () => latest };
 }
@@ -133,6 +133,44 @@ function completeOpening(
 }
 
 describe("开局动画服务端同步门", () => {
+  it.each([false, true])("旧设置没有 openingAnimation：legacy/mixed=%s 只等待声明能力的新连接", async mixed => {
+    const { s, port } = await boot();
+    const host = await peer(port, '旧设置管理员');
+    const [code] = await createTables(host, { openingAnimation: true });
+    delete (s.games.get(code)!.table!.settings as Partial<TableSettings>).openingAnimation;
+    const players = [];
+    for (let seat = 0; seat < 4; seat++) {
+      const p = await peer(port, `兼容玩家${seat}`, undefined, mixed && seat === 1);
+      players.push(p);
+      p.send({ type: 'join', code, seat: seat as Seat });
+      await p.read('state');
+    }
+    const started = await players[0].read('state', m => m.state.phase === 'playing');
+    if (mixed) {
+      expect(s.games.get(code)!.openingGate?.waiting).toEqual([1]);
+      completeOpening(players[1], s.games.get(code)!.id, 1);
+    }
+    const { state } = mixed ? await players[0].read('state', m => m.state.phase === 'playing' && !m.state.openingGate && m.state.canDiscard) : started;
+    expect(s.games.get(code)!.openingGate).toBeUndefined();
+    expect(state.deadline).toBeGreaterThan(Date.now());
+    players[0].send({ type: 'action', revision: state.revision, action: { type: 'discard', tile: state.players[0]!.hand[0] }, requestId: 'legacy-discard' });
+    await players[0].read('ack', m => m.requestId === 'legacy-discard');
+    expect(s.games.get(code)!.players[0]!.discards).toHaveLength(1);
+  });
+
+  it("开局等待期间换回旧版登录，不能继承新版连接的确认义务", async () => {
+    const { s, port } = await boot();
+    const host = await peer(port, '换版管理员');
+    const [code] = await createTables(host, { openingAnimation: true });
+    const players = await fill(port, code);
+    await players[0].read('state', m => m.state.phase === 'playing');
+    for (const seat of [0, 1, 2]) completeOpening(players[seat], s.games.get(code)!.id, 1);
+    await players[0].read('state', m => m.state.openingGate?.waiting.join(',') === '3');
+    const legacy = await peer(port, '北家', players[3].session.token, false);
+    await legacy.read('state', m => m.state.phase === 'playing' && !m.state.openingGate && m.state.deadline > 0);
+    expect(s.games.get(code)!.openingGate).toBeUndefined();
+  });
+
   it("关闭动画时立即起钟并允许正常出牌", async () => {
     const { s, port } = await boot(),
       host = await peer(port, "关闭动画管理员"),

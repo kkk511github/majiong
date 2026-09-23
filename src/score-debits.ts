@@ -7,7 +7,7 @@ const labels: Partial<Record<ScoreTransfer["reason"], string>> = {
   暗杠: "暗杠",
   花杠: "花杠",
   四连风: "四连风",
-  四家跟牌: "四家跟风",
+  四家跟牌: "四家同牌",
   四张同牌: "四张同牌",
 };
 export interface ScoreDebit {

@@ -5,6 +5,7 @@ import { scoreHand, type WinContext } from "../shared/scoring";
 import { settlementRows } from "../shared/settlement";
 import { createWall, seededRandom } from "../shared/tiles";
 import type { Game, Player, Seat } from "../shared/types";
+import { ruleSections } from "../src/rule-copy";
 import { externalRound } from "./fixtures/external-round";
 
 const rules = ruleDefaults("nj-garden-b-v3");
@@ -325,7 +326,7 @@ function discardWindSequence(g: Game, kinds: number[]): Game {
 function windOrders(kinds: number[]): number[][] {
   return kinds.length === 0 ? [[]] : kinds.flatMap(k => windOrders(kinds.filter(other => other !== k)).map(rest => [k, ...rest]));
 }
-describe("B档风牌按本把倍率收付，不额外乘花砸2", () => {
+describe("B档弃牌即时收付按本把倍率，不额外乘花砸2", () => {
   it.each(seats.flatMap(dealer => [27, 28, 29, 30].map(k => ({ dealer, k }))))(
     "庄位$dealer首张风$k，三家各自首张按座序跟牌，比下胡庄家各付10分",
     ({ dealer, k }) => {
@@ -353,6 +354,12 @@ describe("B档风牌按本把倍率收付，不额外乘花砸2", () => {
     { multiplier: 2, doubleSidePayments: false, amount: 5 },
     { multiplier: 4, doubleSidePayments: false, amount: 5 },
   ].flatMap(testCase => [true, false].map(flowerDouble => ({ ...testCase, flowerDouble })));
+  it("玩法文案明确四家同牌不限制首圈、庄家或牌种", () => {
+    const text = ruleSections(ruleDefaults("nj-garden-b-v3")).flat().join("");
+    expect(text).toContain("任意时机四家连续各打一张相同牌，第一位向其他每家付5分");
+    expect(text).toContain("同一把可以多次成立");
+    expect(text).not.toContain("首轮庄家出风牌");
+  });
   it.each(paymentCases)(
     "首轮跟风：倍率$multiplier、即时跟倍$doubleSidePayments、花砸2$flowerDouble，庄家各付$amount分",
     ({ multiplier, doubleSidePayments, flowerDouble, amount }) => {
@@ -382,22 +389,47 @@ describe("B档风牌按本把倍率收付，不额外乘花砸2", () => {
       expect(g.ruleState!.nextReasons).toEqual(["四连风"]);
     },
   );
-  it("第二轮四家跟同风不罚", () => {
+  it("第二轮四家连续跟同风，第一位向其余三家各付10分", () => {
     let g = windGame(seats.map(s => [s, 27]));
     for (const s of seats) g = discardKind(g, s, s);
     for (const s of seats) g = discardKind(g, s, 27);
-    expect(g.roundTransfers).toEqual([]);
+    expect(g.roundTransfers).toEqual([1, 2, 3].map(to => ({ from: 0, to, amount: 10, reason: "四家跟牌" })));
+    expect(g.players.map(p => p!.score)).toEqual([60, 100, 100, 100]);
+    expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
   });
-  it("非庄家开始的连续四张同风不罚", () => {
+  it("非庄家开始的连续四张同风，第一位罚款", () => {
     let g = windGame([[0, 27], [27], [27], [27]]);
     g = discardKind(g, 0, 0);
     for (const s of [1, 2, 3, 0] as Seat[]) g = discardKind(g, s, 27);
-    expect(g.roundTransfers).toEqual([]);
+    expect(g.roundTransfers).toEqual([2, 3, 0].map(to => ({ from: 1, to, amount: 10, reason: "四家跟牌" })));
+    expect(g.players.map(p => p!.score)).toEqual([100, 60, 100, 100]);
+    expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
   });
-  it("首轮数字牌四家跟牌不罚", () => {
+  it("首轮数字牌四家跟牌，第一位罚款", () => {
     let g = windGame(seats.map(() => [8]));
     for (const s of seats) g = discardKind(g, s, 8);
-    expect(g.roundTransfers).toEqual([]);
+    expect(g.roundTransfers).toEqual([1, 2, 3].map(to => ({ from: 0, to, amount: 10, reason: "四家跟牌" })));
+    expect(g.players.map(p => p!.score)).toEqual([60, 100, 100, 100]);
+    expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
+  });
+  it("庄家先打其他牌后，四家连续跟同牌仍由第一位罚款", () => {
+    let g = windGame([[28], [30, 28], [28], [28]], 1);
+    g = discardKind(g, 1, 30);
+    for (const s of [2, 3, 0, 1] as Seat[]) g = discardKind(g, s, 28);
+    expect(g.roundTransfers).toEqual([3, 0, 1].map(to => ({ from: 2, to, amount: 10, reason: "四家跟牌" })));
+    expect(g.players.map(p => p!.score)).toEqual([100, 100, 60, 100]);
+    expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
+  });
+  it("同一把出现多组四家连续同牌时逐组罚款，比下胡原因只记一次", () => {
+    let g = windGame(seats.map(() => [27, 28]));
+    for (const k of [27, 28])
+      for (const s of seats) g = discardKind(g, s, k);
+    expect(g.roundTransfers).toEqual([
+      ...[1, 2, 3].map(to => ({ from: 0, to, amount: 10, reason: "四家跟牌" as const })),
+      ...[1, 2, 3].map(to => ({ from: 0, to, amount: 10, reason: "四家跟牌" as const })),
+    ]);
+    expect(g.players.map(p => p!.score)).toEqual([30, 110, 110, 110]);
+    expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
   });
   it("首轮同风之间暗杠会中断跟牌链", () => {
     let g = windGame([[27], [27, 0, 0, 0, 0], [27], [27]]);
@@ -407,14 +439,15 @@ describe("B档风牌按本把倍率收付，不额外乘花砸2", () => {
     for (const s of [1, 2, 3] as Seat[]) g = discardKind(g, s, 27);
     expect(g.roundTransfers!.some(t => t.reason === "四家跟牌")).toBe(false);
   });
-  it("碰牌清空跟牌链，之后同风不能接上此前出牌", () => {
+  it("碰牌清空跟牌链，之后重新连续四家同牌仍罚第一位", () => {
     let g = windGame([[27, 28], [27, 27, 28], [28], [28]]);
     g = act(g, 0, { type: "discard", tile: 108 }, 1000);
     expect(g.pending!.offers[1]).toContain("pung");
     g = act(g, 1, { type: "pung" }, 1001);
     expect(g.ruleState!.discards).toEqual([]);
     for (const s of [1, 2, 3, 0] as Seat[]) g = discardKind(g, s, 28);
-    expect(g.roundTransfers!.some(t => t.reason === "四家跟牌")).toBe(false);
+    expect(g.roundTransfers).toEqual([2, 3, 0].map(to => ({ from: 1, to, amount: 10, reason: "四家跟牌" })));
+    expect(g.ruleState!.nextReasons).toEqual(["四家跟牌"]);
   });
   it("先出数字牌再连续出四种风，不算前四张四风", () => {
     const kinds = [8, 27, 28, 29, 30];

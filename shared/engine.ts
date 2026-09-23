@@ -528,12 +528,7 @@ function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
     if (
       chain.length === 4 &&
       new Set(chain.map((d) => d.seat)).size === 4 &&
-      chain.every((d) => kind(d.tile) === k) &&
-      (!bProfile || (
-        k >= 27 && k <= 30 &&
-        state.ownDiscards.every((discards) => discards.length === 1) &&
-        chain.every((d, index) => d.seat === (g.dealer + index) % 4)
-      ))
+      chain.every((d) => kind(d.tile) === k)
     )
       payOthers(
         chain[0].seat,

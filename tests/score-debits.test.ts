@@ -62,6 +62,20 @@ describe("服务器即时扣分提醒", () => {
       );
     }
   });
+  it("四家连续同牌把第一位的三笔付款合并显示为四家同牌", () => {
+    const before = viewFor(debitGame(), 0),
+      after = structuredClone(before);
+    after.revision++;
+    after.roundTransfers = [3, 0, 1].map((to) => ({
+      from: 2 as const,
+      to: to as 0 | 1 | 3,
+      amount: 5,
+      reason: "四家跟牌" as const,
+    }));
+    expect(
+      scoreDebits(before, after).map((e) => [e.seat, e.amount, e.label]),
+    ).toEqual([[2, 15, "四家同牌"]]);
+  });
   it("余额封顶按实际流水，扣至两家归零仍能显示本次扣分", () => {
     const before = debitGame("concealed", 2);
     before.players[1]!.score = 3;

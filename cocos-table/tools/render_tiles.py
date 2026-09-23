@@ -139,6 +139,20 @@ poses={
  # orientation only; lateral camera yaw made the old rows look diagonally skewed.
  'left':{'eye':(0,-10,17),'rot':(0,0,-90),'kinds':42},
  'right':{'eye':(0,-10,17),'rot':(0,0,90),'kinds':42},
+ # Exposed melds need their own physical tabletop cameras.  The bottom pose
+ # is intentionally lower than the generic face-up sprite so its ivory wall,
+ # green substrate and contact edge read as a tile lying down beside the hand.
+ # Side suppliers use the exact same eye as the two ordinary side faces; only
+ # the solid turns on the table, so thickness and lighting never rotate as a
+ # flattened bitmap.
+ 'meld-bottom':{'eye':(0,-12,11),'rot':(0,0,0),'kinds':42,'depth':.72},
+ 'meld-bottom-cross':{'eye':(0,-12,11),'rot':(0,0,-90),'kinds':42,'depth':.72},
+ # The opposite-seat supplier must turn as a real solid under the same lens as
+ # the ordinary `top` cards.  Baking this pose avoids rotating the green base,
+ # contact shadow and key-light highlight in 2D at runtime.
+ 'meld-top-cross':{'eye':(0,-10,13),'rot':(0,0,-90),'kinds':42},
+ 'meld-cross-left':{'eye':(0,-10,17),'rot':(0,0,0),'kinds':42},
+ 'meld-cross-right':{'eye':(0,-10,17),'rot':(0,0,180),'kinds':42},
  # Side flowers lie in straight rectangular troughs. Keep the raised solid
  # and engraved face, but bake both without the former trapezoidal shear.
  'flower-left':{'eye':(0,-12,15),'rot':(0,0,-90),'kinds':42,'depth':1.5},
@@ -158,6 +172,10 @@ poses={
  'top-right':{'eye':(0,-10,13),'rot':(0,0,0),'kinds':42},
  'cover-bottom':{'eye':(0,-10,13),'rot':(180,0,0),'kinds':1,'back':True},
  'cover-top':{'eye':(0,-10,13),'rot':(180,0,0),'kinds':1,'back':True},
+ # Match the existing shallow meld-bottom camera for the far-seat stack.
+ # Physical width stays identical; the projected depth leaves headroom for
+ # the upper solid without moving the fixed hand, flower or river fixtures.
+ 'cover-meld-top':{'eye':(0,-12,11),'rot':(180,0,0),'kinds':1,'back':True,'depth':.72},
  'cover-left':{'eye':(0,-10,17),'rot':(180,0,-90),'kinds':1,'back':True},
  'cover-right':{'eye':(0,-10,17),'rot':(180,0,90),'kinds':1,'back':True},
  'back-top':{'eye':(0,-10,9),'rot':(90,0,180),'kinds':1,'back':True},
@@ -189,7 +207,8 @@ for name,pose in poses.items():
     if args.individual:
         s.render.resolution_x=384;s.render.resolution_y=384;cam.data.ortho_scale=spacing
         s.cycles.use_animated_seed=False;s.cycles.seed=0
-    for frame in (range(pose['kinds']) if args.individual else [None]):
+    frames=sorted(selected_kinds) if args.individual and selected_kinds else (range(pose['kinds']) if args.individual else [None])
+    for frame in frames:
         objects=[]
         for k in ([frame] if args.individual else range(pose['kinds'])):
             if selected_kinds and k not in selected_kinds: continue

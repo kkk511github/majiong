@@ -31,8 +31,14 @@ export function scoreDebitPosition(
   const zones = [
     { left: 230, right: 1110, top: 395, bottom: 466 },
     { left: 918, right: 1120, top: 150, bottom: 420 },
-    { left: 360, right: 915, top: 95, bottom: 154 },
-    { left: 164, right: 400, top: 160, bottom: 415 },
+    // The opposite third discard row and a full side meld rail can jointly
+    // occupy the former upper-left reserve. Search the remaining felt around
+    // the opposite rack; this only moves the transient badge, never scores.
+    { left: 164, right: 1110, top: 30, bottom: 455 },
+    // The upstream meld/river rail now lives farther toward the centre. Keep
+    // the search bay wide enough to find the lower-centre felt gap on a dense
+    // 27-tile table; this only moves the transient debit badge, never scores.
+    { left: 164, right: 520, top: 120, bottom: 455 },
   ];
   const hud = [0, 1, 2, 3].map((o) => {
     const p = layoutPlayerHud(o, state.safeArea);

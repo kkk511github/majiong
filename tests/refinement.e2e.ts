@@ -1,4 +1,4 @@
-import { legacyRoom } from "./browser-fixtures";
+import { legacyRoom, openTableMenu } from "./browser-fixtures";
 import { expect, test } from "./browser-fixtures";
 import { createGame, newPlayer, startRound } from "../shared/engine";
 import { seededRandom } from "../shared/tiles";
@@ -28,7 +28,7 @@ test("先准备再补电脑，第四个座位补齐后直接发牌", async ({ pa
   ).toHaveCount(14);
   await expect(page.getByRole("timer")).toBeVisible();
   await page.screenshot({ path: captures + "/friend-ready-fixed.png" });
-  await page.getByRole("button", { name: "大厅", exact: true }).click();
+  await openTableMenu(page, 'leave');
   await page.getByRole("button", { name: "申请解散", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("牌桌已解散");
 });

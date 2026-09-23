@@ -1,4 +1,4 @@
-import {test,expect,type WebSocketRoute} from './browser-fixtures';
+import {test,expect,openTableMenu,type WebSocketRoute} from './browser-fixtures';
 import {viewFor} from '../shared/engine';
 import type {Game} from '../shared/types';
 import late from './fixtures/late-table.json' with {type:'json'};
@@ -77,7 +77,7 @@ test('大厅去掉练习入口；正式体验桌三机器人开局并由管理�
  await page.evaluate(async(code)=>{const {client}=await import('/src/game-client.ts' as string);client.joinTable('金陵牌友',code!,0);},code);
  await expect(page.locator('#cocos-table-board')).toBeVisible();
  await expect.poll(()=>page.evaluate(async()=>{const {client}=await import('/src/game-client.ts' as string);return client.snapshot().view?.players.filter((p:any)=>p?.bot).length;})).toBe(3);
- await page.getByRole('button',{name:'大厅',exact:true}).click();
+ await openTableMenu(page,'leave');
  await expect(page.getByRole('button',{name:'管理员解散',exact:true})).toBeVisible();
  await page.screenshot({path:`${artifact}/admin-dissolve.png`});
  await page.getByRole('button',{name:'管理员解散',exact:true}).click();

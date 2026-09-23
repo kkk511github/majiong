@@ -76,6 +76,7 @@ export function cocosState(
                 type: m.type,
                 from: m.from,
                 concealed: m.concealed,
+                added: m.added,
                 tiles:
                   m.concealed && seat !== view.me && !reveal
                     ? m.tiles.slice(0, 1)

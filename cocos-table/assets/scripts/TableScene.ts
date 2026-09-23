@@ -2,7 +2,11 @@ import { assetManager, _decorator, Component, Node, Label, Color, UITransform, L
 import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, layoutMeldSources, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type TileDragOrigin } from './tile-drag';
 const { ccclass } = _decorator;
-const GOLD='#e4c573', INK='#fcf1d0', GREEN='#093f37';
+// Visual tokens for the straight-table skin.  Gameplay never reads these
+// values; keeping them together makes the Cocos scene easy to retheme without
+// touching scoring, tile identity, or the bridge protocol.
+const GOLD='#f0d27b', INK='#f5f0d9', GREEN='#073b3d';
+const PANEL='#063d3f';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
 type VisualTile=Pick<SceneTile,'x'|'y'|'w'|'h'>;
 type MotionSnapshot=Pick<TableSceneState,'key'|'round'|'me'|'revision'|'connected'|'phase'|'presentation'>&{renderedAt:number};
@@ -73,7 +77,7 @@ export class TableScene extends Component {
     const texture=new Texture2D();texture.image=await load<ImageAsset>('tiles/'+pose,ImageAsset);
     data.rects.forEach((r,k)=>{const f=new SpriteFrame();f.texture=texture;f.rect=new Rect(r.x,r.y,r.w,r.h);this.frames.set(pose+'-'+k,f);});
    }));
-   await Promise.all(['table','avatars','pointer','meld-source-dart'].map(async name=>{
+   await Promise.all(['table','avatars','pointer','meld-source-dart','table-tool-jade-v2'].map(async name=>{
     const img=await load<ImageAsset>('art/'+name,ImageAsset),tex=new Texture2D();tex.image=img;
     const f=new SpriteFrame();f.texture=tex;
     // Trim transparent padding in the sprite UVs; preserve the generated PNG.
@@ -126,12 +130,14 @@ export class TableScene extends Component {
    });
   }return n;
  }
- private plate(parent:Node,x:number,y:number,w:number,h:number,color=GREEN,border=GOLD,r=8){const n=this.make('panel',x,y,w,h,parent),g=n.addComponent(Graphics);g.fillColor=new Color(color);g.roundRect(-w/2,-h/2,w,h,r);g.fill();g.strokeColor=new Color(border);g.lineWidth=1.3;g.stroke();return n;}
+ private plate(parent:Node,x:number,y:number,w:number,h:number,color=PANEL,border=GOLD,r=8){const n=this.make('panel',x,y,w,h,parent),g=n.addComponent(Graphics);g.fillColor=new Color(color);g.roundRect(-w/2,-h/2,w,h,r);g.fill();g.strokeColor=new Color(border);g.lineWidth=1.3;g.stroke();return n;}
+ private hudBadge(parent:Node,name:string,x:number,y:number,w:number,h:number,fill='#063d3fb8',border='#d8c27a66',r=4){const n=this.make(name,x,y,w,h,parent),g=n.addComponent(Graphics);g.fillColor=new Color(fill);g.roundRect(-w/2,-h/2,w,h,r);g.fill();g.strokeColor=new Color(border);g.lineWidth=1;g.stroke();return n;}
+ private hudAvatarFrame(parent:Node,name:string,x:number,y:number,size:number,border:string){const n=this.make(name,x,y,size,size,parent),g=n.addComponent(Graphics);g.fillColor=new Color('#073c3f00');g.roundRect(-size/2,-size/2,size,size,9);g.fill();g.strokeColor=new Color(border);g.lineWidth=1.6;g.stroke();return n;}
  private button(parent:Node,label:string,x:number,y:number,w:number,h:number,command:TableSceneCommand,gold=false){
   const n=this.make('button-'+label,x,y,w,h,parent),g=n.addComponent(Graphics);
   const pass=command.type==='action'&&command.action==='pass';
-  g.fillColor=new Color('#092b28');g.roundRect(-w/2,-h/2-3,w,h,10);g.fill();
-  const colors=gold?(pass?['#123528','#153a2d','#183d30','#1a4032','#1c4334']:['#214433','#264d3a','#2b5540','#305e47','#35664d']):['#244039','#264e45','#2b584a','#315f51','#356652'];
+  g.fillColor=new Color('#022d30');g.roundRect(-w/2,-h/2-3,w,h,10);g.fill();
+  const colors=gold?(pass?['#0b3b3d','#0e4444','#124c4b','#155352','#185a58']:['#14504c','#1a5b55','#20665d','#267165','#2b7a6d']):['#104c4c','#155957','#1a6562','#20706b','#267b74'];
   for(let i=0;i<5;i++){g.fillColor=new Color(colors[i]);g.roundRect(-w/2+i,-h/2+i,w-2*i,h-2*i,gold?10:8);g.fill();}
   g.strokeColor=new Color(gold?(pass?'#83957788':'#c4b783'):GOLD);g.lineWidth=1.3;g.stroke();
   const t=this.make(label,640,295,w-8,h-5,n),l=t.addComponent(Label);l.string=label;l.fontSize=gold?(label.length>1?25:35):20;l.color=new Color(gold?(pass?'#b9c4a9':'#e6d5a3'):INK);l.isBold=true;l.lineHeight=44;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;
@@ -149,6 +155,22 @@ export class TableScene extends Component {
    this.holdReleasedTile(command.tile);
   }
   window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'command',command},location.origin==='null'?'*':location.origin);
+ }
+ private toolButton(parent:Node,kind:'trustee'|'settings',x:number,y:number,command:TableSceneCommand){
+  const n=this.image('table-tool-jade-v2',x,y,44,44,parent);n.name=`table-tool-${kind}`;
+  const icon=this.make('tool-icon',640,288,20,18,n),g=icon.addComponent(Graphics);
+  g.strokeColor=new Color('#efdfb9');g.fillColor=new Color('#efdfb9');g.lineWidth=1.4;
+  if(kind==='trustee'){
+   g.roundRect(-7,-5,14,10,2);g.stroke();
+   g.moveTo(0,5);g.lineTo(0,8);g.moveTo(-9,-2);g.lineTo(-9,2);g.moveTo(9,-2);g.lineTo(9,2);g.stroke();
+   g.circle(0,9,1);g.fill();g.circle(-3,0,1);g.fill();g.circle(3,0,1);g.fill();
+  }else{
+   // Compact vector gear stays sharp over the generated jade button skin.
+   g.circle(0,0,6);g.stroke();g.circle(0,0,2.3);g.stroke();
+   for(let i=0;i<8;i++){const a=i*Math.PI/4;g.moveTo(Math.cos(a)*6,Math.sin(a)*6);g.lineTo(Math.cos(a)*9,Math.sin(a)*9);}g.stroke();
+  }
+  const caption=this.text(n,kind==='trustee'?'托管':'设置',640,307,36,13,10,'#efdfb9');caption.name='tool-caption';
+  n.on(Node.EventType.TOUCH_END,()=>this.emit(command));return n;
  }
  private animationScale(){return Math.max(.5,Math.min(4,this.motionScale||1));}
  private physicalTile(t:SceneTile,s:TableSceneState):number|undefined{
@@ -233,12 +255,12 @@ export class TableScene extends Component {
    if(!this.isValid||!node.isValid)return;
    const k=progress.t,x=from.x+(t.x-from.x)*k,groundY=from.y+(t.y-from.y)*k,w=from.w+(t.w-from.w)*k,h=from.h+(t.h-from.h)*k;
    this.placeTile(node,{x,y:groundY-4*lift*k*(1-k),w,h},t);
-   if(shadow?.isValid){shadow.setPosition(x-640,295-groundY-2,0);shadow.setScale(w/t.w,h/t.h,1);}
+   if(shadow?.isValid){this.placeTileShadow(shadow,t,x,groundY);shadow.setScale(w/t.w,h/t.h,1);}
   };
   // A direct ease-out reacts immediately; no slow wind-up before the tile moves.
   const animation=tween(progress).to(ms/1000*scale,{t:1},{easing:'quadOut',onUpdate:paint}).call(()=>{
    this.tileFlights.delete(t.id);
-   if(this.isValid&&node.isValid){this.placeTile(node,t,t);if(shadow?.isValid){shadow.setPosition(t.x-640,295-t.y-2,0);shadow.setScale(1,1,1);}if(arrival)this.flowerArrival(t);}
+   if(this.isValid&&node.isValid){this.placeTile(node,t,t);if(shadow?.isValid){this.placeTileShadow(shadow,t);shadow.setScale(1,1,1);}if(arrival)this.flowerArrival(t);}
   });
   this.tileFlights.set(t.id,{tile:t,identity:this.physicalTile(t,this.state!),progress,animation,endsAt:performance.now()+ms*scale});
   paint();animation.start();
@@ -279,7 +301,18 @@ export class TableScene extends Component {
  }
  private staticTable(){
   this.image('table',640,295,1280,590).setSiblingIndex(0);
-  this.text(this.root,'金陵麻将',373,405,260,50,34,'#07554c');
+  // The supplied table art carries the tactile jade texture and frame.  A
+  // translucent cyan grade lifts the blue channel to match the reference
+  // table while retaining the texture on iOS and Android (where replacing a
+  // large PNG at runtime is unnecessarily expensive).
+  const grade=this.make('table-color-grade',640,295,1280,590),g=grade.addComponent(Graphics);
+  g.fillColor=new Color('#007b7890');g.rect(-640,-295,1280,590);g.fill();
+  g.fillColor=new Color('#00252d24');g.roundRect(-610,-277,1220,554,18);g.fill();
+  g.strokeColor=new Color('#8bc9b64a');g.lineWidth=1.2;g.roundRect(-610,-277,1220,554,18);g.stroke();
+  grade.setSiblingIndex(1);
+  // A quiet watermark keeps the large centre readable without competing with
+  // the compass or the discard rivers.
+  this.text(this.root,'金陵麻将',640,170,280,42,30,'#c2e0c52e');
 
  }
  private draw(){
@@ -303,7 +336,17 @@ export class TableScene extends Component {
   // the whole scene hierarchy. Reorder only when its actual tile order changes.
   const orderKey=tiles.map(t=>t.id).join(',');
   if(this.orderKey!==orderKey){
-   for(const t of tiles){this.shadows.get(t.id)?.setSiblingIndex(this.root.children.length-1);this.nodes.get(t.id)?.setSiblingIndex(this.root.children.length-1);}
+   // Paint the complete contact-shadow layer first, then the complete tile
+   // layer. Interleaving shadow/tile per card lets the next side card's shadow
+   // cover the previous card's alpha edge and creates a false felt-coloured
+   // seam even though their visual bounds already touch.
+   for(const t of tiles)if(!t.stack)this.shadows.get(t.id)?.setSiblingIndex(this.root.children.length-1);
+   for(const t of tiles){
+    // An upper kong touches the lower solid, not the felt. Its tight shadow
+    // belongs immediately under that upper tile and on top of the base.
+    if(t.stack)this.shadows.get(t.id)?.setSiblingIndex(this.root.children.length-1);
+    this.nodes.get(t.id)?.setSiblingIndex(this.root.children.length-1);
+   }
    this.orderKey=orderKey;
   }
   this.marks.setSiblingIndex(this.root.children.length-1);this.hud.setSiblingIndex(this.root.children.length-1);
@@ -360,8 +403,10 @@ export class TableScene extends Component {
  private refreshHud(s:TableSceneState){
   const key=JSON.stringify([s.me,s.turn,s.dealer,s.presentation,s.phase,s.code,s.round,s.rounds,s.rulesName,
    s.roundMultiplier,s.nextRoundMultiplier,s.practice,s.connected,s.externalControls,s.safeArea,s.disabled,
-   s.trusteeDisabled,s.actions,s.pending,s.remaining,s.players.reduce((sum,p)=>sum+p.flowers.length,0),
-   s.players.map(p=>[p.seat,p.name,p.score,p.avatar,p.bot,p.trustee,p.online])]);
+   s.trusteeDisabled,s.actions,s.pending,s.remaining,
+   // Keep each visible flower tally keyed independently; two seats can trade
+   // a flower while the table total stays unchanged.
+   s.players.map(p=>[p.seat,p.name,p.score,p.avatar,p.bot,p.trustee,p.online,p.flowers.length])]);
   if(key!==this.hudKey){
    this.hudKey=key;
    // Compass geometry and its short highlight tween survive HUD text changes.
@@ -374,10 +419,11 @@ export class TableScene extends Component {
  private drawCompass(s:TableSceneState){
   if(!this.compassRoot){
    this.compassRoot=this.make('center',640,295,1280,590,this.hud);
-   const compass=this.make('compass',640,278,122,92,this.compassRoot),frame=compass.addComponent(Graphics);
+   const compass=this.make('compass',640,257,122,92,this.compassRoot);
+   const frame=compass.addComponent(Graphics);
    const polygon=(g:Graphics,points:number[][])=>{g.moveTo(points[0][0],points[0][1]);for(const p of points.slice(1))g.lineTo(p[0],p[1]);g.close();};
    polygon(frame,[[-42,45],[42,45],[60,27],[60,-27],[42,-45],[-42,-45],[-60,-27],[-60,27]]);
-   frame.fillColor=new Color('#082b23');frame.fill();frame.strokeColor=new Color('#58735a');frame.lineWidth=1.2;frame.stroke();
+   frame.fillColor=new Color('#063b3d');frame.fill();frame.strokeColor=new Color('#6ea99a');frame.lineWidth=1.2;frame.stroke();
    const regions=[
     [[-40,-42],[40,-42],[26,-23],[-26,-23]],
     [[43,40],[57,26],[57,-26],[43,-40],[30,-20],[30,20]],
@@ -386,15 +432,15 @@ export class TableScene extends Component {
    ];
    for(let offset=0;offset<4;offset++){
     const base=this.make('compass-sector-'+offset,640,295,122,92,compass),g=base.addComponent(Graphics);
-    polygon(g,regions[offset]);g.fillColor=new Color('#15392f');g.fill();g.strokeColor=new Color('#47604b80');g.lineWidth=1;g.stroke();
+    polygon(g,regions[offset]);g.fillColor=new Color('#0b4c4b');g.fill();g.strokeColor=new Color('#5c948480');g.lineWidth=1;g.stroke();
     const light=this.make('compass-highlight-'+offset,640,295,122,92,compass),gold=light.addComponent(Graphics);
-    polygon(gold,regions[offset]);gold.fillColor=new Color('#806d32');gold.fill();
-    gold.strokeColor=new Color('#e7cd6c60');gold.lineWidth=3;gold.stroke();
-    gold.strokeColor=new Color('#f0d986');gold.lineWidth=1.1;gold.stroke();
+    polygon(gold,regions[offset]);gold.fillColor=new Color('#a4812f');gold.fill();
+    gold.strokeColor=new Color('#f4da7860');gold.lineWidth=3;gold.stroke();
+    gold.strokeColor=new Color('#f5dd8b');gold.lineWidth=1.1;gold.stroke();
     const opacity=light.addComponent(UIOpacity);opacity.opacity=0;this.compassHighlights.push(opacity);
    }
    const well=this.make('compass-well',640,295,54,38,compass).addComponent(Graphics);
-   well.fillColor=new Color('#061f1b');well.roundRect(-27,-19,54,38,10);well.fill();well.strokeColor=new Color('#3d5b42');well.lineWidth=1;well.stroke();
+   well.fillColor=new Color('#042d31');well.roundRect(-27,-19,54,38,10);well.fill();well.strokeColor=new Color('#4d8980');well.lineWidth=1;well.stroke();
    const positions=[[0,33],[44,0],[0,-33],[-44,0]];
    for(let offset=0;offset<4;offset++){
     const [x,y]=positions[offset],word=this.text(compass,'',640+x,295+y,28,23,19,'#becbb8');
@@ -426,13 +472,31 @@ export class TableScene extends Component {
   if(perspectiveChanged||selectionChanged)
    for(let offset=0;offset<4;offset++)this.compassWinds[offset].color=new Color(offset===active?'#fff0bf':'#becbb8');
  }
+ private placeTileShadow(shadow:Node,t:SceneTile,x=t.x,y=t.y){
+  // A meld's contact shadow falls away from the table centre. Applying the
+  // former universal +Y offset to side melds painted a false dark-green seam
+  // between otherwise touching cards.
+  const [dx,dy]=t.stack?[0,1] as const:t.area==='meld'
+   ?([[0,2],[2,0],[0,-2],[-2,0]] as const)[sceneOffset(t.seat,this.state!.me)]
+   :[0,2] as const;
+  shadow.setPosition(x+dx-640,295-y-dy,0);
+ }
  private drawTile(t:SceneTile){
   if(t.area!=='hand'||t.pose.startsWith('back-')){
    let shadow=this.shadows.get(t.id);const old=this.previousTiles.get(t.id),sameShape=shadow&&old&&old.w===t.w&&old.h===t.h&&old.shear===t.shear&&old.rotation===t.rotation;
    if(!shadow){shadow=this.make('contact-'+t.id,t.x,t.y+2,t.w+3,t.h+3);shadow.addComponent(Graphics);this.shadows.set(t.id,shadow);}
-   shadow.setPosition(t.x-640,295-t.y-2,0);
+   this.placeTileShadow(shadow,t);
    if(!sameShape){const g=shadow.getComponent(Graphics)!;g.clear();
-    for(let i=2;i>=0;i--){g.fillColor=new Color(i===0?'#03291c65':'#03291c1a');const contact=t.area==='hand'?{...t,y:t.y+t.h*.32,h:t.h*.28}:t;const points=tileFootprint(contact,t.area==='flower'?-i/2:i);g.moveTo(points[0][0]-t.x,t.y-points[0][1]);for(const pt of points.slice(1))g.lineTo(pt[0]-t.x,t.y-pt[1]);g.close();g.fill();}
+    for(let i=2;i>=0;i--){
+     const meld=t.area==='meld';
+     // Meld sprites already contain their baked tabletop shading. Add only a
+     // tight, soft contact shadow so they read as resting on felt rather than
+     // as thick blocks or floating stickers.
+     g.fillColor=new Color(i===0?(meld?'#03291c42':'#03291c65'):(meld?'#03291c12':'#03291c1a'));
+     const contact=t.area==='hand'?{...t,y:t.y+t.h*.32,h:t.h*.28}:t;
+     const padding=t.area==='flower'?-i/2:meld?i*.35:i;
+     const points=tileFootprint(contact,padding);g.moveTo(points[0][0]-t.x,t.y-points[0][1]);for(const pt of points.slice(1))g.lineTo(pt[0]-t.x,t.y-pt[1]);g.close();g.fill();
+    }
    }
   }
   let n=this.nodes.get(t.id);if(!n){n=this.make(t.id,t.x,t.y,t.w,t.h);n.addComponent(Sprite);this.nodes.set(t.id,n);if(t.area==='hand'&&t.pose==='own')this.bindTileTouch(n,t.id);}
@@ -502,57 +566,109 @@ export class TableScene extends Component {
  }
  private drawHud(s:TableSceneState){
   const h=this.hud;if(s.presentation!=='replay'&&!s.externalControls){
-  this.button(h,'‹ 大厅',83,43,94,39,{type:'menu',menu:'leave'});
-  this.button(h,'牌',1135,35,39,39,{type:'menu',menu:'table'});
-  this.button(h,'录',1181,35,39,39,{type:'menu',menu:'events'});
-  this.button(h,'⚙',1227,35,39,39,{type:'menu',menu:'settings'});
-  }this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,90,135,30,18);
-  this.text(h,`${s.rulesName ? s.rulesName+' · ' : ''}${s.rounds ? s.round+' / '+s.rounds+' 把' : '第 '+s.round+' 把'}`,80,119,142,28,16,'#cfc291');
-  if(s.roundMultiplier!==undefined)this.text(h,`${s.roundMultiplier>1?'比下胡':'本把'} × ${s.roundMultiplier}`,80,146,138,23,18,GOLD);
+  this.toolButton(h,'settings',1235,35,{type:'menu',menu:'settings'});
+  }this.text(h,s.presentation==='replay'?'牌局回放':s.practice?'单人练习':`好友桌 ${s.code}`,80,78,150,30,18,INK);
+  this.text(h,`${s.rulesName ? s.rulesName+' · ' : ''}${s.rounds ? s.round+' / '+s.rounds+' 把' : '第 '+s.round+' 把'}`,80,107,156,28,16,'#b9d1bf');
+  if(s.roundMultiplier!==undefined)this.text(h,`${s.roundMultiplier>1?'比下胡':'本把'} × ${s.roundMultiplier}`,80,134,148,23,18,GOLD);
   if(s.presentation!=='replay'&&s.phase==='ended'&&s.nextRoundMultiplier!==undefined)
    this.text(h,`下把${s.nextRoundMultiplier>1?'比下胡':'恢复'} × ${s.nextRoundMultiplier}`,80,321,146,28,16,GOLD);
   for(const p of s.players){
    const o=sceneOffset(p.seat,s.me),status=scenePlayerStatus(s,p),info=layoutPlayerHud(o,s.safeArea);
-   const border=status.active?'#55e8f5':'#a7965b';
-   const statusColor=status.tone==='offline'?'#ffccad':status.tone==='trustee'?'#ffe5a0':'#d4fbff';
+   const border=status.active?'#73e2d8':'#c2ae68';
+   const statusColor=status.tone==='offline'?'#ffccb5':status.tone==='trustee'?'#ffe6a2':'#d5f1e8';
    const marker=(x:number,y:number,w:number)=>{
     if(!status.label)return;
     const badge=this.plate(h,x,y,w,23,status.tone==='offline'?'#633c2cf5':'#123c33f5',statusColor,5);badge.name=`player-status-${p.seat}`;
     this.text(h,status.label,x,y,w-4,23,16,statusColor);
    };
 
-   if(o===2){const x=info.x,y=info.y;this.plate(h,x,y,166,56,'#0b332ed9',border).name=`player-panel-${p.seat}`;if(status.active)this.plate(h,x-58,y,50,50,'#154b45',border,5);marker(x+10,y+41,104);const avatar=this.avatar(p.avatar,p.seat,x-58,y,44,44,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x+13,y-12,91,24,18);this.text(h,`${p.score} 分`,x+13,y+11,92,22,18,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+70,y-16,24,23,17,'#ffd374');continue;}
-   const x=info.x,y=info.y;
-   if(o===0){
-    const avatarX=x-info.w/2+27,textWidth=info.w-58,textX=x-info.w/2+54+textWidth/2;
-    this.plate(h,x,y,info.w,info.h,'#0b332ed9',border).name=`player-panel-${p.seat}`;
-    if(status.active)this.plate(h,avatarX,y,50,50,'#154b45',border,5);
-    const avatar=this.avatar(p.avatar,p.seat,avatarX,y,44,44,h);
+   if(o===2){
+    // The opposite identity is a narrow vertical card on the upper-right
+    // rail.  The old 166px horizontal plate reached back over the exposed
+    // meld/flower row; keeping this stack inside its own reserved bounds lets
+   // every public tile remain visible while matching the reference card.
+    const x=info.x,top=info.y-info.h/2,avatarY=top+30;
+    // Keep the identity rail transparent over the felt.  A full dark plate
+    // here used to fold over the first right-hand discard at dense tables;
+    // only the portrait ring and the score/flower badge carry a visible fill.
+    // Retain the named, bounds-only node for accessibility/replay probes; it
+    // has no Graphics component and therefore cannot occlude a tile.
+    this.make(`player-panel-${p.seat}`,x,info.y,info.w,info.h,h);
+    this.hudAvatarFrame(h,`player-avatar-ring-${p.seat}`,x,avatarY,64,status.active?'#73e2d8':'#c2ae68');
+    const avatar=this.avatar(p.avatar,p.seat,x,avatarY,60,60,h);
     if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));
-    this.text(h,p.name,textX,y-12,textWidth,24,18);
-    this.text(h,`${p.score} 分${status.label?' · '+status.label:''}`,textX,y+12,textWidth,24,18,status.label?statusColor:GOLD).name=`player-status-${p.seat}`;
-    if(p.seat===s.dealer)this.text(h,'庄',avatarX+20,y-17,20,20,16,'#ffd374');
+    // The nickname is painted directly over the lower edge of the portrait;
+    // keep only a transparent named node for probes and accessibility.
+    this.make(`player-name-plate-${p.seat}`,x,top+51,72,16,h);
+    const name=this.text(h,p.name,x,top+51,68,14,10,INK);name.name=`player-name-${p.seat}`;
+    // Score and flowers share one compact translucent frame.  Keeping the
+    // two rows in one badge matches the reference and avoids a second bright
+    // rectangle reading like another tile.
+    this.hudBadge(h,`player-flower-count-box-${p.seat}`,x,top+89,76,45,'#063d3fb8','#d8c27a66',4);
+    const score=this.text(h,`${p.score}`,x,top+76,68,18,16,GOLD);score.name=`player-score-${p.seat}`;
+    // The flower tally is immediately below the score, in the same compact
+    // translucent stack as the reference.  It never sits on the side rail.
+    const flowers=this.text(h,`✿ ×${p.flowers.length}`,x,top+101,60,15,12,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
+    // The active ring is the status cue for the compact opposite rail. Keep a
+    // named, non-painted status node for screen readers without adding text
+    // over the first right-hand discard.
+    if(status.label){const statusNode=this.text(h,status.label,x,top+126,72,10,9,statusColor);statusNode.name=`player-status-${p.seat}`;statusNode.addComponent(UIOpacity).opacity=0;}
+    if(p.seat===s.dealer)this.text(h,'庄',x+27,top+7,22,16,13,'#ffe08a');
     continue;
    }
-   this.plate(h,x,y+25,100,126,'#0b332ed9',border).name=`player-panel-${p.seat}`;if(status.active)this.plate(h,x,y,58,58,'#154b45',border,5);marker(x,y-37,100);const avatar=this.avatar(p.avatar,p.seat,x,y,50,50,h);if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));this.text(h,p.name,x,y+40,95,27,18);this.text(h,`${p.score} 分`,x,y+66,96,27,20,GOLD);if(p.seat===s.dealer)this.text(h,'庄',x+35,y-20,24,23,17,'#ffd374');
+   const x=info.x,y=info.y;
+   if(o===0){
+    // The local player uses the same vertical identity stack as the side
+    // seats, tucked into the lower-left cutout so it never touches the hand.
+    // Keep a bounds-only panel for safe-area probes; all visible pieces below
+    // are individual transparent/sem transparent elements.
+    this.make(`player-panel-${p.seat}`,x,info.y,info.w,info.h,h);
+    const avatarX=x-info.w/2+27,avatarY=y-28,avatarSize=56;
+    this.hudAvatarFrame(h,`player-avatar-ring-${p.seat}`,avatarX,avatarY,avatarSize,status.active?'#73e2d8':'#c2ae68');
+    const avatar=this.avatar(p.avatar,p.seat,avatarX,avatarY,52,52,h);
+    if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));
+    this.make(`player-name-plate-${p.seat}`,avatarX,avatarY+18,72,16,h);
+    const name=this.text(h,p.name,avatarX,avatarY+18,68,14,10,INK);name.name=`player-name-${p.seat}`;
+    this.hudBadge(h,`player-flower-count-box-${p.seat}`,avatarX,y+27,82,50,'#063d3fb8','#d8c27a66',4);
+    const score=this.text(h,`${p.score}`,avatarX,y+12,72,22,18,GOLD);score.name=`player-score-${p.seat}`;
+    const flowers=this.text(h,`✿ ×${p.flowers.length}`,avatarX,y+41,72,21,13,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
+    if(status.label){const statusNode=this.text(h,status.label,avatarX,y+67,76,12,10,statusColor);statusNode.name=`player-status-${p.seat}`;statusNode.addComponent(UIOpacity).opacity=0;}
+    if(p.seat===s.dealer)this.text(h,'庄',avatarX+27,avatarY-18,20,20,16,'#ffe08a');
+    continue;
+   }
+   // Side players use the reference stack: avatar first, nickname over its
+   // lower edge, then one shared translucent badge for score and flowers.
+   this.make(`player-panel-${p.seat}`,x,info.plateY,info.w,info.h,h);
+   marker(x,y-37,100);
+   const avatarSize=58;
+   this.hudAvatarFrame(h,`player-avatar-ring-${p.seat}`,x,y,avatarSize,status.active?'#73e2d8':'#c2ae68');
+   const avatar=this.avatar(p.avatar,p.seat,x,y,54,54,h);
+   if(s.presentation==='replay')avatar.on(Node.EventType.TOUCH_END,()=>this.emit({type:'menu',menu:'table',seat:p.seat}));
+   this.make(`player-name-plate-${p.seat}`,x,y+19,76,17,h);
+   const name=this.text(h,p.name,x,y+19,72,15,11,INK);name.name=`player-name-${p.seat}`;
+   this.hudBadge(h,`player-flower-count-box-${p.seat}`,x,y+63,82,50,'#063d3fb8','#d8c27a66',4);
+   const score=this.text(h,`${p.score}`,x,y+46,74,22,18,GOLD);score.name=`player-score-${p.seat}`;
+   const flowers=this.text(h,`✿ ×${p.flowers.length}`,x,y+74,74,21,13,'#f3b39d');flowers.name=`player-flower-count-${p.seat}`;
+   if(p.seat===s.dealer)this.text(h,'庄',x+37,y-20,24,23,17,'#ffe08a');
   }
   const prompt=claimPrompt(s);
   if(prompt&&!s.externalControls){
    // Keep the compass and counters untouched; the left lower rail is clear
    // of hand tiles, all three river columns, flowers and action controls.
-   const card=this.plate(h,112,360,180,86,'#123c33f5','#adac79',10);card.name='claim-prompt';
+   const card=this.plate(h,112,360,180,86,'#07494af5','#d0bd79',10);card.name='claim-prompt';
    this.text(h,`${prompt.source} · ${prompt.kind==='robKong'?'补杠':'打出'}`,99,330,144,20,15);
    this.image('own-'+tileKind(prompt.tile),59,369,35,52,h).name='claim-prompt-tile';
    this.text(h,prompt.name,136,357,100,25,22,GOLD);
    this.text(h,'可'+prompt.labels.join(' / '),136,384,106,24,17);
   }
   const flowers=Math.max(0,20-s.players.reduce((n,p)=>n+p.flowers.length,0));
-  // Counter positions remain fixed during claims.
-  const countX=548,roundX=732,countWidth=60;
-  this.text(h,`余牌 ${s.remaining}`,countX,265,countWidth,27,15,'#deebd9').name='table-remaining-count';
-  this.text(h,`余花 ${flowers}`,countX,294,countWidth,27,15,'#deebd9').name='table-flowers-count';
-  this.text(h,'把数',roundX,262,countWidth,23,16,'#a4c4b2').name='table-round-label';
-  this.text(h,s.rounds?`${s.round} / ${s.rounds}`:String(s.round),roundX,290,countWidth,29,21,GOLD).name='table-round-count';
+  // The counters sit beside the fixed compass; river origins are pushed away
+  // from this centre rail even when every player has 27 discards.
+  const countX=531,roundX=772,countWidth=66;
+  this.text(h,`余牌 ${s.remaining}`,countX,238,countWidth,27,15,'#dce9d5').name='table-remaining-count';
+  this.text(h,`余花 ${flowers}`,countX,267,countWidth,27,15,'#dce9d5').name='table-flowers-count';
+  this.text(h,'把数',roundX,235,countWidth,23,16,'#b9d3c0').name='table-round-label';
+  this.text(h,s.rounds?`${s.round} / ${s.rounds}`:String(s.round),roundX,264,countWidth,29,21,GOLD).name='table-round-count';
   if(this.trusteeButton)this.trusteeButton.active=s.presentation!=='replay'&&!s.externalControls;
   if(s.presentation==='replay'){this.text(h,'点击头像切换视角',640,455,250,30,17,'#bdd2bd');h.setSiblingIndex(this.root.children.length-1);return;}
   if(s.externalControls){h.setSiblingIndex(this.root.children.length-1);return;}
@@ -561,12 +677,12 @@ export class TableScene extends Component {
   // Keep the touch target alive across countdown/state pushes. Rebuilding it
   // between TOUCH_START and TOUCH_END used to swallow the first cancellation.
   if(!this.trusteeButton){
-   const n=this.button(this.root,'托管',1134,88,103,37,{type:'trustee',enabled:true});
-   this.trusteeButton=n;this.trusteeLabel=n.children[0].getComponent(Label)!;
+   const n=this.toolButton(this.root,'trustee',1185,35,{type:'trustee',enabled:true});
+   this.trusteeButton=n;this.trusteeLabel=n.getChildByName('tool-caption')!.getComponent(Label)!;
    n.off(Node.EventType.TOUCH_END);
    n.on(Node.EventType.TOUCH_END,()=>{if(this.trusteeCommand&&(!this.state?.trusteeDisabled||this.trusteeCommand.type==='menu'))this.emit(this.trusteeCommand);});
   }
-  this.trusteeLabel!.string=ended?'本局结算':me.trustee?'取消托管':'托管';
+  this.trusteeLabel!.string=ended?'结算':me.trustee?'取消':'托管';
   (this.trusteeButton.getComponent(UIOpacity)||this.trusteeButton.addComponent(UIOpacity)).opacity=!ended&&s.trusteeDisabled?130:255;
   this.trusteeButton.setSiblingIndex(this.root.children.length-1);
   const actionRow=layoutActions(s,layoutTable(s));
@@ -597,7 +713,9 @@ export class TableScene extends Component {
   const o=sceneOffset(seat,s.me),preferred=[{x:650,y:435},{x:935,y:260},{x:650,y:125},{x:385,y:265}][o];
   const obstacles=Array.from(this.tileLayout.values()).map(t=>({x:t.x,y:t.y,w:t.w,h:t.h}));
   for(let index=0;index<4;index++){const p=layoutPlayerHud(index,s.safeArea);obstacles.push({x:p.x,y:p.plateY,w:p.w,h:p.h});}
-  obstacles.push({x:640,y:278,w:124,h:96},{x:548,y:280,w:66,h:66},{x:732,y:280,w:66,h:66});
+  obstacles.push({x:640,y:257,w:124,h:96},{x:531,y:250,w:72,h:66},{x:772,y:250,w:72,h:66},
+   // The compact opposite flower badge sits below its score, not on a rail.
+   {x:layoutPlayerHud(2,s.safeArea).x,y:89+layoutPlayerHud(2,s.safeArea).dy,w:76,h:45});
   const fits=(x:number,y:number)=>obstacles.every(b=>Math.abs(x-b.x)>=(144+b.w)/2+4||Math.abs(y-5-b.y)>=(76+b.h)/2+4);
   if(fits(preferred.x,preferred.y))return preferred;
   const zone=[{left:230,right:1110,top:395,bottom:446},{left:918,right:1120,top:150,bottom:420},{left:360,right:915,top:95,bottom:154},{left:164,right:400,top:160,bottom:415}][o];

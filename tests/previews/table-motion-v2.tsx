@@ -5,29 +5,57 @@ import { CocosTable } from "../../src/CocosTable";
 import type { TableSceneCommand, TableSceneState, ScenePlayer } from "../../shared/table-scene";
 import { SCORE_DEBIT_MS, type ScoreDebit } from "../../src/score-debits";
 import { installTableMotionPreview, type PreviewMotion } from "./table-motion-renderer";
+import { fullMeldFixture } from './table-full-meld-fixture';
 import "./table-motion-v2.css";
 
 // This view reuses the real table renderer and art. The snapshots are isolated
 // visual fixtures; no game service, account, rules engine or live room is used.
 type Seat = 0 | 1 | 2 | 3;
-type Action = "response" | "overview" | "pung" | "open" | "concealed" | "added" | "flower" | "draw" | "discard";
+type Action = "response" | "overview" | "pung" | "open" | "concealed" | "added" | "flower" | "draw" | "discard" | "full-pung" | "full-open";
 type ClaimChoice = "waiting" | "pung" | "kong" | "pass";
 const actions: { id: Action; label: string; title: string; copy: string }[] = [
   { id: "response", label: "碰杠操作", title: "碰、杠、过在手牌上方，成功提示在手牌中间", copy: "左下角提示谁打了哪张牌，手牌上方选择碰、杠或过。此处会一直等你选择；点击后牌才会归组，手牌中间短暂显示对应动作，余牌、余花始终可见。" },
   { id: "overview", label: "总览", title: "在原来的牌桌上，重新安排碰杠与花位", copy: "使用软件真实牌桌、真实麻将牌与原来的四家头像。碰杠靠自己的手牌，花牌回到独立花位，风位、余牌、余花和把数保留在中央。" },
-  { id: "pung", label: "碰牌", title: "被碰的牌，平滑收进自己的碰牌组", copy: "沿玩家所在一侧移动，三张牌在手牌旁归组。动作字在碰牌玩家门前出现，碰牌不扣分。" },
-  { id: "open", label: "明杠", title: "四张归组，付款玩家门前显示扣分", copy: "明杠固定在本人外圈。只有这次供牌的玩家显示 −10；比下胡显示 −20。随后补牌进入手牌。" },
+  { id: "pung", label: "碰牌", title: "四家同步展示碰上家、对家、下家", copy: "完成后每家同时摆出三组：碰上家、碰对家、碰下家。碰对家保持三张竖牌；碰上家、下家时来源牌贴边横置，不遮挡另外两张牌。" },
+  { id: "open", label: "明杠", title: "四张完整并排，全部保持正向", copy: "明杠不套用补杠叠牌：四张底牌共用落桌基准且不转方向。扣分与补牌规则保持不变。" },
   { id: "concealed", label: "暗杠", title: "三张背面，一张明面，原牌桌上直接看", copy: "暗杠总共四张：底下三张背面，中间上方一张明面。其余三家门前分别显示 −5；比下胡分别 −10。" },
   { id: "added", label: "补杠", title: "第四张叠回原碰牌，来源清楚", copy: "新摸的牌平滑叠到原碰牌中间。按现有规则，仅原来供碰牌的玩家支付10分；比下胡20分。" },
   { id: "flower", label: "补花", title: "花归本人花位，补牌自然接上", copy: "花牌先移入本人花位，之后补到的新牌靠近剩余手牌落位。普通补花只显示“补花”，不显示扣分。" },
   { id: "draw", label: "摸牌", title: "轻提、滑入、停稳，摸到的新牌清楚可见", copy: "新牌按本侧方向平滑进入手牌末端，保留小间隙。碰杠后跟随变短的手牌，到位后保持可见，不闪现、不乱弹。" },
   { id: "discard", label: "出牌", title: "点选、慢慢上推，跟手落入牌河", copy: "使用软件原来的点选和拖牌手势。拖到桌上松手就打出，也保留再次点击出牌；不要求快速划动。" },
+  { id: "full-pung", label: "四家满碰", title: "四家各4组碰牌：检查组间空隙与摸牌余量", copy: "每家12张碰牌分成4组，全部包含横置来牌，按较宽的情况展示。每家同时保留1张原手牌与1张摸牌位置。这是布局压力场景，不代表真实牌局中四家同时摸牌。" },
+  { id: "full-open", label: "四家满明杠", title: "四家各4组明杠：每家16张完整并排", copy: "每组4张正向明杠，不叠牌、不转向；每家仍保留1张原手牌与1张摸牌位置。按当前真实尺寸和布局展示，不为演示缩小牌或隐藏越界。" },
 ];
 const seatNames = ["本人", "下家", "对家", "上家"];
 const initialKinds = [4, 12, 23, 27];
 const clone = <T,>(value: T): T => structuredClone(value);
 
+// The completed pung preview is also the visual-QA matrix for supplier
+// direction. Every owner gets three independent groups in this fixed order:
+// upstream, opposite, downstream. IDs are deliberately disjoint across
+// melds, concealed hands, rivers and flowers so the fixture remains physical.
+function applyPungSupplierMatrix(state: TableSceneState) {
+  for (const player of state.players) {
+    const seat = player.seat as Seat;
+    const sources = [((seat + 3) % 4), ((seat + 2) % 4), ((seat + 1) % 4)];
+    player.melds = sources.map((from, group) => {
+      const kind = seat * 3 + group;
+      return { type: "pung", tiles: [kind * 4, kind * 4 + 1, kind * 4 + 2], from, concealed: false };
+    });
+    player.hand = [12, 13, 14, 15].map(kind => kind * 4 + seat);
+    player.handCount = 4; // 13 - 3 tiles represented by each exposed pung.
+    player.discards = [0, 1, 2, 3].map(copy => (17 + seat) * 4 + copy);
+    player.flowers = [136 + seat];
+  }
+  state.lastDiscard = undefined;
+  state.drawn = undefined;
+}
+
 function makeSnapshots(action: Action, actor: Seat, multiple: number, from?: Seat, dense = false): TableSceneState[] {
+  if (action === 'full-pung' || action === 'full-open') {
+    const full = fullMeldFixture(action === 'full-pung' ? 'pung' : 'kong');
+    return [full, clone(full), clone(full)];
+  }
   const used = new Set<number>();
   const take = (kind: number) => {
     if (kind >= 34) { const tile = kind + 102; if (used.has(tile)) throw Error("演示花牌重复"); used.add(tile); return tile; }
@@ -94,7 +122,7 @@ function makeSnapshots(action: Action, actor: Seat, multiple: number, from?: Sea
     after.lastDiscard = undefined; after.drawn = undefined;
     after.effects = [{ key: "action", type: action === "pung" ? "pung" : "kong", seat: actor, concealed: action === "concealed" }];
   } else if (action === "added") {
-    remove([originalDraw!]); player.melds[0].tiles.push(originalDraw!); player.melds[0].type = "kong";
+    remove([originalDraw!]); player.melds[0].tiles.push(originalDraw!); player.melds[0].type = "kong"; player.melds[0].added = true;
     after.drawn = undefined; after.effects = [{ key: "action", type: "kong", seat: actor, upgraded: true }];
   } else if (action === "flower") {
     remove([originalDraw!]); player.flowers.push(originalDraw!); after.drawn = undefined;
@@ -109,6 +137,7 @@ function makeSnapshots(action: Action, actor: Seat, multiple: number, from?: Sea
     const payers = action === "concealed" ? [0, 1, 2, 3].filter(s => s !== actor) : [source];
     for (const payer of payers) { after.players[payer].score -= amount; player.score += amount; }
   }
+  if (action === "pung") applyPungSupplierMatrix(after);
   after.revision = 1;
   const replenished = clone(after);
   if (["open", "concealed", "added", "flower"].includes(action)) {
@@ -147,7 +176,10 @@ function claimSnapshots(canKong: boolean, source: Seat, multiple: number, dense:
 }
 
 function Preview() {
-  const [action, setAction] = useState<Action>("response"), [seat, setSeat] = useState<Seat>(0);
+  const [action, setAction] = useState<Action>(() => {
+    const requested = new URLSearchParams(location.search).get('scene');
+    return actions.some(item => item.id === requested) ? requested as Action : 'response';
+  }), [seat, setSeat] = useState<Seat>(0);
   const [slow, setSlow] = useState(false), [double, setDouble] = useState(false);
   const [phase, setPhase] = useState(0), [run, setRun] = useState(0), [auto, setAuto] = useState(false);
   const [selected, setSelected] = useState<number | null>(null), [manual, setManual] = useState<TableSceneState | null>(null);
@@ -215,7 +247,7 @@ function Preview() {
   }, [debitBatch]);
   useEffect(() => {
     setPhase(0);
-    if (!installed || action === "overview" || action === "response") return;
+    if (!installed || action === "overview" || action === "response" || action.startsWith('full-')) return;
     const timers = [setTimeout(() => setPhase(1), 50 * playback), setTimeout(() => setPhase(2), 500 * playback), setTimeout(() => setPhase(3), 2300 * playback)];
     return () => timers.forEach(clearTimeout);
   }, [installed, run, action, seat, slow, double]);
@@ -249,9 +281,9 @@ function Preview() {
       setAuto(false); setManual(next); setSelected(null);
     }
   }
-  const status = !installed ? "正在载入真实牌桌" : manual ? "已在真实牌桌上出牌" : action === "response" ? claimChoice === "waiting" ? "真实牌桌 · 等待你选择碰、杠或过" : claimChoice === "pass" ? "已过，等待出牌" : "已响应 · 点击重演可重新选择" : action === "overview" ? "真实牌桌 · 四家位置总览" : phase < 3 ? "真实牌桌 · 动作演示中" : "已完成 · 点击可重放";
+  const status = !installed ? "正在载入真实牌桌" : manual ? "已在真实牌桌上出牌" : action.startsWith('full-') ? "极限展示 · 每家4组＋余手牌＋摸牌槽" : action === "response" ? claimChoice === "waiting" ? "真实牌桌 · 等待你选择碰、杠或过" : claimChoice === "pass" ? "已过，等待出牌" : "已响应 · 点击重演可重新选择" : action === "overview" ? "真实牌桌 · 四家位置总览" : phase < 3 ? "真实牌桌 · 动作演示中" : "已完成 · 点击可重放";
   return <div className="mv2-page">
-    <header className="mv2-header"><div><span className="mv2-eyebrow">南京麻将 / REAL TABLE MOTION PREVIEW</span><h1>原来的牌桌，新的动作<span>03</span></h1></div><div className="mv2-local"><i />本地动效预览<small>正式牌桌组件 · 不连接正式牌局</small><a href={action === "response" ? "/docs/design/claim-response-v2.png" : "/docs/design/table-motion-v2.png"} target="_blank" rel="noreferrer"><Image size={12} />看设计图</a></div></header>
+    <header className="mv2-header"><div><span className="mv2-eyebrow">南京麻将 / REAL TABLE MOTION PREVIEW</span><h1>原来的牌桌，新的动作<span>03</span></h1></div><div className="mv2-local"><i />本地动效预览<small>正式牌桌组件 · 不连接正式牌局</small><a href={action === "response" ? "/docs/design/claim-response-v2.png" : "/docs/design/table-motion-v2.png"} target="_blank" rel="noreferrer"><Image size={12} />看设计图</a><a href="/docs/design/meld-angle-source-v1.png" target="_blank" rel="noreferrer"><Image size={12} />新牌角度样稿</a></div></header>
     <div className="mv2-controls"><nav aria-label="选择动作">{actions.map((item, i) => <button key={item.id} aria-pressed={action === item.id} onClick={() => play(item.id)}><span>{String(i).padStart(2, "0")}</span>{item.label}</button>)}</nav><button className="mv2-auto" disabled={action === "response"} aria-pressed={auto} onClick={() => { setAuto(!auto); if (!auto && action === "overview") { setAction("pung"); setRun(r => r + 1); } }}>{action === "response" ? <MoveUp size={15} /> : auto ? <Pause size={15} /> : <Play size={15} />}{action === "response" ? "手动选择" : auto ? "停止轮播" : "连续演示"}</button></div>
     <main className="mv2-showcase"><div className="mv2-stage-bar"><span><i className={installed && action !== "overview" && phase < 3 ? "is-playing" : ""} />{status}</span><div className="mv2-stage-options">{action === "response" ? <label>出牌方<select value={claimSource} aria-label="出牌方" onChange={e => { setClaimSource(Number(e.target.value) as Seat); play("response"); }}>{[1, 2, 3].map(s => <option key={s} value={s}>{seatNames[s]}</option>)}</select></label> : <label>行动位置<select value={seat} onChange={e => { setSeat(Number(e.target.value) as Seat); play(action); }} aria-label="行动位置">{seatNames.map((name, i) => <option value={i} key={name}>{name}</option>)}</select></label>}<button aria-pressed={slow} onClick={() => { setSlow(!slow); play(action); }}>{slow ? "慢速 ×0.36" : "正常速度"}</button><button aria-pressed={double} onClick={() => { setDouble(!double); play(action); }}>{double ? "比下胡 ×2" : "普通局 ×1"}</button><button aria-label="重新播放当前动作" onClick={() => play(action)}><RotateCcw size={14} /></button></div></div>
       {action === "response" && <div className="mv2-response-config"><div><button aria-pressed={!canKong} onClick={() => { setCanKong(false); play("response"); }}>只可碰</button><button aria-pressed={canKong} onClick={() => { setCanKong(true); play("response"); }}>可碰可杠</button><button aria-pressed={dense} onClick={() => { setDense(!dense); play("response"); }}>{dense ? "繁忙牌桌已开启" : "繁忙牌桌"}</button></div><span>点击牌桌上的操作，观察真实归组</span></div>}

@@ -1,4 +1,4 @@
-import {test,expect} from './browser-fixtures';
+import {test,expect,openTableMenu} from './browser-fixtures';
 import {act,createGame,newPlayer,startRound,trusteeAction,viewFor} from '../shared/engine';
 import {normalizeTableSettings} from '../shared/table-settings';
 import {mkdirSync,writeFileSync} from 'node:fs';
@@ -29,8 +29,8 @@ test('前后对比：会员解散入口',async({page})=>{
  g.table={creatorId:'0',groupId:'visual',number:6,createdAt:0,settings:{...normalizeTableSettings({}),allowDissolve:true}};
  const v=viewFor(startRound(g,Date.now(),()=>0.51),0);v.deadline=Date.now()+600000;v.events=[];
  await page.routeWebSocket('**/ws',ws=>{const server=ws.connectToServer();server.onMessage(raw=>{const m=JSON.parse(String(raw));if(m.type==='session'){ws.send(JSON.stringify({...m,account:{...m.account,role:'member'},roomCode:v.code}));ws.send(JSON.stringify({type:'state',state:v}));}else ws.send(raw);});});
- await page.goto('/');await expect(page.getByRole('button',{name:'大厅',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'大厅',exact:true}).click();await shot(page,'member-dissolve');
+ await page.goto('/');await expect(page.getByRole('navigation',{name:'牌桌工具',exact:true})).toBeVisible();
+ await openTableMenu(page,'leave');await shot(page,'member-dissolve');
 });
 test('前后对比：原引擎托管执行一次动作后的实际盘面',async({page})=>{
  await page.setViewportSize({width:844,height:390});

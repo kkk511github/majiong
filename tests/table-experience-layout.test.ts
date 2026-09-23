@@ -32,7 +32,7 @@ describe('摸牌固定槽和碰牌间隔',()=>{
       const gap=seat===0
         ? Math.min(...hand.map(t=>t.x-t.w/2))-Math.max(...sets.map(t=>t.x+t.w/2))
         : Math.min(...sets.map(t=>t.x-t.w/2))-Math.max(...hand.map(t=>t.x+t.w/2));
-      expect(gap).toBeGreaterThanOrEqual(12);
+      expect(gap).toBeGreaterThanOrEqual(12-1e-8);
     }
   });
 });

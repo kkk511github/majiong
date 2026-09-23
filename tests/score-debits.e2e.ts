@@ -25,7 +25,7 @@ test("扣至两家归零时，先显示实际扣分，换座视角后再打开�
   });
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "大厅", exact: true }),
+    page.getByRole("navigation", { name: "牌桌工具", exact: true }),
   ).toBeVisible();
   const after = viewFor(applyDebit(before, "concealed"), 1);
   socket!.send(JSON.stringify({ type: "state", state: after }));
@@ -199,7 +199,7 @@ test("同一玩家连续扣分依次显示，重连时不补播旧流水", async
   await page.goto("/");
   await expect(page.locator(".cocos-loading")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "大厅", exact: true }),
+    page.getByRole("navigation", { name: "牌桌工具", exact: true }),
   ).toBeVisible();
   current = viewFor(applyDebit(debitGame("open"), "open"), 0);
   send();
@@ -219,7 +219,7 @@ test("同一玩家连续扣分依次显示，重连时不补播旧流水", async
   });
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "大厅", exact: true }),
+    page.getByRole("navigation", { name: "牌桌工具", exact: true }),
   ).toBeVisible();
   await expect(page.locator(".score-debit")).toHaveCount(0);
 });

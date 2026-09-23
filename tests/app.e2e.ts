@@ -1,4 +1,4 @@
-import { browserAccount, legacyRoom } from "./browser-fixtures";
+import { browserAccount, legacyRoom, openTableMenu } from "./browser-fixtures";
 import { expect, test, type Page } from "./browser-fixtures";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -205,11 +205,11 @@ test("手机大厅、练习出牌、暂停恢复和战绩导航", async ({ page 
     fullPage: true,
   });
   await page.locator(".hand > .tile.selected").click();
-  await page.getByRole("button", { name: "牌局记录", exact: true }).click();
+  await openTableMenu(page, 'events');
   await expect(page.getByRole("dialog")).toContainText("打出");
   await page.getByRole("button", { name: "关闭", exact: true }).click();
   await noOverflow(page);
-  await page.getByRole("button", { name: "大厅", exact: true }).click();
+  await openTableMenu(page, 'leave');
   await expect(page.getByRole("dialog")).toContainText("练习进度会保存");
   await page.getByRole("button", { name: "返回大厅", exact: true }).click();
   await page.getByRole("button", { name: /继续打/ }).click();
@@ -353,15 +353,13 @@ test("四个独立客户端创建、加入、开局、同步与刷新重连", as
     expect(await pages[1].locator(".opponent-hand .tile").count()).toBe(0);
     await pages[0].getByLabel("我的手牌").getByRole("button").first().click();
     await pages[0].locator(".hand > .tile.selected").click();
-    await pages[1]
-      .getByRole("button", { name: "牌局记录", exact: true })
-      .click();
+    await openTableMenu(pages[1], 'events');
     await expect(pages[1].getByRole("dialog")).toContainText("房主 打出");
     await pages[1].getByRole("button", { name: "关闭", exact: true }).click();
     await pages[1].reload();
     await expect(pages[1].getByLabel("我的手牌")).toBeVisible();
     await expect(pages[1].locator(".game-topbar")).toContainText(code);
-    await pages[1].getByRole("button", { name: "大厅", exact: true }).click();
+    await openTableMenu(pages[1], 'leave');
     await pages[1]
       .getByRole("button", { name: "申请解散", exact: true })
       .click();

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Home, Bot, Layers3, ScrollText, Settings, Check } from "lucide-react";
+import { Bot, Settings, Check } from "lucide-react";
 import {
   claimPrompt,
   sceneTileName,
@@ -99,19 +99,13 @@ export function TableControls({
         ))}
       </ul>
       <nav className="table-toolbar" aria-label="牌桌工具">
-        <button
-          className={`table-back${connectionQuality ? " with-network-status" : ""}`}
-          onClick={() => onCommand({ type: "menu", menu: "leave" })}
-        >
-          <Home size={18} aria-hidden="true" />
-          <span>大厅</span>
-          {connectionQuality && <small className="table-connection-quality">{connectionQuality}</small>}
-        </button>
+        {connectionQuality && <small className="table-connection-quality" aria-label="网络状态">{connectionQuality}</small>}
         <span className="table-activity sr-only" role="status">
           {activity}
         </span>
         <div className="table-menu-actions">
           <button
+            className="table-tool-trustee"
             aria-label={
               ended ? "本局结算" : me?.trustee ? "取消托管" : "开启托管"
             }
@@ -129,20 +123,7 @@ export function TableControls({
             <span>{ended ? "结算" : me?.trustee ? "取消" : "托管"}</span>
           </button>
           <button
-            aria-label="牌局信息"
-            onClick={() => onCommand({ type: "menu", menu: "table" })}
-          >
-            <Layers3 size={18} aria-hidden="true" />
-            <span>牌局</span>
-          </button>
-          <button
-            aria-label="对局记录"
-            onClick={() => onCommand({ type: "menu", menu: "events" })}
-          >
-            <ScrollText size={18} aria-hidden="true" />
-            <span>记录</span>
-          </button>
-          <button
+            className="table-tool-settings"
             aria-label="牌桌设置"
             onClick={() => onCommand({ type: "menu", menu: "settings" })}
           >

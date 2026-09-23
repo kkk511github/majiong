@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { layoutTable, tileFootprint, type SceneTile, type TableSceneState } from '../shared/table-scene';
+import { layoutTable, slotEdgeMetrics, slotMetrics, tileFootprint, type SceneTile, type TableSceneState } from '../shared/table-scene';
 import { beginTileDrag, shouldDiscardDraggedTile } from '../shared/tile-drag';
+import { TILE_POSE_METRICS } from '../shared/tile-pose-metrics';
 
 function fixture(me: number, melds: number, revealed: boolean): TableSceneState {
   const handCount = 13 - melds * 3;
@@ -53,14 +54,105 @@ describe('shortened side hands keep the drawn tile beside the current row', () =
     const neighbour = side === 1 ? Math.min(...regular.map(t => t.y)) : Math.max(...regular.map(t => t.y));
     expect(Math.abs(draw.y - neighbour)).toBe(39);
     expect(side === 1 ? draw.y < neighbour : draw.y > neighbour).toBe(true);
+    // A separate draw slot changes only the position along the side rail.
+    // Both its centre and physical left/right edges must stay on the same
+    // lines as the existing hand, including the downstream concealed back.
+    const drawXs = tileFootprint(draw).map(([x]) => x);
+    for (const tile of regular) {
+      const handXs = tileFootprint(tile).map(([x]) => x);
+      expect(draw.x).toBe(tile.x);
+      expect(Math.min(...drawXs)).toBeCloseTo(Math.min(...handXs), 8);
+      expect(Math.max(...drawXs)).toBeCloseTo(Math.max(...handXs), 8);
+    }
     for (const tile of [...regular, draw]) {
       expect(tile.y - tile.h / 2).toBeGreaterThanOrEqual(25);
       expect(tile.y + tile.h / 2).toBeLessThanOrEqual(478);
-      for (const other of after.filter(t => t.area !== 'hand'))
+      // The unchanged hand remains on its outer track. The parallel meld rail
+      // may share its longitudinal range, but both stay clear of public lanes.
+      for (const other of after.filter(t => t.area !== 'hand' && !(t.area === 'meld' && t.seat === player.seat)))
         expect(overlaps(tile, other), `${tile.id} overlaps ${other.id}`).toBe(false);
+    }
+    const meld = after.filter(t => t.seat === player.seat && t.area === 'meld' && !t.stack);
+    if (meld.length) {
+      const direction=side===1?1:-1;
+      const handRailX=(tile:SceneTile)=>(revealed
+        ?slotMetrics(side,tile.y).x+direction*140
+        :slotEdgeMetrics(side,tile.y,'outer').x+direction*122);
+      const crossPose=side===1?'meld-cross-right':'meld-cross-left';
+      const regularPose=side===1?'right':'left';
+      expect(meld.every(t => t.shear === 0 && t.rotation === 0)).toBe(true);
+      expect(meld.filter(t => t.pose === crossPose)).toHaveLength(player.melds.filter(m =>
+        !m.concealed && m.from !== player.seat && (m.type === 'pung' || m.added === true)).length);
+      expect(meld.filter(t => t.pose === crossPose).every(t => t.h > t.w)).toBe(true);
+      for(const tile of regular)expect(tile.x).toBeCloseTo(handRailX(tile),8);
+      for(const tile of meld.filter(t => t.pose !== crossPose)){
+        expect([regularPose,`cover-${regularPose}`]).toContain(tile.pose);
+        const normalWidth=TILE_POSE_METRICS[regularPose].w/TILE_POSE_METRICS[regularPose].h*36;
+        const edgeAlignedOffset=-direction*48+direction*(normalWidth-tile.w)/2;
+        expect(tile.x-handRailX(tile)).toBeCloseTo(edgeAlignedOffset,8);
+      }
+      for(let group=0;group<player.melds.length;group++){
+        const cards=meld.filter(t=>t.id.startsWith(`meld-${player.seat}-${group}-`));
+        if(!player.melds[group].concealed){
+          const nearEdge=(t:SceneTile)=>{
+            const xs=tileFootprint(t).map(([x])=>x);
+            return side===1?Math.max(...xs):Math.min(...xs);
+          };
+          expect(Math.max(...cards.map(nearEdge))-Math.min(...cards.map(nearEdge))).toBeLessThan(1e-8);
+        }
+        const ordered=[...cards].sort((a,b)=>a.y-b.y);
+        const gaps=ordered.slice(1).map((t,i)=>t.y-t.h/2-(ordered[i].y+ordered[i].h/2));
+        for(const gap of gaps)expect(gap).toBeCloseTo(-6.5,8);
+      }
+      const bounds=(tiles:SceneTile[])=>{
+        const points=tiles.flatMap(t=>tileFootprint(t));
+        return {top:Math.min(...points.map(p=>p[1])),bottom:Math.max(...points.map(p=>p[1]))};
+      };
+      const meldBounds=bounds(meld);
+      expect(meldBounds.top).toBeGreaterThanOrEqual(0);
+      expect(meldBounds.bottom).toBeLessThanOrEqual(490);
+      const groups=player.melds.map((_,group)=>bounds(meld.filter(t=>t.id.startsWith(`meld-${player.seat}-${group}-`))));
+      const orderedGroups=[...groups].sort((a,b)=>a.top-b.top);
+      for(let group=1;group<orderedGroups.length;group++)
+        expect(orderedGroups[group].top-orderedGroups[group-1].bottom).toBeGreaterThanOrEqual(6);
     }
     const publicTiles = state.players.flatMap(p => [...p.hand, ...p.flowers, ...p.discards, ...p.melds.flatMap(m => m.tiles)]);
     expect(new Set(publicTiles).size).toBe(publicTiles.length);
+  });
+});
+
+describe('opposite drawn tile keeps its own slot', () => {
+  it.each([0, 1, 2, 3].flatMap(me => [false, true].map(revealed => ({ me, revealed }))))
+  ('view $me / revealed $revealed leaves a visible drawGap after the far hand', ({ me, revealed }) => {
+    const state = fixture(me, 0, revealed);
+    const player = state.players[(me + 2) % 4];
+    const before = layoutTable(state).filter(tile => tile.area === 'hand' && tile.seat === player.seat);
+    player.handCount++;
+    if (revealed) player.hand.push(player.seat * 32 + 13);
+    const after = layoutTable(state).filter(tile => tile.area === 'hand' && tile.seat === player.seat);
+    const drawn = after.find(tile => !before.some(old => old.id === tile.id))!;
+    const regular = after.filter(tile => tile.id !== drawn.id);
+
+    expect(drawn).toBeDefined();
+    expect(after).toHaveLength(before.length + 1);
+    for (const tile of before) expect(after.find(next => next.id === tile.id)).toEqual(tile);
+
+    const drawnBox = tileFootprint(drawn);
+    const drawnLeft = Math.min(...drawnBox.map(([x]) => x));
+    const drawnRight = Math.max(...drawnBox.map(([x]) => x));
+    const nearest = regular.reduce((best, tile) => Math.min(best,
+      Math.max(0,
+        Math.min(...tileFootprint(tile).map(([x]) => x)) - drawnRight,
+        drawnLeft - Math.max(...tileFootprint(tile).map(([x]) => x)))), Infinity);
+    expect(nearest).toBeGreaterThanOrEqual(8);
+
+    const ordered = [...regular].sort((a, b) => a.x - b.x);
+    const handGaps = ordered.slice(1).map((tile, i) => {
+      const left = Math.min(...tileFootprint(tile).map(([x]) => x));
+      const right = Math.max(...tileFootprint(ordered[i]).map(([x]) => x));
+      return left - right;
+    });
+    expect(nearest).toBeGreaterThan(Math.max(...handGaps));
   });
 });
 
@@ -71,7 +163,7 @@ describe('own hand remains selectable after the meld spacing changes', () => {
     expect(hands.map(t => t.tile)).toEqual(state.players[0].hand);
     const meldTiles = before.filter(t => t.area === 'meld' && t.seat === 0);
     for (const hand of hands) {
-      for (const meld of meldTiles) expect(overlaps(hand, meld)).toBe(false);
+      for (const meld of meldTiles) expect(overlaps(hand, meld), `${hand.id} overlaps ${meld.id}`).toBe(false);
       const targets = hands.filter(t => {
         const footprint = tileFootprint(t);
         return hand.x > Math.min(...footprint.map(p => p[0])) && hand.x < Math.max(...footprint.map(p => p[0])) &&

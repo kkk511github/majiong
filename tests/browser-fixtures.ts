@@ -86,3 +86,18 @@ export async function legacyRoom(page: Page, name = "金陵牌友") {
   }, name);
   await page.locator(".waiting-room").waitFor();
 }
+
+// Panel regressions exercise the existing table command bridge directly.
+// The removed lobby/records/table toolbar buttons are intentionally not UI
+// entry points; this helper does not claim that those buttons still exist.
+export async function openTableMenu(page: Page, menu: 'leave' | 'events' | 'table') {
+  const iframe = page.locator('#cocos-table-board iframe');
+  await iframe.waitFor();
+  const frame = await (await iframe.elementHandle())!.contentFrame();
+  if (!frame) throw new Error('The Cocos table frame is unavailable');
+  await frame.waitForFunction(() => !!(window as any).__JINLING_TABLE_READY__);
+  await frame.evaluate(async menu => {
+    const cc = await (window as any).System.import('cc');
+    cc.director.getScene().getChildByName('Canvas').getComponent('TableScene').emit({ type: 'menu', menu });
+  }, menu);
+}

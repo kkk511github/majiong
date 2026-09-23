@@ -1,6 +1,6 @@
 <!doctype html><meta charset="utf-8"><title>弃牌顺序与碰牌提示验收</title>
 <style>body{margin:0;background:#102b26;color:#f4edcf;font:15px system-ui}header{padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,select{background:#285547;color:#fff3ca;border:1px solid #bcb17b;padding:8px 12px;border-radius:7px;font:inherit}iframe{display:block;border:0;width:100%;aspect-ratio:1280/590;background:#000}output{display:block;white-space:pre-wrap;padding:12px;font:13px monospace}</style>
-<header><b>弃牌顺序验收</b><button data-mode="1">各家第1张</button><button data-mode="5">追加到第5张</button><button data-mode="10">第10张换行</button><button data-mode="18">每家18张</button><button data-mode="19">第19张换行</button><button data-mode="27">每家27张</button><button data-mode="claim">碰六筒</button><button data-mode="rob">抢杠九筒</button><button data-mode="done">操作后</button><label>我的座位 <select id="seat"><option>0</option><option>1</option><option>2</option><option>3</option></select></label></header>
+<header><b>弃牌顺序验收</b><button data-mode="1">各家第1张</button><button data-mode="5">追加到第5张</button><button data-mode="11">第11张换行</button><button data-mode="18">每家18张</button><button data-mode="19">第19张换行</button><button data-mode="27">每家27张</button><button data-mode="claim">碰六筒</button><button data-mode="rob">抢杠九筒</button><button data-mode="done">操作后</button><label>我的座位 <select id="seat"><option>0</option><option>1</option><option>2</option><option>3</option></select></label></header>
 <iframe title="真实 Cocos 牌桌" src="/cocos-table/index.html?channel=river-review"></iframe><output id="audit">正在加载实际运行资源…</output>
 <script type="module">
 import { layoutTable, claimPrompt } from '/shared/table-scene.ts';
@@ -28,6 +28,6 @@ setInterval(()=>{
  const expected=layoutTable(state).filter(t=>t.area==='river');
  const match=expected.length===actual.length&&expected.every(a=>actual.some(b=>a.id===b.id&&a.seat===b.seat&&a.x===b.x&&a.y===b.y&&a.claimTarget===b.claimTarget));
  const unchanged=previous.filter(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat)).every(a=>actual.some(b=>b.id===a.id&&b.seat===a.seat&&a.x===b.x&&a.y===b.y));
- audit.textContent=`排列方向：上家从上往下 ↓，下家从下往上 ↑；对家新一排往屏幕上方 ↑\n真实 Cocos 与共享布局一致：${match?'通过':'等待'}\n旧牌位置保持：${unchanged?'通过':'视角已切换'}\n当前提示：${JSON.stringify(claimPrompt(state)||'无')}\n`+state.players.map(p=>`座位 ${p.seat}：`+p.discards.map(id=>{const t=actual.find(t=>t.tile===id&&t.seat===p.seat);return t?`${id}@(${t.x},${t.y})`:'加载中';}).join(' → ')).join('\n');
+ audit.textContent=`排列方向：自己从左往右、换行向上；下家从下往上、换列向左；对家从右往左、换行向下；上家从上往下、换列向右\n真实 Cocos 与共享布局一致：${match?'通过':'等待'}\n旧牌位置保持：${unchanged?'通过':'视角已切换'}\n当前提示：${JSON.stringify(claimPrompt(state)||'无')}\n`+state.players.map(p=>`座位 ${p.seat}：`+p.discards.map(id=>{const t=actual.find(t=>t.tile===id&&t.seat===p.seat);return t?`${id}@(${t.x},${t.y})`:'加载中';}).join(' → ')).join('\n');
 },150);
 </script>

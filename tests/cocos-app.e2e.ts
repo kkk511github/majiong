@@ -94,8 +94,13 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     expect(initial.labels.some((s:string)=>s.startsWith('下把'))).toBe(false);
     mkdirSync('test-results/screenshots',{recursive:true});
     await page.screenshot({path:`test-results/screenshots/round-multiplier-${width}.png`});
-    const toolbar=await page.getByRole('navigation',{name:'牌桌工具'}).getByRole('button').evaluateAll(nodes=>nodes.map(n=>{const b=n.getBoundingClientRect();return {x:b.x,w:b.width,h:b.height};}));
-    for(const b of toolbar){expect(b.w).toBeGreaterThanOrEqual(44);expect(b.h).toBeGreaterThanOrEqual(44);expect(b.x+b.w).toBeLessThanOrEqual(width);}
+    const tools=page.getByRole('navigation',{name:'牌桌工具'});
+    await expect(tools.getByRole('button')).toHaveCount(2);
+    await expect(tools.getByRole('button',{name:'开启托管',exact:true})).toBeEnabled();
+    await expect(tools.getByRole('button',{name:'牌桌设置',exact:true})).toBeEnabled();
+    for(const name of ['大厅','牌局信息','对局记录'])await expect(tools.getByRole('button',{name,exact:true})).toHaveCount(0);
+    const toolbar=await tools.getByRole('button').evaluateAll(nodes=>nodes.map(n=>{const b=n.getBoundingClientRect();return {x:b.x,w:b.width,h:b.height,reachable:n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2))};}));
+    for(const b of toolbar){expect(b.w).toBeGreaterThanOrEqual(44);expect(b.h).toBeGreaterThanOrEqual(44);expect(b.x+b.w).toBeLessThanOrEqual(width);expect(b.reachable).toBe(true);}
     expect(initial.state.players.filter((p:any)=>p.seat!==0).every((p:any)=>p.hand.length===0)).toBe(true);
     await expect(page.getByRole("region",{name:"胡牌提示"})).toHaveCount(0);
     await expect(page.locator(".ready-discard-arrow")).toHaveCount(5);
@@ -227,6 +232,8 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     await expect(page.getByRole('button',{name:'南京男声',exact:true})).toHaveAttribute('aria-pressed','true');
     await page.getByRole('dialog').getByRole('button',{name:'关闭',exact:true}).click();
     v.phase='ended';v.revision++;push();
+    await expect(page.getByRole('navigation',{name:'牌桌工具'}).getByRole('button')).toHaveCount(2);
+    await expect(page.getByRole('button',{name:'本局结算',exact:true})).toBeEnabled();
     // Closing settings remounts the table iframe; wait for the new rendered HUD.
     await expect(async()=>expect((await scene(page)).labels).toContain('下把恢复 × 1')).toPass({timeout:30000});
     v.phase='finished';v.revision++;push();

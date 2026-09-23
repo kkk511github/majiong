@@ -12,6 +12,10 @@
 .mv2-real-viewport{position:relative;width:100%;aspect-ratio:1280/590;overflow:hidden;background:#0a3933}
 .mv2-real-viewport>.cocos-game{position:absolute;inset:0;width:100%;height:100%;padding:0;margin:0;border:0;border-radius:0;overflow:hidden;isolation:isolate}
 .mv2-real-viewport .cocos-game>iframe{width:100%;height:100%}
+/* The preview itself already labels the board and keeps the full table in a
+   fixed landscape stage.  Do not place the product's portrait advisory over
+   the tiles while inspecting the meld geometry in this page. */
+.mv2-real-viewport .table-portrait-notice{display:none!important}
 .mv2-real-viewport .score-debit{animation-duration:var(--mv2-debit-duration,1800ms)}
 .mv2-real-viewport .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .mv2-local>a{display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:7px;color:#c1b993;text-decoration:none;font-size:10px}

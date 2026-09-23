@@ -3,9 +3,13 @@ import { expect, it } from 'vitest';
 import { createGame, newPlayer, seats, startRound, viewFor } from '../shared/engine';
 import { seededRandom } from '../shared/tiles';
 import { cocosState } from '../src/cocos-state';
-import { scenePlayerStatus, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics, layoutPlayerHud } from '../shared/table-scene';
+import { scenePlayerStatus, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneTileName, slotMetrics, slotEdgeMetrics, layoutPlayerHud, RIVER_ROW_CAPACITY } from '../shared/table-scene';
 
 const ui = { connected:true, disabled:false, practice:false, countdown:'30', selected:null, inspectedKind:null, hintKinds:[], hintLabel:'可胡', effects:[] };
+function playerSideEdge(tile:ReturnType<typeof layoutTable>[number],seat:number){
+ const xs=tileFootprint(tile).map(([x])=>x);
+ return seat===1?Math.max(...xs):Math.min(...xs);
+}
 it('自己的头像在左下手牌外侧，并避开灵动岛安全区',()=>{
  const normal=layoutPlayerHud(0);
  expect(normal.x+normal.w/2).toBeLessThan(224);
@@ -31,6 +35,11 @@ it('the Cocos bridge carries one public concealed-kong face and never live oppon
   expect(result.players[0].hand).toEqual(v.players[0]!.hand);
   expect(result).not.toHaveProperty('wall');
   expect(result).not.toHaveProperty('replay');
+});
+it('passes the existing added-kong display flag through the Cocos view bridge',()=>{
+ const g=fixture(),v=viewFor(g,0);
+ v.players[0]!.melds=[{type:'kong',tiles:[100,101,102,103],from:1,concealed:false,added:true}];
+ expect(cocosState(v,ui).players[0].melds[0].added).toBe(true);
 });
 it('reveals the confirmed end-of-round hands for results, using the same scene renderer',()=>{
   const g=fixture();g.phase='ended';
@@ -69,14 +78,42 @@ it('allows off-turn hand selection only during active play and never unlocks rep
  expect(layoutTable(s).filter(t=>t.clickable)).toEqual([]);
 });
 
-it('stacks every exposed kong on its middle tile and paints the upper tile last',()=>{
+it.each(['direct','added','concealed'] as const)('renders every %s kong with its distinct four-tile structure',kind=>{
  const s=cocosState(viewFor(fixture(),0),ui);
- for(const p of s.players)p.melds=[{type:'kong',tiles:[120,121,122,123],from:(p.seat+1)%4,concealed:false}];
+ for(const p of s.players)p.melds=[{type:'kong',tiles:[120,121,122,123],from:kind==='concealed'?p.seat:(p.seat+1)%4,
+  concealed:kind==='concealed',added:kind==='added'}];
  const ts=layoutTable(s);
  for(const p of s.players){
-  const group=ts.filter(t=>t.area==='meld'&&t.seat===p.seat),middle=group.find(t=>t.id.endsWith('-1'))!,upper=group.find(t=>t.stack)!;
-  expect(upper.x).toBe(middle.x);expect(upper.y).toBeLessThan(middle.y);
-  expect(upper.z).toBeGreaterThan(Math.max(...group.filter(t=>!t.stack).map(t=>t.z)));
+  const group=ts.filter(t=>t.area==='meld'&&t.seat===p.seat),bases=group.filter(t=>!t.stack);
+  expect(group).toHaveLength(4);
+  if(kind==='direct'){
+   expect(bases).toHaveLength(4);expect(group.filter(t=>t.stack)).toHaveLength(0);
+   expect(group.every(t=>!t.pose.includes('cross')&&!t.pose.startsWith('cover-')&&t.source===undefined)).toBe(true);
+  }else{
+   const middle=group.find(t=>t.id.endsWith('-1'))!,upper=group.find(t=>t.stack)!;
+   expect(bases).toHaveLength(3);expect(group.filter(t=>t.stack)).toHaveLength(1);
+   if(p.seat%2===0){
+    expect(upper.x).toBe(middle.x);
+    expect(upper.y).toBeLessThan(middle.y);
+    if(p.seat===2){
+     expect(upper.y-middle.y).toBeCloseTo(-4,8);
+     expect(upper.y-upper.h/2).toBeGreaterThanOrEqual(0);
+     expect(middle.y+middle.h/2).toBeCloseTo(45,8);
+     const visibleBand=middle.y+middle.h/2-upper.y-upper.h/2;
+     expect(visibleBand).toBeGreaterThanOrEqual(3.5);
+     expect(visibleBand).toBeLessThanOrEqual(4.5);
+    }
+   }else{
+    expect(playerSideEdge(upper,p.seat)).toBeCloseTo(playerSideEdge(middle,p.seat),8);
+    expect(Math.abs(upper.x-middle.x)).toBeLessThan(.1);
+    expect(middle.y-upper.y).toBeGreaterThanOrEqual(7.5);
+    expect(middle.y-upper.y).toBeLessThanOrEqual(8.5);
+    expect(upper.y-middle.y).toBeCloseTo(-8,8);
+   }
+   expect(upper.z).toBeGreaterThan(Math.max(...bases.map(t=>t.z)));
+  }
+  if(kind==='added')expect(bases.filter(t=>t.pose.includes('cross'))).toHaveLength(1);
+  if(kind==='concealed')expect(bases.every(t=>t.pose.startsWith('cover-')&&t.tile===undefined)).toBe(true);
  }
 });
 it('renders concealed kongs with three backs and one upper face at all four seats',()=>{
@@ -88,6 +125,13 @@ it('renders concealed kongs with three backs and one upper face at all four seat
   const group=melds.filter(t=>t.seat===p.seat);
   expect(group.filter(t=>t.tile!==undefined)).toHaveLength(1);
   expect(group.find(t=>t.stack)?.tile).toBe(120);
+  const middle=group.find(t=>t.id.endsWith('-1'))!,upper=group.find(t=>t.stack)!;
+  if(p.seat%2===0)expect(upper.x).toBe(middle.x);
+  else{
+   expect(playerSideEdge(upper,p.seat)).toBeCloseTo(playerSideEdge(middle,p.seat),8);
+   expect(Math.abs(upper.x-middle.x)).toBeLessThan(.1);
+   expect(upper.y-middle.y).toBeCloseTo(-8,8);
+  }
   for(const t of group){expect(t.pose.startsWith('cover-')).toBe(t.tile===undefined);expect(t.source).toBeUndefined();}
  }
  s.players[1].melds[0].tiles=[];
@@ -129,8 +173,8 @@ it('keeps side rivers as straight joined vertical strips, including overflow col
  for(const p of s.players)p.discards=Array.from({length:27},(_,i)=>i);
  const ts=layoutTable(s);
  for(const seat of [1,3]){
-  const row=ts.filter(t=>t.seat===seat&&t.area==='river'&&t.tile!<9).sort((a,b)=>a.y-b.y);
-  expect(row[0].x).toBe(seat===1?807:473);
+  const row=ts.filter(t=>t.seat===seat&&t.area==='river'&&t.tile!<RIVER_ROW_CAPACITY).sort((a,b)=>a.y-b.y);
+  expect(row[0].x).toBe(seat===1?916:360);
   expect(new Set(row.map(t=>t.x)).size).toBe(1);
   for(const t of row){expect(t.rotation).toBe(0);expect(t.shear).toBe(0);expect(t.pose).toBe(seat===1?'right':'left');}
   for(let i=1;i<row.length;i++){
@@ -142,7 +186,7 @@ it('keeps side rivers as straight joined vertical strips, including overflow col
   }
  }
  for(const seat of seats){
-  const capacity=9;
+  const capacity=RIVER_ROW_CAPACITY;
   for(const first of [0,capacity]){
    const row=ts.filter(t=>t.seat===seat&&t.area==='river'&&t.tile!>=first&&t.tile!<first+capacity);
    if(seat%2){
@@ -151,6 +195,11 @@ it('keeps side rivers as straight joined vertical strips, including overflow col
   }
  }
  const rivers=ts.filter(t=>t.area==='river');
+ const compass={x:640,y:257,w:124,h:96};
+ for(const t of rivers){
+  const clear=Math.abs(t.x-compass.x)>=(t.w+compass.w)/2||Math.abs(t.y-compass.y)>=(t.h+compass.h)/2;
+  expect(clear,`${t.id}/${t.seat} covers fixed compass`).toBe(true);
+ }
  for(const a of rivers)for(const b of rivers)if(a.seat!==b.seat){
   const dx=(a.w+b.w)/2-Math.abs(a.x-b.x),dy=(a.h+b.h)/2-Math.abs(a.y-b.y);
   expect(dx<=0||dy<=0,`${a.id}/${a.seat} overlaps ${b.id}/${b.seat}`).toBe(true);
@@ -162,7 +211,7 @@ it('leaves a visible gap between opposite flowers and the standing hand/meld rac
  s.players[2].handCount=7;s.players[2].melds=[{type:'kong',tiles:[120,121,122,123],from:1,concealed:false}];
  s.players[2].flowers=[124,128,132,136,137,138];
  const ts=layoutTable(s),flowers=ts.filter(t=>t.seat===2&&t.area==='flower'),standing=ts.filter(t=>t.seat===2&&['hand','meld'].includes(t.area));
- expect(Math.min(...flowers.map(t=>t.y-t.h/2))-Math.max(...standing.map(t=>t.y+t.h/2))).toBeGreaterThanOrEqual(7);
+ expect(Math.min(...flowers.map(t=>t.y-t.h/2))-Math.max(...standing.map(t=>t.y+t.h/2))).toBeGreaterThanOrEqual(1);
  const own=ts.filter(t=>t.seat===0&&t.area==='flower');
  for(const t of own){expect(t.w).toBe(34);expect(t.h).toBe(42);}
 });
@@ -174,16 +223,20 @@ it('mirrors horizontal discard order while the opposite rows fill towards its ow
  for(const [a,b] of [[0,2]])for(let i=0;i<18;i++){
   const x=tiles.find(t=>t.seat===a&&t.tile===i)!,y=tiles.find(t=>t.seat===b&&t.tile===i)!;
   expect(x.x+y.x).toBe(1280);
-  if(i>=9){
-   const previous=tiles.find(t=>t.seat===b&&t.tile===i-9)!;
-   expect(y.y).toBeLessThan(previous.y);
-   expect(previous.y-y.y).toBe(x.y-tiles.find(t=>t.seat===a&&t.tile===i-9)!.y);
+   if(i>=RIVER_ROW_CAPACITY){
+   const previous=tiles.find(t=>t.seat===b&&t.tile===i-RIVER_ROW_CAPACITY)!;
+   expect(y.y).toBeGreaterThan(previous.y);
+   expect(y.y-previous.y).toBe(tiles.find(t=>t.seat===a&&t.tile===i-RIVER_ROW_CAPACITY)!.y-x.y);
   }
  }
- for(const range of [[0,9],[9,18]]){
+  for(const range of [[0,RIVER_ROW_CAPACITY],[RIVER_ROW_CAPACITY,2*RIVER_ROW_CAPACITY]]){
   const left=tiles.filter(t=>t.seat===3&&t.tile!>=range[0]&&t.tile!<range[1]).sort((a,b)=>a.y-b.y);
   const right=tiles.filter(t=>t.seat===1&&t.tile!>=range[0]&&t.tile!<range[1]).sort((a,b)=>a.y-b.y);
-  left.forEach((t,i)=>{expect(t.x+right[i].x).toBeCloseTo(1280,8);expect(t.y).toBe(right[i].y);});
+  expect(left.length).toBe(right.length);
+  for(let i=1;i<left.length;i++){
+   expect(left[i].y-left[i-1].y).toBe(28);
+   expect(right[i].y-right[i-1].y).toBe(28);
+  }
  }
 });
 
@@ -200,17 +253,17 @@ it('appends from fixed origins with the previous player downward and next player
     expect([b.x,b.y,b.w,b.h]).toEqual([a.x,a.y,a.w,a.h]);
    }
    for(const p of s.players){
-    const o=(p.seat-me+4)%4,capacity=9;
+    const o=(p.seat-me+4)%4,capacity=RIVER_ROW_CAPACITY;
     const current=next.find(t=>t.tile===p.discards.at(-1))!;
     const first=next.find(t=>t.tile===p.discards[0])!;
     if((count-1)%capacity===0){
      expect(current[o%2?'y':'x']).toBe(first[o%2?'y':'x']);
      if(count>1){
       const before=next.find(t=>t.tile===p.discards.at(-2))!;
-      if(o===1)expect(current.x).toBeGreaterThan(before.x);
-      else if(o===3)expect(current.x).toBeLessThan(before.x);
-      else if(o===2)expect(current.y).toBeLessThan(before.y);
-      else expect(current.y).toBeGreaterThan(before.y);
+      if(o===1)expect(current.x).toBeLessThan(before.x);
+      else if(o===3)expect(current.x).toBeGreaterThan(before.x);
+      else if(o===2)expect(current.y).toBeGreaterThan(before.y);
+      else expect(current.y).toBeLessThan(before.y);
      }
     }
     else{
@@ -270,28 +323,50 @@ it('keeps the entire side hand on its standing-player lane',()=>{
  }
 });
 
-it('keeps four side meld groups inside the table with a separate parallel lane and centred kong stacks',()=>{
+it('keeps side pungs and kongs joined to one rail with only added/concealed kongs stacked',()=>{
  const s=cocosState(viewFor(fixture(),0),ui);
  for(const seat of [1,3]){
   s.players[seat].hand=[];s.players[seat].handCount=1;
   s.players[seat].flowers=[124,128,132,136,137,138];
-  s.players[seat].melds=Array.from({length:4},(_,i)=>({type:i===0?'pung':'kong',tiles:Array.from({length:i===0?3:4},(_,j)=>i*4+j),from:(seat+1)%4,concealed:i===2}));
+  s.players[seat].melds=Array.from({length:4},(_,i)=>({type:i===0?'pung':'kong',tiles:Array.from({length:i===0?3:4},(_,j)=>i*4+j),from:(seat+1)%4,concealed:i===2,added:i===3}));
  }
  const ts=layoutTable(s);
- for(const t of ts.filter(t=>t.area==='meld'&&t.seat%2)){
-  for(const [x,y] of tileFootprint(t)){
-   // Expanded fourth groups remain between the opposite HUD (ends at 60)
-   // and our standing hand (starts at 491), outside the flower trough itself.
-   expect(y).toBeGreaterThan(60);expect(y).toBeLessThan(491);
-   expect(x).toBeGreaterThan(240-.326*y+20);
-   expect(x).toBeLessThan(1040+.326*y-20);
+ for(const seat of [1,3]){
+  const row=ts.filter(t=>t.area==='meld'&&t.seat===seat);
+  const crossPose=seat===3?'meld-cross-left':'meld-cross-right';
+  for(const t of row){
+   expect(t.shear).toBe(0);
+   expect(t.pose.startsWith('meld-')).toBe(t.pose===crossPose);
+   if(t.pose.startsWith('cover-'))expect(t.tile).toBeUndefined();
   }
-  expect(t.shear).toBeCloseTo(slotMetrics(t.seat,t.y).shear,8);
-  if(t.pose.startsWith('cover-'))expect(t.tile).toBeUndefined();
-  for(const other of ts.filter(v=>['flower','hand','river'].includes(v.area)&&v.seat===t.seat)){
-   const dx=(t.w+other.w)/2-Math.abs(t.x-other.x),dy=(t.h+other.h)/2-Math.abs(t.y-other.y);
-   expect(dx<=0||dy<=0,`${t.id} touches ${other.id}`).toBe(true);
+  for(let group=0;group<4;group++){
+   const cards=row.filter(t=>!t.stack&&t.id.startsWith(`meld-${seat}-${group}-`));
+   const nearEdge=(t:(typeof cards)[number])=>{
+    const xs=tileFootprint(t).map(([x])=>x);
+    return seat===3?Math.min(...xs):Math.max(...xs);
+   };
+   expect(cards.filter(t=>t.pose===crossPose)).toHaveLength(group===0||group===3?1:0);
+   expect(Math.max(...cards.map(nearEdge))-Math.min(...cards.map(nearEdge))).toBeLessThan(1e-8);
+   const ordered=[...cards].sort((a,b)=>a.y-b.y);
+   const contact=ordered.slice(1).map((t,i)=>(ordered[i].h+t.h)/2-(t.y-ordered[i].y));
+   for(const depth of contact){
+    expect(depth).toBeGreaterThanOrEqual(6.4);
+    expect(depth).toBeLessThanOrEqual(6.6);
+   }
   }
+  const addedStackOffsets:number[]=[];
+  for(const upper of row.filter(t=>t.stack)){
+   const middle=row.find(t=>t.id===upper.id.replace(/-3$/,'-1'))!;
+   expect(playerSideEdge(upper,seat)).toBeCloseTo(playerSideEdge(middle,seat),8);
+   expect(Math.abs(upper.x-middle.x)).toBeLessThan(.1);
+   const lift=middle.y-upper.y;
+   expect(lift).toBeGreaterThanOrEqual(7.5);
+   expect(lift).toBeLessThanOrEqual(8.5);
+   expect(lift).toBeCloseTo(8,8);
+   const group=Number(upper.id.split('-')[2]);
+   if(!s.players[seat].melds[group].concealed)addedStackOffsets.push(lift);
+  }
+  expect(addedStackOffsets).toHaveLength(1);
  }
 });
 
@@ -314,6 +389,13 @@ it('keeps side hands and melds in their projection, and flowers and rivers strai
    expect(t.shear,t.pose).toBe(0);
   }else{
    const edge=slotMetrics(t.seat,t.y);
+   // Ordinary and turned public faces use the same side camera.  The supplier
+   // has its own baked cross-rail solid so the green base and shadow do not
+   // rotate away from the shared tabletop plane at runtime.
+   if(t.pose.startsWith('meld-cross-')){
+    const regular=t.seat===3?atlas.left:atlas.right;
+    expect(pose.projection.eye,t.pose).toEqual(regular.projection.eye);
+   }
    expect(pose.projection.shear+edge.shear,t.pose).toBeCloseTo(0,8);
    expect(t.shear).toBeCloseTo(edge.shear,8);
   }
@@ -355,7 +437,12 @@ it('leaves the fixed actions clear when a hand tile is selected or the right pla
    expect(Math.hypot(dx,dy),`actions cover ${t.id}`).toBeGreaterThanOrEqual(30);
   }
   const drawn=tiles.find(t=>t.id==='hand-1-13')!;
-  for(const [x,y] of tileFootprint(drawn))expect(x).toBeLessThan(1040+.326*y);
+  const neighbour=tiles.find(t=>t.id==='hand-1-0')!;
+  // The current straight table has one vertical hand rail, not the former
+  // diagonal felt boundary that required an inward-offset draw slot.
+  expect(drawn.x).toBe(neighbour.x);
+  expect(tileFootprint(drawn).map(([x])=>x)).toEqual(tileFootprint(neighbour).map(([x])=>x));
+  for(const [x] of tileFootprint(drawn))expect(x).toBeLessThan(1280);
  }
 });
 

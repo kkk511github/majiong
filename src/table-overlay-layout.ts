@@ -21,7 +21,10 @@ export function tableOverlayLayout(
   return {
     scale, left, top, handTop, actionEdge,players,
     sourceLeft,
-    sourceTop: Math.min(top + 350 * scale, localTop - sourceHeight - 4),
+    // Keep the compact source card just clear of the transparent local HUD
+    // bounds on the narrowest canvas; the portrait/flower pieces themselves
+    // are painted separately and do not occupy this overlay rail.
+    sourceTop: Math.min(top + 350 * scale, localTop - sourceHeight - 1),
     sourceWidth: Math.max(0, Math.min(196 * scale, left + 224 * scale - sourceLeft)),
     sourceHeight,
     contentRight:left+1140*scale,

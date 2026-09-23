@@ -12,7 +12,12 @@ test('取消托管单击生效，按下和抬起之间更新倒计时也不丢�
   (window as any).commands=[];
   const emit=c.emit.bind(c);c.emit=(command:any)=>{(window as any).commands.push(command);emit(command);};
  });
- await page.mouse.move(1107,88);await page.mouse.down();
+ const trusteePoint=await page.evaluate(async()=>{
+  const cc=await (window as any).System.import('cc');
+  const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+  return {x:c.trusteeButton.position.x+640,y:295-c.trusteeButton.position.y};
+ });
+ await page.mouse.move(trusteePoint.x,trusteePoint.y);await page.mouse.down();
  await page.evaluate(async()=>{
   const cc=await (window as any).System.import('cc');
   const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
@@ -27,6 +32,44 @@ test('取消托管单击生效，按下和抬起之间更新倒计时也不丢�
   return {same:c.trusteeButton===(window as any).pressedButton,trustee:c.state.players[0].trustee,label:c.trusteeLabel.string};
  });
  expect(result).toEqual({same:true,trustee:false,label:'托管'});
+});
+
+test('独立牌桌只保留托管和设置，结算仍复用托管入口',async({page})=>{
+ await page.setViewportSize({width:1280,height:590});
+ await page.goto('/cocos-table/index.html');
+ await page.waitForFunction(()=>!!(window as any).__JINLING_TABLE_READY__);
+ const toolbar=await page.evaluate(async()=>{
+  const cc=await (window as any).System.import('cc');
+  const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+  c.state.presentation=undefined;c.state.externalControls=false;c.state.phase='playing';
+  c.state.actions=[];c.state.trusteeDisabled=false;c.state.players[c.state.me].trustee=false;
+  c.hudKey='';c.draw();
+  (window as any).toolbarCommands=[];
+  const emit=c.emit.bind(c);c.emit=(command:any)=>{(window as any).toolbarCommands.push(command);emit(command);};
+  const nodes=c.root.getComponentsInChildren(cc.UITransform).map((t:any)=>t.node);
+  const buttons=nodes.filter((n:any)=>n.activeInHierarchy&&n.name.startsWith('table-tool-'));
+  return {
+   removed:nodes.filter((n:any)=>['button-‹ 大厅','button-牌','button-录','button-⚙'].includes(n.name)).map((n:any)=>n.name),
+   buttons:buttons.map((n:any)=>({name:n.name,x:n.position.x+640,y:295-n.position.y,w:n.getComponent(cc.UITransform).width,h:n.getComponent(cc.UITransform).height})),
+  };
+ });
+ expect(toolbar.removed).toEqual([]);
+ expect(toolbar.buttons.map((button:any)=>button.name).sort()).toEqual(['table-tool-settings','table-tool-trustee']);
+ for(const button of toolbar.buttons){expect(button.w).toBeGreaterThanOrEqual(44);expect(button.h).toBeGreaterThanOrEqual(44);}
+ const settings=toolbar.buttons.find((button:any)=>button.name==='table-tool-settings')!;
+ const trustee=toolbar.buttons.find((button:any)=>button.name==='table-tool-trustee')!;
+ await page.mouse.click(settings.x,settings.y);
+ await page.mouse.click(trustee.x,trustee.y);
+ await expect.poll(()=>page.evaluate(()=>(window as any).toolbarCommands)).toEqual([{type:'menu',menu:'settings'},{type:'trustee',enabled:true}]);
+ await page.evaluate(async()=>{
+  const cc=await (window as any).System.import('cc');
+  const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+  c.state.phase='ended';c.state.trusteeDisabled=true;c.draw();
+ });
+ await page.mouse.click(trustee.x,trustee.y);
+ await expect.poll(()=>page.evaluate(()=>(window as any).toolbarCommands)).toEqual([
+  {type:'menu',menu:'settings'},{type:'trustee',enabled:true},{type:'menu',menu:'result'},
+ ]);
 });
 
 for (const [width,height] of [[568,320],[844,390],[1280,590]]) {
@@ -84,6 +127,7 @@ for (const [width,height] of [[568,320],[844,390],[1280,590]]) {
    expect(answered.prompt).toBeNull();
    const dense=await draw(action,false,true);
    expect(dense.compass?.visible).toBe(true);
+   expect(dense.tiles.every((tile:any)=>separated(dense.compass,tile)),'dense river overlaps fixed compass').toBe(true);
    expect(dense.tiles.every((tile:any)=>separated(dense.prompt,tile)),'claim prompt overlaps dense river').toBe(true);
    for(const counter of dense.counters)
     expect(dense.tiles.every((tile:any)=>separated(counter,tile)),`${action}: dense river overlaps counter`).toBe(true);

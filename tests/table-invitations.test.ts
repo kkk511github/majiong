@@ -43,6 +43,24 @@ function fixture(auto = false) {
 }
 
 describe('online table invitations', () => {
+  it('hides playable administrators and rejects direct invitation requests without delivery', () => {
+    const f = fixture(); f.users.get('alice')!.role = 'admin';
+    expect(f.manager.peers('host', f.game.id).map(p => p.memberId)).not.toContain(f.users.get('alice')!.memberId);
+    expect(() => f.send()).toThrow('管理员不能被邀请到对局');
+    expect(f.delivered.size).toBe(0); expect(f.joins()).toBe(0);
+  });
+  it.each(['accept', 'refresh'] as const)('invalidates outstanding invitations after promotion via %s', path => {
+    const f = fixture(), invitation = f.send(); f.users.get('alice')!.role = 'admin';
+    if (path === 'refresh') f.manager.refresh();
+    expect(() => f.manager.respond('alice', invitation.id, true)).toThrow('管理员不能被邀请到对局');
+    expect(f.joins()).toBe(0);
+    for (const id of ['host', 'alice']) expect(f.delivered.get(id)![0]).toMatchObject({status:'unavailable',reason:'管理员不能被邀请到对局'});
+  });
+  it('does not remove administrators’ ability to invite regular members', () => {
+    const f = fixture(); f.users.get('host')!.role = 'admin';
+    const invitation=f.send(); f.manager.respond('alice',invitation.id,true);
+    expect(f.joins()).toBe(1);
+  });
   it('lists only admitted online peers, excludes self and current seats, marks occupied peers busy', () => {
     const f = fixture(); f.online.delete('bob');
     expect(f.manager.peers('host', f.game.id).map(p => [p.name, p.status])).toEqual([['alice', 'available'], ['busy', 'busy']]);

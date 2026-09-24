@@ -1,6 +1,6 @@
 {
   "name": "jinling-mahjong",
-  "version": "0.7.37",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -19,7 +19,7 @@
     "test:e2e": "playwright test",
     "test:load": "tsx scripts/load-test.ts",
     "check:deployment": "tsx scripts/check-auth-service.ts",
-    "native:sync": "npm run build:native && cap sync",
+    "native:sync": "npm run build:native && cap sync && node scripts/normalize-native-paths.mjs",
     "ios": "cap open ios",
     "android": "cap open android",
     "format": "prettier --write src shared server tests docs *.ts *.json *.md",

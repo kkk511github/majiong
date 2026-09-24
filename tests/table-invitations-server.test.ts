@@ -88,3 +88,18 @@ it('ordinary join fills the last seat before invite acceptance and leaves the re
   expect((await guest.read('error', m => m.requestId === 'too-late')).message).toBe('这张牌桌已满');
   expect(service!.games.get(state.code)!.players.some(p => p?.id === guest.session.id)).toBe(false);
 });
+
+it('websocket lists exclude online admins and direct invitations to them are rejected', async () => {
+  const {host,guest,other,state}=await fixture();
+  expect(host.session.account!.role).toBe('admin');
+  guest.send({type:'join',code:state.code,seat:1}); await guest.read('state');
+  host.send({type:'leave'}); await host.read('left');
+  guest.send({type:'invitePeers',game:state.id,requestId:'exclude-admin'});
+  const peers=(await guest.read('invitationResult',m=>m.requestId==='exclude-admin')).peers!;
+  expect(peers.map(p=>p.memberId)).not.toContain(host.session.account!.memberId);
+  expect(peers.map(p=>p.memberId)).toContain(other.session.account!.memberId);
+  guest.send({type:'invitePlayer',game:state.id,memberId:host.session.account!.memberId!,requestId:'admin-direct'});
+  expect((await guest.read('error',m=>m.requestId==='admin-direct')).message).toBe('管理员不能被邀请到对局');
+  expect(service!.games.get(state.code)!.players.some(p=>p?.id===host.session.id)).toBe(false);
+  expect(host.messages.filter(m=>m.type==='tableInvitations').flatMap(m=>m.type==='tableInvitations'?m.invitations:[]).some(i=>i.status==='pending')).toBe(false);
+});

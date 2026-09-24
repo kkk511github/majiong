@@ -27,6 +27,9 @@ export function createTableInvitations(deps: Dependencies) {
   let joining = false;
   const now = deps.now ?? Date.now;
   const allowed = (a?: Account): a is Account => !!a?.memberId && !!a.canPlay && !a.mustChangePassword && !a.suspended;
+  // Administrator accounts may still host/invite voluntarily, but must never
+  // be targets. Check the authoritative account again when accepting an invite.
+  const inviteable = (a?: Account): a is Account => allowed(a) && a.role !== 'admin';
   const person = (a: Account): InvitePerson => ({ memberId: a.memberId!, name: a.name, avatar: a.avatar });
   const available = (g?: Game): g is Game => !!g?.table && !g.table.closed && g.phase === 'waiting' && g.players.some(p => !p);
   function ownerRoom(id: string, game: string) {
@@ -45,6 +48,7 @@ export function createTableInvitations(deps: Dependencies) {
     if (g.phase !== 'waiting') return '这张牌桌已开局';
     if (!g.players.some(p => !p)) return '这张牌桌已满';
     if (deps.room(e.from)?.id !== e.game) return '邀请人已离桌';
+    if (deps.account(e.to)?.role === 'admin') return '管理员不能被邀请到对局';
     if (!allowed(deps.account(e.from)) || !allowed(deps.account(e.to))) return '当前无法加入这张牌桌';
     if (!online.has(e.from) || !online.has(e.to)) return '牌友已离线，邀请失效';
     if (deps.room(e.to)) return '牌友已在其他牌桌入座';
@@ -95,7 +99,7 @@ export function createTableInvitations(deps: Dependencies) {
       .filter(e => e.game === g.id && e.status === 'pending' && e.expiresAt > now()).map(e => [e.to, e]));
     return deps.online().filter(peer => peer !== id && !g.players.some(p => p?.id === peer)).flatMap(peer => {
       const a = deps.account(peer);
-      if (!allowed(a)) return [];
+      if (!inviteable(a)) return [];
       const pending = pendingByRecipient.get(peer);
       return [{ ...person(a), status: deps.room(peer) ? 'busy' as const : pending ? 'pending' as const : 'available' as const,
         ...(pending ? { expiresAt: pending.expiresAt } : {}) }];
@@ -106,7 +110,8 @@ export function createTableInvitations(deps: Dependencies) {
     const g = ownerRoom(id, game), sender = deps.account(id)!;
     const to = deps.online().find(peer => deps.account(peer)?.memberId === memberId);
     const recipient = to ? deps.account(to) : undefined;
-    if (!to || to === id || !allowed(recipient)) throw Error('该牌友暂时不可邀请');
+    if (recipient?.role === 'admin') throw Error('管理员不能被邀请到对局');
+    if (!to || to === id || !inviteable(recipient)) throw Error('该牌友暂时不可邀请');
     if (deps.room(to)) throw Error('该牌友已在牌桌中');
     const history = [...entries.values()];
     // Coalesce duplicate invites from everyone already seated at this table.

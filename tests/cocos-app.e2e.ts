@@ -90,7 +90,7 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     expect(initial.state.players.filter((p:any)=>p.bot&&p.trustee)).toHaveLength(3);
     expect(initial.labels).not.toContain('托管中');
     expect(initial.labels).toContain('比下胡 × 2');
-    expect(initial.labels).toContain(`进园子 B档 · ${v.round} / ${v.rules.rounds} 把`);
+    expect(initial.labels).not.toContain(`进园子 B档 · ${v.round} / ${v.rules.rounds} 把`);
     expect(initial.labels.some((s:string)=>s.startsWith('下把'))).toBe(false);
     mkdirSync('test-results/screenshots',{recursive:true});
     await page.screenshot({path:`test-results/screenshots/round-multiplier-${width}.png`});

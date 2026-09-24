@@ -13,18 +13,18 @@
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  color: #f5e6c0;
-  border: 1px solid #ae8b4d;
+  color: #e4f2f8;
+  border: 1px solid #7bafc2;
   border-radius: 18px;
   background: radial-gradient(
     ellipse at 50% 0,
-    #365c49 0,
-    #162d27 60%,
-    #11211f
+    #225b75 0,
+    #122e43 60%,
+    #0b202f
   );
   box-shadow:
     0 12px 60px #0009,
-    inset 0 0 0 4px #cfb07912;
+    inset 0 0 0 4px #a6d9ef12;
 }
 .polished .round-reveal-dialog .modal-head {
   min-height: 44px;
@@ -68,7 +68,10 @@
   width: auto;
   margin: 0;
   font-size: 16px;
+  background:linear-gradient(#d9eff6,#97cbdc);color:#163e54;border-color:#d2f1ff;box-shadow:0 3px 0 #31637a;
 }
+.polished .round-reveal-dialog .modal-footer button:not(.primary){padding:7px 12px;border-radius:7px;background:#234b61;color:#e7f6ff;border:1px solid #77a4b8;}
+.round-reveal .reveal-meta button{background:#234b61;color:#e1f3fa;border:1px solid #7daabb66;border-radius:4px;}
 .reveal-next {
   font-size: 12px;
   color: #e4d8b2;

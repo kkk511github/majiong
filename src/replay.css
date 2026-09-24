@@ -432,8 +432,8 @@
 }
 .polished .replay-dialog .replay-play {
   min-width: 82px;
-  background: #e8c36e;
-  color: #18382d;
+  background: #28748c;
+  color: #f0fbff;
 }
 .replay-controls select {
   font-size: 12px;
@@ -765,3 +765,30 @@
   .replay-bottom { padding:4px 6px; }
 }
 @media(prefers-reduced-motion:reduce){.replay-loaded .modal-head,.replay-bottom{transition:none;}}
+
+/* Scope above the lobby's gold modal skin, irrespective of CSS load order. */
+.app.polished .modal.replay-dialog .modal-head {
+  background:linear-gradient(180deg,#173e50f5,#0b293bf5);
+  background-image:linear-gradient(180deg,#173e50f5,#0b293bf5);
+  border:0;
+  border-bottom:1px solid #88becb66;
+  box-shadow:0 2px 10px #00132140;
+  color:#e6f4f8;
+}
+.app.polished .modal.replay-dialog .modal-head h2,
+.app.polished .modal.replay-dialog .modal-head .icon-button,
+.app.polished .modal.replay-dialog .replay-header-info {color:#e6f4f8;}
+.app.polished .modal.replay-dialog button,
+.app.polished .modal.replay-dialog select {
+  background:#173f51;
+  color:#e9f7fb;
+  border-color:#7ca9b966;
+  box-shadow:none;
+}
+.app.polished .modal.replay-dialog .modal-head .icon-button {background:#15384a;border:1px solid #7ca9b966;}
+.app.polished .modal.replay-dialog .replay-controls,
+.app.polished .modal.replay-dialog .replay-bottom {background:#0b293bf0;border-color:#7ca9b944;color:#d9edf3;}
+.app.polished .modal.replay-dialog .replay-play {background:#28748c;color:#ffffff;border-color:#91d4e5;}
+.app.polished .modal.replay-dialog input[type="range"] {accent-color:#85d7e6;}
+.app.polished .modal.replay-dialog input:not([type="range"]) {background:#102f40;color:#effaff;border-color:#769caa;}
+.app.polished .modal.replay-dialog :focus-visible {outline:2px solid #9edfee;outline-offset:2px;}

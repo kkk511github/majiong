@@ -1,4 +1,7 @@
 node_modules/
+# npm/package-lock.json is the supported reproducible install path.
+/pnpm-lock.yaml
+/pnpm-workspace.yaml
 dist/
 dist-control/
 data/
@@ -53,3 +56,5 @@ android/.kotlin/
 
 # Local release artifacts, diagnostics and generated preview captures
 output/
+/outputs/
+/.tmp/

@@ -17,7 +17,7 @@ export function TableWinEffect({ state, result }: { state: TableSceneState; resu
     const host=ref.current?.parentElement,frame=host?.querySelector("iframe");
     if(!host||!frame)return;
     const resize=()=>{
-      const bounds=host.getBoundingClientRect(),f=tableOverlayLayout(bounds,frame.getBoundingClientRect(),state.safeArea);
+      const bounds=host.getBoundingClientRect(),f=tableOverlayLayout(bounds,frame.getBoundingClientRect(),state.safeArea,state.tableStyle);
       const safeWidth=Math.max(0,bounds.width-f.safeLeft-f.safeRight);
       const clampLeft=(left:number,width:number)=>Math.max(f.safeLeft,Math.min(left,bounds.width-f.safeRight-width));
       const next:Record<number,CSSProperties>={};
@@ -45,6 +45,7 @@ export function TableWinEffect({ state, result }: { state: TableSceneState; resu
         const offset=sceneOffset(result.from,state.me),avatar=f.players[offset];
         let [x,y]=[[1106,515],[1106,207],[950,111],[161,207]][offset];
         x+=avatar.dx;y+=avatar.dy;
+        if(state.tableStyle==='reference-3d'){x=avatar.x;y=avatar.y+116;}
         // Once a side avatar moves inward, keep the marker below its panel,
         // instead of pushing it onto that player's tile wall.
         if((offset===1||offset===3)&&avatar.dx!==0){x=avatar.x;y=avatar.y+116;}

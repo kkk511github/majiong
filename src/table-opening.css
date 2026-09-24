@@ -1,4 +1,8 @@
 .table-opening { position: absolute; inset: 0; z-index: 25; overflow: hidden; background: #103f33; }
+.table-opening.opening-blue{background:radial-gradient(ellipse at center,#164e6855,#041e3bd9);}
+.opening-blue-scene{background:radial-gradient(ellipse at 50% 60%,#82d7f01a 0%,transparent 60%),linear-gradient(130deg,transparent 30%,#78cbe512 50%,transparent 70%);}
+.opening-blue .opening-call p,.opening-blue .opening-call small{color:#e2f6fc;text-shadow:0 2px 8px #00162f;}
+.app.polished .opening-blue .opening-skip{background:#103e56e8;border-color:#95cddd99;color:#edfaff;}
 .opening-camera { position: absolute; inset: 0; transform-origin: center 64%; will-change: transform; }
 .opening-scene { width: 100%; height: 100%; object-fit: cover; object-position: center 58%; will-change: transform; }
 .opening-light { position: absolute; inset: -50%; pointer-events: none; background: linear-gradient(110deg, transparent 42%, #ffe49b26 49%, #fff6cf38 50%, transparent 58%); opacity: 0; mix-blend-mode: screen; }

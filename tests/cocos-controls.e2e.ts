@@ -121,7 +121,7 @@ for (const [width,height] of [[568,320],[844,390],[1280,590]]) {
     expect(result.tiles.every((tile:any)=>separated(counter,tile)),`${action}: counter overlaps a table tile`).toBe(true);
    }
    // A claim may highlight a discard, but it must not move the physical cards.
-   const positions=(tiles:any[])=>tiles.map(({id,x,y,w,h})=>({id,x,y,w,h}));
+   const positions=(tiles:any[])=>tiles.map(({id,x,y,w,h})=>({id,x,y,w,h})).sort((a,b)=>a.id.localeCompare(b.id));
    expect(positions(result.tiles)).toEqual(positions(initial.tiles));
    if(action==='pung') {
     mkdirSync('test-results/screenshots',{recursive:true});

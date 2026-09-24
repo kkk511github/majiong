@@ -14,6 +14,8 @@ if errorlevel 1 goto failed
 echo [3/4] Syncing Android assets...
 call npx.cmd cap sync android
 if errorlevel 1 goto failed
+call node.exe scripts/normalize-native-paths.mjs
+if errorlevel 1 goto failed
 
 echo [4/4] Building Android debug APK...
 call android\gradlew.bat -p android assembleDebug

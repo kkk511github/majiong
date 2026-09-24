@@ -41,7 +41,7 @@ export function scoreDebitPosition(
     { left: 164, right: 520, top: 120, bottom: 455 },
   ];
   const hud = [0, 1, 2, 3].map((o) => {
-    const p = layoutPlayerHud(o, state.safeArea);
+    const p = layoutPlayerHud(o, state.safeArea,state.tableStyle);
     return { ...p, y: p.plateY };
   });
   const obstacles: Box[] = [

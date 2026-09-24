@@ -148,6 +148,9 @@ for (const [width, height] of [
     await expect.poll(async () => (await scene()).state?.players.length).toBe(4);
     const fullscreen = await dialog.boundingBox();
     expect(fullscreen).toEqual({ x: 0, y: 0, width, height });
+    const theme=await dialog.locator('.modal-head').evaluate(el=>({background:getComputedStyle(el).backgroundImage,color:getComputedStyle(el).color}));
+    expect(theme.background).toContain('23, 62, 80');
+    expect(theme.color).toBe('rgb(230, 244, 248)');
     await expect(dialog.locator(".replay-search")).toHaveCount(0);
     await expect(dialog.locator(".replay-table-event")).toContainText(
       "开局发牌",
@@ -221,6 +224,7 @@ for (const [width, height] of [
     await page.screenshot({
       path: `test-results/screenshots/replay-${width}.png`,
     });
+    if(width===1280)await page.screenshot({path:'output/qa/replay-theme-blue.png'});
     await dialog.getByRole("button", { name: "查找牌局", exact: true }).click();
     await dialog.getByLabel("牌局 ID", { exact: true }).fill("missing-1");
     await dialog.getByRole("button", { name: "查看回放", exact: true }).click();

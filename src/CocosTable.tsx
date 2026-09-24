@@ -7,7 +7,7 @@ import { TableControls } from "./TableControls";
 import { gameAudio } from "./audio";
 import { WinHintPanel } from "./WinHintPanel";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { TableOpening, canShowOpening, openingMatchesState, openingScene, type OpeningCue } from "./TableOpening";
+import { TableOpening, canShowOpening, openingMatchesState, type OpeningCue } from "./TableOpening";
 import type { TableSceneCommand, TableSceneState, TableSafeArea } from "../shared/table-scene";
 import { tableSafeArea } from "./table-safe-area";
 import "./cocos-table.css";
@@ -62,7 +62,7 @@ export function CocosTable({
   surfaceInteraction.current=onSurfaceInteraction;
   const safeProbe = useRef<HTMLDivElement>(null);
   const [safeArea,setSafeArea] = useState<TableSafeArea>({left:0,right:0,top:0,bottom:0});
-  const viewState=useMemo(()=>({...state,safeArea}),[state,safeArea]);
+  const viewState=useMemo(()=>({...state,safeArea,tableStyle:'reference-3d' as const}),[state,safeArea]);
   const [channel,setChannel] = useState(createTableChannel);
   const [failure,setFailure] = useState<"timeout"|"page"|"resources"|"graphics">("resources");
   const lastGraphicsRecovery = useRef(-Infinity);
@@ -230,8 +230,8 @@ export function CocosTable({
         onError={() => {setFailure("page");setStatus("error");}}
       />
       {status !== "ready" && !showingOpening && (
-        <div className={`cocos-loading${status === "loading" ? " cocos-loading-pending" : ""}`} role="status" aria-label={status === "loading" ? "正在进入牌桌" : undefined}>
-          {status === "loading" && <img src={openingScene} alt="" draggable={false} />}
+        <div className={`cocos-loading cocos-loading-blue${status === "loading" ? " cocos-loading-pending" : ""}`} role="status" aria-label={status === "loading" ? "正在进入牌桌" : undefined}>
+          {status === "loading" && <strong>正在进入牌桌…</strong>}
           {status === "error" && <strong>
             {{timeout:"牌桌加载超时",page:"牌桌页面未能打开",resources:"牌桌资源加载失败",graphics:"牌桌画面暂时中断"}[failure]}
           </strong>}
@@ -260,14 +260,14 @@ export function CocosTable({
       {status === "ready" && !embedded && (
         <WinHintPanel state={viewState} onCommand={onCommand} readyDiscards={readyDiscards} />
       )}
-      {status === "ready" && !embedded && <ReadyDiscardArrows state={state} tiles={readyDiscards} />}
+      {status === "ready" && !embedded && <ReadyDiscardArrows state={viewState} tiles={readyDiscards} />}
       {status === "ready" && !showingOpening && !embedded && <ScoreDebitOverlay state={viewState} events={scoreDebits} />}
       {status === "ready" && winResult && <TableWinEffect state={viewState} result={winResult} />}
       {status === "ready" && !showingOpening && children && <div className="cocos-voice">{typeof children === "function" ? children(viewState) : children}</div>}
       {(showingOpening || waitingForOpening) && opening && (
         <TableOpening
           key={opening.key}
-          state={state}
+          state={viewState}
           done={dismissOpening}
           tableReady={status === "ready"}
           completed={waitingForOpening}

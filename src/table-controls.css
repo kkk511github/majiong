@@ -49,9 +49,36 @@
   top: max(10px, var(--table-safe-top));
   right: max(10px, var(--table-safe-right));
   display: grid;
-  grid-template-columns: 44px;
+  grid-template-columns: auto;
   gap: 8px;
 }
+.table-controls .table-toolbar .table-tool-trustee {
+  position:relative;
+  isolation:isolate;
+  flex-direction:row;
+  gap:4px;
+  width:64px;
+  height:44px;
+  padding:5px 8px;
+  border:0;
+  border-radius:9px;
+  background:none;
+  color:#edf8fb;
+  box-shadow:none;
+  filter:none;
+  font-size:12px;
+  font-weight:600;
+  text-shadow:none;
+}
+.table-controls .table-toolbar .table-tool-trustee::before {content:"";position:absolute;inset:5px 0;z-index:-1;background:url('/ui/table-tool-blue-v3.png') center/100% 100% no-repeat;filter:drop-shadow(0 2px 2px #00131d55);}
+.table-controls .table-toolbar .table-tool-trustee svg {width:16px;height:16px;}
+.table-controls .table-toolbar .table-tool-trustee[aria-pressed="true"] {
+  background:none;
+  color:#ffffff;
+  box-shadow:none;
+}
+.table-controls .table-toolbar .table-tool-trustee[aria-pressed="true"]::before {filter:brightness(1.25) drop-shadow(0 0 3px #74d4e566);}
+.table-controls .table-toolbar .table-tool-trustee:focus-visible {outline:2px solid #b8f2ff;outline-offset:3px;}
 .table-claim-actions {
   position: absolute;
   display: flex;
@@ -63,61 +90,85 @@
   padding: 3px;
 }
 .table-claim-actions button {
+  position:relative;
+  isolation:isolate;
   flex: none;
-  width: clamp(56px, calc(80px * var(--claim-scale, 1)), 92px);
+  --action-disc-size:clamp(42px,calc(50px * var(--claim-scale,1)),54px);
+  width:calc(var(--action-disc-size) + 12px);
   min-width: 56px;
   min-height: 48px;
-  height: clamp(48px, calc(62px * var(--claim-scale, 1)), 67px);
+  height:calc(var(--action-disc-size) + 6px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
   padding: 5px;
-  border: 1px solid #c4b782b0;
+  border: 0;
   border-radius: 9px;
-  background: linear-gradient(145deg, #35684f, #214c3b);
-  color: #e6d5a3;
-  box-shadow: inset 0 1px 0 #d8d4a426, 0 3px 6px #051d1633;
+  background: transparent;
+  color: #173e4c;
+  box-shadow: none;
   touch-action: manipulation;
   transition: background .12s, box-shadow .12s, transform .1s;
 }
+.table-claim-actions button::before {content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:var(--action-disc-size);height:var(--action-disc-size);z-index:-1;background:url('/ui/action-disc-normal-v1.png') center/contain no-repeat;filter:drop-shadow(0 2px 2px #001b2955);}
 .table-claim-actions button > strong {
+  position:absolute;top:0;left:0;width:100%;height:var(--action-disc-size);display:grid;place-items:center;
   font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
   font-size: clamp(24px, calc(30px * var(--claim-scale, 1)), 30px);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.05;
 }
 .table-claim-actions button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: none;
 }
+.table-claim-actions button:active:not(:disabled)::before{transform:translateX(-50%) scale(.96);}
 .table-claim-actions small {
-  color: #b4c5aa;
+  position:absolute;bottom:0;left:0;width:100%;text-align:center;
+  color: #c1dce5;
   font-size: 9px;
   line-height: 1.2;
   white-space: nowrap;
 }
 .table-claim-actions .claim-pass {
-  background: #163c2eee;
-  color: #b6c0aa;
-  border-color: #85987a55;
-  box-shadow: inset 0 1px 0 #b7c49a08;
+  background: transparent;
+  color: #bcd1da;
+  box-shadow: none;
 }
+.table-claim-actions .claim-pass::before {background-image:url('/ui/action-disc-pass-v1.png');filter:drop-shadow(0 2px 2px #001b2933);}
 .table-claim-actions .claim-hu {
-  border-color: #dbcb92;
-  color: #ffedbd;
-  box-shadow: inset 0 0 0 1px #cfbc7720, 0 3px 6px #051d1633;
+  color: #923d36;
+  box-shadow: none;
 }
+.table-claim-actions .claim-hu::before {background-image:url('/ui/action-disc-hu-v1.png');filter:drop-shadow(0 0 3px #92dce844);}
+.table-claim-actions button:not(:disabled)::after {content:"";position:absolute;top:0;left:50%;width:var(--action-disc-size);height:var(--action-disc-size);border:1px solid #beedf6aa;border-radius:50%;pointer-events:none;box-sizing:border-box;animation:claim-ready-glow 2.6s ease-in-out infinite;}
+.table-claim-actions .claim-pass:not(:disabled)::after {animation:claim-pass-glow 4.8s ease-in-out infinite;border-color:#a6c6d366;}
+.table-claim-actions .claim-main.claim-hu:not(:disabled)::after {border-color:#dcfafc;animation-duration:1.9s;}
+.table-claim-actions button:active:not(:disabled)::after {animation:none;opacity:.85;transform:translateX(-50%) scale(.95);box-shadow:0 0 10px #8be6f5aa;}
+.table-claim-actions .claim-choice-tile {position:absolute;right:0;bottom:0;width:18px;height:26px;background-repeat:no-repeat;filter:drop-shadow(0 1px 2px #00151e99);pointer-events:none;}
+@keyframes claim-ready-glow {0%,100%{transform:translateX(-50%) scale(.98);opacity:.20;box-shadow:0 0 2px #7dd7e844;}50%{transform:translateX(-50%) scale(1.06);opacity:.70;box-shadow:0 0 8px #a6eaf48c;}}
+@keyframes claim-pass-glow {0%,100%{transform:translateX(-50%) scale(1);opacity:.08;box-shadow:0 0 0 #9cc5d300;}50%{transform:translateX(-50%) scale(1.025);opacity:.3;box-shadow:0 0 4px #9cc5d344;}}
+.table-claim-actions button:focus-visible {outline:2px solid #b9edf7;outline-offset:3px;}
 .table-claim-actions button:disabled {
   opacity: .42;
   box-shadow: none;
 }
 .table-claim-actions button.is-chosen {
   opacity: .95;
-  border-color: #d9c68b;
+  outline:1px solid #9cdee9;
 }
 .table-claim-actions button.is-chosen small {
-  color: #e2d9b4;
+  color: #d6f2fa;
+}
+/* The lobby skin supplies a green gradient on button:hover. Action discs
+ * must stay transparent in EVERY state; their artwork lives in ::before. */
+.table-controls .table-claim-actions button,
+.table-controls .table-claim-actions button:hover,
+.table-controls .table-claim-actions button:active,
+.table-controls .table-claim-actions button:focus {
+  background:transparent !important;
+  box-shadow:none !important;
 }
 .table-claim-source {
   position: absolute;
@@ -128,11 +179,11 @@
   gap: 3px 6px;
   padding: clamp(4px, calc(7px * var(--claim-scale, 1)), 7px);
   box-sizing: border-box;
-  border: 1px solid #adac7959;
-  border-radius: 8px;
-  background: linear-gradient(130deg, #123c31ed, #10382ced);
-  box-shadow: 0 4px 12px #08271c40;
-  color: #e5e3c8;
+  border: 1px solid #81b2c266;
+  border-radius: 10px;
+  background: #10384bcc;
+  box-shadow: 0 3px 10px #00182633;
+  color: #eef8fb;
   overflow: hidden;
   pointer-events: none;
 }
@@ -146,7 +197,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #b2c2ac;
+  color: #b3cdd8;
   font-size: clamp(8px, calc(11px * var(--claim-scale, 1)), 11px);
   line-height: 1.25;
 }
@@ -167,7 +218,7 @@
 .table-claim-source-status {
   grid-column: 1 / -1;
   min-width: 0;
-  color: #b4c2a9;
+  color: #b4d2df;
   font-size: clamp(8px, calc(10px * var(--claim-scale, 1)), 10px);
   line-height: 1.25;
   white-space: nowrap;
@@ -227,13 +278,13 @@
     padding: 12px;
     text-align: center;
     border-radius: 8px;
-    background: #123e35e8;
-    color: #fff1c8;
+    background: #123e52e8;
+    color: #e7f7fc;
     font-size: 14px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .table-controls * {
+  .table-controls *, .table-controls *::before, .table-controls *::after {
     animation: none !important;
     transition: none !important;
   }

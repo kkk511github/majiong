@@ -12,10 +12,6 @@ import "./table-controls.css";
 import { tableOverlayLayout } from "./table-overlay-layout";
 import { frameStyle, TILE_FRAMES } from "./tile-art";
 
-const actionHint = (id: string, robKong: boolean) =>
-  id === "pass" ? "暂不响应" : id === "pung" ? "收成一组" :
-  id === "kong" ? "四张成杠" : id === "hu" ? (robKong ? "抢杠胡" : "确认胡牌") : "选择杠牌";
-
 export function TableControls({
   state: s,
   onCommand,
@@ -30,6 +26,7 @@ export function TableControls({
     visibility: "hidden",
   });
   const [sourceStyle, setSourceStyle] = useState<CSSProperties>({ visibility: "hidden" });
+  const [toolStyle,setToolStyle]=useState<CSSProperties>({visibility:'hidden'});
   const [submittedAction, setSubmittedAction] = useState<string | null>(null);
   // This is only button feedback. Legal choices and submission locking continue
   // to come from the authoritative scene and the existing game-client request.
@@ -42,7 +39,8 @@ export function TableControls({
     const resize = () => {
       const a = parent.getBoundingClientRect(),
         b = frame.getBoundingClientRect();
-      const layout = tableOverlayLayout(a, b,s.safeArea);
+      const layout = tableOverlayLayout(a, b,s.safeArea,s.tableStyle);
+      setToolStyle({top:layout.top+Math.max(4,Math.min(12,12*layout.scale)),right:Math.max(10,a.width-layout.left-1280*layout.scale+(s.safeArea?.right??0)*layout.scale+10),left:'auto',visibility:'visible'});
       setActionsStyle({
         bottom: layout.actionBottom,
         right: layout.actionRight,
@@ -62,7 +60,7 @@ export function TableControls({
     observer.observe(frame);
     resize();
     return () => observer.disconnect();
-  }, [s.safeArea]);
+  }, [s.safeArea,s.tableStyle]);
   const me = s.players.find((p) => p.seat === s.me),
     turn = s.players.find((p) => p.seat === s.turn);
   const source = s.pending && s.players.find((p) => p.seat === s.pending!.from);
@@ -103,7 +101,7 @@ export function TableControls({
         <span className="table-activity sr-only" role="status">
           {activity}
         </span>
-        <div className="table-menu-actions">
+        <div className="table-menu-actions" style={toolStyle}>
           <button
             className="table-tool-trustee"
             aria-label={
@@ -153,6 +151,7 @@ export function TableControls({
               key={actionKey}
               className={`${a.id === "pass" ? "claim-pass" : a.id === "hu" ? "claim-main claim-hu" : "claim-main"}${chosen ? " is-chosen" : ""}`}
               data-action={a.id}
+              aria-busy={chosen||undefined}
               disabled={s.disabled || !s.connected}
               aria-label={
                 a.tile === undefined
@@ -165,7 +164,7 @@ export function TableControls({
               }}
             >
               <strong>{a.label}</strong>
-              <small>{chosen ? "提交中…" : a.tile !== undefined ? sceneTileName(a.tile) : actionHint(a.id, s.pending?.kind === "robKong")}</small>
+              {a.tile!==undefined&&<span className="claim-choice-tile" role="img" aria-label={sceneTileName(a.tile)} style={frameStyle(TILE_FRAMES[tileKind(a.tile)])}/>}
             </button>
           );})}
         </div>

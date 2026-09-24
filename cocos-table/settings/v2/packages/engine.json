@@ -24,7 +24,7 @@
             "_value": false
           },
           "3d": {
-            "_value": false
+            "_value": true
           },
           "meshopt": {
             "_value": false
@@ -192,6 +192,7 @@
         },
         "includeModules": [
           "2d",
+          "3d",
           "affine-transform",
           "animation",
           "base",

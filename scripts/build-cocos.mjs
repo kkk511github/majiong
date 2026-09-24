@@ -7,13 +7,18 @@ import { fileURLToPath } from 'node:url';
 const app=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const project=resolve(app,'cocos-table'),output=resolve(app,'public/cocos-table');
 const runtime=resolve(project,'runtime'),archive=resolve(runtime,'web-mobile.tar.gz');
+const resourceLayout='cocos-imported-v1';
 async function saveRuntime(source){
  await mkdir(runtime,{recursive:true});
  const packed=spawnSync('tar',['-czf',archive,'-C',output,'.'],{encoding:'utf8',env:{...process.env,COPYFILE_DISABLE:'1'}});
  if(packed.status!==0)throw new Error('Could not archive Cocos runtime: '+packed.stderr);
- await writeFile(resolve(runtime,'manifest.json'),JSON.stringify({source,sha256:createHash('sha256').update(await readFile(archive)).digest('hex'),creator:'3.8.8',output:await resourceDigest(output)}));
+ await writeFile(resolve(runtime,'manifest.json'),JSON.stringify({source,resourceLayout,sha256:createHash('sha256').update(await readFile(archive)).digest('hex'),creator:'3.8.8',output:await resourceDigest(output)}));
 }
 await cp(resolve(app,'shared/table-scene.ts'),resolve(project,'assets/scripts/table-scene.ts'));
+await cp(resolve(app,'shared/table-3d-layout.ts'),resolve(project,'assets/scripts/table-3d-layout.ts'));
+await cp(resolve(app,'shared/table-hand-motion.ts'),resolve(project,'assets/scripts/table-hand-motion.ts'));
+await cp(resolve(project,'art-source/ink'),resolve(project,'assets/resources/face-source'),{recursive:true});
+await cp(resolve(project,'art-source/imagegen/reference-table-v1/table-background.png'),resolve(project,'assets/resources/art/table3d-background.png'));
 await cp(resolve(app,'shared/tile-pose-metrics.ts'),resolve(project,'assets/scripts/tile-pose-metrics.ts'));
 await cp(resolve(app,'shared/tile-drag.ts'),resolve(project,'assets/scripts/tile-drag.ts'));
 const fingerprint=()=>sourceDigest(project);
@@ -22,7 +27,7 @@ const source=await fingerprint();
 // Any source change invalidates it and requires an explicit Creator rebuild.
 try {
  const manifest=JSON.parse(await readFile(resolve(runtime,'manifest.json'),'utf8'));
- if(manifest.source===source&&manifest.sha256===createHash('sha256').update(await readFile(archive)).digest('hex')){
+ if(manifest.resourceLayout===resourceLayout&&manifest.source===source&&manifest.sha256===createHash('sha256').update(await readFile(archive)).digest('hex')){
   // A source stamp alone cannot prove the cached files are still intact.
   try {
    const current=await resourceDigest(output);
@@ -53,6 +58,6 @@ await access(resolve(built,'index.html'));
 await rm(output,{recursive:true,force:true});await mkdir(output,{recursive:true});
 await cp(built,output,{recursive:true,filter:src=>!src.endsWith('.map')});
 const completedSource=await fingerprint();
-await writeFile(resolve(output,'build-manifest.json'),JSON.stringify({creator:'3.8.8',source:completedSource,debug:false}));
+await writeFile(resolve(output,'build-manifest.json'),JSON.stringify({creator:'3.8.8',source:completedSource,resourceLayout,debug:false}));
 await saveRuntime(completedSource);
 console.log('Cocos table: production web build copied for both native platforms');

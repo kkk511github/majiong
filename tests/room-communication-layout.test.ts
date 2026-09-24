@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { roomCommunicationLayout } from "../src/room-communication-layout";
+import { roomCommunicationLayout,roomPhrasePosition } from "../src/room-communication-layout";
+import {layoutPlayerHud} from '../shared/table-scene';
 
 describe("短句单入口实际牌桌布局", () => {
+  it.each([[568,320],[844,390],[1280,590],[1920,1080]])('3D主题 %i×%i 跟随新头像，入口保留且不进入手牌区',(width,height)=>{
+    const frame={left:0,top:0,width,height};
+    for(const safe of [undefined,{left:72,right:72,top:0,bottom:18}]){
+      const layout=roomCommunicationLayout(frame,frame,safe,54,'reference-3d');
+      expect(layout.players).toEqual([0,1,2,3].map(o=>layoutPlayerHud(o,safe,'reference-3d')));
+      expect(layout.players[1].y).toBe(142);expect(layout.tableStyle).toBe('reference-3d');
+      expect(layout.rail.top+layout.rail.height).toBeLessThanOrEqual(layout.handTop);
+      expect(layout.rail.width).toBeGreaterThanOrEqual(44);
+      expect(layout.rail.left+layout.rail.width).toBeLessThanOrEqual(width-layout.safeRight);
+      for(const offset of [0,1,2,3]){
+        const bubble=roomPhrasePosition(layout,offset);
+        expect(bubble.left).toBeGreaterThanOrEqual(layout.safeLeft);
+        expect(bubble.left+bubble.width).toBeLessThanOrEqual(width-layout.safeRight+.01);
+        expect(bubble.top).toBeGreaterThanOrEqual(layout.top);
+      }
+      const old=roomCommunicationLayout(frame,frame,safe,54);
+      expect(roomPhrasePosition(layout,1).top).not.toBe(roomPhrasePosition(old,1).top);
+    }
+  });
   it.each([[568,320], [667,375], [844,390], [1280,590], [1920,1080]])("%i×%i避开玩家、手牌和中央信息", (width, height) => {
     const frame = { left: 0, top: 0, width, height };
     const layout = roomCommunicationLayout(frame, frame);

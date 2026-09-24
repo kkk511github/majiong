@@ -23,7 +23,7 @@ export function WinHintPanel({
     const iframe=host.querySelector("iframe");
     const resize=()=>{
       const parent=host.getBoundingClientRect(),rect=iframe?.getBoundingClientRect()??parent;
-      const f=tableOverlayLayout(parent,rect,s.safeArea),k=f.scale;
+      const f=tableOverlayLayout(parent,rect,s.safeArea,s.tableStyle),k=f.scale;
       const hu=s.actions.some(a=>a.id==="hu") && (s.pending || s.hintDiscard === undefined),count=hu?1:s.hintKinds.length;
       const meta=hu?26:12;
       const local=f.players[0];
@@ -35,7 +35,7 @@ export function WinHintPanel({
       const own=s.players?.length ? layoutTable(s).filter(t=>t.seat===s.me&&t.area==="hand") : [];
       const under=own.filter(t=>f.left+(t.x+t.w/2)*k>left&&f.left+(t.x-t.w/2)*k<left+width);
       const handTop=under.length?Math.min(...under.map(t=>t.y-t.h/2)):491;
-      const h=Math.max(30,40*k);
+      const h=hu?Math.max(38,44*k):Math.max(32,40*k);
       const arrowGap=under.some(t=>t.tile!==undefined&&readyDiscards.includes(t.tile))?Math.max(14,22*k):0;
       let top=f.top+handTop*k-h-arrowGap-4;
       const controls=host.querySelector(".table-claim-actions")?.getBoundingClientRect();
@@ -43,12 +43,15 @@ export function WinHintPanel({
         top=Math.min(top,controls.top-parent.top-h-8);
       const item=Math.max(5,(width-(hu?meta+12:12))/Math.max(1,count));
       const dense=item<32;
-      setPosition({left,top:Math.max(54,top),width,height:h,"--hint-direction":dense?"column":"row","--hint-gap":dense?"0px":"2px","--hint-tile-height":`${dense?Math.min(h-12,item*1.1):Math.min(h-5,(item-12)/.69)}px`,"--hint-font":`${dense?Math.min(9,item*.55):Math.min(13,item*.24)}px`} as CSSProperties);
+      // Account for both borders, vertical padding and the small contact
+      // shadow. The tile must fit inside the content box, not the outer box.
+      const innerHeight=h-10;
+      setPosition({left,top:Math.max(54,top),width,height:h,"--hint-direction":dense?"column":"row","--hint-gap":dense?"0px":"2px","--hint-tile-height":`${dense?Math.min(innerHeight-8,item*1.1):Math.min(innerHeight-4,(item-12)/.69)}px`,"--hint-font":`${dense?Math.min(9,item*.55):Math.min(13,item*.24)}px`} as CSSProperties);
     };
     const observer=new ResizeObserver(resize);observer.observe(host);if(iframe)observer.observe(iframe);
     const controls=host.querySelector(".table-claim-actions");if(controls)observer.observe(controls);
     resize();return ()=>observer.disconnect();
-  },[s.hintKinds.length,s.actions,s.selected,s.drawn,s.players,s.hintDiscard,s.safeArea,readyDiscards]);
+  },[s.hintKinds.length,s.actions,s.selected,s.drawn,s.players,s.hintDiscard,s.safeArea,s.tableStyle,readyDiscards]);
   const active =
     s.presentation !== "replay" && ["playing", "claiming"].includes(s.phase);
   const hu = s.actions.some((a) => a.id === "hu") && (!!s.pending || s.hintDiscard === undefined);
@@ -76,10 +79,11 @@ export function WinHintPanel({
             <span className="listening-seal" aria-hidden="true">
               {hu ? (
                 <img
-                  src={`${import.meta.env.BASE_URL}art/hu-badge-v1.webp`}
+                  src={`${import.meta.env.BASE_URL}ui/action-disc-hu-v1.png`}
                   alt=""
                 />
               ) : null}
+              {hu&&<b className="hint-hu-character">胡</b>}
             </span>
             <div className="sr-only">
               <strong>{title}</strong>

@@ -66,6 +66,9 @@ npm run build
 
 ## 原生安装包
 
+仓库以 **npm + package-lock.json** 为唯一发布安装流程；本地 pnpm 文件不纳入版本控制。
+`npm run native:sync` 会在 Capacitor 同步后自动将原生依赖路径规范为 `node_modules/@capacitor/...`，兼容 npm 安装和本地符号链接。若直接执行 `npx cap sync`，之后请运行 `node scripts/normalize-native-paths.mjs`；CI 可用 `--check` 检查路径是否可移植。
+
 首次拉取或改动页面后，先构建并同步：
 
 ```sh

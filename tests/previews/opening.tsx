@@ -35,7 +35,7 @@ function Preview() {
         setSelected(null);
       }
     }} />
-    {still && <div className="opening-keyframe"><TableOpening state={state} done={() => {}} /></div>}
+    {still && <div className="opening-keyframe"><TableOpening state={{...state,tableStyle:'reference-3d'}} done={() => {}} /></div>}
     <nav style={{position:"fixed",zIndex:40,bottom:8,left:12,display:"flex",gap:8}} aria-label="开桌预览控制">
       <button onClick={() => {setStill(false);setCue({key:crypto.randomUUID(),game:state.key,round:state.round,at:Date.now()});}}>播放开桌</button>
       <button onClick={() => {setCue(null);setStill(v => !v);}}>定格预览</button>

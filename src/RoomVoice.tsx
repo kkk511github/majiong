@@ -90,7 +90,7 @@ export function RoomVoice({
     const resize = () => {
       const a = host.getBoundingClientRect();
       const toolbar = host.querySelector(".table-menu-actions")?.getBoundingClientRect();
-      setLayout(roomCommunicationLayout(a, frame.getBoundingClientRect(), tableState.safeArea, toolbar ? toolbar.bottom - a.top : 104));
+      setLayout(roomCommunicationLayout(a, frame.getBoundingClientRect(), tableState.safeArea, toolbar ? toolbar.bottom - a.top : 104,tableState.tableStyle));
     };
     const observer = new ResizeObserver(resize);
     observer.observe(host); observer.observe(frame);
@@ -98,7 +98,7 @@ export function RoomVoice({
     if (toolbar) observer.observe(toolbar);
     resize();
     return () => observer.disconnect();
-  }, [tableState.safeArea]);
+  }, [tableState.safeArea,tableState.tableStyle]);
   useEffect(() => {
     if (!open) return;
     const close = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };

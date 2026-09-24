@@ -1,4 +1,5 @@
 import { TILE_POSE_METRICS } from "./tile-pose-metrics";
+import { layout3DTable } from './table-3d-layout';
 const tileAspect = (pose: string) => TILE_POSE_METRICS[pose].w / TILE_POSE_METRICS[pose].h;
 /** The table renderer is a view, never a rules engine or a source of hidden cards. */
 export interface ScenePlayer {
@@ -21,6 +22,8 @@ export function scenePlayerStatus(s: TableSceneState, p: ScenePlayer) {
   return {active:false,label:'',tone:'normal' as const};
 }
 export interface TableSceneState {
+  /** Client-only visual skin, never used by the rules or server. */
+  tableStyle?:'reference-3d';
   globalAnchorDiscards?:{seat:number;tile:number}[];
   externalControls?:boolean;
   /** Local viewport cutouts, in 1280×590 design coordinates. */
@@ -42,7 +45,7 @@ export interface TableSceneState {
 export interface TableSafeArea { left:number; right:number; top:number; bottom:number }
 
 /** Move player information inside the cutout without scaling the table or tiles. */
-export function layoutPlayerHud(offset:number, safe?:TableSafeArea) {
+export function layoutPlayerHud(offset:number, safe?:TableSafeArea,style?:TableSceneState['tableStyle']) {
  // The local plate sits above the hand, clear of its selection lift. The
  // opposite player uses a compact vertical identity rail: the portrait,
  // name, score and flower count all live in one reserved strip at the upper
@@ -52,8 +55,9 @@ export function layoutPlayerHud(offset:number, safe?:TableSafeArea) {
  // Portraits follow the four anchors in the reference board: opposite at the
  // upper rail, local at lower-left, and the two side players on their lanes.
  // Leave room for the far player's complete hand + four open-kong rack.
- const x=topIdentity?954:offset===0?124:offset===3?108:1189;
- const y=topIdentity?54:offset===0?382:offset===3?142:200;
+ const modern=style==='reference-3d';
+ const x=modern?(topIdentity?911:offset===0?155:offset===3?99:1180):(topIdentity?954:offset===0?124:offset===3?108:1189);
+ const y=modern?(topIdentity?78:offset===0?414:142):(topIdentity?54:offset===0?382:offset===3?142:200);
  const edge=(value:number|undefined)=>value&&value>0?value+8:0;
  const left=edge(safe?.left),right=1280-edge(safe?.right);
  // The previous player's standing tiles start beyond x=224. Shrink the text
@@ -294,6 +298,9 @@ export function layoutActions(s:TableSceneState,_tiles:SceneTile[]){
 /** Design coordinates are fixed at 1280×590. Only one uniform camera scale changes
  * with the viewport; tile count never changes a tile's size. */
 export function layoutTable(s:TableSceneState):SceneTile[] {
+ return s.tableStyle==='reference-3d'?layout3DTable(s):layoutLegacyTable(s);
+}
+export function layoutLegacyTable(s:TableSceneState):SceneTile[] {
  const result:SceneTile[]=[];
  const anchors=new Set((s.globalAnchorDiscards??[]).map(a=>a.tile));
  // A claimed anchor moves from the river to an exposed set. The original

@@ -13,6 +13,13 @@ const states = [
 ];
 
 describe('single-button table toolbar', () => {
+  it('claim controls show only action characters, preserving distinct tile choices without captions',()=>{
+    const state=fullMeldFixture('pung');state.actions=[{id:'pung',label:'碰'},{id:'kong',label:'杠'},{id:'hu',label:'胡'},{id:'pass',label:'过'},{id:'selfKong',label:'杠',tile:0}];
+    const html=renderToStaticMarkup(createElement(TableControls,{state,onCommand:()=>{}}));
+    const buttons=Array.from(html.matchAll(/<button\b[^>]*data-action=[\s\S]*?<\/button>/g)).map(m=>m[0]);
+    expect(buttons).toHaveLength(5);for(const b of buttons)expect(b).not.toContain('<small');
+    const choice=buttons.find(b=>b.includes('data-action="selfKong"'));expect(choice).toContain('claim-choice-tile');expect(choice).toContain('aria-label="杠 一万"');
+  });
   it.each(states)('$phase / trustee $trustee retains only $label', ({ phase, trustee, disabled, label, pressed }) => {
     const state = fullMeldFixture('pung');
     state.phase = phase; state.trusteeDisabled = disabled; state.players[0].trustee = trustee;

@@ -1,15 +1,16 @@
-import { layoutPlayerHud, type TableSafeArea } from "../shared/table-scene";
+import { layoutPlayerHud, type TableSafeArea,type TableSceneState } from "../shared/table-scene";
 /** Match the Cocos 1280×590 canvas, including letterboxing and the local avatar. */
 export function tableOverlayLayout(
   host: { left: number; top: number; width: number; height: number },
   frame: { left: number; top: number; width: number; height: number },
   safeArea?:TableSafeArea,
+  style?:TableSceneState['tableStyle'],
 ) {
   const scale = Math.min(frame.width / 1280, frame.height / 590);
   const left = frame.left - host.left + (frame.width - 1280 * scale) / 2;
   const top = frame.top - host.top + (frame.height - 590 * scale) / 2;
-  const handTop = top + 491 * scale;
-  const players=[0,1,2,3].map(offset=>layoutPlayerHud(offset,safeArea));
+  const handTop = top + (style==='reference-3d'?472:491) * scale;
+  const players=[0,1,2,3].map(offset=>layoutPlayerHud(offset,safeArea,style));
   // Claim buttons stay on the lower-right rail. The local portrait now lives
   // on the lower-left beside the hand, so it must not define this edge.
   const actionEdge = left + Math.min(1140, 1280 - (safeArea?.right ?? 0)) * scale - 8;
@@ -19,13 +20,13 @@ export function tableOverlayLayout(
   const sourceHeight = Math.max(44, Math.min(76, 76 * scale));
   const localTop=top+(players[0].plateY-players[0].h/2)*scale;
   return {
-    scale, left, top, handTop, actionEdge,players,
+    scale, left, top, handTop, actionEdge,players,tableStyle:style,
     sourceLeft,
     // Keep the compact source card just clear of the transparent local HUD
     // bounds on the narrowest canvas; the portrait/flower pieces themselves
     // are painted separately and do not occupy this overlay rail.
     sourceTop: Math.min(top + 350 * scale, localTop - sourceHeight - 1),
-    sourceWidth: Math.max(0, Math.min(196 * scale, left + 224 * scale - sourceLeft)),
+    sourceWidth: Math.max(0, Math.min((style==='reference-3d'?140:196) * scale, left + (style==='reference-3d'?156:224) * scale - sourceLeft)),
     sourceHeight,
     contentRight:left+1140*scale,
     safeLeft:Math.max(8,left+(safeArea?.left??0)*scale),

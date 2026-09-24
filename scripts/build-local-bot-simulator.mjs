@@ -1,0 +1,16 @@
+import {cp,mkdir,readFile,writeFile,access} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
+const source=process.argv[2],serverUrl=process.argv[3]??'http://127.0.0.1:5199/tests/previews/local-bots.html?rounds=2';
+if(!source)throw Error('Usage: node scripts/build-local-bot-simulator.mjs /path/to/Debug-iphonesimulator/App.app [localhost URL]');
+const url=new URL(serverUrl);if(!['127.0.0.1','localhost'].includes(url.hostname))throw Error('Local bot simulator must use localhost, never a production service');
+await access(resolve(source,'Info.plist'));
+const root=await mkdir(resolve('output/local-bot-simulator'),{recursive:true});
+const target=resolve('output/local-bot-simulator/LocalBots.app');await cp(resolve(source),target,{recursive:true});
+const config=JSON.parse(await readFile(resolve(target,'capacitor.config.json'),'utf8'));
+config.appId='com.jinling.mahjong.localbots';config.appName='金陵麻将本地演示';config.server={url:serverUrl,cleartext:true};
+await writeFile(resolve(target,'capacitor.config.json'),JSON.stringify(config,null,2));
+execFileSync('plutil',['-replace','CFBundleIdentifier','-string',config.appId,resolve(target,'Info.plist')]);
+execFileSync('plutil',['-replace','CFBundleDisplayName','-string',config.appName,resolve(target,'Info.plist')]);
+execFileSync('plutil',['-replace','NSAppTransportSecurity','-json','{"NSAllowsLocalNetworking":true}',resolve(target,'Info.plist')]);
+console.log(JSON.stringify({app:target,bundleId:config.appId,url:serverUrl,productionAppChanged:false},null,2));

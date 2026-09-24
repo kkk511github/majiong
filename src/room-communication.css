@@ -4,8 +4,8 @@
 .room-communication .room-communication-button {
   position: relative; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   width: var(--communication-button-size); height: var(--communication-button-size); min-width: 44px; min-height: 44px;
-  border: 0; border-radius: 10px; padding: 3px; background: url("/ui/table-button-jade-v1.png") center / 100% 100% no-repeat;
-  color: #ffedc0; font-size: 11px; line-height: 1.1; font-weight: 600; pointer-events: auto; touch-action: manipulation;
+  border: 0; border-radius: 10px; padding: 4px; background: url("/ui/table-tool-blue-v3.png") center / 100% 100% no-repeat;
+  color: #edf8fb; font-size: 11px; line-height: 1.1; font-weight: 600; pointer-events: auto; touch-action: manipulation;
   filter: drop-shadow(0 2px 2px #001e2670);
 }
 .room-communication-button svg { flex: none; stroke-width: 1.7; }
@@ -37,3 +37,14 @@
 .room-communication.compact .room-communication-panel footer { padding: 3px; font-size: 10px; }
 @keyframes phrase-appear { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .room-communication .room-phrase-bubble { animation: none; } }
+
+.room-communication .room-communication-panel {background:#0e3043f7;border-color:#91bfcc80;color:#e7f5fa;box-shadow:0 6px 22px #00141f66;}
+.room-communication .room-communication-panel header {background:linear-gradient(135deg,#24566c,#113849);color:#edfaff;border-bottom:1px solid #85b6c54d;}
+.room-communication .room-communication-panel header button:focus-visible {outline-color:#9bddea;}
+.room-communication .phrase-list {scrollbar-color:#76b5c5 transparent;}
+.room-communication .phrase-list > button {background:#28576a66;border-color:#8ebdce38;color:#e8f7fb;border-radius:9px;}
+.room-communication .phrase-list > button:active:not(:disabled) {background:#38758a;border-color:#a3e0ed;}
+.room-communication .phrase-list small,.room-communication .room-communication-panel footer {color:#a8cbd7;}
+.room-communication .room-phrase-bubble {background:#e7f4f8f5;border-color:#8fb7c4;color:#173d50;box-shadow:0 3px 10px #00233540;}
+.room-communication .room-phrase-bubble > svg {color:#37768b;}
+.room-communication .room-phrase-bubble::after {background:#e7f4f8;border-color:#8fb7c4;}

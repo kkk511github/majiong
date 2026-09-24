@@ -25,6 +25,7 @@ function Preview() {
   const [seat, setSeat] = useState<0 | 1 | 2 | 3>(0);
   const [turn, setTurn] = useState(0);
   const [claim, setClaim] = useState(false);
+  const [visualAction,setVisualAction]=useState<{seq:number;type:string}|null>(null);
   const seq = useRef(0);
   const testing = useRef({ failNext: false, sent: [] as RoomPhraseId[] });
   const receive = (seat: number, phrase: RoomPhraseId) => {
@@ -53,8 +54,10 @@ function Preview() {
   const view = viewFor(game, seat);
   const scene = cocosState(view, { connected, disabled: false, practice: false, countdown: "10", selected: null, inspectedKind: null, hintKinds: [], hintLabel: "", effects: [] });
   scene.turn = turn; scene.lastDiscard = { seat: turn, tile: 24 + turn };
-  if (claim) { scene.phase = "claiming"; scene.pending = { tile: 40, from: 1, answered: false, kind: "discard" }; scene.actions = [{ id: "pung", label: "碰" }, { id: "kong", label: "杠" }, { id: "pass", label: "过" }]; scene.canDiscard = false; }
-  return <div className="app classic polished"><CocosTable state={scene} onCommand={() => {}}>{tableState => <RoomVoice client={client} game={game.id} connected={connected} enabled={enabled} volume={.7} voiceGender={gender} phrases={phrases} phrasesAvailable={available} tableState={tableState}/>}</CocosTable></div>;
+  const allActions=new URLSearchParams(location.search).get('actions')==='all';
+  if (claim||allActions) { scene.phase = "claiming"; scene.pending = { tile: 40, from: 1, answered: false, kind: "discard" }; scene.actions = [{ id: "pung", label: "碰" }, { id: "kong", label: "杠" }, ...(allActions?[{id:'hu',label:'胡'}]:[]), { id: "pass", label: "过" }]; scene.canDiscard = false; }
+  if(allActions&&visualAction){scene.revision+=visualAction.seq;scene.effects=[{key:`local-action-${visualAction.seq}`,type:visualAction.type,seat}];}
+  return <div className="app classic polished"><CocosTable state={scene} onCommand={command=>{if(allActions&&command.type==='action'&&['pung','kong'].includes(command.action))setVisualAction(v=>({seq:(v?.seq??0)+1,type:command.action}));}}>{tableState => <RoomVoice client={client} game={game.id} connected={connected} enabled={enabled} volume={.7} voiceGender={gender} phrases={phrases} phrasesAvailable={available} tableState={tableState}/>}</CocosTable></div>;
 }
 const root = createRoot(document.getElementById("root")!);
 root.render(<Preview/>);

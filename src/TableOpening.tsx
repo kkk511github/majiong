@@ -29,19 +29,20 @@ export function TableOpening({ state, done, tableReady = true, completed = false
   completed?: boolean;
   waitingCount?: number;
 }) {
+  const modern=state.tableStyle==='reference-3d';
   const [ready, setReady] = useState(false);
   const [entered, setEntered] = useState(false);
   const [reduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches);
   useEffect(() => {
     let cancelled = false;
-    const images = [openingScene, openingTitle].map(src => {
+    const images = (modern?[openingTitle]:[openingScene, openingTitle]).map(src => {
       const image = new Image(); image.src = src; return image.decode();
     });
     // Keep the entrance present while art decodes; failed art must not trap entry.
     Promise.all(images).catch(() => {}).then(() => { if (!cancelled) setReady(true); });
     const fallback = setTimeout(() => setReady(true), 2500);
     return () => { cancelled = true; clearTimeout(fallback); };
-  }, []);
+  }, [modern]);
   useEffect(() => {
     if (!ready) return;
     const timer = setTimeout(() => setEntered(true), reduced ? 0 : OPENING_ENTER_DURATION);
@@ -72,9 +73,9 @@ export function TableOpening({ state, done, tableReady = true, completed = false
     schedule();
     return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", visibility); };
   }, [exiting, done, reduced]);
-  return <section className={`table-opening${ready ? " opening-entered" : ""}${exiting ? " opening-exiting" : ""}${completed ? " opening-waiting" : ""}${reduced ? " opening-reduced" : ""}`} aria-label={completed ? "等待其他牌友进入" : `第${state.round}把开局`}>
+  return <section className={`table-opening${modern?' opening-blue':''}${ready ? " opening-entered" : ""}${exiting ? " opening-exiting" : ""}${completed ? " opening-waiting" : ""}${reduced ? " opening-reduced" : ""}`} aria-label={completed ? "等待其他牌友进入" : `第${state.round}把开局`}>
     <div className="opening-camera" aria-hidden="true">
-      <img className="opening-scene" src={openingScene} alt="" draggable={false} />
+      {modern?<div className="opening-scene opening-blue-scene"/>:<img className="opening-scene" src={openingScene} alt="" draggable={false} />}
       <div className="opening-light" />
     </div>
     {completed ? (

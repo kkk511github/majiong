@@ -10,7 +10,6 @@ import "./landscape.css";
 import "./table-finish.css";
 import "./tables.css";
 import "./accounts.css";
-import "./online-home.css";
 import "./keyboard.css";
 import "./table-room.css";
 import "./room-voice.css";
@@ -20,6 +19,10 @@ import "./profile-page.css";
 import { androidTable } from "./table-platform";
 import { Capacitor } from "@capacitor/core";
 import "./web-browser.css";
+import "./lobby-game.css";
+import "./game-ui.css";
+import "./game-features.css";
+import "./record-details-theme.css";
 
 document.documentElement.dataset.runtime = Capacitor.isNativePlatform() ? "native" : "web";
 

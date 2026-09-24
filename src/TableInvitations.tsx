@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, RefreshCw, Search, UserRound } from 'lucide-react';
+import { Copy, RefreshCw, Search, UserRound, Users, WifiOff, Clock3 } from 'lucide-react';
 import { Dialog } from './Dialog';
 import { client, avatarURL, type ClientState } from './game-client';
 import { copyText } from './clipboard';
 import { ruleDisplayName } from '../shared/nanjing-rules';
-import type { OnlineInvitePeer } from '../shared/table-invitations';
+import { TABLE_INVITE_TTL_MS, type OnlineInvitePeer } from '../shared/table-invitations';
 import './table-invitations.css';
 
 function InviteAvatar({ name, avatar }: { name: string; avatar?: string }) {
@@ -67,7 +67,9 @@ export function TableInvitations({ state, open, close, notice }: {
   }, [invitations, state.connected, state.view, incomingId, dismissed]);
   useEffect(() => { setIncomingId(null); setDismissed([]); seen.current.clear(); }, [state.account?.id]);
 
-  const seconds = (expires: number) => Math.max(0, Math.ceil((expires - now) / 1000));
+  // The half-second render tick may predate a newly received invite. Clamp only
+  // the label; the invitation's server expiry and response protocol are unchanged.
+  const seconds = (expires: number) => Math.min(TABLE_INVITE_TTL_MS / 1000, Math.max(0, Math.ceil((expires - now) / 1000)));
   async function invite(peer: OnlineInvitePeer) {
     if (!view || busy) return;
     setBusy(peer.memberId); setError('');
@@ -88,20 +90,24 @@ export function TableInvitations({ state, open, close, notice }: {
     <button className="invite-copy" onClick={async () => { try { await copyText(view!.code); notice('房号已复制'); } catch { setError(`复制失败，房间号：${view!.code}`); } }}><Copy size={17} />复制房号</button>
     <small>邀请60秒内有效 · 接受后入座</small>
   </>}>
-    <p className="invite-room-meta">房间 {view!.code} · 已入座 {view!.players.filter(Boolean).length}/4 · 还差 {view!.players.filter(player => !player).length} 位</p>
-    {!state.connected ? <p role="status">连接已断开，恢复后自动刷新在线牌友。</p> : !state.tableInvitesAvailable ? <p role="status">在线邀请服务暂不可用，可先复制房号。</p> : <>
+    <p className="invite-room-meta"><Users size={18} aria-hidden="true" /><span>房间 <strong>{view!.code}</strong> · 已入座 {view!.players.filter(Boolean).length}/4 · 还差 {view!.players.filter(player => !player).length} 位</span></p>
+    {!state.connected ? <div className="invite-state" role="status"><WifiOff size={28} aria-hidden="true" /><strong>连接已断开</strong><p>恢复后自动刷新在线牌友，可先复制房号。</p></div> : !state.tableInvitesAvailable ? <div className="invite-state" role="status"><Users size={28} aria-hidden="true" /><strong>在线邀请服务暂不可用</strong><p>可先复制房号，邀请朋友通过房号加入。</p></div> : <>
       <div className="invite-search"><Search size={18} /><input aria-label="搜索在线牌友" placeholder="搜索昵称 / ID" value={query} onChange={e => setQuery(e.target.value)} maxLength={64} /><button aria-label="刷新在线牌友" disabled={loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} /></button></div>
       <ul className="invite-peers" aria-label="在线牌友" aria-busy={loading}>{filtered.map(peer => {
         const pending = invitations.find(item => item.direction === 'outgoing' && item.table.code === view!.code && item.recipient.memberId === peer.memberId && item.status === 'pending');
         const expires = pending?.expiresAt ?? peer.expiresAt;
         const waiting = !!expires && seconds(expires) > 0;
-        return <li key={peer.memberId}>
+        return <li key={peer.memberId} data-status={waiting ? 'pending' : peer.status}>
           <InviteAvatar name={peer.name} avatar={peer.avatar} />
           <div className="invite-peer-info"><strong title={peer.name}>{peer.name}</strong><small><i className={peer.status === 'busy' ? 'is-busy' : ''} />{peer.status === 'busy' ? '已在牌桌中' : '在线 · 空闲'}<span>ID {peer.memberId}</span></small></div>
           <button className="invite-send" aria-label={`邀请${peer.name}`} disabled={!!busy || now < sendAfter || waiting || peer.status !== 'available'} onClick={() => void invite(peer)}>{busy === peer.memberId ? '发送中…' : waiting ? `等待回应 ${seconds(expires!)}s` : peer.status === 'busy' ? '不可邀请' : peer.status === 'pending' ? '刷新中…' : '邀请'}</button>
         </li>;
       })}</ul>
-      {!filtered.length && <p className="invite-empty" role="status">{loading ? '正在获取在线牌友…' : query ? '未找到这位在线牌友' : '暂无可邀请的在线牌友'}</p>}
+      {!filtered.length && !listError && <div className="invite-state invite-empty" role="status">
+        {loading ? <RefreshCw size={28} className="invite-loading-icon" aria-hidden="true" /> : <Users size={28} aria-hidden="true" />}
+        <strong>{loading ? '正在获取在线牌友…' : query ? '未找到这位在线牌友' : '暂无可邀请的在线牌友'}</strong>
+        {!loading && <p>{query ? '试试其他昵称或 ID' : '牌友在线后会自动出现在这里，也可以复制房号邀请。'}</p>}
+      </div>}
     </>}
     {(error || listError) && <p className="invite-error" role="alert">{error || listError}</p>}
   </Dialog>;
@@ -118,12 +124,12 @@ export function TableInvitations({ state, open, close, notice }: {
     <button className="invite-decline" disabled={!!busy} onClick={dismiss}>{valid ? '拒绝' : '知道了'}</button>
     <button className="invite-accept" disabled={!valid || !state.connected || !!busy} onClick={() => void respond(true)}>{busy ? '正在处理…' : '接受并入座'}</button>
   </>}>
-    <p className="invite-expiry" role="timer">{valid ? `${seconds(incoming.expiresAt)} 秒后失效` : incoming.reason ?? '邀请已过期'}</p>
+    <p className="invite-expiry" role="timer" data-expired={!valid || undefined}><Clock3 size={15} aria-hidden="true" />{valid ? `${seconds(incoming.expiresAt)} 秒后失效` : incoming.reason ?? '邀请已过期'}</p>
     {otherInvites > 0 && <p className="invite-prepare-note">另有 {otherInvites} 条邀请等待处理</p>}
     <div className="inviter-heading"><InviteAvatar name={incoming.inviter.name} avatar={incoming.inviter.avatar} /><div><h3>{incoming.inviter.name} 邀请你来一桌</h3><p>{incoming.table.name}</p></div></div>
     <dl className="invitation-summary"><div><dt>房间号</dt><dd>{incoming.table.code}</dd></div><div><dt>本桌玩法</dt><dd>{ruleDisplayName(incoming.table.rules)} · {incoming.table.rules.rounds} 把</dd></div><div><dt>当前人数</dt><dd>{incoming.table.seats.filter(Boolean).length}/4 人</dd></div></dl>
-    <div className="invite-seat-preview">{incoming.table.seats.map((seat, index) => <div key={index}><InviteAvatar name={seat?.name ?? '空位'} avatar={seat?.avatar} /><small>{seat?.name ?? '等待加入'}</small></div>)}</div>
     <p className="invite-prepare-note">接受后自动入座，{incoming.table.settings.readyMode === 'auto' ? '按本桌规则自动准备' : '需手动准备后开局'}</p>
+    <div className="invite-seat-preview">{incoming.table.seats.map((seat, index) => <div key={index}><InviteAvatar name={seat?.name ?? '空位'} avatar={seat?.avatar} /><small>{seat?.name ?? '等待加入'}</small></div>)}</div>
     {!state.connected && <p className="invite-error" role="status">正在恢复连接，请稍后回应。</p>}
     {error && <p className="invite-error" role="alert">{error}</p>}
   </Dialog>;

@@ -10,7 +10,7 @@ async function installToken(context: BrowserContext, token: string) {
 }
 
 async function expectNoCreateActions(page: Page) {
-  await expect(page.getByRole("button", { name: "开一桌，等朋友", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "新建", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "开桌设置", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /创建.*桌|去开一桌|体验|练习/ })).toHaveCount(0);
 }
@@ -26,6 +26,9 @@ for (const [width, height] of [[568, 320], [844, 390], [932, 430]]) {
     await cdp.send("Emulation.setSafeAreaInsetsOverride", {
       insets: safeInsets,
     });
+    // Start with a fresh creator. Earlier invite scenarios may leave their
+    // creator seated, which would correctly restore a room instead of home.
+    await browserAccount(context, "开桌权限验收", true);
     const login = await context.request.post("/api/auth/login", {
       data: { username: "guanli@1", password: UI_PASSWORD },
     });
@@ -62,7 +65,8 @@ for (const [width, height] of [[568, 320], [844, 390], [932, 430]]) {
       await otherCdp.send("Emulation.setSafeAreaInsetsOverride", { insets: safeInsets });
 
       await page.goto("/");
-      await page.getByRole("button", { name: "开一桌，等朋友", exact: true }).click();
+      await page.getByRole("button", { name: "亲友房", exact: true }).click();
+      await page.getByRole("button", { name: "新建", exact: true }).click();
       const tableName = `权限验收${width}`;
       await page.getByRole("textbox", { name: "玩法名称", exact: true }).fill(tableName);
       await page.getByRole("button", { name: "下一步", exact: true }).click();
@@ -72,9 +76,9 @@ for (const [width, height] of [[568, 320], [844, 390], [932, 430]]) {
       await expect(page.locator(".table-card").filter({ hasText: tableName })).toBeVisible();
 
       await otherPage.goto("/");
-      await expect(otherPage.getByRole("button", { name: "进入牌桌大厅", exact: true })).toBeVisible();
+      await expect(otherPage.getByRole("button", { name: "房间大厅", exact: true })).toBeVisible();
       await expectNoCreateActions(otherPage);
-      await otherPage.getByRole("button", { name: "进入牌桌大厅", exact: true }).click();
+      await otherPage.getByRole("button", { name: "房间大厅", exact: true }).click();
       await expectNoCreateActions(otherPage);
       const card = otherPage.locator(".table-card").filter({ hasText: tableName });
       await card.getByRole("button", { name: "收桌", exact: true }).click();
@@ -106,9 +110,9 @@ for (const [width, height] of [[568, 320], [844, 390], [932, 430]]) {
       await expect(page.locator(".permission-badge")).toHaveText("不可开桌");
 
       await memberPage.goto("/");
-      await expect(memberPage.getByRole("button", { name: "进入牌桌大厅", exact: true })).toBeVisible();
+      await expect(memberPage.getByRole("button", { name: "房间大厅", exact: true })).toBeVisible();
       await expectNoCreateActions(memberPage);
-      await memberPage.getByRole("button", { name: "进入牌桌大厅", exact: true }).click();
+      await memberPage.getByRole("button", { name: "房间大厅", exact: true }).click();
       await expectNoCreateActions(memberPage);
       await memberPage.getByRole("navigation").getByRole("button", { name: "我的", exact: true }).click();
       await expect(memberPage.getByLabel("管理入口", { exact: true })).toHaveCount(0);

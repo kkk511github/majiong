@@ -1,0 +1,135 @@
+/* Fullscreen records detail is a workspace, not a generic cream dialog.
+   Scope every rule to historical records; live scores/tiles and replay stay intact. */
+.app.classic.polished.game-ui .modal.match-record-dialog[open] {
+  --detail-edge: max(14px, env(safe-area-inset-left), env(safe-area-inset-right));
+  position: fixed; inset: 0; width: 100vw; height: var(--app-height, 100dvh);
+  max-width: none; max-height: none; margin: 0; padding: 0; gap: 0;
+  border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
+  color: var(--ui-ink); background: #edf5fc;
+}
+.app.classic.polished.game-ui .match-record-dialog > .modal-head {
+  flex: 0 0 auto; display: grid; grid-template-columns: minmax(170px, .75fr) minmax(0, 1.65fr) 44px;
+  align-items: center; gap: 12px; min-height: 62px;
+  padding: max(6px, env(safe-area-inset-top)) var(--detail-edge) 6px;
+  border: 0; background: linear-gradient(#5487b6, var(--ui-blue));
+}
+.app.classic.polished.game-ui .match-record-dialog > .modal-head h2 {
+  margin: 0; min-width: 0; color: var(--ui-white); font-family: inherit;
+  font-size: 18px; line-height: 1.4; font-weight: 700; text-shadow: none;
+}
+.app.classic.polished.game-ui .match-record-dialog > .modal-head .icon-button {
+  min-width: 44px; width: 44px; min-height: 44px; height: 44px; margin: 0;
+  border: 1px solid #b3d6f1; border-radius: 6px; color: var(--ui-white); background: #ffffff12;
+}
+.app.classic.polished.game-ui .match-record-dialog .record-detail-total {
+  margin: 0; width: 100%; min-width: 0; gap: 0;
+}
+.app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-players {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 4px; padding: 0;
+}
+.app.classic.polished.game-ui .match-record-dialog .modal-head .record-detail-total .match-player {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 2px 6px;
+  padding: 2px 5px; min-width: 0; background: transparent; border: 0; border-radius: 0; color: var(--ui-white);
+}
+.app.classic.polished.game-ui .match-record-dialog .record-detail-total .record-avatar {
+  display: block; grid-row: 1 / 3; width: 28px; height: 28px; border: 1px solid #b3d6f1; border-radius: 5px; align-self: center;
+}
+.app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-player-name { display: block; }
+.app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-player-name strong { display: block; font-size: 12px; color: var(--ui-white); line-height: 1.25; }
+.app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-points b { font-size: 21px; line-height: 1.1; }
+.app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-points:not(.positive):not(.negative) { color: var(--ui-white); }
+.app.classic.polished.game-ui .match-record-dialog > .modal-body {
+  display: flex; flex-direction: column; flex: 1; width: 100%; min-height: 0; max-height: none; overflow: hidden;
+  padding: 10px var(--detail-edge) max(8px, env(safe-area-inset-bottom)); background: #edf5fc; color: var(--ui-ink);
+}
+.app.classic.polished.game-ui .match-record-dialog .match-round-detail { gap: 8px; min-width: 0; }
+.app.classic.polished.game-ui .match-record-dialog .match-detail-actions {
+  flex-wrap: nowrap; gap: 8px; min-width: 0; padding-bottom: 8px; border-bottom: 1px solid var(--ui-line);
+}
+.app.classic.polished.game-ui .match-record-dialog :is(.match-detail-actions .secondary, .match-round-footer .secondary, .round-replay-code button) {
+  min-height: 44px; background: var(--ui-white); color: var(--ui-blue-dark); border: 1px solid var(--ui-line);
+  border-radius: 5px; padding: 7px 12px; box-shadow: none; text-shadow: none;
+}
+.app.classic.polished.game-ui .match-record-dialog .replay-open {
+  min-height: 44px; padding: 7px 12px; background: var(--ui-blue); border: 1px solid var(--ui-blue-dark);
+  color: var(--ui-white); border-radius: 5px; box-shadow: none; text-shadow: none; font-size: 13px;
+}
+.app.classic.polished.game-ui .match-record-dialog .round-detail-tabs { flex-shrink: 0; display: flex; background: #dceaf6; border: 0; border-radius: 5px; }
+.app.classic.polished.game-ui .match-record-dialog .round-detail-tabs button {
+  min-width: 0; min-height: 44px; padding: 7px 14px; color: var(--ui-blue-dark);
+  background: transparent; border: 0; border-radius: 5px; font-size: 13px;
+}
+.app.classic.polished.game-ui .match-record-dialog .round-detail-tabs button[aria-selected="true"] { color: var(--ui-white); background: var(--ui-blue); }
+.app.classic.polished.game-ui .match-record-dialog .record-round-workspace { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; min-width: 0; }
+.app.classic.polished.game-ui .match-record-dialog .record-round-rail { gap: 6px; padding-bottom: 4px; }
+.app.classic.polished.game-ui .match-record-dialog .record-round-rail button {
+  min-height: 54px; color: var(--ui-blue-dark); background: #dceaf6; border: 1px solid transparent; border-radius: 5px;
+}
+.app.classic.polished.game-ui .match-record-dialog .record-round-rail button b { font-size: 15px; }
+.app.classic.polished.game-ui .match-record-dialog .record-round-rail button small { color: var(--ui-muted); }
+.app.classic.polished.game-ui .match-record-dialog .record-round-rail button[aria-current="step"] { color: var(--ui-white); background: var(--ui-blue); border-color: var(--ui-blue-dark); }
+.app.classic.polished.game-ui .match-record-dialog .record-round-rail button[aria-current="step"] small { color: #e0edfa; }
+.app.classic.polished.game-ui .match-record-dialog .match-round-detail-content {
+  min-width: 0; padding: 12px 14px; background: var(--ui-white); color: var(--ui-ink);
+  border: 1px solid var(--ui-line); border-radius: 6px; box-shadow: none; overflow: auto;
+}
+.app.classic.polished.game-ui .match-record-dialog .record-hand-heading { margin: 0 0 10px; }
+.app.classic.polished.game-ui .match-record-dialog .record-hand-heading h3 { color: var(--ui-blue-dark); font-size: 17px; }
+.app.classic.polished.game-ui .match-record-dialog .record-hand-heading time { color: var(--ui-muted); }
+.app.classic.polished.game-ui .match-record-dialog .record-score-ledger { gap: 12px; margin-top: 0; color: var(--ui-ink); }
+.app.classic.polished.game-ui .match-record-dialog :is(.record-transfer-section h4, .score-explanation h3, .score-breakdown summary) { color: var(--ui-blue-dark); }
+.app.classic.polished.game-ui .match-record-dialog :is(.score-note, .form-note, .record-transfer-section h4 small) { color: var(--ui-muted); }
+.app.classic.polished.game-ui .match-record-dialog :is(.record-transfer-table, .score-players table, .score-items-table) { color: var(--ui-ink); }
+.app.classic.polished.game-ui .match-record-dialog :is(.record-transfer-table th, .score-players th, .score-items-table th) { background: #e6f0f8; color: var(--ui-blue-dark); }
+.app.classic.polished.game-ui .match-record-dialog :is(.record-transfer-table td, .score-players td, .score-items-table td) { border-color: var(--ui-line); }
+.app.classic.polished.game-ui .match-record-dialog :is(.score-players, .score-breakdown) { background: var(--ui-white); border-color: var(--ui-line); border-radius: 5px; }
+.app.classic.polished.game-ui .match-record-dialog .score-items-table tbody tr { background: var(--ui-white); }
+.app.classic.polished.game-ui .match-record-dialog .score-items-table tbody tr:nth-child(even) { background: #f3f7fb; }
+.app.classic.polished.game-ui .match-record-dialog .score-items-table tfoot { background: #e6f0f8; }
+.app.classic.polished.game-ui .match-record-dialog .record-net-strip { background: #e6f0f8; color: var(--ui-ink); border-radius: 5px; }
+.app.classic.polished.game-ui .match-record-dialog .record-net-strip > div { border-color: var(--ui-line); }
+.app.classic.polished.game-ui .match-record-dialog .score-players { border-color: var(--ui-line); }
+.app.classic.polished.game-ui .match-record-dialog .record-external-tag { color: #805a21; background: #fff0d6; }
+.app.classic.polished.game-ui .match-record-dialog .match-details { gap: 10px; }
+.app.classic.polished.game-ui .match-record-dialog .match-details-summary { border: 1px solid var(--ui-line); background: var(--ui-white); border-radius: 6px; box-shadow: none; }
+.app.classic.polished.game-ui .match-record-dialog .match-summary-meta { border: 0; color: var(--ui-ink); }
+.app.classic.polished.game-ui .match-record-dialog :is(.match-summary-meta > span, .match-summary-meta > time, .match-rounds-title > span) { color: var(--ui-muted); }
+.app.classic.polished.game-ui .match-record-dialog .match-summary-meta .match-summary-label { background: #e6f0f8; color: var(--ui-blue-dark); }
+.app.classic.polished.game-ui .match-record-dialog .match-rounds-title h3 { color: var(--ui-blue-dark); font-size: 18px; }
+.app.classic.polished.game-ui .match-record-dialog .match-round { border: 1px solid var(--ui-line); background: var(--ui-white); color: var(--ui-ink); border-radius: 6px; }
+.app.classic.polished.game-ui .match-record-dialog :is(.match-round-heading, .match-round-footer) { background: #e6f0f8; border-color: var(--ui-line); }
+.app.classic.polished.game-ui .match-record-dialog :is(.match-round-heading b, .round-player-name strong) { color: var(--ui-blue-dark); }
+.app.classic.polished.game-ui .match-record-dialog :is(.match-round-heading time, .round-replay-code code, .round-replay-code > span, .round-player-points small:not(.record-team)) { color: var(--ui-muted); }
+.app.classic.polished.game-ui .match-record-dialog .round-player-points > div { border-color: var(--ui-line); }
+.app.classic.polished.game-ui .match-record-dialog .match-result-label { color: var(--ui-green-dark); background: #e7f1df; }
+.app.classic.polished.game-ui .match-record-dialog .records-empty { color: var(--ui-ink); background: var(--ui-white); border-color: var(--ui-line); }
+.app.classic.polished.game-ui .match-record-dialog .record-read-error { background: #fff0d6; color: #805a21; }
+
+@media (max-width: 760px) {
+  .app.classic.polished.game-ui .match-record-dialog > .modal-head {
+    grid-template-columns: minmax(0, 1fr) 44px; grid-template-rows: 44px auto; gap: 4px 8px;
+    padding-block: max(3px, env(safe-area-inset-top)) 5px;
+  }
+  .app.classic.polished.game-ui .match-record-dialog > .modal-head h2 { grid-column: 1; grid-row: 1; font-size: 17px; }
+  .app.classic.polished.game-ui .match-record-dialog > .modal-head > .icon-button { grid-column: 2; grid-row: 1; }
+  .app.classic.polished.game-ui .match-record-dialog .record-detail-total { grid-column: 1 / -1; grid-row: 2; }
+  .app.classic.polished.game-ui .match-record-dialog .record-detail-total .record-avatar { display: none; }
+  .app.classic.polished.game-ui .match-record-dialog .modal-head .record-detail-total .match-player {
+    display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 2px 6px; min-height: 30px;
+  }
+  .app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-points b { font-size: 18px; }
+  .app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-player-name { min-width: 0; flex: 1; }
+  .app.classic.polished.game-ui .match-record-dialog .record-detail-total .match-player-name strong { font-size: 11px; }
+  .app.classic.polished.game-ui .match-record-dialog > .modal-body { padding-top: 6px; }
+  .app.classic.polished.game-ui .match-record-dialog .match-detail-actions { gap: 5px; padding-bottom: 5px; }
+  .app.classic.polished.game-ui .match-record-dialog .match-detail-actions button { padding-inline: 7px; font-size: 11px; gap: 3px; }
+  .app.classic.polished.game-ui .match-record-dialog .record-round-workspace { grid-template-columns: 66px minmax(0, 1fr); gap: 6px; }
+  .app.classic.polished.game-ui .match-record-dialog .record-round-rail button { min-height: 48px; }
+  .app.classic.polished.game-ui .match-record-dialog .record-round-rail button b { font-size: 13px; }
+  .app.classic.polished.game-ui .match-record-dialog .match-round-detail-content { padding: 8px 10px; }
+}
+@media (orientation: portrait) {
+  .app.classic.polished.game-ui .match-record-dialog .match-detail-actions { flex-wrap: wrap; }
+  .app.classic.polished.game-ui .match-record-dialog .round-detail-tabs { order: 3; width: 100%; }
+  .app.classic.polished.game-ui .match-record-dialog .round-detail-tabs button { flex: 1; }
+}

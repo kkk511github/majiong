@@ -23,7 +23,7 @@ for (const [width, height] of [
       await client.authenticate("login", "guanli@1", password);
     }, UI_PASSWORD);
     await expect(
-      page.getByRole("button", { name: "进入牌桌大厅", exact: true }),
+      page.getByRole("button", { name: "房间大厅", exact: true }),
     ).toBeVisible();
     await page
       .getByRole("navigation")
@@ -77,7 +77,7 @@ for (const [width, height] of [
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/战队积分_.*\.csv/);
     const csv = readFileSync((await file.path())!, "utf8");
-    expect(csv).toContain('"把数","桌数（8局/桌）","积分"');
+    expect(csv).toContain('"战队","会员账号","昵称","会员ID","桌数（8局/桌）","积分"');
     expect(csv).not.toContain("完成局数");
     await page.screenshot({
       path: `test-results/screenshots/club-points-${width}.png`,

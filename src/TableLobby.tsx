@@ -74,9 +74,9 @@ function Setting({
     <div className="table-setting-row">
       <div className="table-setting-label">
         {label}
-        {help && <small>{help}</small>}
       </div>
       <div className="table-setting-value">{children}</div>
+      {help && <p className="table-setting-help">{help}</p>}
     </div>
   );
 }
@@ -262,7 +262,7 @@ export function TableSetup({
   return (
     <Dialog
       title="开桌设置"
-      variant="table-setup-dialog"
+      variant="table-setup-dialog game-room-setup"
       close={close}
       footer={
         <div className="setup-footer">
@@ -657,10 +657,12 @@ export function TableLobby({
   name,
   state,
   joinByCode,
+  surface = "rooms",
 }: {
   name: string;
   state: ClientState;
   joinByCode: () => void;
+  surface?: "rooms" | "friends";
 }) {
   const admin = state.account?.role === "admin";
   const canOpen = mayCreateTables(state.account);
@@ -724,12 +726,12 @@ export function TableLobby({
     }
   }
   return (
-    <section className="table-lobby" aria-label="牌桌大厅">
+    <section className="table-lobby game-room-directory" aria-label={surface === "friends" ? "亲友房" : "牌桌大厅"}>
       <div className="table-lobby-header">
         <div>
-          <span className="eyebrow">相聚一桌 · 满员即开</span>
+          <span className="eyebrow">南京麻将</span>
           <h1>
-            牌桌大厅{" "}
+            {surface === "friends" ? "亲友房" : "房间大厅"}{" "}
             <small>
               {state.tables.filter((t) => t.phase === "waiting").length}{" "}
               桌等牌友
@@ -750,7 +752,7 @@ export function TableLobby({
               disabled={busy}
             >
               <Plus size={18} />
-              开桌设置
+              {surface === "friends" ? "新建" : "开桌设置"}
             </button>
           )}
         </div>
@@ -807,7 +809,7 @@ export function TableLobby({
           </button>
         </p>
       )}
-      <div className="table-list" aria-busy={state.tablesLoading}>
+      <div className="table-list" role="region" aria-label="牌桌列表" tabIndex={0} aria-busy={state.tablesLoading}>
         {tables.map((t) => (
           <article
             className={`table-card ${t.phase !== "waiting" ? "table-in-play" : ""}`}

@@ -4,6 +4,7 @@ import { ruleDisplayName } from "../shared/nanjing-rules";
 import { AudioRecovery } from "./AudioRecovery";
 import { NetworkDiagnostics } from "./NetworkDiagnostics";
 import { networkLabel } from "./network-health";
+import { NetworkFeedback } from "./NetworkFeedback";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
 import { NotificationCenter } from "./NotificationCenter";
@@ -55,7 +56,6 @@ import {
   ShieldCheck,
   Users,
   Wifi,
-  WifiOff,
   X,
 } from "lucide-react";
 import { client, storage, avatarURL } from "./game-client";
@@ -95,7 +95,7 @@ import { kind, tileName } from "../shared/tiles";
 import { ruleSections } from "./rule-copy";
 import { LegalContent } from "./Legal";
 
-type Page = "tables" | "home" | "history" | "rules" | "profile";
+type Page = "tables" | "friends" | "home" | "history" | "rules" | "profile";
 type Modal =
   | "legal"
   | "create"
@@ -167,6 +167,9 @@ export function App() {
   const [passwordError, setPasswordError] = useState("");
   const admin = state.account?.role === "admin";
   const canOpen = mayCreateTables(state.account);
+  useEffect(() => {
+    if (!admin && page === "friends") setPage("home");
+  }, [admin, page]);
   useEffect(() => { setAnnouncementUnread(0); }, [state.account?.id]);
   useEffect(() => {
     if (!canOpen && modal === "create") setModal(null);
@@ -586,7 +589,7 @@ export function App() {
     return <AuthScreen state={state} />;
   return (
     <div
-      className={`app classic polished ${v ? "in-room" : ""}`}
+      className={`app classic polished game-ui ${v ? "in-room" : ""} ${!v || v.phase === "waiting" ? "game-lobby-shell" : ""}`}
       data-page={gameActive ? "table" : v ? "waiting" : page}
       onClickCapture={(event) => {
         const target = event.target as Element;
@@ -603,6 +606,12 @@ export function App() {
         <p>请将手机横过来，完整牌桌就在眼前。</p>
       </div>
       <header className="site-header">
+        {!v && page === "home" && (
+          <button className="game-profile-entry" onClick={() => setPage("profile")} aria-label="个人资料">
+            <Avatar player={{ name, bot: false, avatar: state.account?.avatar }} />
+            <span><strong>{name}</strong><small>ID：{state.account?.memberId ?? "—"}</small></span>
+          </button>
+        )}
         <button
           className="brand"
           onClick={() => {
@@ -622,7 +631,7 @@ export function App() {
         <div className="header-right">
           {!v && page === "home" && state.account && <button className="announcement-bell" aria-label={announcementUnread ? `公告，${announcementUnread}条未读` : "查看公告"}
             onClick={() => setAnnouncementRequest(n => n + 1)}><Bell size={22} />{announcementUnread > 0 && <span className="announcement-badge" aria-hidden="true" />}</button>}
-          <span className="header-note">{name}</span>
+          {(v || page !== "home") && <span className="header-note">{name}</span>}
           <button
             className="icon-button"
             onClick={() => setModal("settings")}
@@ -630,17 +639,12 @@ export function App() {
           >
             <Settings size={21} />
           </button>
-          <Avatar player={{ name, bot: false, avatar: state.account?.avatar }} />
+          {(v || page !== "home") && <Avatar player={{ name, bot: false, avatar: state.account?.avatar }} />}
         </div>
       </header>
-      {state.notice && (
-        <div className="connection-banner" role="status">
-          <WifiOff size={16} />
-          <span><strong>{networkLabel(state.network)}</strong> · {state.notice}</span>
-          {v && state.network.phase !== "blocked" && <button onClick={client.retryNetwork} disabled={["connecting","authenticating","syncing"].includes(state.network.phase)}>重试</button>}
-          {!v && <button onClick={() => client.leave()}>返回大厅</button>}
-        </div>
-      )}
+      <NetworkFeedback online={state.mode === "online" && !state.updateRequired} connected={state.connected}
+        health={state.network} room={!!v} notice={state.notice}
+        retry={client.retryNetwork} resume={() => client.connect(name)} />
       {state.error && (
         <div className="error-banner" role="alert">
           <CircleHelp size={17} />
@@ -657,14 +661,22 @@ export function App() {
               name={name}
               state={state}
               openTables={() => setPage("tables")}
-              joinByCode={() => setModal("join")}
-              rules={() => setPage("rules")}
+              openFriends={() => { if (admin) setPage("friends"); }}
             />
           )}
           {page === "tables" && (
             <TableLobby
               name={name}
               state={state}
+              joinByCode={() => setModal("join")}
+            />
+          )}
+          {page === "friends" && admin && (
+            <TableLobby
+              key="friends"
+              name={name}
+              state={state}
+              surface="friends"
               joinByCode={() => setModal("join")}
             />
           )}
@@ -696,7 +708,7 @@ export function App() {
           />}
           <footer
             className="lobby-footer"
-            hidden={page === "home" || page === "tables"}
+            hidden
           >
             <span>金陵有好牌，相聚正当时。</span>
             <span>理性娱乐 · 适度游戏</span>

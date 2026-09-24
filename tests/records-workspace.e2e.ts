@@ -297,6 +297,7 @@ for (const [width, height] of [
     await expect(dialog.locator(".reveal-score-items")).toHaveCount(0);
     await dialog.getByRole("tab", {name:"本把明细",exact:true}).click();
     await expect(dialog.getByRole("columnheader", {name:"本把开始",exact:true})).toBeVisible();
+    await expect(dialog.getByRole("tab", { name: "本把明细", exact: true })).toHaveCSS("background-color", "rgb(66, 111, 157)");
     await expect(dialog.getByLabel("本局四家牌面")).toHaveCount(0);
     expect(await dialog.boundingBox()).toEqual({ x: 0, y: 0, width, height });
     await page.screenshot({
@@ -440,3 +441,33 @@ test('战绩移除摘要反馈入口，默认明细可切换把数和返回整�
  await expect(details.getByLabel('第 1 把明细')).toBeVisible();
  await expect(details.getByRole('button',{name:'摘要 / 反馈',exact:true})).toHaveCount(0);
 });
+
+for (const [left, right] of [[62, 0], [0, 62]]) {
+  test(`详情页左右横屏安全区、总分和操作条完整显示 ${left}-${right}`, async ({ page }) => {
+    await page.setViewportSize({ width: 874, height: 402 });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { left, right, top: 0, bottom: 21 } });
+    await fixture(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "战绩", exact: true }).click();
+    await page.locator(".match-card").first().click();
+    const details = page.getByRole("dialog", { name: /房间 .* · 战绩详情/ });
+    await expect(details).toBeVisible();
+    expect(await details.boundingBox()).toEqual({ x: 0, y: 0, width: 874, height: 402 });
+    const safe = await details.locator(".modal-head > h2, .modal-head > .icon-button, .record-detail-total .match-player, .match-detail-actions button").evaluateAll((elements, inset) => elements.every(el => {
+      const r = el.getBoundingClientRect();
+      return r.left >= inset.left && r.right <= innerWidth - inset.right && r.top >= 0 && r.bottom <= innerHeight - 21;
+    }), { left, right });
+    expect(safe).toBe(true);
+    await expect(details.locator(".record-detail-total .match-points b")).toHaveText(["+42", "-12", "-30", "0"]);
+    await expect(details.locator(".record-round-rail")).toBeVisible();
+    const content = await details.locator(".match-round-detail-content").boundingBox();
+    expect(content!.height).toBeGreaterThan(140);
+    await details.getByRole("button", { name: "返回整桌明细", exact: true }).click();
+    await details.getByLabel("第 4 把明细", { exact: true }).getByRole("button", { name: "本把明细", exact: true }).click();
+    await expect(details.getByLabel("第 4 把战绩详情", { exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath("details-safe-area.png") });
+    await details.getByRole("button", { name: "关闭", exact: true }).click();
+    await expect(details).toHaveCount(0);
+  });
+}

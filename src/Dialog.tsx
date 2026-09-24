@@ -30,7 +30,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      className={`modal ${variant}`}
+      className={`modal ${variant} ${variant.includes("round-reveal-dialog") ? "" : "game-dialog"}`}
       aria-labelledby={titleId}
       onCancel={(event) => { event.preventDefault(); close(); }}
       onClick={(e) => {

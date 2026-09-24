@@ -66,7 +66,7 @@ export function AuthScreen({
     else await client.authenticate(mode, username, password, name);
   }
   return (
-    <div className="app classic polished account-shell">
+    <div className="app classic polished game-ui account-shell">
       <div className="orientation-guide" role="status">
         <RotateCw size={42} />
         <h2>横屏，开始这一局</h2>

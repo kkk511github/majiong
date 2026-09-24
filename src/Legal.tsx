@@ -23,8 +23,8 @@ export function LegalGate({ children }: { children: ReactNode }) {
   const [checked, setChecked] = useState(false);
   const [declined, setDeclined] = useState(false);
   if (accepted) return children;
-  if (declined) return <main className="legal-gate"><section className="legal-declined"><h1>已暂停进入游戏</h1><p>你可以关闭应用，也可以重新阅读协议。尚未恢复账号或连接牌局。</p><button onClick={() => setDeclined(false)}>重新阅读</button></section></main>;
-  return <main className="legal-gate"><section className="legal-card" aria-label="首次使用协议">
+  if (declined) return <main className="legal-gate game-ui"><section className="legal-declined"><h1>已暂停进入游戏</h1><p>你可以关闭应用，也可以重新阅读协议。尚未恢复账号或连接牌局。</p><button onClick={() => setDeclined(false)}>重新阅读</button></section></main>;
+  return <main className="legal-gate game-ui"><section className="legal-card" aria-label="首次使用协议">
     <header><span>金陵麻将</span><h1>开始前，请先了解</h1><p>仅供娱乐 · 禁止赌博 · 已结束牌局向会员开放回放</p></header>
     <LegalContent />
     <footer>

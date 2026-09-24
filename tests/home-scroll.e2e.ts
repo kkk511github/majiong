@@ -8,7 +8,7 @@ for (const [width, height] of [
   [844, 390],
   [932, 430],
 ]) {
-  test(`首页全部牌桌滑动到底并入座 ${width}`, async ({ page }) => {
+  test(`房间大厅全部牌桌滑动到底并入座 ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     const tables: TableSummary[] = Array.from({ length: 12 }, (_, i) => ({
       code: String(700000 + i),
@@ -35,9 +35,10 @@ for (const [width, height] of [
       });
     });
     await page.goto("/");
-    await expect(page.locator(".home-table")).toHaveCount(12);
-    await expect(page.locator(".home-live-footer")).toContainText("共 12 桌可加入");
-    const list = page.getByRole("region", { name: "可加入牌桌，可上下滑动" });
+    await expect(page.locator(".game-lobby-connection")).toContainText("12 桌可加入");
+    await page.getByRole("button", { name: "房间大厅", exact: true }).click();
+    await expect(page.locator(".table-card")).toHaveCount(12);
+    const list = page.getByRole("region", { name: "牌桌列表" });
     const metrics = await list.evaluate((el) => ({
       height: el.clientHeight,
       content: el.scrollHeight,

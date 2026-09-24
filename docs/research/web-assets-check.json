@@ -1,7 +1,7 @@
 {
-  "at": "2026-09-23T18:12:18.612Z",
+  "at": "2026-09-24T06:33:18.625Z",
   "kind": "web-build-public-assets",
-  "checked": 260,
+  "checked": 263,
   "groups": {
     "android-icon-foreground.png": {
       "files": 1,
@@ -88,8 +88,8 @@
       "bytes": 10757921
     },
     "art": {
-      "files": 22,
-      "bytes": 21330157
+      "files": 25,
+      "bytes": 26496908
     }
   },
   "runtime": {

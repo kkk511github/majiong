@@ -1,0 +1,254 @@
+/* Shared game-shell presentation; no Cocos scene, tiles, rules or turn layout. */
+.game-ui {
+  --ui-blue: #426f9d;
+  --ui-blue-dark: #294a72;
+  --ui-ink: #334e68;
+  --ui-muted: #697e8f;
+  --ui-paper: #fff9e9;
+  --ui-paper-edge: #d9c797;
+  --ui-gold: #f1d581;
+  --ui-cream: #f4ebd6;
+  --ui-green: #459b51;
+  --ui-green-dark: #236f40;
+  --ui-white: #fff;
+  --ui-danger: #a33f32;
+  --ui-field: #fffefa;
+  --ui-radius: 8px;
+  --ui-line: #c2d4e5;
+}
+.app.game-ui.game-lobby-shell:not([data-page="home"])::before {
+  content: ""; display: block;
+  background: linear-gradient(#294a729e, #294a72bb), url("/art/lobby-v4/scene.png") center / cover;
+}
+.app.game-ui.game-lobby-shell[data-page="profile"] {
+  --profile-ink: var(--ui-ink); --profile-muted: var(--ui-muted); --profile-gold: var(--ui-line);
+}
+.app.game-ui.game-lobby-shell[data-page="profile"] > .site-header {
+  flex: 0 0 auto; height: calc(var(--lobby-header) + env(safe-area-inset-top));
+}
+.app.game-ui.game-lobby-shell[data-page="profile"] .profile-header-title {
+  font-family: inherit; font-size: 21px; font-weight: 700; line-height: 1.2; color: var(--ui-white); border-color: #b5d9ff80;
+}
+.app.game-ui .profile-paper {
+  background: linear-gradient(#fffdf5, var(--ui-paper)); color: var(--ui-ink);
+  border: 2px solid #f9e8b8; border-radius: var(--ui-radius); box-shadow: 0 3px 0 #25497155;
+}
+.app.game-ui .profile-option-icon { background: #dfedf8; color: var(--ui-blue); border-radius: 9px; }
+.app.game-ui .profile-option { border-bottom-color: #d4ddeb; }
+.app.game-ui .profile-role { background: var(--ui-blue); color: var(--ui-white); border-color: #aecde7; border-radius: 5px; }
+.app.game-ui .profile-portrait { border-color: #b5cadc; border-radius: 9px; background: var(--ui-white); box-shadow: none; }
+.app.game-ui .profile-portrait img, .app.game-ui .profile-portrait-default { border-radius: 6px; }
+.app.game-ui .profile-account, .app.game-ui .profile-chevron { color: var(--ui-muted); }
+.app.game-ui :is(.profile-edit-actions, .profile-admin) button,
+.app.game-ui .profile-signout {
+  background: #f0f6fa; color: var(--ui-blue-dark); border: 1px solid var(--ui-line); border-radius: 6px; box-shadow: none;
+}
+.app.game-ui .profile-signout { color: var(--ui-danger); background: #fff4e9; }
+.app.game-ui .profile-update-entry { color: var(--ui-white); background: var(--ui-blue); border: 1px solid #bdd9f1; border-radius: 6px; }
+
+/* Dialogs share the cream panel, warm title strip and green confirmation.
+   The actual round reveal is explicitly excluded by Dialog.tsx. */
+.app.game-ui .game-dialog {
+  color: var(--ui-ink); background: var(--ui-paper);
+  border: 3px solid #fff3c8; border-radius: 10px; box-shadow: 0 12px 40px #18324766;
+}
+.app.game-ui .game-dialog::backdrop { background: #17334c99; backdrop-filter: none; }
+.app.game-ui .game-dialog > .modal-head {
+  background: linear-gradient(#fae9ad, var(--ui-gold)); border-bottom: 1px solid var(--ui-paper-edge);
+}
+.app.game-ui .game-dialog > .modal-head h2 { color: #775b25; font-family: inherit; font-size: 21px; text-shadow: 0 1px #fff9de; }
+.app.game-ui .game-dialog > .modal-head .icon-button {
+  min-width: 44px; min-height: 44px; color: #8c6b2f; background: none; border: 0; box-shadow: none;
+}
+.app.game-ui .game-dialog > .modal-body { color: var(--ui-ink); background: var(--ui-paper); }
+.app.game-ui .game-dialog > .modal-footer { background: var(--ui-cream); border-top-color: var(--ui-paper-edge); }
+.app.game-ui .game-dialog:where(:not(.game-room-setup)) { padding: 0; gap: 0; }
+.app.game-ui .game-dialog:where(:not(.game-room-setup)) > .modal-head { padding: 10px 18px; flex-shrink: 0; }
+.app.game-ui .game-dialog:where(:not(.game-room-setup)) > .modal-body { padding: 14px 18px; }
+.app.game-ui .game-dialog:where(:not(.game-room-setup)) > .modal-footer { padding: 10px 18px; }
+.app.game-ui .game-dialog .primary, .app.game-ui.account-shell .primary,
+.app.game-ui .waiting-room .primary {
+  color: var(--ui-white); background: linear-gradient(#77c870, var(--ui-green)); border: 1px solid #8ac279;
+  border-radius: 6px; box-shadow: inset 0 1px #c6f3a8, 0 3px 0 var(--ui-green-dark);
+  text-shadow: 0 1px var(--ui-green-dark); min-height: 44px;
+}
+.app.game-ui .game-dialog .secondary {
+  color: #877042; background: #fff7df; border: 1px solid #c8b783; border-radius: 6px; box-shadow: none; min-height: 44px;
+}
+.app.game-ui .game-dialog :is(input:not([type="range"]):not([type="checkbox"]), textarea, select) {
+  color: var(--ui-ink); background: var(--ui-field); border: 1px solid var(--ui-paper-edge); border-radius: 5px;
+}
+.app.game-ui .game-dialog :is(.modal-intro, .form-note, .profile-dialog-note, .profile-form p, .form-label small) { color: var(--ui-muted); }
+.app.game-ui .game-dialog [role="alert"] { color: var(--ui-danger); }
+.app.game-ui .game-dialog .dialog-actions { gap: 12px; }
+.app.game-ui .game-dialog .profile-option-icon { background: #dfedf8; }
+.app.game-ui .game-dialog :is(.setting-row, .audio-volume, .profile-help-link) { color: var(--ui-ink); }
+.app.game-ui .game-dialog .setting-row { background: transparent; border-bottom-color: var(--ui-line); }
+.app.game-ui .game-dialog .audio-label small { color: var(--ui-muted); }
+.app.game-ui .game-dialog .switch { background: #bcc9d1; }
+.app.game-ui .game-dialog .switch.on { background: var(--ui-green); }
+.app.game-ui .game-dialog input[type="range"] { accent-color: var(--ui-green); }
+.app.game-ui .game-dialog :is(.voice-genders button, .voice-preview) { color: var(--ui-ink); background: var(--ui-white); border-color: var(--ui-line); border-radius: 5px; }
+.app.game-ui .game-dialog .voice-genders button[aria-pressed="true"] { color: var(--ui-green-dark); background: #e5efd6; border-color: #a9c490; }
+.app.game-ui .game-dialog .voice-genders { display: flex; gap: 6px; }
+.app.game-ui .game-dialog .voice-genders button { flex: 1; min-width: 0; padding: 6px 8px; font-size: 14px; white-space: nowrap; }
+.app.game-ui .game-dialog .network-diagnostics { color: var(--ui-muted); border-color: var(--ui-line); background: #eff5fa; border-radius: 6px; }
+.app.game-ui .game-dialog .network-diagnostics summary { color: var(--ui-ink); }
+.app.game-ui .game-dialog .network-diagnostics dd { color: var(--ui-blue-dark); }
+.app.game-ui .game-dialog .network-diagnostic-actions button { color: var(--ui-blue); background: var(--ui-white); border-color: var(--ui-line); min-height: 44px; }
+.app.game-ui .game-dialog :is(.club-tabs, .legal-tabs) button { background: transparent; color: var(--ui-ink); border-color: var(--ui-line); }
+.app.game-ui .game-dialog :is(.club-tabs, .legal-tabs) button[aria-pressed="true"] { background: var(--ui-blue); color: var(--ui-white); border-color: var(--ui-blue); }
+.app.game-ui .game-dialog :is(.club-member, .club-team, .permission-member) { background: var(--ui-white); border-color: var(--ui-line); color: var(--ui-ink); }
+.app.game-ui .game-dialog :is(.legal-document, .legal-document h2, .legal-document h3) { color: var(--ui-ink); }
+.app.game-ui .toast { color: var(--ui-white); background: #284765f2; border: 1px solid #9ac6eb; border-radius: 8px; box-shadow: 0 3px 10px #17334c33; }
+.app.game-ui .error-banner { background: #fff0dd; color: var(--ui-danger); border-color: #e3ba91; }
+.app.game-ui :is(button, input, select, textarea):focus-visible { outline: 3px solid #277dc1; outline-offset: 2px; }
+.app.game-ui :is(.primary, .secondary):disabled { opacity: .55; cursor: not-allowed; }
+
+/* Account geometry remains under keyboard-viewport / keyboard.css ownership. */
+.app.game-ui.account-shell { background: var(--ui-blue-dark); }
+.app.game-ui.account-shell .account-screen {
+  background: url("/art/lobby-v4/scene.png") center / cover no-repeat;
+}
+.app.game-ui.account-shell .account-brand { color: var(--ui-white); text-shadow: 0 2px 2px var(--ui-blue-dark); }
+.app.game-ui.account-shell .account-brand small { display: none; }
+.app.game-ui.account-shell .account-invitation { visibility: hidden; }
+.app.game-ui.account-shell .account-card { border: 3px solid #fff0c3; border-radius: 10px; background: var(--ui-paper); box-shadow: 0 6px 24px #1c3c5b4a; color: var(--ui-ink); }
+.app.game-ui.account-shell .account-card-heading h2 { color: #795c29; font-family: inherit; }
+.app.game-ui.account-shell .account-card-heading > span { color: var(--ui-muted); }
+.app.game-ui.account-shell .account-tabs { background: #e9dfc4; border-radius: 6px; }
+.app.game-ui.account-shell .account-tabs button { color: #8b7751; border-radius: 4px; min-height: 44px; }
+.app.game-ui.account-shell .account-tabs button[aria-selected="true"] { color: #745420; background: linear-gradient(#fff0bc, var(--ui-gold)); box-shadow: 0 1px 2px #ab955e33; }
+.app.game-ui.account-shell .account-form label { color: #78643d; }
+.app.game-ui.account-shell .account-form input { color: var(--ui-ink); background: var(--ui-field); border-color: #cbbb94; border-radius: 5px; font-size: 16px; }
+.app.game-ui.account-shell .password-field button { color: var(--ui-muted); background: transparent; }
+.app.game-ui.account-shell .account-footnote { color: var(--ui-muted); }
+.app.game-ui.account-shell .account-error { color: var(--ui-danger); background: #fbe8d8; border-color: #e7bea5; }
+
+/* Rules use a single readable panel instead of a differently themed page. */
+.app.game-ui[data-page="rules"] > .lobby { overflow-y: auto; }
+.app.game-ui[data-page="rules"] .page-heading {
+  background: linear-gradient(#fae9ad, var(--ui-gold)); padding: 14px 22px; margin: 0;
+  border: 2px solid #fff1c4; border-bottom: 0; border-radius: 10px 10px 0 0;
+}
+.app.game-ui[data-page="rules"] .page-heading .eyebrow { display: none; }
+.app.game-ui[data-page="rules"] .page-heading h1 { margin: 0 0 5px; font: 700 24px/1.25 sans-serif; color: #775b25; text-shadow: none; }
+.app.game-ui[data-page="rules"] .page-heading p { margin: 0; color: #897044; font-size: 13px; }
+.app.game-ui[data-page="rules"] .rules-content {
+  margin: 0; padding: 18px 22px; border: 2px solid #fff1c4; border-top: 0;
+  border-radius: 0 0 10px 10px; background: var(--ui-paper); color: var(--ui-ink); box-shadow: none;
+}
+.app.game-ui[data-page="rules"] .rules-content section { background: none; border-color: #ddd8c7; box-shadow: none; }
+.app.game-ui[data-page="rules"] .rules-content :is(h3, .edition) { color: var(--ui-blue-dark); }
+.app.game-ui[data-page="rules"] .rules-content p { color: var(--ui-muted); }
+.app.game-ui[data-page="rules"] .rule-index { background: #e3edf6; color: var(--ui-blue); border-color: #c8dbea; }
+
+/* Match data, filters, receipts and replay entry remain the existing components.
+   Higher scope specificity also wins over lazily loaded records styles. */
+.app.classic.polished.game-ui[data-page="history"] { background: var(--ui-blue-dark); padding: 0; }
+/* Directories are full-screen workspaces, not floating dialogs. Safe-area
+   spacing belongs inside their toolbars/lists rather than around a framed box. */
+.app.classic.polished.game-ui:is([data-page="tables"], [data-page="friends"], [data-page="history"]) > .site-header { display: none; }
+.app.classic.polished.game-ui:is([data-page="tables"], [data-page="friends"], [data-page="history"]) > .lobby { padding: 0; }
+.app.classic.polished.game-ui.game-lobby-shell > .bottom-nav {
+  position: relative; inset: auto; flex: 0 0 auto; justify-content: center; align-items: center;
+  height: calc(var(--lobby-nav) + env(safe-area-inset-bottom));
+  padding: 0 var(--lobby-nav-edge) env(safe-area-inset-bottom) var(--lobby-nav-edge);
+  background: linear-gradient(#24446a00, #24446a80); border: 0; box-shadow: none;
+}
+.app.classic.polished.game-ui.game-lobby-shell > .bottom-nav button { font-size: 16px; color: var(--ui-white); background: none; box-shadow: none; border: 0; }
+.app.classic.polished.game-ui.game-lobby-shell > .bottom-nav button.active { color: var(--ui-gold); background: none; box-shadow: none; }
+.app.classic.polished.game-ui:is([data-page="tables"], [data-page="friends"], [data-page="history"]) > .bottom-nav { background: var(--ui-blue-dark); }
+.app.game-ui .lobby-footer[hidden] { display: none; }
+.app.classic.polished.game-ui[data-page="history"] > .site-header { display: none; }
+.app.classic.polished.game-ui .records-workspace { background: #edf5fcf5; border: 0; border-radius: 0; overflow: hidden; color: var(--ui-ink); }
+.app.classic.polished.game-ui .records-workspace .records-heading { background: linear-gradient(#5487b6, var(--ui-blue)); border-bottom: 1px solid #9fc3e0; padding: max(6px, env(safe-area-inset-top)) var(--lobby-nav-edge) 6px; min-height: 56px; }
+.app.classic.polished.game-ui .records-workspace .records-heading h1 { color: var(--ui-white); font-family: inherit; }
+.app.classic.polished.game-ui .records-heading nav { background: var(--ui-blue-dark); }
+.app.classic.polished.game-ui .records-heading nav button { color: #e0edfa; }
+.app.classic.polished.game-ui .records-heading nav button[aria-pressed="true"] { color: #765927; background: var(--ui-gold); }
+.app.classic.polished.game-ui .records-workspace-body {
+  background: transparent; max-width: none;
+  width: calc(100% - var(--lobby-nav-edge) - var(--lobby-nav-edge));
+  margin-inline: auto;
+}
+.app.classic.polished.game-ui .records-toolbar { background: none; border-color: var(--ui-line); }
+.app.classic.polished.game-ui .records-toolbar .record-date { color: var(--ui-blue-dark); }
+.app.classic.polished.game-ui .records-toolbar .record-date[aria-pressed="true"] { color: var(--ui-white); background: var(--ui-blue); }
+.app.classic.polished.game-ui :is(.record-filters-toggle, .records-clear, .records-pagination button) { color: var(--ui-blue-dark); background: var(--ui-white); border-color: var(--ui-line); }
+.app.classic.polished.game-ui .records-workspace .match-card { color: var(--ui-ink); background: var(--ui-white); border-color: #b7cfdf; border-radius: 7px; box-shadow: 0 2px #d4e4ef; }
+.app.classic.polished.game-ui :is(.records-empty, .records-empty h3, .record-table-name, .records-range-label) { color: var(--ui-blue-dark); }
+.app.classic.polished.game-ui :is(.record-card-meta, .records-total, .records-day-total, .records-pagination, .records-empty p) { color: var(--ui-muted); }
+.app.classic.polished.game-ui .match-detail-link { color: var(--ui-blue); background: #eef5ff; border-color: var(--ui-line); }
+.app.classic.polished.game-ui .match-record-dialog .modal-head .record-detail-total .match-player { color: #765927; }
+.app.classic.polished.game-ui .record-calendar button { color: var(--ui-ink); background: #eef4fa; border-color: var(--ui-line); }
+.app.classic.polished.game-ui .record-calendar button[aria-pressed="true"] { color: var(--ui-white); background: var(--ui-blue); }
+.app.classic.polished.game-ui .feature-loading { color: var(--ui-ink); background: var(--ui-paper); border: 2px solid var(--ui-gold); border-radius: 10px; }
+
+/* Waiting room only; don't change live-game layout or the settlement reveal. */
+.app.game-ui[data-page="waiting"] > .waiting-room {
+  flex: 1; min-height: 0; height: auto; width: min(1100px, calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 36px));
+  margin: 8px auto max(12px, env(safe-area-inset-bottom)); padding: 14px 20px; overflow: auto;
+  color: var(--ui-ink); background: #edf5fcf5; border: 2px solid #d8eaff; border-radius: 10px;
+}
+.app.game-ui[data-page="waiting"] .page-heading :is(h1, p) { color: var(--ui-blue-dark); text-shadow: none; }
+.app.game-ui[data-page="waiting"] .back-link { color: var(--ui-blue); }
+.app.game-ui[data-page="waiting"] .room-code { color: #765927; background: var(--ui-paper); border-color: var(--ui-gold); box-shadow: 0 2px #d4c5a5; }
+.app.game-ui[data-page="waiting"] .room-code :is(span, strong) { color: #765927; }
+.app.game-ui[data-page="waiting"] .waiting-seat { background: var(--ui-white); border-color: var(--ui-line); color: var(--ui-ink); box-shadow: 0 2px #cbdce8; }
+.app.game-ui[data-page="waiting"] .waiting-seat h3 { color: var(--ui-blue-dark); }
+.app.game-ui[data-page="waiting"] .waiting-seat > span { color: var(--ui-muted); }
+.app.game-ui[data-page="waiting"] .waiting-seat[data-state="ready"] > span { color: var(--ui-green-dark); }
+.app.game-ui[data-page="waiting"] .waiting-seat[data-state="ready"] { border-color: #92bf92; background: #f5faed; }
+.app.game-ui[data-page="waiting"] :is(.waiting-status, .waiting-status p, .waiting-seat small, .text-button) { color: var(--ui-muted); }
+
+/* One non-modal network banner. Input locking remains in GameClient/App. */
+.app.game-ui .network-feedback.connection-banner {
+  position: fixed; z-index: 90; top: max(8px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+  width: max-content; max-width: calc(100% - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)));
+  margin: 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; min-height: 44px; color: #f7fbff;
+  background: #294a72f5; border: 1px solid #91b5d4; border-radius: 8px;
+  box-shadow: 0 3px 8px #15324c33; font-size: 13px; pointer-events: auto;
+}
+.network-feedback > svg { flex-shrink: 0; }
+.network-feedback > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 10px; min-width: 0; }
+.network-feedback small { font-size: 12px; color: #dae6ef; }
+.app.game-ui .network-feedback-warning.connection-banner { color: #704915; background: #fff1d3f7; border-color: #dfc48c; }
+.network-feedback-warning small { color: #8b6d3c; }
+.app.game-ui .network-feedback-error.connection-banner { color: #873c30; background: #fff0e7f7; border-color: #d8aa92; }
+.network-feedback-error small { color: #855e4f; }
+.app.game-ui .network-feedback-success.connection-banner { color: #285d38; background: #eaf6def7; border-color: #a6c693; }
+.network-feedback-success small { color: #527451; }
+.app.game-ui .network-feedback button { flex-shrink: 0; min-height: 36px; padding: 5px 10px; color: inherit; background: #ffffff26; border: 1px solid currentColor; border-radius: 5px; font-size: 12px; }
+.network-feedback-progress > svg { animation: lobby-spin 1s linear infinite; }
+.game-ui.legal-gate { background: linear-gradient(#294a72aa, #294a72dd), url("/art/lobby-v4/scene.png") center / cover; color: var(--ui-ink); }
+.game-ui.legal-gate .legal-card { background: var(--ui-paper); border: 3px solid #fff3c8; border-radius: 10px; box-shadow: 0 12px 40px #18324766; }
+.game-ui.legal-gate .legal-card h1 { color: #775b25; }
+.game-ui.legal-gate .legal-card header :is(span, p) { color: var(--ui-muted); }
+.game-ui.legal-gate .legal-tabs button { color: var(--ui-ink); background: #e8edf2; border-color: var(--ui-line); border-radius: 5px; }
+.game-ui.legal-gate .legal-tabs button[aria-pressed="true"] { color: #775b25; background: var(--ui-gold); border-color: var(--ui-paper-edge); }
+.game-ui.legal-gate .legal-document { background: #fffefa; color: var(--ui-ink); border: 1px solid #e4dbc5; border-radius: 6px; }
+.game-ui.legal-gate .legal-actions button { color: #877042; background: var(--ui-cream); border-color: var(--ui-paper-edge); border-radius: 6px; }
+.game-ui.legal-gate .legal-actions .legal-accept { color: var(--ui-white); background: var(--ui-green); border-color: var(--ui-green-dark); }
+.game-ui.legal-gate .legal-declined { color: var(--ui-ink); background: var(--ui-paper); border: 3px solid var(--ui-gold); border-radius: 10px; }
+.game-ui.legal-gate .legal-declined button { color: var(--ui-white); background: var(--ui-green); border-color: var(--ui-green-dark); }
+@media (orientation: landscape) and (max-height: 500px) {
+  /* WKWebView's font metrics and home-indicator inset leave less room than
+     desktop Chrome. Let the avatar yield space, never shrink a text line. */
+  .app.game-ui[data-page="profile"] .profile-portrait { width: clamp(44px, 11vh, 56px); height: clamp(44px, 11vh, 56px); }
+  .app.game-ui[data-page="profile"] .profile-personal-info > * { flex-shrink: 0; }
+  .app.game-ui.account-shell .account-card { border-radius: 8px; }
+  .app.game-ui .game-dialog > .modal-head h2 { font-size: 19px; }
+  .app.game-ui[data-page="waiting"] > .waiting-room { padding: 8px 14px; }
+  .app.game-ui[data-page="rules"] .page-heading { padding: 10px 14px; }
+  .app.game-ui[data-page="rules"] .rules-content { padding: 10px 14px; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .app.game-ui.game-lobby-shell[data-page="profile"] { --lobby-header: 42px; --lobby-nav: 44px; }
+  .app.game-ui.game-lobby-shell[data-page="profile"] > .lobby { padding-top: 0; padding-bottom: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .network-feedback-progress > svg { animation: none; }
+}

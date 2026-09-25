@@ -13,6 +13,8 @@ export interface ControlAccount {
   createdAt?: number;
   suspended?: boolean;
   playBlocked?: boolean;
+  clientVersion?: string | null;
+  versionReportedAt?: number | null;
 }
 
 export type { ControlAnnouncement } from '../../shared/announcements';
@@ -24,6 +26,7 @@ export interface ControlTeam {
 }
 
 export interface MemberList {
+  versionStats?: {targetVersion:string;total:number;updated:number;older:number;unknown:number;asOf:number};
   accounts: ControlAccount[];
   total: number;
   page: number;
@@ -31,6 +34,8 @@ export interface MemberList {
 }
 
 export interface MemberFilters {
+  targetVersion?: string;
+  versionStatus?: ''|'updated'|'older'|'unknown';
   q: string;
   team: string;
   status: "" | "active" | "suspended";

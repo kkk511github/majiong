@@ -13,6 +13,12 @@ import {
 } from "./accounts";
 import { createAnnouncements } from "./announcements";
 import type { ClientUpdateSettings } from '../shared/client-update';
+import {createClientVersionReports} from './client-version-reports';
+import {parseClientVersion} from './client-version';
+import {version as serverVersion} from '../package.json';
+import type {createClientDiagnostics} from './client-diagnostics';
+import type {createRecords} from './records';
+import {createMemberGameQueries} from './member-games';
 
 type Accounts = ReturnType<typeof createAccounts>;
 
@@ -22,8 +28,12 @@ export function createControl(
   accounts: Accounts,
   onAnnouncementsChanged: () => void = () => {},
   clientUpdates?: { get: () => ClientUpdateSettings; save: (actor: string, body: Record<string, unknown>) => ClientUpdateSettings },
+  diagnostics?: Pick<ReturnType<typeof createClientDiagnostics>,'request'|'list'>,
+  recordQueries?: Pick<ReturnType<typeof createRecords>,'details'>,
 ) {
   const announcements = createAnnouncements(db, onAnnouncementsChanged);
+  createClientVersionReports(db);
+ const memberGames=recordQueries?createMemberGameQueries(db,recordQueries):null;
   const bearer = (req: IncomingMessage) =>
     req.headers.authorization?.replace(/^Bearer /, "");
   function requireSession(req: IncomingMessage): AuthSession {
@@ -80,6 +90,11 @@ export function createControl(
       throw new AuthError("筛选内容过长");
     if (!["", "active", "suspended"].includes(status))
       throw new AuthError("账号状态不正确");
+    const targetVersion=query.get('targetVersion')??serverVersion;
+    const parts=parseClientVersion(targetVersion);
+    if(!parts)throw new AuthError('目标版本须为 x.y.z 数字格式');
+    const versionStatus=query.get('versionStatus')??'';
+    if(!['','updated','older','unknown'].includes(versionStatus))throw new AuthError('版本筛选不正确');
     const where = ["1=1"],
       args: (string | number)[] = [];
     if (q) {
@@ -98,20 +113,27 @@ export function createControl(
       args.push(status === "suspended" ? 1 : 0);
     }
     const from =
-      " FROM accounts a LEFT JOIN team_memberships m ON m.account_id=a.id LEFT JOIN account_suspensions s ON s.account_id=a.id WHERE " +
+      " FROM accounts a LEFT JOIN team_memberships m ON m.account_id=a.id LEFT JOIN account_suspensions s ON s.account_id=a.id LEFT JOIN client_version_reports v ON v.account_id=a.id WHERE " +
       where.join(" AND ");
+    const reached='(v.major,v.minor,v.patch)>=(?,?,?)';
+    const versionStats=db.prepare(`SELECT COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN ${reached} THEN 1 ELSE 0 END),0) AS updated,
+      COALESCE(SUM(CASE WHEN v.version IS NULL THEN 1 ELSE 0 END),0) AS unknown`+from).get(...parts,...args) as {total:number;updated:number;unknown:number};
+    const versionWhere=versionStatus==='updated'?` AND ${reached}`:versionStatus==='older'?' AND (v.major,v.minor,v.patch)<(?,?,?)':versionStatus==='unknown'?' AND v.version IS NULL':'';
+    const filteredArgs=[...args,...(['updated','older'].includes(versionStatus)?parts:[])];
     const total = Number(
-      db.prepare("SELECT COUNT(*) AS n" + from).get(...args)!.n,
+      db.prepare("SELECT COUNT(*) AS n" + from+versionWhere).get(...filteredArgs)!.n,
     );
     const rows = db
       .prepare(
-        "SELECT a.id" +
-          from +
+        "SELECT a.id,v.version AS clientVersion,v.reported_at AS versionReportedAt" +
+          from +versionWhere+
           " ORDER BY a.created_at DESC,a.rowid DESC LIMIT ? OFFSET ?",
       )
-      .all(...args, pageSize, (page - 1) * pageSize);
+      .all(...filteredArgs, pageSize, (page - 1) * pageSize);
     return {
-      accounts: rows.map((row) => accounts.getAccount(String(row.id))),
+      accounts: rows.map((row) => ({...accounts.getAccount(String(row.id)),clientVersion:row.clientVersion??null,versionReportedAt:row.versionReportedAt??null})),
+      versionStats:{...versionStats,older:versionStats.total-versionStats.updated-versionStats.unknown,targetVersion,asOf:Date.now()},
       total,
       page,
       pageSize,
@@ -234,6 +256,26 @@ export function createControl(
         return true;
       }
       let actor = requireSession(req);
+      if(path==='/api/control/member-games'){
+        if(req.method!=='GET')throw new AuthError('请求方式不支持',405);
+        if(!memberGames)throw new AuthError('战绩查询服务暂不可用',503);
+        res.end(JSON.stringify(memberGames.list(url.searchParams)));return true;
+      }
+      const memberGamePath=/^\/api\/control\/member-games\/([A-Za-z0-9_-]{1,120})$/.exec(path);
+      if(memberGamePath){
+        if(req.method!=='GET')throw new AuthError('请求方式不支持',405);
+        if(!memberGames)throw new AuthError('战绩查询服务暂不可用',503);
+        res.end(JSON.stringify(memberGames.detail(memberGamePath[1],url.searchParams.get('memberId'),actor.id)));return true;
+      }
+      const diagnosticPath=/^\/api\/control\/members\/([a-zA-Z0-9_-]{1,100})\/diagnostics$/.exec(path);
+      if(diagnosticPath){
+        targetAccount(diagnosticPath[1]);
+        if(!diagnostics)throw new AuthError('诊断服务暂不可用',503);
+        if(req.method==='POST'){
+          await readJSON(req,1024);try{diagnostics.request(actor.id,diagnosticPath[1]);}catch(error){throw new AuthError(error instanceof Error?error.message:'采集失败',429);}
+        }else if(req.method!=='GET')throw new AuthError('请求方式不支持',405);
+        res.end(JSON.stringify(diagnostics.list(diagnosticPath[1])));return true;
+      }
       if (path === "/api/control/auth/session") {
         if (req.method !== "GET") throw new AuthError("请求方式不支持", 405);
         res.end(JSON.stringify({ account: actor.account }));

@@ -125,7 +125,7 @@ export function RoomVoice({
     const fresh = phrases.filter(m => !phraseSeen.current.has(m.id));
     for (const message of phrases) phraseSeen.current.add(message.id);
     if (phraseSeen.current.size > 100) phraseSeen.current = new Set(phrases.map(m => m.id));
-    const last = fresh.filter(m => m.game === game && client.now() - m.at >= -1000 && client.now() - m.at < ROOM_PHRASE_TTL_MS).at(-1);
+    const last = fresh.filter(m => m.game === game && client.now() - m.at >= -1000 && client.now() - m.at < ROOM_PHRASE_TTL_MS).slice(-1)[0];
     if (last && enabled) playPhrase(last, true);
   }, [phrases]);
 

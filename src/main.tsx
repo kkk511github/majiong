@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import {androidDiagnostics} from './android-diagnostics';
 import { LegalGate } from "./Legal";
 import "./styles.css";
 import "./classic.css";
@@ -23,6 +24,7 @@ import "./lobby-game.css";
 import "./game-ui.css";
 import "./game-features.css";
 import "./record-details-theme.css";
+import "./waiting-room.css";
 
 document.documentElement.dataset.runtime = Capacitor.isNativePlatform() ? "native" : "web";
 
@@ -32,6 +34,8 @@ document.documentElement.dataset.tablePlatform = androidTable
 import { installKeyboardViewport } from "./keyboard-viewport";
 
 const disposeKeyboardViewport = installKeyboardViewport();
+const disposeDiagnostics=androidDiagnostics.install();
+if(import.meta.hot)import.meta.hot.dispose(disposeDiagnostics);
 if (import.meta.hot) import.meta.hot.dispose(disposeKeyboardViewport);
 
 class ErrorBoundary extends React.Component<
@@ -42,6 +46,7 @@ class ErrorBoundary extends React.Component<
   static getDerivedStateFromError() {
     return { failed: true };
   }
+  componentDidCatch(error:Error){androidDiagnostics.record('react-error',error);}
   render() {
     return this.state.failed ? (
       <div className="recovery">

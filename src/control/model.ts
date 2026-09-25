@@ -30,6 +30,8 @@ export function memberQuery(filters: MemberFilters): string {
   if (filters.q.trim()) query.set("q", filters.q.trim());
   if (filters.team) query.set("team", filters.team);
   if (filters.status) query.set("status", filters.status);
+  if(filters.targetVersion)query.set('targetVersion',filters.targetVersion);
+  if(filters.versionStatus)query.set('versionStatus',filters.versionStatus);
   query.set("page", String(Math.max(1, Math.floor(filters.page))));
   return `/members?${query}`;
 }

@@ -11,6 +11,7 @@ import { TableOpening, canShowOpening, openingMatchesState, type OpeningCue } fr
 import type { TableSceneCommand, TableSceneState, TableSafeArea } from "../shared/table-scene";
 import { tableSafeArea } from "./table-safe-area";
 import "./cocos-table.css";
+import {androidDiagnostics} from './android-diagnostics';
 import { createTableChannel } from "./cocos-channel";
 
 /** One canvas and one renderer for Android, iOS and the browser. The iframe
@@ -96,6 +97,7 @@ export function CocosTable({
     }
   }, []);
   latest.current = { state:viewState, onCommand };
+  useEffect(()=>{androidDiagnostics.context(state);},[state.code,state.round,state.phase]);
   useEffect(()=>{
     const probe=safeProbe.current,iframe=frame.current;
     if(!probe||!iframe)return;
@@ -136,10 +138,11 @@ export function CocosTable({
       if (data?.scope !== "jinling-table-v1" || data.channel !== channel)
         return;
       if (data.type === "ready") {
+        androidDiagnostics.record('table-ready');
         setStatus("ready");
         send();
       }
-      if (data.type === "error") {setFailure("resources");setStatus("error");}
+      if (data.type === "error") {androidDiagnostics.tableError(data.diagnostic??{});setFailure("resources");setStatus("error");}
       if (
         data.type === "command" &&
         data.command &&
@@ -164,7 +167,8 @@ export function CocosTable({
   }, [viewState, status]);
   useEffect(() => {
     if (status !== "loading") return;
-    const timeout = setTimeout(() => {setFailure("timeout");setStatus("error");}, 20000);
+    androidDiagnostics.record('table-loading');
+    const timeout = setTimeout(() => {androidDiagnostics.tableError({stage:'timeout',message:'Table ready handshake timed out'});setFailure("timeout");setStatus("error");}, 20000);
     return () => clearTimeout(timeout);
   }, [status]);
   useEffect(() => {
@@ -175,6 +179,7 @@ export function CocosTable({
     // page, then the ready handshake restores our latest authoritative view.
     const lost = (event: Event) => {
       event.preventDefault();
+      androidDiagnostics.tableError({stage:'graphics',message:'WebGL context lost'});
       // A graphics interruption is not entrance completion. Preserve an
       // unfinished opening; TableOpening pauses while tableReady is false
       // and reports completion only after the replacement renderer is ready.
@@ -227,7 +232,7 @@ export function CocosTable({
         title="金陵麻将牌桌"
         src={`${import.meta.env.BASE_URL}cocos-table/index.html?channel=${encodeURIComponent(channel)}`}
         allow="autoplay"
-        onError={() => {setFailure("page");setStatus("error");}}
+        onError={() => {androidDiagnostics.tableError({stage:'page',message:'Table iframe failed to load'});setFailure("page");setStatus("error");}}
       />
       {status !== "ready" && !showingOpening && (
         <div className={`cocos-loading cocos-loading-blue${status === "loading" ? " cocos-loading-pending" : ""}`} role="status" aria-label={status === "loading" ? "正在进入牌桌" : undefined}>

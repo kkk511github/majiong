@@ -22,12 +22,12 @@ async function boot() {
   const root=(await api("/api/auth/login",{username:"guanli@1",password:"Testing-password-2026"})).data;
   const register=async (username:string,name=username) => (await api("/api/auth/register",{username,password:"Testing-password-2026",name,role:"admin",canPlay:true,teamId:"team-1"})).data;
   const assign=(id:string,teamId="team-1") => api("/api/admin/members",{accountId:id,teamId},root.token);
-  async function peer(token:string) {
-    const ws=new WebSocket(`ws://127.0.0.1:${port}/ws`);sockets.push(ws);const messages:any[]=[];
+  async function peer(token:string,connectPort=port) {
+    const ws=new WebSocket(`ws://127.0.0.1:${connectPort}/ws`);sockets.push(ws);const messages:any[]=[];
     ws.on("message",r=>messages.push(JSON.parse(String(r)))); await new Promise<void>(resolve=>ws.once("open",resolve));
     const send=(v:object)=>ws.send(JSON.stringify(v));
     async function read(type:string) {const end=Date.now()+3000;while(Date.now()<end){const i=messages.findIndex(m=>m.type===type);if(i>=0)return messages.splice(i,1)[0];await new Promise(r=>setTimeout(r,5));}throw Error(`Missing ${type}: ${JSON.stringify(messages)}`);}
-    send({type:"hello",token,name:"任意"});await read("session");return {send,read,messages};
+    send({type:"hello",token,name:"任意"});await read("session");return {send,read,messages,socket:ws};
   }
   return {api,root,register,assign,peer,server,file};
 }
@@ -48,13 +48,13 @@ it("仅 guanli@1 能增减管理员；注册和其他管理员都不能越权，
   expect((await api("/api/admin/points",undefined,a.token)).status).toBe(403);
   const db=new DatabaseSync(file);expect(db.prepare("SELECT COUNT(*) AS n FROM account_audit WHERE event LIKE '%administrator-changed%'").get()!.n).toBe(2);db.close();
 });
-it("预置四队可改名且重启不重置；分队后可入座，禁赛仍允许打完本局并阻止自动下一局",async()=>{
+it("预置四队可改名；禁赛保留当前八把整桌并阻止进入下一桌",async()=>{
   const {api,root,register,assign,peer,server,file}=await boot();
   const teams=(await api("/api/admin/teams",undefined,root.token)).data.teams;
   expect(teams.map((t:any)=>t.name)).toEqual(["一生所爱战队","冰茉莉战队","日结丁战队","日结冰战队"]);
   await api("/api/admin/teams",{id:"team-1",name:"一生好友战队"},root.token);
   const player=await register("player"),ws=await peer(player.token),host=await peer(root.token);
-  host.send({type:"createTables",count:1,settings:{continuousRounds:true,openingAnimation:false},creationId:"club-game"});const code=(await host.read("tablesCreated")).codes[0];
+  host.send({type:"createTables",count:1,settings:{continuousRounds:true,openingAnimation:false,autoRenew:false},rules:{rounds:8},creationId:"club-game"});const code=(await host.read("tablesCreated")).codes[0];
   ws.send({type:"join",code});expect((await ws.read("error")).message).toContain("分配战队");
   await assign(player.account.id);ws.send({type:"join",code});await ws.read("state");
   const g=server.games.get(code)!;
@@ -66,13 +66,52 @@ it("预置四队可改名且重启不重置；分队后可入座，禁赛仍允�
   await api("/api/admin/members",{accountId:player.account.id,playBlocked:true},root.token);
   const live=server.games.get(code)!;expect(live.phase).toBe("playing");
   if(live.turn===0){const tile=live.players[0]!.hand[0],event=`${live.players[0]!.name} 打出 ${tileName(tile)}`;ws.send({type:"action",revision:live.revision,action:{type:"discard",tile}});await expect.poll(()=>server.games.get(code)!.events.includes(event),{timeout:2000}).toBe(true);}
-  const ended=server.games.get(code)!;ended.phase="ended";ended.round=1;ended.result={reason:"draw",winners:[],details:{},deltas:[0,0,0,0]};ended.history=[{id:ended.id+"-1",at:Date.now()-20000,round:1,result:ended.result,names:ended.players.map(p=>p!.name),scores:[90,90,90,90]}];ended.players.forEach(p=>{p!.ready=true;p!.online=true;});
-  await new Promise(r=>setTimeout(r,120));expect(server.games.get(code)!.phase).toBe("ended");
-  ws.send({type:"ready"});expect((await ws.read("error")).message).toContain("暂停");
-  await api("/api/admin/members",{accountId:player.account.id,playBlocked:false},root.token);
-  const deadline=Date.now()+2000;while(server.games.get(code)!.phase==="ended"&&Date.now()<deadline)await new Promise(r=>setTimeout(r,10));expect(server.games.get(code)!.round).toBe(2);
+  for(let round=1;round<8;round++){
+   const ended=server.games.get(code)!;ended.phase="ended";ended.round=round;ended.result={reason:"draw",winners:[],details:{},deltas:[0,0,0,0]};
+   ended.history.push({id:ended.id+'-'+round,at:Date.now()-20000,round,result:ended.result,names:ended.players.map(p=>p!.name),scores:[90,90,90,90]});ended.players.forEach(p=>{p!.ready=false;});
+   await expect.poll(()=>server.games.get(code)!.round,{timeout:2000}).toBe(round+1);
+  }
+  expect((await api('/api/auth/session',undefined,player.token)).data.account.playBlocked).toBe(true);
+  const finished=server.games.get(code)!;finished.phase='finished';finished.table!.finishedAt=Date.now();
+  ws.send({type:'leave'});await ws.read('left');
+  host.send({type:'createTables',count:1,settings:{openingAnimation:false},creationId:'next-blocked-table'});
+  const next=(await host.read('tablesCreated')).codes[0];
+  ws.send({type:'join',code:next});expect((await ws.read('error')).message).toContain('暂停');
   const db=new DatabaseSync(file);expect(db.prepare("SELECT name FROM teams WHERE id='team-1'").get()!.name).toBe("一生好友战队");db.close();
 });
+it('禁玩发生在第一把之前，已入座也不能准备或自动开局',async()=>{
+ const {api,root,register,assign,peer,server}=await boot();
+ const member=await register('before-first');await assign(member.account.id);
+ const host=await peer(root.token),player=await peer(member.token);
+ host.send({type:'createTables',count:1,creationId:'before-first',settings:{readyMode:'auto',openingAnimation:false,kickUnready:false},rules:{rounds:8}});
+ const code=(await host.read('tablesCreated')).codes[0];player.send({type:'join',code});await player.read('state');
+ await api('/api/admin/members',{accountId:member.account.id,playBlocked:true},root.token);
+ const g=server.games.get(code)!;for(const seat of [1,2,3])g.players[seat]=newPlayer('before-bot'+seat,'陪练',true,90);
+ player.send({type:'ready'});expect((await player.read('error')).message).toContain('暂停');
+ await new Promise(r=>setTimeout(r,150));expect(server.games.get(code)!.round).toBe(0);expect(server.games.get(code)!.phase).toBe('waiting');
+ expect(player.messages.some(m=>m.type==='state'&&m.state.admissionMessage)).toBe(true);
+});
+it('手动续把、断线及服务重启均保留已开桌禁玩的保护，终桌不能再准备',async()=>{
+ const {api,root,register,assign,peer,server,file}=await boot();
+ const member=await register('resume-blocked','续桌玩家');await assign(member.account.id);
+ const host=await peer(root.token);let player=await peer(member.token);
+ host.send({type:'createTables',count:1,creationId:'resume-blocked',settings:{continuousRounds:false,openingAnimation:false,autoRenew:false,kickUnready:false},rules:{rounds:8}});
+ const code=(await host.read('tablesCreated')).codes[0];player.send({type:'join',code});await player.read('state');
+ const g=server.games.get(code)!;for(const seat of [1,2,3])g.players[seat]=newPlayer('resume-bot'+seat,'陪练',true,90);
+ player.send({type:'ready'});await expect.poll(()=>server.games.get(code)!.round).toBe(1);
+ await api('/api/admin/members',{accountId:member.account.id,playBlocked:true},root.token);
+ const ended=server.games.get(code)!;ended.phase='ended';ended.result={reason:'draw',winners:[],details:{},deltas:[0,0,0,0]};ended.history.push({id:ended.id+'-1',at:Date.now()-20000,round:1,result:ended.result,names:ended.players.map(p=>p!.name),scores:[90,90,90,90]});ended.players.forEach(p=>{p!.ready=!!p!.bot});
+ // Persist the isolated ended fixture, then exercise a real restart and hello.
+ const db=new DatabaseSync(file);db.prepare('UPDATE rooms SET state=? WHERE id=?').run(JSON.stringify(ended),ended.id);db.close();
+ player.socket.close();host.socket.close();await server.close();active.splice(active.indexOf(server),1);
+ const resumed=makeServer({database:file,port:0,host:'127.0.0.1',tickMs:25});active.push(resumed);const port=await resumed.listen();
+ player=await peer(member.token,port);const snapshot=(await player.read('state')).state;
+ expect(snapshot.round).toBe(1);expect(snapshot.admissionMessage).toBeUndefined();
+ player.send({type:'ready'});await expect.poll(()=>resumed.games.get(code)!.round).toBe(2);
+ const done=resumed.games.get(code)!;done.phase='finished';done.round=8;
+ player.send({type:'ready'});expect((await player.read('error')).message).toContain('暂停');
+});
+
 it("积分含一次桌费并按本桌倍率记分，历史战队锁定、去重、跨日边界、筛选及全量安全CSV",async()=>{
   const {api,root,register,assign,file}=await boot(),a=await register("stats-a","=1+1"),b=await register("stats-b");await assign(a.account.id);await assign(b.account.id,"team-2");
   const db=new DatabaseSync(file),records=createRecords(db),g=createGame("123456","stat-game",{rounds:8});

@@ -196,8 +196,16 @@ async function setup(page: Page, customActor = actor) {
         accounts = accounts.filter(
           (member) => !!member.suspended === (query.status === "suspended"),
         );
+      const targetVersion=query.targetVersion||'0.8.0';
+      const reached=(version:string)=>version.localeCompare(targetVersion,undefined,{numeric:true})>=0;
+      const updated=accounts.filter(a=>a.clientVersion&&reached(a.clientVersion)).length,unknown=accounts.filter(a=>!a.clientVersion).length;
+      const versionStats={targetVersion,total:accounts.length,updated,unknown,older:accounts.length-updated-unknown,asOf:Date.now()};
+      if(query.versionStatus==='updated')accounts=accounts.filter(a=>a.clientVersion&&reached(a.clientVersion));
+      if(query.versionStatus==='older')accounts=accounts.filter(a=>a.clientVersion&&!reached(a.clientVersion));
+      if(query.versionStatus==='unknown')accounts=accounts.filter(a=>!a.clientVersion);
       const pageNumber = Number(query.page || 1);
       return send({
+        versionStats,
         accounts: accounts.slice((pageNumber - 1) * 20, pageNumber * 20),
         total: accounts.length,
         page: pageNumber,
@@ -282,6 +290,45 @@ async function setup(page: Page, customActor = actor) {
   ).toBeVisible();
   return state;
 }
+
+test('会员对局支持区间总桌数、分页、每日下钻、详情和窄屏',async({page})=>{
+ await setup(page);
+ const queries:URLSearchParams[]=[];
+ await page.route('**/api/control/member-games**',async route=>{
+  const url=new URL(route.request().url()),q=url.searchParams;
+  const member={id:'member',memberId:'100022',name:'示例会员',username:'example',deleted:false};
+  if(q.get('memberId')==='999999')return route.fulfill({status:404,json:{error:'会员ID不存在'}});
+  if(url.pathname.endsWith('/game-0')){
+   const record={id:'r1',at:Date.parse('2026-09-25T18:00:00+08:00'),round:8,names:['示例会员','乙','丙','丁'],playerIds:['member','p2','p3','p4'],scores:[120,90,95,95],initialScore:100,scoreDivisor:5,result:{reason:'draw',winners:[],details:{},deltas:[20,-10,-5,-5]}};
+   return route.fulfill({json:{member,details:{match:{gameId:'game-0',code:'845400',record},rounds:[{gameId:'game-0',code:'845400',record}]}}});
+  }
+  queries.push(q);const single=q.get('from')===q.get('to'),current=Number(q.get('page')),empty=single&&q.get('from')==='2026-09-18';
+  const items=Array.from({length:empty?0:single?1:current===2?3:20},(_,i)=>({gameId:`game-${i}`,code:String(845400+i),finishedAt:Date.parse('2026-09-25T18:00:00+08:00'),tableName:'50进园子',rounds:8,reason:'打满8把',experience:false,names:['示例会员','乙','丙','丁'],memberRecorded:4}));
+  return route.fulfill({json:{member,from:q.get('from'),to:q.get('to'),timeZone:'Asia/Shanghai',totalTables:empty?0:single?1:23,page:current,pageSize:20,daily:single?[{date:q.get('from'),tables:empty?0:1}]:Array.from({length:8},(_,i)=>({date:`2026-09-${18+i}`,tables:i===7?23:0})),items}});
+ });
+ await page.getByRole('button',{name:'会员对局',exact:true}).click();
+ await page.getByLabel('查询会员ID').fill('100022');
+ await page.getByLabel('开始日期',{exact:true}).fill('2026-09-18');
+ await page.getByLabel('结束日期',{exact:true}).fill('2026-09-25');
+ await page.getByRole('button',{name:'查询对局',exact:true}).click();
+ const summary=page.getByLabel('会员对局汇总');await expect(summary).toContainText('23');await expect(summary).toContainText('示例会员');
+ await page.screenshot({path:'output/member-games-query-desktop.png',fullPage:true});
+ await page.getByRole('button',{name:'下一页',exact:true}).click();await expect(page.getByText('第 2 / 2 页',{exact:true})).toBeVisible();await expect(summary).toContainText('23');
+ expect(queries.at(-1)?.get('page')).toBe('2');
+ await page.getByRole('button',{name:'查看房间845400详情'}).click();
+ const dialog=page.getByRole('dialog');await expect(dialog).toContainText('查询会员');await expect(dialog).toContainText('+4');await expect(dialog).toContainText('第8把');
+ await dialog.getByRole('button',{name:'关闭',exact:true}).click();
+ await page.getByRole('button',{name:'2026-09-25 23 桌'}).click();await expect(page.getByLabel('开始日期',{exact:true})).toHaveValue('2026-09-25');
+ await expect(page.getByText('共1桌',{exact:true})).toBeVisible();
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'output/member-games-query-mobile.png',fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'查看房间845400详情'}).click();await expect(dialog).toContainText('第8把');
+ expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await dialog.getByRole('button',{name:'关闭',exact:true}).click();
+ await page.getByLabel('查询会员ID').fill('999999');await page.getByRole('button',{name:'查询对局',exact:true}).click();await expect(page.getByText('会员ID不存在',{exact:true})).toBeVisible();await expect(summary).toHaveCount(0);
+ await page.getByLabel('查询会员ID').fill('100022');await page.getByLabel('开始日期',{exact:true}).fill('2026-09-18');await page.getByLabel('结束日期',{exact:true}).fill('2026-09-18');await page.getByRole('button',{name:'查询对局',exact:true}).click();
+ await expect(page.getByText('该会员所选日期内没有已结束牌桌。')).toBeVisible();
+});
 
 test('公告已读确认显示人数、名单、未读筛选、分页、刷新和版本冲突，不修改草稿或发送确认', async ({ page }) => {
   const state = await setup(page);
@@ -411,6 +458,46 @@ test("announcement drafts keep the online version unchanged until explicit publi
   expect(await page.evaluate(() => localStorage.getItem("jinling:token"))).toBe(
     JSON.stringify("existing-game-token"),
   );
+});
+
+for(const platform of ['android','ios'])test(`administrator requests ${platform} diagnostics without a player confirmation`,async({page})=>{
+ const state=await setup(page);let requested=false;
+ await page.route('**/api/control/members/*/diagnostics',async route=>{
+  const post=route.request().method()==='POST';if(post)requested=true;
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({connection:'ready',retentionDays:7,requests:requested?[{id:'00000000-0000-4000-8000-000000000001',source:'admin',actorId:actor.id,createdAt:Date.now(),expiresAt:Date.now()+86400000,status:post?'pending':'received',report:post?null:{version:1,platform,at:Date.now(),environment:{appVersion:'0.8.1',webViewVersion:'83.0.4103.120',ios:platform==='ios'?'15.3':'',model:'<img src=x onerror=alert(1)>'},events:[{at:Date.now(),code:'table-error',message:'roundRect is not a function',stack:'at /cocos-table/index.js:1'}]}}]:[]})});
+ });
+ await page.getByRole('button',{name:'人员管理',exact:true}).click();
+ await page.getByRole('row').filter({hasText:state.accounts[0].username}).getByRole('button',{name:'诊断日志',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:new RegExp(state.accounts[0].name+' · 客户端诊断')});
+ await dialog.getByRole('button',{name:'采集客户端日志',exact:true}).click();
+ await expect(dialog.locator('p').filter({hasText:'等待设备上传'})).toBeVisible();
+ await expect(dialog.getByRole('region',{name:'诊断报告'})).toBeVisible({timeout:10000});
+ await expect(dialog).toContainText('83.0.4103.120');await expect(dialog).toContainText('roundRect is not a function');
+ await expect(dialog.locator('.control-diagnostic-report img')).toHaveCount(0);
+ await page.screenshot({path:`output/qa/${platform}-diagnostic-control.png`});
+});
+
+test('member version totals filter the whole list and fit mobile screens',async({page})=>{
+ const state=await setup(page);
+ state.accounts[0].clientVersion='0.8.0';state.accounts[0].versionReportedAt=Date.now();
+ state.accounts[1].clientVersion='0.7.100';state.accounts[1].versionReportedAt=Date.now();
+ await page.getByRole('button',{name:'人员管理',exact:true}).click();
+ const panel=page.getByRole('region',{name:'软件版本统计'});
+ await expect(panel.getByRole('button',{name:/已达 0.8.0/})).toContainText('1');
+ await panel.getByRole('button',{name:/旧版本/}).click();
+ await expect.poll(()=>state.memberQueries.at(-1)?.versionStatus).toBe('older');
+ await expect(page.locator('.control-member-table tbody tr')).toHaveCount(1);
+ await expect(page.locator('.control-member-table')).toContainText('0.7.100');
+ await page.getByLabel('目标软件版本').fill('0.7.99');await page.getByRole('button',{name:'查询版本',exact:true}).click();
+ await expect(panel.getByRole('button',{name:/已达 0.7.99/})).toContainText('2');
+ await panel.getByRole('button',{name:/版本未知/}).click();
+ await expect.poll(()=>state.memberQueries.at(-1)?.versionStatus).toBe('unknown');
+ await expect(page.locator('.control-member-table tbody')).toContainText('尚未上报');
+ await page.screenshot({path:'output/qa/member-versions-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(panel.getByRole('button',{name:'刷新统计'})).toBeVisible();
+ await page.screenshot({path:'output/qa/member-versions-mobile.png',fullPage:true});
 });
 
 test("member paging resets for search and never interprets playBlocked as suspended", async ({

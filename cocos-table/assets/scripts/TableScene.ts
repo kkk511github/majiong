@@ -76,29 +76,32 @@ export class TableScene extends Component {
   window.addEventListener('message',this.onMessage);
   window.addEventListener('blur',this.onBlur);document.addEventListener('visibilitychange',this.onVisibility);
   window.addEventListener('touchend',this.onTouchRelease,true);window.addEventListener('touchcancel',this.onTouchCancel,true);window.addEventListener('mouseup',this.onMouseRelease,true);window.addEventListener('resize',this.cancelHandTouch);
+  let loadStage='tile-atlas';
   try{
    const catalog=(await load<JsonAsset>('tile-atlas',JsonAsset)).json as Atlas;
    await Promise.all(Object.entries(catalog).map(async([pose,data])=>{
     const texture=new Texture2D();texture.image=await load<ImageAsset>('tiles/'+pose,ImageAsset);
     data.rects.forEach((r,k)=>{const f=new SpriteFrame();f.texture=texture;f.rect=new Rect(r.x,r.y,r.w,r.h);this.frames.set(pose+'-'+k,f);});
    }));
+   loadStage='table-art';
    await Promise.all(['table','avatars','pointer','table-tool-jade-v2'].map(async name=>{
     const img=await load<ImageAsset>('art/'+name,ImageAsset),tex=new Texture2D();tex.image=img;
     const f=new SpriteFrame();f.texture=tex;
     this.frames.set(name,f);
     if(name==='avatars')for(let k=0;k<4;k++){const a=new SpriteFrame();a.texture=tex;a.rect=new Rect(k%2*img.width/2,Math.floor(k/2)*img.height/2,img.width/2,img.height/2);this.frames.set('avatar-'+k,a);}
    }));
+   loadStage='action-art';
    const effects=(await load<JsonAsset>('art/action-fx-data',JsonAsset)).json as any;
    const fxTexture=new Texture2D();fxTexture.image=await load<ImageAsset>('art/action-fx',ImageAsset);
    for(const [key,json] of Object.entries(effects.skeletons)){
     const data=new sp.SkeletonData();data.skeletonJson=json as any;data.atlasText=effects.atlas;data.textures=[fxTexture];data.textureNames=['action-fx.png'];this.effectData.set(key,data);
    }
-   this.staticTable();this.view3D=await createTable3DView(this);this.ready=true;
+   loadStage='3d-models';this.staticTable();this.view3D=await createTable3DView(this);this.ready=true;
    (window as any).__JINLING_TABLE_READY__=true;
    window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'ready'},location.origin==='null'?'*':location.origin);
    if(window.parent===window)this.state=this.demo();
    if(this.state)this.draw();
-  }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error'},location.origin==='null'?'*':location.origin);}
+  }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);const error=e as Error;window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error',diagnostic:{stage:loadStage,name:error?.name,message:error?.message,stack:error?.stack}},location.origin==='null'?'*':location.origin);}
  }
  onDestroy(){this.view3D?.destroy();cancelAnimationFrame(this.stateFrame);for(const opacity of this.compassHighlights)Tween.stopAllByTarget(opacity);window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}

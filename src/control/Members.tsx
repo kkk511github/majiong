@@ -25,6 +25,7 @@ import type {
   MemberList,
 } from "./types";
 import { Empty, ErrorNotice, Loading, Modal, Notice, StatusBadge } from "./ui";
+import {Diagnostics} from './Diagnostics';
 
 type MemberMode = "edit" | "password" | "suspension" | "delete";
 const initialFilters: MemberFilters = { q: "", team: "", status: "", page: 1 };
@@ -50,6 +51,8 @@ export function Members({
 }) {
   const [filters, setFilters] = useState<MemberFilters>(initialFilters);
   const [query, setQuery] = useState("");
+  const [diagnosticMember,setDiagnosticMember]=useState<ControlAccount|null>(null);
+  const [targetInput,setTargetInput]=useState<string|null>(null);
   const [data, setData] = useState<MemberList>({
     accounts: [],
     total: 0,
@@ -132,6 +135,18 @@ export function Members({
         <p>查看成员资料，维护所属战队与使用状态。</p>
       </div>
       <section className="control-panel control-members-panel">
+        {data.versionStats&&<section className="control-version-summary" aria-label="软件版本统计" aria-busy={loading}>
+          <form className="control-version-target" onSubmit={event=>{event.preventDefault();setFilters(previous=>({...previous,targetVersion:(targetInput??data.versionStats!.targetVersion).trim(),versionStatus:'',page:1}));}}>
+            <strong>更新情况 · 按账号去重</strong>
+            <label>目标版本<input aria-label="目标软件版本" maxLength={20} placeholder="例如 0.8.0" value={targetInput??data.versionStats.targetVersion} onChange={event=>setTargetInput(event.target.value)}/></label>
+            <button className="control-button" type="submit" disabled={loading}>查询版本</button>
+            <button className="control-button" type="button" disabled={loading} onClick={()=>setReload(n=>n+1)}>刷新统计</button>
+          </form>
+          {!error&&<div className="control-version-counts">
+            {([['','全部账号',data.versionStats.total],['updated',`已达 ${data.versionStats.targetVersion}`,data.versionStats.updated],['older','旧版本',data.versionStats.older],['unknown','版本未知',data.versionStats.unknown]] as const).map(([key,label,count])=><button key={key} type="button" disabled={loading} aria-pressed={(filters.versionStatus??'')===key} onClick={()=>setFilters(previous=>({...previous,versionStatus:key,page:1}))}><span>{label}</span><strong>{count}</strong></button>)}
+          </div>}
+          <p>统计范围跟随搜索、战队及状态筛选，包含管理员。最近上报版本可能来自 App 或网页，不等于实际安装人数；新版未打开、老客户端未报版本会暂时无法确认。统计时间：{displayTime(data.versionStats.asOf)}</p>
+        </section>}
         <form
           className="control-filters"
           onSubmit={(event) => {
@@ -191,6 +206,7 @@ export function Members({
             type="button"
             onClick={() => {
               setQuery("");
+              setTargetInput(null);
               setFilters({ ...initialFilters });
             }}
           >
@@ -229,6 +245,7 @@ export function Members({
                   <th>角色</th>
                   <th>所属战队</th>
                   <th>状态</th>
+                  <th>软件版本 / 上报时间</th>
                   <th>注册时间 ↓</th>
                   <th>操作</th>
                 </tr>
@@ -257,11 +274,16 @@ export function Members({
                         {member.suspended ? "暂停使用" : "正常"}
                       </StatusBadge>
                     </td>
+                    <td className="control-member-version">
+                      <strong>{member.clientVersion??'版本未知'}</strong>
+                      <span className="control-table-sub">{member.versionReportedAt?displayTime(member.versionReportedAt):'尚未上报'}</span>
+                    </td>
                     <td className="control-table-date">
                       {displayTime(member.createdAt)}
                     </td>
                     <td>
                       <div className="control-row-actions">
+                        <button className="control-link" type="button" onClick={()=>setDiagnosticMember(member)}>诊断日志</button>
                         <button
                           className="control-link"
                           type="button"
@@ -364,6 +386,7 @@ export function Members({
           </div>
         </div>
       </section>
+      {diagnosticMember&&<Diagnostics api={api} member={diagnosticMember} onClose={()=>setDiagnosticMember(null)}/>}
       {selection && (
         <MemberDrawer
           key={`${selection.account.id}:${selection.mode}`}

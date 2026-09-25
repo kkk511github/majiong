@@ -471,7 +471,7 @@ export function createRecords(
     if (!/^[A-Za-z0-9_-]{1,120}$/.test(game))
       throw new AuthError("牌桌 ID 不正确");
     const row = db
-      .prepare("SELECT * FROM match_records WHERE game_id=?")
+      .prepare("SELECT * FROM match_records WHERE game_id=? ORDER BY at DESC,id DESC,rowid DESC LIMIT 1")
       .get(game);
     // Do not expose existence or membership of an unrelated table to a member.
     if (

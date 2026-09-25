@@ -54,6 +54,10 @@ async function boot(minimumClientVersion = '0.7.37') {
     return { ws, send, read, messages, closed };
   }
   return Object.assign(connect, {
+    async reports() {
+      const response=await fetch(`http://127.0.0.1:${port}/api/control/members?targetVersion=0.8.0`,{headers:{Authorization:`Bearer ${token}`}});
+      expect(response.status).toBe(200);return response.json();
+    },
     async settings(body?: unknown) {
       const response = await fetch(`http://127.0.0.1:${port}/api/control/settings/client-update`, {
         method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -85,6 +89,17 @@ it.each([undefined, '0.7.36'])('rejects legacy version=%s before seating or evic
   expect(server!.games.get(codes[0])).toEqual(before);
   expect(current.ws.readyState).toBe(WebSocket.OPEN);
   current.send({ type: 'tables' }); await current.read('tables');
+});
+it('persists authenticated hello reports even for rejected old clients, never records forged hello',async()=>{
+ const connect=await boot();
+ const old=await connect('0.7.36');await old.read('error');await old.closed;
+ expect((await connect.reports()).versionStats).toMatchObject({total:1,updated:0,older:1,unknown:0});
+ const fresh=await connect('0.8.0');await fresh.read('session');
+ expect((await connect.reports()).accounts[0].clientVersion).toBe('0.8.0');
+ fresh.send({type:'hello',token:'fake',name:'伪造',clientVersion:'9.0.0'});await fresh.read('error');
+ expect((await connect.reports()).accounts[0].clientVersion).toBe('0.8.0');
+ await connect.restart();
+ expect((await connect.reports()).versionStats).toMatchObject({total:1,updated:1,older:0,unknown:0});
 });
 
 async function activeTable() {

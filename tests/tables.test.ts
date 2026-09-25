@@ -11,6 +11,7 @@ import {
   peerCredential,
 } from "./account-fixtures";
 import { botAction } from "../shared/engine";
+import {participationRows} from '../server/telegram-reports';
 import type {
   ClientMessage,
   Game,
@@ -1413,6 +1414,24 @@ describe("建桌大厅真实联机", () => {
       });
     },
   );
+  it.each(['ended','finished'] as const)('管理员收桌：%s 状态按实际结束时间归期，不重写已结束桌',async phase=>{
+    const file=databasePath(),{s,port}=await boot(file),host=await peer(port,'收桌日期管理员');
+    const [code]=await createTables(host,{autoRenew:false,openingAnimation:false,readyMode:'manual',continuousRounds:false});
+    await fill(port,code);const g=s.games.get(code)!;
+    const old=Date.now()-7*86400000;g.phase=phase;g.round=1;g.openingGate=undefined;g.deadline=0;
+    g.players.forEach(p=>p!.ready=false);g.result={reason:'draw',winners:[],details:{},deltas:[0,0,0,0]};
+    g.history=[{id:g.id+'-1',at:old,round:1,result:g.result,names:g.players.map(p=>p!.name),scores:g.players.map(p=>p!.score),playerIds:g.players.map(p=>p!.id)}];
+    if(phase==='finished')g.table!.finishedAt=old;
+    const before=Date.now();host.send({type:'closeTable',code,requestId:'close-date'});await host.read('ack',m=>m.requestId==='close-date');
+    const db=new DatabaseSync(file),saved=db.prepare('SELECT at,record FROM match_records WHERE game_id=?').get(g.id)!;
+    if(phase==='ended'){expect(Number(saved.at)).toBeGreaterThanOrEqual(before);expect(Number(saved.at)).toBeLessThanOrEqual(Date.now());}
+    else expect(saved.at).toBe(old);
+    const rows=participationRows(db,'team-1',before-1000,Date.now()+1);
+    expect(rows.length).toBe(phase==='ended'?4:0);
+    if(phase==='ended')expect(rows.every(r=>r.rounds===1&&r.points===3)).toBe(true);
+    db.close();
+  });
+
   it("成员不能申请解散，管理员可从大厅收起进行中的桌并禁止续桌", async () => {
     const { s, port } = await boot();
     const host = await peer(port, "管理员");

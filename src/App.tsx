@@ -804,7 +804,7 @@ export function App() {
                       "等待准备"
                     )
                   ) : (
-                    v.table ? <button className="invite-empty-seat" disabled={!state.connected} onClick={() => setInviteOpen(true)}>邀请一位朋友</button> : <span>等待牌友加入</span>
+                    v.table ? <button className="invite-empty-seat" aria-label="邀请一位朋友" disabled={!state.connected} onClick={() => setInviteOpen(true)}>邀请好友</button> : <span>等待牌友加入</span>
                   )}
                 </span>
               </div>

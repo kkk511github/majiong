@@ -11,6 +11,7 @@ export async function browserAccount(
   context: BrowserContext,
   name = "金陵牌友",
   creator = false,
+  role: "admin" | "member" = "admin",
 ) {
   const username = creator ? TABLE_CREATOR_USERNAME : `qa-${randomUUID()}`,
     id = randomUUID();
@@ -19,7 +20,7 @@ export async function browserAccount(
   const token = randomBytes(32).toString("hex");
   try {
     // Each scenario gets a fresh sole creator in the isolated UI-test database.
-    // Additional peer contexts stay ordinary admins and cannot create tables.
+    // Additional peers retain the requested test role and cannot create tables.
     if (creator)
       db.prepare("UPDATE accounts SET username=? WHERE username=?")
         .run(`qa-retired-${randomUUID()}`, TABLE_CREATOR_USERNAME);
@@ -28,7 +29,7 @@ export async function browserAccount(
       username,
       name,
       hash,
-      "admin",
+      role,
       0,
       Date.now(),
     );
@@ -49,7 +50,7 @@ export async function browserAccount(
       id,
       username,
       name,
-      role: "admin",
+      role,
       mustChangePassword: false,
       canCreateTables: creator,
     },

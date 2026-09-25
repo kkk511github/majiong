@@ -50,6 +50,8 @@ test("the built client resumes a server robot table without randomUUID or struct
   const view = viewFor(game, 0);
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript((token) => {
+    Object.defineProperty(Array.prototype,'at',{configurable:true,value:undefined});
+    Object.defineProperty(CanvasRenderingContext2D.prototype,'roundRect',{configurable:true,value:undefined});
     localStorage.setItem("jinling:token", JSON.stringify(token));
     Object.defineProperty(crypto, "randomUUID", {
       configurable: true,

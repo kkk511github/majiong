@@ -468,7 +468,8 @@ export interface OpeningGate {
   expiresAt: number;
 }
 export type ClientMessage = (
-  | { type: "hello"; token?: string; name: string; clientVersion?: string; capabilities?: { openingComplete?: boolean } }
+  | { type: "hello"; token?: string; name: string; clientVersion?: string; capabilities?: { openingComplete?: boolean; androidDiagnostics?: boolean; clientDiagnostics?: boolean } }
+  | { type:'diagnosticUpload';diagnosticId:string;report:unknown }
   | { type: "create"; rules?: Partial<Rules> }
   | {
       type: "createTables";
@@ -499,6 +500,8 @@ export type ClientMessage = (
   | { type: "ping"; sentAt?: number; sync?: boolean }
 ) & { requestId?: string };
 export type ServerMessage = (
+  | {type:'diagnosticRequest';id:string;expiresAt:number}
+  | {type:'diagnosticAck';id:string;accepted:boolean}
   | { type: "tableInvitations"; invitations: import('./table-invitations').TableInvitation[] }
   | { type: "invitationResult"; requestId: string; peers?: import('./table-invitations').OnlineInvitePeer[] }
   | { type: "voice"; message: import("./room-voice").RoomVoiceMessage }
@@ -507,6 +510,8 @@ export type ServerMessage = (
   | { type: "announcementsChanged" }
   | {
       type: "session";
+      androidDiagnostics?: boolean;
+      clientDiagnostics?: boolean;
       token: string;
       id: string;
       name: string;

@@ -8,6 +8,7 @@ import { avatarURL, client } from "./game-client";
 import { AvatarEditor } from "./AvatarEditor";
 import { AudioSettings } from "./AudioSettings";
 import { Dialog } from "./Dialog";
+import {DiagnosticUpload} from './DiagnosticUpload';
 
 type Panel = "avatar" | "nickname" | "audio" | "feedback" | "logout" | null;
 export function ProfilePage({ account, name, audio, changeAudio, password, legal, rules, club, permissions, notice }: {
@@ -100,6 +101,7 @@ export function ProfilePage({ account, name, audio, changeAudio, password, legal
     {panel === "audio" && <Dialog title="声音设置" close={close} variant="profile-dialog profile-audio-dialog"><AudioSettings value={audio} change={changeAudio} /><p className="profile-dialog-note">声音设置自动保存到当前设备。</p></Dialog>}
     {panel === "feedback" && <Dialog title="帮助与反馈" close={close} variant="profile-dialog profile-feedback-dialog">
       <button className="profile-help-link" onClick={() => {setPanel(null);rules();}}><BookOpen size={21} />查看玩法说明<ChevronRight size={20} /></button>
+      <DiagnosticUpload key={account?.id??''} accountId={account?.id??''}/>
       <form className="profile-form" onSubmit={e => {e.preventDefault(); void sendFeedback();}}>
         <label htmlFor="profile-feedback">问题或建议 <small>{feedback.length} / 1000</small></label>
         <textarea id="profile-feedback" value={feedback} maxLength={1000} required placeholder="请描述遇到的问题；牌局相关问题可以附上回放 ID。" onChange={e => {setFeedback(e.target.value);setError("");}} />

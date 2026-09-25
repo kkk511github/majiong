@@ -7,6 +7,15 @@ import { createControl } from "../server/control";
 import { createAnnouncements } from "../server/announcements";
 import { createRecords } from "../server/records";
 import { createClientUpdateSettings } from '../server/client-update-settings';
+import {createClientVersionReports} from '../server/client-version-reports';
+import type {RoundRecord} from '../shared/types';
+
+function seedMemberGame(db:DatabaseSync,gameId:string,date:string,ids=['member','p2','p3','p4'],snapshot=gameId){
+ const at=Date.parse(date),record:RoundRecord={id:snapshot,at,round:8,totalRounds:8,names:['查询会员','乙','丙','丁'],scores:[120,90,95,95],initialScore:100,scoreDivisor:5,playerIds:ids,tableName:'测试桌',endReason:'打满8把',matchFinished:true,result:{reason:'draw',winners:[],details:{},deltas:[20,-10,-5,-5]}};
+ db.prepare('INSERT INTO match_records VALUES (?,?,?,?,?,?,?)').run(snapshot,gameId,'123456',at,JSON.stringify(ids),0,JSON.stringify(record));
+ db.prepare('INSERT INTO round_records VALUES (?,?,?,?,?,?,?)').run(snapshot,gameId,'123456',at,JSON.stringify(ids),0,JSON.stringify(record));
+ return record;
+}
 
 const secret = "Fixture-2026";
 let encoded: string;
@@ -18,7 +27,7 @@ afterEach(async () => {
   for (const close of cleanups.splice(0)) await close();
 });
 
-async function fixture() {
+async function fixture(withRecords=false) {
   const db = new DatabaseSync(":memory:");
   db.exec(
     "CREATE TABLE sessions(token_hash TEXT PRIMARY KEY,id TEXT UNIQUE,name TEXT,last_seen INTEGER)",
@@ -39,10 +48,12 @@ async function fixture() {
       1000,
     );
   let changed = 0;
+  if(withRecords)db.exec('CREATE TABLE rooms(code TEXT PRIMARY KEY,state TEXT); CREATE TABLE table_archives(id TEXT PRIMARY KEY,state TEXT,at INTEGER);');
+  const records=withRecords?createRecords(db,accounts.getAvatar):undefined;
   const updateSettings = createClientUpdateSettings(db, () => []);
   const control = createControl(db, accounts, () => {
     changed++;
-  }, updateSettings);
+  }, updateSettings,undefined,records);
   const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     const url = new URL(req.url!, "http://localhost");
@@ -91,6 +102,75 @@ async function fixture() {
     changed: () => changed,
   };
 }
+
+it('会员对局仅管理员可查，按北京时间含首尾日，整桌去重且不按战队过滤',async()=>{
+ const f=await fixture(true),token=await f.login(),memberId=f.accounts.getAccount('member')!.memberId!;
+ const path=`/api/control/member-games?memberId=${memberId}&from=2026-9-18&to=2026-9-25`;
+ seedMemberGame(f.db,'before','2026-09-17T23:59:59.999+08:00');
+ seedMemberGame(f.db,'first','2026-09-18T00:00:00+08:00');
+ seedMemberGame(f.db,'last','2026-09-25T23:59:59.999+08:00');
+ seedMemberGame(f.db,'after','2026-09-26T00:00:00+08:00');
+ seedMemberGame(f.db,'unrelated','2026-09-23T10:00:00+08:00',['p1','p2','p3','p4']);
+ seedMemberGame(f.db,'first','2026-09-18T01:00:00+08:00',undefined,'first-new');
+ expect((await f.call(path)).status).toBe(401);
+ const memberToken=await f.login('ordinary-member',false);
+ expect((await f.call(path,memberToken)).status).toBe(403);
+ expect((await f.call(path,token,{})).status).toBe(405);
+ const response=await f.call(path,token);expect(response.status).toBe(200);
+ expect(response.body).toMatchObject({totalTables:2,from:'2026-09-18',to:'2026-09-25',timeZone:'Asia/Shanghai'});
+ expect(response.body.items.map((r:{gameId:string})=>r.gameId)).toEqual(['last','first']);
+ expect(response.body.items[1].memberRecorded).toBe(4);
+ expect(response.body.daily).toHaveLength(8);
+ expect(response.body.daily.map((d:{tables:number})=>d.tables)).toEqual([1,0,0,0,0,0,0,1]);
+ const detail=`/api/control/member-games/first?memberId=${memberId}`;
+ expect((await f.call(detail,memberToken)).status).toBe(403);
+ expect((await f.call(detail,token,{})).status).toBe(405);
+ const details=await f.call(detail,token);expect(details.status).toBe(200);expect(details.body.details.match.record.id).toBe('first-new');
+ expect((await f.call(`/api/control/member-games/unrelated?memberId=${memberId}`,token)).status).toBe(404);
+});
+
+it('会员对局总数不受20桌分页影响，账号删除后仍可查历史，进行中不计入',async()=>{
+ const f=await fixture(true),token=await f.login(),memberId=f.accounts.getAccount('member')!.memberId!;
+ for(let i=0;i<23;i++)seedMemberGame(f.db,`game-${i}`,'2026-09-23T12:00:00+08:00');
+ const path=`/api/control/member-games?memberId=${memberId}&from=2026-09-23&to=2026-09-23`;
+ const first=(await f.call(path,token)).body,second=(await f.call(path+'&page=2',token)).body;
+ expect(first.totalTables).toBe(23);expect(first.items).toHaveLength(20);
+ expect(second.totalTables).toBe(23);expect(second.items).toHaveLength(3);
+ expect(new Set([...first.items,...second.items].map(r=>r.gameId)).size).toBe(23);
+ f.db.prepare('DELETE FROM accounts WHERE id=?').run('member');
+ const deleted=(await f.call(path,token)).body;expect(deleted.member.deleted).toBe(true);expect(deleted.totalTables).toBe(23);
+ const empty=(await f.call(path.replaceAll('2026-09-23','2026-09-24'),token)).body;expect(empty.totalTables).toBe(0);expect(empty.items).toEqual([]);
+});
+
+it('会员对局校验会员ID、真实日期、查询跨度及页码',async()=>{
+ const f=await fixture(true),token=await f.login(),memberId=f.accounts.getAccount('member')!.memberId!;
+ const valid={memberId,from:'2026-09-18',to:'2026-09-25'};
+ const invalid:Record<string,string>[]=[{memberId:'abc'},{from:'2026-02-30'},{from:'2026-09-26'},{from:'2025-01-01'},{page:'0'},{page:'1.5'},{to:''}];
+ for(const overrides of invalid){
+  expect((await f.call('/api/control/member-games?'+new URLSearchParams({...valid,...overrides}),token)).status).toBe(400);
+ }
+ expect((await f.call('/api/control/member-games?'+new URLSearchParams({...valid,memberId:'999999999999'}),token)).status).toBe(404);
+});
+
+it('version counts are admin-only, unique per account and independent of version pagination',async()=>{
+ const f=await fixture(),token=await f.login(),reports=createClientVersionReports(f.db);
+ reports.record('guardian','0.8.0',1000);reports.record('guardian','0.8.0',2000);reports.record('member','0.7.100',3000);
+ const base='/api/control/members?targetVersion=0.8.0';
+ expect((await f.call(base)).status).toBe(401);
+ expect((await f.call(base,await f.login('ordinary-member',false))).status).toBe(403);
+ const all=(await f.call(base,token)).body;
+ expect(all.versionStats).toMatchObject({total:3,updated:1,older:1,unknown:1,targetVersion:'0.8.0'});
+ expect(all.accounts.find((a:{id:string})=>a.id==='guardian')).toMatchObject({clientVersion:'0.8.0',versionReportedAt:2000});
+ for(const [status,id] of [['updated','guardian'],['older','member'],['unknown','admin']]){
+  const r=(await f.call(base+'&versionStatus='+status,token)).body;expect(r.total).toBe(1);expect(r.accounts[0].id).toBe(id);expect(r.versionStats.total).toBe(3);
+  expect((await f.call(base+'&versionStatus='+status+'&page=2',token)).body.accounts).toEqual([]);
+ }
+ expect((await f.call(base+'&q=ordinary-member',token)).body.versionStats).toMatchObject({total:1,older:1,updated:0,unknown:0});
+ reports.record('member',undefined,4000);
+ expect((await f.call(base,token)).body.versionStats.unknown).toBe(2);
+ expect((await f.call(base+'&versionStatus=nope',token)).status).toBe(400);
+ expect((await f.call('/api/control/members?targetVersion=garbage',token)).status).toBe(400);
+});
 
 it("后台沿用APP单账号会话，每次请求核验管理员身份且不能绕过独占开桌规则", async () => {
   const f = await fixture();

@@ -1,5 +1,8 @@
 /** Admission policy, not a security attestation of an untrusted client binary. */
 const numericVersion = /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/;
+export function parseClientVersion(value: unknown): number[] | undefined {
+  return typeof value === 'string' && numericVersion.test(value) ? value.split('.').map(Number) : undefined;
+}
 export function clientVersionPolicy(minimum?: string) {
   const required = minimum?.trim();
   if (required && !numericVersion.test(required)) throw new Error('MIN_CLIENT_VERSION 必须是 x.y.z 格式');

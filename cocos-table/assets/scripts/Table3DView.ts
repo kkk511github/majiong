@@ -1,5 +1,6 @@
 import { sceneOffset, tileKind, type TableSceneState } from './table-scene';
 import * as engine from 'cc';
+import {roundedRectPath} from './canvas-compat';
 const cc:any=engine;
 import { standingHandLayout, planeAt, TABLE_CAMERA, type Table3DTile } from './table-3d-layout';
 
@@ -46,8 +47,8 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
   const enamel=backCtx.createLinearGradient(0,0,256,352);
   enamel.addColorStop(0,'#84b779');enamel.addColorStop(.18,'#559b50');enamel.addColorStop(.76,'#468440');enamel.addColorStop(1,'#326b31');
   backCtx.fillStyle=enamel;backCtx.fillRect(0,0,256,352);
-  backCtx.strokeStyle='#b0cf9470';backCtx.lineWidth=3;backCtx.beginPath();backCtx.roundRect(12,12,232,328,14);backCtx.stroke();
-  backCtx.strokeStyle='#244f3150';backCtx.lineWidth=2;backCtx.beginPath();backCtx.roundRect(18,18,220,316,11);backCtx.stroke();
+  backCtx.strokeStyle='#b0cf9470';backCtx.lineWidth=3;backCtx.beginPath();roundedRectPath(backCtx,12,12,232,328,14);backCtx.stroke();
+  backCtx.strokeStyle='#244f3150';backCtx.lineWidth=2;backCtx.beginPath();roundedRectPath(backCtx,18,18,220,316,11);backCtx.stroke();
   const backTexture=new cc.Texture2D();backTexture.image=new cc.ImageAsset(backCanvas);textures.push(backTexture);
   const enamelBack=material('#ffffff',backTexture);
   const originalBackground=table.root.getChildByName('table').getComponent(cc.Sprite).spriteFrame;

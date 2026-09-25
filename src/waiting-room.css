@@ -1,0 +1,63 @@
+/* Waiting lobby only: intrinsic minimums prevent cards escaping a short grid
+   track on old Android/WebView or enlarged system fonts. Gameplay is untouched. */
+/* WebView 83 does not understand :is(); repeat these theme selectors explicitly. */
+.app.game-ui[data-page="waiting"] .page-heading h1,
+.app.game-ui[data-page="waiting"] .page-heading p { color: var(--ui-blue-dark); text-shadow: none; }
+.app.game-ui[data-page="waiting"] .waiting-status,
+.app.game-ui[data-page="waiting"] .waiting-status p,
+.app.game-ui[data-page="waiting"] .waiting-seat small,
+.app.game-ui[data-page="waiting"] .text-button { color: var(--ui-muted); }
+.app.game-ui[data-page="waiting"] .room-code > span,
+.app.game-ui[data-page="waiting"] .room-code > svg { color: #765927; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .app.game-ui[data-page="waiting"] > .waiting-room {
+    grid-template-rows: minmax(58px, max-content) minmax(min-content, 1fr) minmax(92px, max-content);
+    align-content: start;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .app.game-ui[data-page="waiting"] .waiting-seats { min-width: 0; }
+  .app.game-ui[data-page="waiting"] .waiting-seat { min-width: 0; }
+  .app.game-ui[data-page="waiting"] .waiting-footer { min-width: 0; }
+  .app.game-ui[data-page="waiting"] .invite-empty-seat { white-space: nowrap; max-width: 100%; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .app.game-ui[data-page="waiting"] > .waiting-room {
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    grid-template-rows: minmax(44px, max-content) minmax(min-content, 1fr) minmax(66px, max-content);
+    row-gap: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .app.game-ui[data-page="waiting"] .page-heading h1 { font-size: 18px; line-height: 1.25; }
+  .app.game-ui[data-page="waiting"] .page-heading p { font-size: 9px; line-height: 1.4; }
+  .app.game-ui[data-page="waiting"] .back-link { min-height: 44px; white-space: nowrap; }
+  .app.game-ui[data-page="waiting"] .room-code { min-width: 0; width: auto; padding: 6px; gap: 5px; }
+  .app.game-ui[data-page="waiting"] .room-code > * { flex-shrink: 0; white-space: nowrap; }
+  .app.game-ui[data-page="waiting"] .room-code strong { font-size: 23px; letter-spacing: 1px; }
+  .app.game-ui[data-page="waiting"] .waiting-seats { gap: 8px; }
+  .app.game-ui[data-page="waiting"] .waiting-seat { padding: 7px 5px; }
+  .app.game-ui[data-page="waiting"] .waiting-seat .avatar.big { width: 34px; height: 34px; border-radius: 11px; }
+  .app.game-ui[data-page="waiting"] .waiting-seat h3 { margin: 5px 0; font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; white-space: normal; overflow: visible; text-overflow: clip; }
+  .app.game-ui[data-page="waiting"] .waiting-status { font-size: 10px; line-height: 1.4; margin-bottom: 3px; }
+  .app.game-ui[data-page="waiting"] .waiting-footer { padding-bottom: 0; }
+  /* WebView 83 predates flex gap; use margins for controls instead. */
+  .app.game-ui[data-page="waiting"] .waiting-footer .waiting-actions { flex-wrap: wrap; gap: 0; }
+  .app.game-ui[data-page="waiting"] .waiting-actions > * { margin: 3px 4px; }
+  .app.game-ui[data-page="waiting"] .waiting-actions .primary,
+  .app.game-ui[data-page="waiting"] .waiting-actions .secondary { min-width: 0; min-height: 44px; font-size: 12px; padding: 6px 9px; white-space: nowrap; }
+}
+@media (orientation: landscape) and (max-height: 320px) {
+  .app.game-ui[data-page="waiting"] .waiting-seat {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    grid-template-rows: max-content max-content;
+    align-items: center;
+    gap: 4px;
+  }
+  .app.game-ui[data-page="waiting"] .waiting-seat .avatar.big { grid-column: 1; grid-row: 1 / 3; width: 30px; height: 30px; margin: 0; }
+  .app.game-ui[data-page="waiting"] .waiting-seat h3 { grid-column: 2; grid-row: 1; margin: 0; font-size: 11px; }
+  .app.game-ui[data-page="waiting"] .waiting-seat > span:last-child { grid-column: 2; grid-row: 2; min-width: 0; font-size: 10px; line-height: 1.35; }
+  .app.game-ui[data-page="waiting"] .invite-empty-seat { min-width: 0; min-height: 44px; padding: 4px 2px; font-size: 10px; white-space: normal; }
+}

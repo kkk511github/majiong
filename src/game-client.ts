@@ -16,6 +16,7 @@ import { decisionDeadline, setTrustee } from "../shared/timing";
 import { Capacitor } from "@capacitor/core";
 import { App as NativeApp } from '@capacitor/app';
 import { version as webVersion } from '../package.json';
+import {androidDiagnostics} from './android-diagnostics';
 import { isAvatarPath } from "../shared/account-profile";
 import {
   act,
@@ -612,6 +613,7 @@ export class GameClient {
     this.emit({ authBusy: true, authError: "" });
     try {
       await this.api("/api/auth/logout", {});
+      androidDiagnostics.logout();
       this.disconnect();
       storage.set("token", "");
       storage.set("onlineActive", false);
@@ -871,6 +873,7 @@ export class GameClient {
     );
     ws.onopen = async () => {
       if (this.socket !== ws || this.stopped) return;
+      androidDiagnostics.record('network','socket-open');
       this.updateNetwork({ phase: "authenticating" });
       let clientVersion: string | undefined = webVersion;
       if (Capacitor.isNativePlatform()) {
@@ -882,7 +885,7 @@ export class GameClient {
       ws.send(
         JSON.stringify({
           type: "hello",
-          capabilities: { openingComplete: true },
+          capabilities: { openingComplete: true, ...(androidDiagnostics.enabled()?{clientDiagnostics:true}:{}) },
           clientVersion,
           name: this.name,
           token: storage.get("token", undefined),
@@ -895,6 +898,7 @@ export class GameClient {
         const msg = JSON.parse(event.data) as ServerMessage;
         this.clock.observe(msg.serverNow);
         if (msg.type === "session") {
+          androidDiagnostics.session(msg.id,msg.clientDiagnostics===true||msg.androidDiagnostics===true,(diagnosticId,report)=>{if(this.socket!==ws||ws.readyState!==WebSocket.OPEN)return false;ws.send(JSON.stringify({type:'diagnosticUpload',diagnosticId,report}));return true;});
           clearTimeout(this.connectTimer);
           this.connectTimer = undefined;
           this.commandAck = msg.commandAck === true;
@@ -1097,6 +1101,11 @@ export class GameClient {
         } else if (msg.type === "ack") {
           if (msg.requestId === this.phraseRequest?.id) this.finishPhrase();
           if (msg.requestId === this.commandId) this.finishCommand();
+        } else if(msg.type==='diagnosticRequest'){
+          androidDiagnostics.request(msg.id,msg.expiresAt);
+        } else if(msg.type==='diagnosticAck'){
+          androidDiagnostics.ack(msg.id,msg.accepted);
+          // Diagnostic delivery is independent of game command acknowledgments.
         } else if (msg.type === "error") {
           if (msg.code === 'UPDATE_REQUIRED') {
             this.requireUpdate(msg.message, msg.minimumVersion);
@@ -1148,6 +1157,8 @@ export class GameClient {
     };
     ws.onclose = (event) => {
       if (this.socket !== ws || this.stopped) return;
+      androidDiagnostics.record('network',`socket-close ${event.code}`);
+      androidDiagnostics.disconnect();
       this.stopClock();
       clearTimeout(this.connectTimer);
       this.finishTables();
@@ -1345,6 +1356,7 @@ export class GameClient {
     this.emit({ updateRequired: { message, minimumVersion }, error: message, notice: '', view: completed, openingCue: null });
   }
   disconnect() {
+    androidDiagnostics.disconnect();
     for (const id of this.inviteRequests.keys()) this.finishInvitation(id, new Error('连接已关闭'));
     this.stopClock();
     this.finishTables();

@@ -26,14 +26,16 @@ import { Announcements } from "./Announcements";
 import { Members } from "./Members";
 import { Releases } from "./Releases";
 import { Settings } from './Settings';
+import {MemberGames} from './MemberGames';
 import type { ControlAccount } from "./types";
 import { ErrorNotice, Loading } from "./ui";
 
-type Page = "announcements" | "releases" | "members" | "settings";
+type Page = "announcements" | "releases" | "members" | "settings" | "member-games";
 const pages = [
   { id: "announcements" as const, title: "公告管理", icon: Megaphone },
   { id: "releases" as const, title: "版本管理", icon: PackageOpen },
   { id: "members" as const, title: "人员管理", icon: UsersRound },
+  { id: 'member-games' as const, title: '会员对局', icon: UsersRound },
   { id: 'settings' as const, title: '后台设置', icon: SettingsIcon },
 ];
 
@@ -224,6 +226,7 @@ export function ControlApp() {
           </div>
         )}
         {visited.has('settings') && <div hidden={page !== 'settings'}><Settings api={api} /></div>}
+        {visited.has('member-games')&&<div hidden={page!=='member-games'}><MemberGames api={api}/></div>}
       </main>
     </div>
   );

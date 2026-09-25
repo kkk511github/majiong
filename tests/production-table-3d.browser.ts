@@ -2,6 +2,14 @@ import {test,expect} from '@playwright/test';
 import {fullMeldFixture,busyTableFixture} from './previews/table-full-meld-fixture';
 import {referenceSnapshot} from './previews/table-reference-layout';
 
+test('older canvas without roundRect still initializes the production 3D table',async({page})=>{
+ await page.addInitScript(()=>{delete (CanvasRenderingContext2D.prototype as any).roundRect;});
+ await page.goto('/cocos-table/index.html');
+ await page.waitForFunction(()=>!!(window as any).__JINLING_TABLE_READY__,{},{timeout:30000});
+ expect(await page.evaluate(()=>typeof CanvasRenderingContext2D.prototype.roundRect)).toBe('undefined');
+ await expect.poll(()=>page.evaluate(()=>(window as any).__JINLING_TABLE_3D__?.meshTiles??0)).toBeGreaterThan(0);
+});
+
 test('3D claims, global-anchor tint, listening hints and real stack transforms are all visible',async({page})=>{
  await page.goto('/tests/previews/table-features.html?case=anchor');
  const frame=()=>page.frames().find(f=>f.url().includes('/cocos-table/index.html'))!;

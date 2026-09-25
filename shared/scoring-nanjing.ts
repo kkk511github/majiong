@@ -28,7 +28,7 @@ function scoreNanjingBase(
     !!ctx.snapshot &&
     ctx.tile === undefined &&
     p.melds.length === 4 &&
-    (hand.length === 2 || (hand.length === 1 && p.melds.at(-1)?.type === "kong"));
+    (hand.length === 2 || (hand.length === 1 && p.melds.slice(-1)[0]?.type === "kong"));
   const candidates: Shape[] = snapshot
     ? [
         {

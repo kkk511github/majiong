@@ -41,6 +41,37 @@ final class MahjongBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(MahjongTrustPlugin())
         bridge?.registerPluginInstance(AppUpdatePlugin())
+        bridge?.registerPluginInstance(AppDiagnosticsPlugin())
+    }
+}
+
+/// Only app/OS/model metadata; no device identifier, personal device name or system logs.
+@objc(AppDiagnosticsPlugin)
+final class AppDiagnosticsPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "AppDiagnosticsPlugin"
+    let jsName = "AppDiagnostics"
+    let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "getInfo", returnType: CAPPluginReturnPromise)]
+    @objc func getInfo(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            var system = utsname()
+            uname(&system)
+            let model = withUnsafePointer(to: &system.machine) {
+                $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
+            }
+            var info: [String: Any] = [
+                "appVersion": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+                "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+                "ios": UIDevice.current.systemVersion, "manufacturer": "Apple",
+                "model": model, "webViewPackage": "WKWebView"
+            ]
+            guard let webView = self.bridge?.webView else { call.resolve(info); return }
+            webView.evaluateJavaScript("navigator.userAgent") { value, _ in
+                if let ua = value as? String, let range = ua.range(of: "AppleWebKit/[0-9.]+", options: .regularExpression) {
+                    info["webViewVersion"] = String(ua[range]).replacingOccurrences(of: "AppleWebKit/", with: "")
+                }
+                call.resolve(info)
+            }
+        }
     }
 }
 

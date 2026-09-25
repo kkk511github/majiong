@@ -31,7 +31,7 @@ for (const [width, height] of [[844, 390], [568, 320]]) {
     try {
       const guests: Page[] = [];
       for (const [i, context] of contexts.entries()) {
-        await browserAccount(context, i ? '接受演示牌友' : '拒绝演示牌友');
+        await browserAccount(context, i ? '接受演示牌友' : '拒绝演示牌友', false, 'member');
         await context.addInitScript(({ key, version }) => localStorage.setItem(key, JSON.stringify({ version, acceptedAt: '2026-09-23' })), { key: LEGAL_STORAGE_KEY, version: LEGAL_VERSION });
         const guest = await context.newPage(); guests.push(guest); await connected(guest);
       }

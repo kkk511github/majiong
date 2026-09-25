@@ -22,3 +22,4 @@
 
 # Local Capacitor bridge methods are discovered reflectively.
 -keep class com.jinling.mahjong.AppUpdatePlugin { *; }
+-keep class com.jinling.mahjong.AppDiagnosticsPlugin { *; }

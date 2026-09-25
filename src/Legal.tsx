@@ -10,7 +10,7 @@ export function LegalContent() {
       {Object.entries(legalDocuments).map(([key, doc]) => <button type="button" key={key} aria-pressed={tab === key} onClick={() => setTab(key as typeof tab)}>{doc.title}</button>)}
     </nav>
     <article className="legal-document" tabIndex={0} aria-label={document.title} key={tab}>
-      <h2>{document.title}</h2><p className="legal-version">版本 {LEGAL_VERSION} · 更新日期：2026 年 9 月 15 日</p>
+      <h2>{document.title}</h2><p className="legal-version">版本 {LEGAL_VERSION} · 更新日期：2026 年 9 月 26 日</p>
       {document.sections.map(([heading, body]) => <section key={heading}><h3>{heading}</h3><p>{body}</p></section>)}
     </article>
   </>;

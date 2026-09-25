@@ -1,6 +1,9 @@
 import { createExperienceTable, fillExperienceBots } from "./experience-table";
 import { createTableInvitations } from './table-invitations';
 import { clientVersionPolicy } from './client-version';
+import { createClientVersionReports } from './client-version-reports';
+import {mayFinishBlockedTable,mayPlayAtTable} from './play-admission';
+import {createClientDiagnostics} from './client-diagnostics';
 import { createClientUpdateSettings } from './client-update-settings';
 import { readVoice } from "./room-voice";
 import { createPhraseGate } from "./room-phrases";
@@ -94,6 +97,7 @@ export function makeServer(
   // advertised by another connection for the same account.
   const openingClients = new WeakSet<WebSocket>();
   const clientVersions = new WeakMap<WebSocket, string | undefined>();
+  const diagnosticClients=new WeakSet<WebSocket>();
   const accounts = createAccounts(
     db,
     (id) => {
@@ -125,6 +129,11 @@ export function makeServer(
   );
   const records = createRecords(db, accounts.getAvatar);
   const club = createClub(db, accounts, records);
+  const versionReports = createClientVersionReports(db);
+  const diagnostics=createClientDiagnostics(db,{
+    connection:id=>{const ws=clients.get(id);return !ws||ws.readyState!==WebSocket.OPEN?'offline':diagnosticClients.has(ws)?'ready':'unsupported';},
+    send:(id,request,expiresAt)=>{const ws=clients.get(id);if(ws)send(ws,{type:'diagnosticRequest',id:request,expiresAt});},
+  });
   const control = createControl(db, accounts, () => {
     for (const ws of clients.values()) send(ws, { type: "announcementsChanged" });
   }, {
@@ -134,7 +143,7 @@ export function makeServer(
       for (const [id, ws] of clients) enforceClientVersion(id, ws);
       return settings;
     },
-  });
+  },diagnostics,records);
   const controlReleases = createControlReleaseProxy(control.requireSession);
   const lobbySubscribers = new Set<string>(),
     lobbySent = new Map<string, string>();
@@ -289,7 +298,7 @@ export function makeServer(
     );
     if (
       ["waiting", "ended"].includes(g.phase) &&
-      g.players.some((p) => p && !p.bot && !accounts.getAccount(p.id)?.canPlay)
+      g.players.some((p) => p && !p.bot && !mayPlayAtTable(accounts.getAccount(p.id),g))
     )
       view.admissionMessage =
         "有会员暂未获得参赛权限，请管理员检查战队或参赛状态后继续";
@@ -470,6 +479,9 @@ export function makeServer(
     }
   }
   function persist(g: Game) {
+    // closeTable persists directly, bypassing publish. Stamp newly finished
+    // tables here too; never re-date a table that already finished normally.
+    if(g.table&&g.phase==='finished'&&g.table.finishedAt===undefined)g.table.finishedAt=Date.now();
     const hasHumans = g.players.some((p) => p && !p.bot);
     const keep = !g.table?.closed && (
       hasHumans ||
@@ -656,7 +668,7 @@ export function makeServer(
     )
       return g;
     if (
-      g.players.some((p) => p && !p.bot && !accounts.getAccount(p.id)?.canPlay)
+      g.players.some((p) => p && !p.bot && !mayPlayAtTable(accounts.getAccount(p.id),g))
     )
       return g;
     if (g.phase === 'waiting' && g.players.some(p => p && !p.bot && !updateSettings.allowsExisting(
@@ -749,6 +761,9 @@ export function makeServer(
     return false;
   }
   const voiceUploads = new Map<string, { at: number; busy: boolean }>();
+  function requireExistingTablePlay(id:string,game?:Game) {
+    if(!mayFinishBlockedTable(accounts.getAccount(id),game))accounts.requirePlay(id);
+  }
   const acceptPhrase = createPhraseGate();
   const api = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -795,7 +810,7 @@ export function makeServer(
       let upload: { at: number; busy: boolean } | undefined;
       try {
         const session = accounts.requireSession(req);
-        accounts.requirePlay(session.id);
+        requireExistingTablePlay(session.id,findRoom(session.id));
         const gameId = decodeURIComponent(
           url.pathname.slice("/api/voice/".length),
         );
@@ -817,7 +832,7 @@ export function makeServer(
         const { bytes, duration } = await readVoice(req);
         // Recheck membership and session after upload; never deliver to a new room.
         accounts.requireSession(req);
-        accounts.requirePlay(session.id);
+        requireExistingTablePlay(session.id,findRoom(session.id));
         const current = findRoom(session.id);
         if (
           !current ||
@@ -989,6 +1004,17 @@ export function makeServer(
       );
       return;
     }
+    if (new URL(req.url??'/', 'http://localhost').pathname === '/api/diagnostics') {
+      try {
+        const actor=accounts.requireSession(req);
+        if(req.method!=='POST')throw new AuthError('请求方式不支持',405);
+        const chunks:Buffer[]=[];let size=0;for await(const chunk of req){const bytes=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);size+=bytes.length;if(size>36000)throw new AuthError('日志内容过长',413);chunks.push(bytes);}
+        let parsed;try{parsed=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new AuthError('日志格式不正确');}
+        if(accounts.requireSession(req).id!==actor.id)throw new AuthError('登录已变化，请重新上传',401);
+        res.end(JSON.stringify(diagnostics.submit(actor.id,typeof parsed?.id==='string'?parsed.id:'',parsed?.report)));
+      }catch(error){res.statusCode=error instanceof AuthError?error.status:500;res.end(JSON.stringify({error:error instanceof AuthError?error.message:'日志暂时无法上传，请稍后重试'}));}
+      return;
+    }
     if (req.method === "POST" && req.url === "/api/feedback") {
       let session: AuthSession;
       try {
@@ -1139,7 +1165,7 @@ export function makeServer(
   const wss = new WebSocketServer({
     server: api,
     path: "/ws",
-    maxPayload: 8192,
+    maxPayload: 49152,
     perMessageDeflate: false,
   });
   wss.on("connection", (ws) => {
@@ -1178,6 +1204,7 @@ export function makeServer(
         const msg = JSON.parse(raw.toString()) as ClientMessage;
         if (!msg || typeof msg !== "object" || typeof msg.type !== "string")
           throw Error("消息格式不正确");
+        if(msg.type!=='diagnosticUpload'&&Buffer.byteLength(raw.toString())>8192)throw Error('消息过长');
         if (
           typeof msg.requestId === "string" &&
           /^[a-zA-Z0-9-]{1,64}$/.test(msg.requestId)
@@ -1201,6 +1228,10 @@ export function makeServer(
           // Authenticate first: a protected seat must belong to this account,
           // never to a client-supplied room or seat number.
           clientVersions.set(ws, typeof msg.clientVersion === 'string' ? msg.clientVersion : undefined);
+          // Count authenticated reports even when the update gate rejects them.
+          // Game publications never write or rescan these records.
+          versionReports.record(nextSession.id, msg.clientVersion);
+          if(msg.capabilities?.androidDiagnostics===true||msg.capabilities?.clientDiagnostics===true)diagnosticClients.add(ws);
           if (!enforceClientVersion(nextSession.id, ws)) return;
           connectionToken = token;
           if (msg.capabilities?.openingComplete === true) openingClients.add(ws);
@@ -1235,6 +1266,8 @@ export function makeServer(
           clearTimeout(helloTimeout);
           send(ws, {
             type: "session",
+            androidDiagnostics:diagnosticClients.has(ws),
+            clientDiagnostics:diagnosticClients.has(ws),
             token,
             id: session.id,
             name: session.name,
@@ -1256,6 +1289,7 @@ export function makeServer(
           if (room) broadcast(room);
           broadcastTables();
           invitations!.sync(session.id, true);
+          diagnostics.offer(session.id);
           return;
         }
         const current = accounts.getSession(connectionToken);
@@ -1274,6 +1308,11 @@ export function makeServer(
           return;
         }
         session = current;
+        if(msg.type==='diagnosticUpload'){
+          let accepted=false;
+          try{if(diagnosticClients.has(ws)&&typeof msg.diagnosticId==='string'&&msg.diagnosticId.length<=40){diagnostics.receive(session.id,msg.diagnosticId,msg.report);accepted=true;}}catch{/* Diagnostics must never interrupt a player's commands. */}
+          send(ws,{type:'diagnosticAck',id:typeof msg.diagnosticId==='string'?msg.diagnosticId.slice(0,40):'',accepted});return;
+        }
         if (!enforceClientVersion(session.id, ws)) return;
         if (!updateSettings.accepts(clientVersions.get(ws)) && (
           ['create', 'join', 'createTables', 'createExperienceTable'].includes(msg.type) ||
@@ -1327,7 +1366,7 @@ export function makeServer(
         }
         let g = findRoom(session.id);
         if (msg.type === "phrase") {
-          accounts.requirePlay(session.id);
+          requireExistingTablePlay(session.id,g);
           if (!g || typeof msg.game !== "string" || msg.game !== g.id)
             throw Error("请先进入对应的联机牌桌");
           if (!requestId || !isRoomPhraseId(msg.phrase) ||
@@ -1546,7 +1585,7 @@ export function makeServer(
           p = g.players[seat]!;
         switch (msg.type) {
           case "ready":
-            accounts.requirePlay(session.id);
+            requireExistingTablePlay(session.id,g);
             if (!["waiting", "ended"].includes(g.phase))
               throw Error("当前不能准备");
             p.ready = true;

@@ -158,3 +158,6 @@
   .polished .profile-audio-dialog .audio-settings { grid-template-columns: 1fr; }
   .polished .profile-audio-dialog .audio-volume { max-width: none; }
 }
+.profile-diagnostic-upload{padding:14px;margin:12px 0;border:1px solid #c0d1cd;border-radius:10px;background:#eff6f4;color:#244e4a;}
+.profile-diagnostic-upload h3{margin:0 0 8px;font-size:17px;}.profile-diagnostic-upload p{font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
+.profile-diagnostic-upload button{min-height:44px;}.profile-diagnostic-upload [role=alert]{color:#a33128;}

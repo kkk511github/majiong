@@ -115,18 +115,27 @@ export function CocosTable({
     resize();
     return ()=>{observer.disconnect();window.removeEventListener("resize",resize);window.removeEventListener("orientationchange",resize);};
   },[]);
-  const send = () =>
-    frame.current?.contentWindow?.postMessage(
-      {
+  const sentState = useRef("");
+  const send = (force = false) => {
+    const target = frame.current?.contentWindow;
+    if (!target) return;
+    const message = {
         scope: "jinling-table-v1",
         channel,
         type: "state",
         // Live games and replays share the seat-aware result overlay. Sending
         // hu to the iframe would also play its older centre-table effect.
         state: { ...latest.current.state, effects: latest.current.state.effects.filter(e => e.type !== "hu"), externalControls: !embedded },
-      },
+      };
+    const key = JSON.stringify(message);
+    // App clocks tick four times per second. Identical snapshots need not
+    // cross the iframe bridge or wake its layout/HUD work again.
+    if (!force && sentState.current === key) return;
+    target.postMessage(message,
       location.origin === "null" ? "*" : location.origin,
     );
+    sentState.current = key;
+  };
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (
@@ -140,7 +149,7 @@ export function CocosTable({
       if (data.type === "ready") {
         androidDiagnostics.record('table-ready');
         setStatus("ready");
-        send();
+        send(true);
       }
       if (data.type === "error") {androidDiagnostics.tableError(data.diagnostic??{});setFailure("resources");setStatus("error");}
       if (
@@ -151,7 +160,7 @@ export function CocosTable({
         latest.current.onCommand(data.command);
     };
     const resume = () => {
-      if (!document.hidden) send();
+      if (!document.hidden) send(true);
     };
     window.addEventListener("message", receive);
     document.addEventListener("visibilitychange", resume);
@@ -164,7 +173,7 @@ export function CocosTable({
   }, [channel]);
   useEffect(() => {
     if (status === "ready") send();
-  }, [viewState, status]);
+  }, [viewState, status, embedded]);
   useEffect(() => {
     if (status !== "loading") return;
     androidDiagnostics.record('table-loading');

@@ -1,8 +1,8 @@
-import {afterEach,expect,it} from 'vitest';
+import {afterEach,expect,it,vi} from 'vitest';
 import {DatabaseSync} from 'node:sqlite';
 import {createGame,newPlayer} from '../shared/engine';
 import {createRecords} from '../server/records';
-import {dailyScoreRows} from '../server/telegram-reports';
+import {dailyScoreRows,participationRows} from '../server/telegram-reports';
 const opened:DatabaseSync[]=[];afterEach(()=>opened.splice(0).forEach(db=>db.close()));
 const ms=(value:string)=>Date.parse(value+'+08:00');
 function fixture(code:string,member:string,deltas:number[],dates:string[],finish=true){
@@ -46,4 +46,81 @@ it('unfinished tables are excluded, and duplicate final snapshots never multiply
  f.db.exec("INSERT INTO match_records SELECT id||'-duplicate',game_id,code,at+1,player_ids,private_names,record FROM match_records");
  expect(f.records.points(q)).toMatchObject({tables:1,points:5});
  expect(dailyScoreRows(f.db,'team-3',Number(q.get('from')),Number(q.get('to'))).find(r=>r.username==='member')?.points).toBe(5);
+});
+
+it('跨周遗留终桌快照：后台、CSV、日结、周结只归最新一周且流水不变',()=>{
+ const f=fixture('123456','member',[20],['2026-09-20T23:59:59']);
+ const ledger=f.db.prepare('SELECT * FROM point_records ORDER BY rowid').all();
+ const latest=ms('2026-09-21T00:00:00');
+ f.db.prepare("INSERT INTO match_records SELECT id||'-latest',game_id,code,?,player_ids,private_names,record FROM match_records").run(latest);
+ for(const [from,to,expected] of [
+  ['2026-09-14','2026-09-21',0],['2026-09-21','2026-09-28',1],['2026-09-14','2026-09-28',1],
+  ['2026-09-20','2026-09-21',0],['2026-09-21','2026-09-22',1],
+ ] as const){
+  const q=f.query(from,to),a=Number(q.get('from')),b=Number(q.get('to'));
+  expect(f.records.points(q)).toMatchObject({tables:expected,points:expected*5});
+  expect(f.records.exportPoints(q).includes('"member"')).toBe(expected===1);
+  expect(dailyScoreRows(f.db,'team-3',a,b).find(r=>r.username==='member')?.points??0).toBe(expected*5);
+  expect(participationRows(f.db,'team-3',a,b).find(r=>r.username==='member')?.rounds??0).toBe(expected);
+ }
+ expect(f.db.prepare('SELECT * FROM point_records ORDER BY rowid').all()).toEqual(ledger);
+});
+
+it('同时间快照按唯一ID决胜；不能先排除练习快照再把旧终桌算回来',()=>{
+ const f=fixture('123456','member',[20],['2026-09-25T23:59:59']),q=f.query('2026-09-25','2026-09-26');
+ f.db.exec("INSERT INTO match_records SELECT id||'-z',game_id,'练习桌',at,player_ids,private_names,record FROM match_records");
+ const from=Number(q.get('from')),to=Number(q.get('to'));
+ expect(f.records.points(q).tables).toBe(0);
+ expect(dailyScoreRows(f.db,'team-3',from,to)).toEqual([]);
+ expect(participationRows(f.db,'team-3',from,to)).toEqual([]);
+ f.db.exec("UPDATE match_records SET code='123456' WHERE id LIKE '%-z'");
+ expect(f.records.points(q)).toMatchObject({tables:1,points:5});
+ expect(participationRows(f.db,'team-3',from,to).map(r=>r.rounds)).toEqual([1,1,1,1]);
+});
+
+it('真实统计SQL先索引筛选终桌，再按game_id查积分，不扫描全历史流水',()=>{
+ const f=fixture('123456','member',[20],['2026-09-25T23:59:59']);
+ f.db.exec(`BEGIN;
+ WITH RECURSIVE numbers(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM numbers WHERE n<2000)
+ INSERT INTO match_records SELECT 'old-'||n,'old-'||n,'888888',n,'[]',0,'{}' FROM numbers;
+ INSERT INTO round_records
+ SELECT m.id||'-'||h.n,m.game_id,m.code,m.at+h.n,'[]',0,
+   '{"initialScore":90,"settlementBase":100,"scoreDivisor":2,"result":{"reason":"hu"}}'
+ FROM match_records m CROSS JOIN (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8) h
+ WHERE m.id LIKE 'old-%';
+ INSERT INTO point_records SELECT r.id,r.game_id,r.at,a.id,a.name,'team-3','日结丁战队',20
+ FROM round_records r CROSS JOIN accounts a WHERE r.game_id LIKE 'old-%';
+ COMMIT; ANALYZE;`);
+ const prepare=f.db.prepare.bind(f.db),plans:{sql:string;details:string[]}[]=[];
+ const spy=vi.spyOn(f.db,'prepare').mockImplementation(sql=>{
+  const statement=prepare(sql);
+  if(!sql.includes('FROM point_records p'))return statement;
+  return new Proxy(statement,{get(target,property){
+   const method=Reflect.get(target,property);
+   if(typeof method!=='function')return method;
+   return (...args:any[])=>{
+    if(property==='all'||property==='get')plans.push({sql,details:prepare('EXPLAIN QUERY PLAN '+sql).all(...args).map(r=>String(r.detail))});
+    return method.apply(target,args);
+   };
+  }});
+ });
+ try{
+  const q=f.query('2026-09-25','2026-09-26'),from=Number(q.get('from')),to=Number(q.get('to'));
+  q.delete('member');
+  expect(f.records.points(q).tables).toBe(1);f.records.exportPoints(q);
+  for(const filter of [{team:'team-3'},{member:'member'},{q:'member'}]){
+   const filtered=new URLSearchParams(q);for(const [key,value] of Object.entries(filter))filtered.set(key,value);
+   expect(f.records.points(filtered).tables).toBe(1);f.records.exportPoints(filtered);
+  }
+  expect(dailyScoreRows(f.db,'team-3',from,to)).toHaveLength(4);
+  expect(participationRows(f.db,'team-3',from,to).map(r=>r.rounds)).toEqual([1,1,1,1]);
+ }finally{spy.mockRestore();}
+ expect(plans.length).toBeGreaterThanOrEqual(8);
+ for(const plan of plans){
+  const text=plan.details.join('\n');
+  expect(text).toMatch(/SEARCH p USING (?:COVERING )?INDEX point_records_table_member \(game_id=\?/);
+  expect(text).toMatch(/SEARCH m USING (?:COVERING )?INDEX match_records_time \(at/);
+  expect(text).toMatch(/SEARCH latest USING COVERING INDEX match_records_game_latest/);
+  expect(text).not.toMatch(/\bSCAN p\b/);
+ }
 });

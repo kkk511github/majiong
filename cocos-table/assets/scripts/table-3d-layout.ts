@@ -27,20 +27,25 @@ export function footprint(t:{yaw:number,modelWidth:number,modelLength:number}) {
 }
 /** Upright tiles share the table's orthogonal seat axes. Perspective comes
  * exclusively from the camera, never an extra per-seat or per-card yaw. */
-export function standingHandLayout(cards:Array<{id:string,x:number,y:number,w:number}>,offset:number) {
-  const row=[...cards].sort((a,b)=>a.y-b.y);
+export function standingHandLayout(cards:Array<{id:string,x:number,y:number,w:number,drawSlot?:boolean}>,offset:number) {
+  // Calibrate only on the regular row. Including the isolated draw in the
+  // span used to stretch every tile and close the very gap we need to show.
+  const row=cards.filter(t=>!t.drawSlot).sort((a,b)=>a.y-b.y);
   if(!row.length)return [];
   const first=row[0],last=row[row.length-1];
   const height=.48,span=row.length>1?last.y-first.y:22;
   const a=planeAt(first.x,first.y,height/2),b=planeAt(first.x,first.y+span,height/2);
   const dz=b.z-a.z,steps=Math.max(1,row.length-1);
-  return row.map((t,i)=>({id:t.id,x:a.x,z:a.z+dz*i/steps,width:dz/steps-.006,height,depth:.16,yaw:offset*90}));
+  const width=dz/steps-.006;
+  return [...row.map((t,i)=>({id:t.id,x:a.x,z:a.z+dz*i/steps,width,height,depth:.16,yaw:offset*90})),
+    ...cards.filter(t=>t.drawSlot).map(t=>({id:t.id,x:a.x,z:planeAt(t.x,t.y,height/2).z,width,height,depth:.16,yaw:offset*90}))];
 }
 export function layout3DTable(state:TableSceneState) {
   const denseRivers=state.players.some(p=>p.discards.length>18);
-  const all=layoutLegacyTable(state).map(t=>({...t,yaw:tileSeatYaw(t,state),layoutYaw:tileSeatYaw(t,state),alignmentAngle:0,alignmentPivotX:0,alignmentPivotZ:0,modelWidth:.35,modelLength:.48,modelThickness:.16,handRotation:0,groundX:0,groundZ:0}));
+  const all=layoutLegacyTable(state).map(t=>({...t,drawSlot:t.area==='hand'&&t.seat!==state.me&&Number(t.id.split('-')[2])>=Math.max(0,13-3*state.players.find(p=>p.seat===t.seat)!.melds.length),yaw:tileSeatYaw(t,state),layoutYaw:tileSeatYaw(t,state),alignmentAngle:0,alignmentPivotX:0,alignmentPivotZ:0,modelWidth:.35,modelLength:.48,modelThickness:.16,handRotation:0,groundX:0,groundZ:0}));
   for(const p of state.players) {
-    const o=sceneOffset(p.seat,state.me),hand=all.filter(t=>t.seat===p.seat&&t.area==='hand').sort((a,b)=>o===0||o===2?a.x-b.x:a.y-b.y);
+    const o=sceneOffset(p.seat,state.me),handTiles=all.filter(t=>t.seat===p.seat&&t.area==='hand').sort((a,b)=>o===0||o===2?a.x-b.x:a.y-b.y);
+    const hand=handTiles.filter(t=>!t.drawSlot),draws=handTiles.filter(t=>t.drawSlot);
     const melds=all.filter(t=>t.seat===p.seat&&t.area==='meld');
     const groups=Array.from(new Set(melds.map(t=>Number(t.id.split('-')[2])))).sort((a,b)=>a-b);
     const groupGap=groups.length>2?(o===2?.08:o%2?.13:.16):.16;
@@ -118,7 +123,9 @@ export function layout3DTable(state:TableSceneState) {
       // tabletop camera and taller physical body leave enough depth without
       // splitting groups into a second column or shrinking their footprints.
       if(o%2===1){
-        const start=groundAt(o===3?265:1125,o===3?(groups.length>2?20:40):(groups.length>2?525:438));
+        // Full downstream racks also reserve room for the independent draw
+        // at their far end; keep it inside the screen rather than above it.
+        const start=groundAt(o===3?265:1125,o===3?(groups.length>2?20:40):(groups.length>2?548:438));
         cursor=start[axis]-rackDirection*firstSize[axis]/2;
         baseline=start[edge]+ownerSide*firstSize[edge]/2;
       }
@@ -189,11 +196,26 @@ export function layout3DTable(state:TableSceneState) {
         place(t,point.x,point.z);
       });
     }
+    // A public extra hand count needs a separate back, never the private face.
+    // Append it outside the regular rail so existing hand/meld tiles stay put.
+    if(draws.length&&hand.length){
+      if(o===2){
+        const edge=hand.reduce((a,b)=>a.x<b.x?a:b);
+        draws.forEach((t,i)=>{t.w=edge.w;t.h=edge.h;t.x=edge.x-(edge.w+12)*(i+1);t.y=edge.y;});
+      }else if(o%2){
+        const rail=standingHandLayout(hand,o).sort((a,b)=>a.z-b.z);
+        const edge=o===1?rail[0]:rail[rail.length-1],direction=o===1?-1:1;
+        draws.forEach((t,i)=>{
+          t.groundX=edge.x;t.groundZ=edge.z+direction*(edge.width+.006+.20)*(i+1);
+          Object.assign(t,screenAt(t.groundX,t.groundZ,edge.height/2));t.w=20;t.h=49;
+        });
+      }
+    }
     // Replays/settlement legally reveal other hands. Show those as face-up
     // solids in the same reserved rail, not thin standing-edge sprites.
-    const exposed=hand.filter(t=>p.seat!==state.me&&t.tile!==undefined);
+    const exposed=handTiles.filter(t=>p.seat!==state.me&&t.tile!==undefined);
     if(o%2===1&&exposed.length){
-      const rail=standingHandLayout(hand,o);
+      const rail=standingHandLayout(handTiles,o);
       exposed.forEach(t=>{
         const slot=rail.find(r=>r.id===t.id)!;
         t.modelWidth=Math.min(.35,slot.width+.006);t.modelLength=.48;

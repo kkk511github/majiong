@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   initialNetworkHealth,
   measuredResponse,
+  resetNetworkMeasurements,
   timedOut,
   networkLabel,
   reconnectDelay,
@@ -23,6 +24,13 @@ describe("network health", () => {
       "正在同步牌桌",
     );
   });
+});
+it('clears stale latency for a new connection without hiding actual timeouts',()=>{
+ let h:ReturnType<typeof initialNetworkHealth>={...initialNetworkHealth(),phase:'ready',rttMs:2000,smoothedRttMs:2000,lastResponseAt:100,samples:20,timeouts:2,consecutiveTimeouts:2,recoverySamples:2,commandTimeouts:1};
+ h={...h,...resetNetworkMeasurements()};
+ expect(h).toMatchObject({rttMs:null,smoothedRttMs:null,lastResponseAt:null,samples:0,timeouts:2,consecutiveTimeouts:2,commandTimeouts:1,recoverySamples:0});
+ for(let i=0;i<3;i++)h={...h,...measuredResponse(h,150,1000+i)};
+ expect(h.smoothedRttMs).toBe(150);expect(networkLabel(h,1004)).toBe('连接正常');
 });
 
 it("requires three confirmed heartbeats after timeouts and separates stale communication", () => {

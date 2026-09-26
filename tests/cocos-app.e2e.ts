@@ -24,6 +24,24 @@ async function clickTable(page: Page, x: number, y: number) {
   const point=await tablePoint(page,x,y);
   await page.mouse.click(point.x,point.y);
 }
+
+test('相同倒计时状态不重复跨iframe发送，恢复页面时强制同步',async({page})=>{
+  const v=viewFor(structuredClone(late) as unknown as Game,0);
+  Object.assign(v,{phase:'playing',turn:0,canDiscard:true,actions:[],selfKongs:[],pending:undefined,result:undefined,deadline:undefined,rules:{...newGameRules(),turnSeconds:0}});
+  await page.routeWebSocket('**/ws',ws=>{
+    const server=ws.connectToServer();
+    server.onMessage(raw=>{const m=JSON.parse(String(raw));if(m.type==='session'){ws.send(JSON.stringify({...m,roomCode:v.code}));ws.send(JSON.stringify({type:'state',state:v}));}else ws.send(raw);});
+  });
+  await page.goto('/');
+  await expect.poll(async()=>frame(page)?.evaluate(()=>!!(window as any).__JINLING_TABLE_READY__)).toBe(true);
+  await expect.poll(async()=>(await scene(page)).state?.key).toBe(v.id);
+  await page.waitForTimeout(400);
+  await frame(page).evaluate(()=>{(window as any).statePushes=0;window.addEventListener('message',event=>{if(event.data?.scope==='jinling-table-v1'&&event.data.type==='state')(window as any).statePushes++;});});
+  await page.waitForTimeout(1200);
+  expect(await frame(page).evaluate(()=>(window as any).statePushes)).toBe(0);
+  await page.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
+  await expect.poll(()=>frame(page).evaluate(()=>(window as any).statePushes)).toBeGreaterThanOrEqual(1);
+});
 async function visibleHandTile(page: Page, tile: number) {
   return frame(page).evaluate(async tile => {
     const cc = await (window as any).System.import('cc');

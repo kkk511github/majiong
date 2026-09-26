@@ -13,6 +13,7 @@ import "../../src/styles.css";
 import "../../src/classic.css";
 import "../../src/polish.css";
 import "../../src/table-controls.css";
+import "../../src/tables.css";
 
 function Preview() {
   const [g, setGame] = useState(() => debitGame());
@@ -28,6 +29,7 @@ function Preview() {
     practice: false,
     countdown: "10",
     selected: null,
+    drawn: view.canDiscard ? view.lastDraw : undefined,
     inspectedKind: null,
     hintKinds: [],
     hintLabel: "",
@@ -53,10 +55,10 @@ function Preview() {
         onEntryBusyChange={setBusy}
       />
       <nav className="debit-preview-controls" aria-label="扣分预览控制">
-        {(["concealed", "open", "added", "winds", "fourSame"] as const).map(
+        {(["concealed", "open", "added", "winds", "fourSame", "fourFollow"] as const).map(
           (example, i) => (
             <button disabled={busy} key={example} onClick={() => play(example)}>
-              {["暗杠", "明杠", "补杠", "四连风", "四张同牌"][i]}
+              {["暗杠", "明杠", "补杠", "四连风", "四张同牌", "四家同牌"][i]}
             </button>
           ),
         )}
@@ -68,6 +70,11 @@ function Preview() {
         >
           换视角
         </button>
+        {([1,2,3] as const).map((offset)=><button key={offset} disabled={busy} onClick={()=>{
+          sequence.current++;
+          setMe(((4-offset)%4) as 1|2|3);
+          setGame(debitGame());
+        }}>{['','下家摸牌','对家摸牌','上家摸牌'][offset]}</button>)}
       </nav>
       <style>{`.debit-preview-controls{position:fixed;bottom:8px;left:12px;z-index:40;display:flex;gap:5px}.app.polished .debit-preview-controls button{background:#143d32e8;color:#e8d6aa;border:1px solid #82714d;border-radius:6px;padding:5px 9px;font-size:12px;min-height:32px}`}</style>
     </div>

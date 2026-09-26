@@ -10,6 +10,12 @@ const sha = data => createHash('sha256').update(data).digest('hex');
 const readEntry = (archive, entry) => execFileSync('unzip', ['-p', archive, entry], { maxBuffer: 96 * 1024 * 1024 });
 const entries = archive => execFileSync('unzip', ['-Z1', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }).trim().split('\n');
 const apkEntries = entries(apk), ipaEntries = entries(ipa);
+for (const names of [apkEntries, ipaEntries]) {
+  if (new Set(names).size !== names.length) throw Error('Archive contains duplicate paths');
+  for (const name of names)
+    if (/(^|\/)(\._[^/]*|__MACOSX|\.DS_Store)(\/|$)/.test(name))
+      throw Error(`Unexpected Mac metadata in archive: ${name}`);
+}
 const ipaInfo = ipaEntries.filter(name => /^Payload\/[^/]+\.app\/Info\.plist$/.test(name));
 if (ipaInfo.length !== 1) throw Error('IPA must contain exactly one application bundle');
 const ipaRoot = ipaInfo[0].slice(0, -'Info.plist'.length);

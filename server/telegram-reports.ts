@@ -97,15 +97,14 @@ export function participationRows(db: DatabaseSync, teamIds: string | string[], 
   const rows = db.prepare(`
     ${finalRoster}
     SELECT CAST(n.member_id AS TEXT) AS user_id, a.username, a.name AS nickname, t.name AS team_name, COUNT(DISTINCT p.game_id) AS rounds
-    FROM match_records m
-    JOIN point_records p ON p.game_id=m.game_id
+    FROM point_records p
     JOIN round_records r ON r.id=p.record_id
     JOIN accounts a ON a.id=p.account_id
     JOIN account_numbers n ON n.account_id=p.account_id
     JOIN final_roster f ON f.account_id=p.account_id
     JOIN teams t ON t.id=f.team_id
-    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND m.at>=? AND m.at<?
-      AND m.code<>'练习桌' AND r.code<>'练习桌'
+    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND ${completedTableWindow}
+      AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
       AND COALESCE(json_extract(r.record,'$.experience'),0)=0
     GROUP BY p.account_id, n.member_id, a.username, a.name, t.name

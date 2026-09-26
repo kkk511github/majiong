@@ -36,13 +36,13 @@ export class TableScene extends Component {
  private motionScale=1;
  private insertingTile?:number;
  private releasedTile?:ReleasedTile; private motionEffects=new Set<Node>(); private seenEffects=new Set<string>();
- private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3;released?:boolean;moved:boolean};
+ private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3;released?:boolean;moved:boolean;raised?:boolean};
  private avatarLoads=new Set<string>(); private avatarFailures=new Map<string,AvatarFailure>();
  private ready=false; private channel='';
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
  private lastHandTap?:{tile:number;key:string;round:number;turn:number;phase:string;canDiscard:boolean;at:number};
  private pointer?:Node; private pointerKey=''; private pointerAt='';
- private cancelHandTouch=()=>{if(!this.handTouch)return;this.handTouch=undefined;if(this.ready&&this.state)this.draw();};
+ private cancelHandTouch=()=>{if(!this.handTouch)return;this.handTouch=undefined;this.layoutKey='';if(this.ready&&this.state)this.draw();};
  private onBlur=()=>{this.handTouch=undefined;this.lastHandTap=undefined;this.clearReleasedTile();this.skipNextTransition=true;if(this.ready&&this.state)this.draw();};
  private onVisibility=()=>{this.skipNextTransition=true;if(document.hidden){this.handTouch=undefined;this.clearReleasedTile();}if(this.ready&&this.state)this.draw();};
  // Creator converts an actual touchend outside the last rendered tile bounds to
@@ -55,6 +55,12 @@ export class TableScene extends Component {
   if(event.source!==window.parent||event.origin!==location.origin)return;
   const d=event.data;
   if(d?.scope!=='jinling-table-v1'||d.channel!==this.channel||d.type!=='state'||!Array.isArray(d.state?.players))return;
+  // The first tap's React selection echo can arrive while a fast second tap
+  // is already held. Acknowledging that same tile is not a context change.
+  const touch=this.handTouch,tap=this.lastHandTap;
+  if(touch&&tap?.tile===touch.origin.tile&&tap.key===touch.origin.key&&tap.round===touch.origin.round&&
+   performance.now()-tap.at<=400&&d.state.selected===touch.origin.tile&&
+   canContinueTileDrag({...d.state,selected:touch.origin.selected},touch.origin))touch.origin.selected=d.state.selected;
   // State messages can arrive in the same display frame (claim, replacement,
   // countdown). Paint the newest geometry once, retaining each confirmed cue.
   if(!d.state.connected)this.skipNextTransition=true;
@@ -306,7 +312,7 @@ export class TableScene extends Component {
   this.stopFlight(t.id);
   if(!from||Math.hypot(from.x-t.x,from.y-t.y)<.5&&Math.abs(from.w-t.w)<.5&&Math.abs(from.h-t.h)<.5){node.setScale(1,1,1);shadow?.setScale(1,1,1);return;}
   const insertion=t.area==='hand'&&t.seat===this.state!.me&&physical!==undefined&&physical===this.insertingTile&&old?.id.startsWith('draw-');
-  const ms=insertion?460:t.area==='river'?280:t.area==='flower'?300:t.area==='meld'?300:crossing?260:210;
+  const ms=insertion?460:t.area==='river'?280:t.area==='flower'?300:t.area==='meld'?300:crossing?260:t.area==='hand'&&t.seat===this.state!.me?120:210;
   this.startFlight(node,from,t,ms,crossing||t.area==='river',t.area==='flower'&&crossing,!!insertion);
  }
  private flowerArrival(t:SceneTile){
@@ -331,7 +337,7 @@ export class TableScene extends Component {
   this.text(this.root,'金陵麻将',640,170,280,42,30,'#c2e0c52e');
 
  }
- lateUpdate(){this.view3D?.update();}
+ lateUpdate(){this.positionDraggedTile();this.view3D?.update();}
  private draw(){
   const s=this.state!;
   const {countdown,effects,trusteeDisabled,safeArea,...layoutState}=s;
@@ -561,15 +567,18 @@ export class TableScene extends Component {
    // An unsuccessful drag keeps the selection; taps preserve the existing click flow.
    const tapped=!touch.moved&&Math.hypot(point.x-touch.startX,point.y-touch.startY)<10;
    const previous=this.lastHandTap;
-   const doubleTap=tapped&&touch.origin.canDiscard&&previous?.tile===touch.origin.tile&&
+   const doubleTap=tapped&&touch.origin.canDiscard&&(touch.origin.selected===touch.origin.tile||previous?.tile===touch.origin.tile&&
     previous.key===state.key&&previous.round===state.round&&previous.turn===state.turn&&
-    previous.phase===state.phase&&previous.canDiscard&&performance.now()-previous.at<=400;
+    previous.phase===state.phase&&previous.canDiscard&&performance.now()-previous.at<=400);
    if(discard||doubleTap){this.lastHandTap=undefined;this.emit({type:'discard',tile:touch.origin.tile});}
    else if(tapped){
     this.lastHandTap={tile:touch.origin.tile,key:state.key,round:state.round,turn:state.turn,phase:state.phase,canDiscard:touch.origin.canDiscard,at:performance.now()};
     this.emit({type:'select',tile:touch.origin.tile});
    }else this.lastHandTap=undefined;
   }
+  // A cancelled/short drag has no server update to bring the tile home.
+  // Force the motion path rather than the clock-only fast path.
+  if(touch.moved&&!this.releasedTile)this.layoutKey='';
   if(this.ready&&this.state)this.draw();
  }
  private positionDraggedTile(){
@@ -578,7 +587,7 @@ export class TableScene extends Component {
   const node=this.nodes.get(touch.id);if(!node?.isValid)return;
   // getUILocation uses upward-positive design coordinates, matching node space.
   node.setPosition(touch.base.x+touch.x-touch.startX,touch.base.y+touch.y-touch.startY,0);
-  node.setSiblingIndex(this.root.children.length-1);this.orderKey='';
+  if(!touch.raised){node.setSiblingIndex(this.root.children.length-1);this.orderKey='';touch.raised=true;}
  }
  private drawHud(s:TableSceneState){
   const h=this.hud;

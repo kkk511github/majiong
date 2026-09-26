@@ -2,6 +2,37 @@ import { describe, expect, it } from 'vitest';
 import { layoutTable, slotEdgeMetrics, slotMetrics, tileFootprint, type SceneTile, type TableSceneState } from '../shared/table-scene';
 import { beginTileDrag, shouldDiscardDraggedTile } from '../shared/tile-drag';
 import { TILE_POSE_METRICS } from '../shared/tile-pose-metrics';
+import { layout3DTable, standingHandLayout } from '../shared/table-3d-layout';
+
+describe('production 3D opponents retain a separate public draw slot', () => {
+  it.each([0,1,2,3].flatMap(me=>[0,1,2,3,4].flatMap(melds=>[1,2,3].map(side=>({me,melds,side})))))(
+    'view $me / $melds melds / offset $side', ({me,melds,side}) => {
+      for(const revealed of [false,true]) {
+        const state=fixture(me,melds,revealed);
+        state.tableStyle='reference-3d';
+        const player=state.players[(me+side)%4],before=layout3DTable(state);
+        player.handCount++;
+        if(revealed)player.hand.push(player.seat*32+13);
+        const after=layout3DTable(state),draw=after.find(t=>t.drawSlot)!;
+        expect(draw).toBeDefined();
+        expect(draw.tile).toBe(revealed?player.seat*32+13:undefined);
+        expect(after.filter(t=>t.drawSlot)).toHaveLength(1);
+        // No sliding regular cards, repacking a meld, or changing another seat.
+        for(const tile of before)expect(after.find(t=>t.id===tile.id)).toEqual(tile);
+        const regular=after.filter(t=>t.area==='hand'&&t.seat===player.seat&&!t.drawSlot);
+        if(side===2){
+          expect(Math.min(...regular.map(t=>t.x-t.w/2))-(draw.x+draw.w/2)).toBeGreaterThan(3);
+        }else if(!revealed){
+          const row=standingHandLayout([...regular,draw],side),added=row.find(t=>t.id===draw.id)!;
+          for(const old of standingHandLayout(regular,side))expect(row.find(t=>t.id===old.id)).toEqual(old);
+          const neighbours=row.filter(t=>t.id!==draw.id);
+          expect(neighbours.every(t=>t.x===added.x&&t.width===added.width)).toBe(true);
+          expect(Math.min(...neighbours.map(t=>Math.abs(t.z-added.z)-(t.width+added.width)/2))).toBeCloseTo(.206,6);
+        }
+      }
+    },
+  );
+});
 
 function fixture(me: number, melds: number, revealed: boolean): TableSceneState {
   const handCount = 13 - melds * 3;

@@ -130,24 +130,36 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
   const overlayNode=new cc.Node('Table overlay camera');scene.addChild(overlayNode);
   const overlay=overlayNode.addComponent(cc.Camera);overlay.priority=camera.priority+1;
   overlay.projection=cc.Camera.ProjectionType.ORTHO;overlay.clearFlags=cc.Camera.ClearFlag.DEPTH_ONLY;overlay.visibility=overlayLayer;overlay.near=uiCamera.near;overlay.far=uiCamera.far;
-  let alive=true,enabled=false,models=new Map<string,{node:any,tile:Table3DTile}>();
+  let alive=true,enabled=false,models=new Map<string,{node:any,tile:Table3DTile,key:string,pose?:number[]}>();
+  const standing=new Map<string,{node:any,key:string}>();
+  let layerKey='';
   const setLayer=(n:any,value:number)=>{if(!n?.isValid)return;n.layer=value;for(const child of n.children)setLayer(child,value);};
   function update() {
     if(!alive)return;
     const layer=enabled?overlayLayer:cc.Layers.Enum.UI_2D;
-    for(const n of [table.hud,table.marks,table.effectsRoot])setLayer(n,layer);
-    for(const t of Array.from(table.tileLayout.values()) as Table3DTile[])
-      if(t.area==='hand'&&t.seat===table.state?.me)setLayer(table.nodes.get(t.id),layer);
+    const nextLayerKey=`${layer}:${table.hudKey}:${table.marksKey}:${table.orderKey}`;
+    if(nextLayerKey!==layerKey){
+      for(const n of [table.hud,table.marks,table.effectsRoot])setLayer(n,layer);
+      for(const t of table.tileLayout.values() as Iterable<Table3DTile>)
+        if(t.area==='hand'&&t.seat===table.state?.me)setLayer(table.nodes.get(t.id),layer);
+      layerKey=nextLayerKey;
+    }
+    // Effects may arrive asynchronously between state renders.
+    for(const n of table.effectsRoot.children)if(n.layer!==layer)setLayer(n,layer);
     if(!enabled)return;
     camera.fov=2*Math.atan(uiCamera.orthoHeight/SCALE/TABLE_CAMERA.distance)*180/Math.PI;
     overlay.orthoHeight=uiCamera.orthoHeight;overlayNode.setWorldPosition(uiCamera.node.worldPosition);overlayNode.setWorldRotation(uiCamera.node.worldRotation);
-    for(const {node,tile} of Array.from(models.values())){
+    for(const model of models.values()){
+      const {node,tile}=model;
       const sprite=table.nodes.get(tile.id);if(!sprite?.isValid||!node.isValid)continue;
-      const x=sprite.position.x+640,y=295-sprite.position.y,at=planeAt(x,y,tile.modelThickness/2);
+      const size=sprite.getComponent(cc.UITransform),x=sprite.position.x+640,y=295-sprite.position.y;
+      const w=size.width*sprite.scale.x,h=size.height*sprite.scale.y,old=model.pose;
+      if(old&&old[0]===x&&old[1]===y&&old[2]===w&&old[3]===h)continue;
+      model.pose=[x,y,w,h];
+      const at=planeAt(x,y,tile.modelThickness/2);
       const end=planeAt(tile.x,tile.y,tile.modelThickness/2);
       node.setPosition(tile.groundX+at.x-end.x,tile.stack?tile.modelThickness:0,tile.groundZ+at.z-end.z);
-      const size=sprite.getComponent(cc.UITransform);
-      node.setScale(size.width*sprite.scale.x/tile.w,1,size.height*sprite.scale.y/tile.h);
+      node.setScale(w/tile.w,1,h/tile.h);
     }
   }
   function render(state:TableSceneState,placements:Table3DTile[]) {
@@ -158,13 +170,18 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
     const background=table.root.getChildByName('table');
     background.getComponent(cc.Sprite).spriteFrame=enabled?boardFrame:originalBackground;
     const grade=table.root.getChildByName('table-color-grade');if(grade)grade.active=!enabled;
-    for(const node of [...root.children])node.destroy();models.clear();
+    const retained=new Set<string>(),retainedStanding=new Set<string>();
+    layerKey='';
     for(const t of placements){
       const visibleHand=t.area==='hand'&&(t.seat===state.me||t.tile===undefined&&sceneOffset(t.seat,state.me)===2);
       const node=table.nodes.get(t.id);if(node)node.active=!enabled||visibleHand;
       const shadow=table.shadows.get(t.id);if(shadow)shadow.active=!enabled;
     }
-    if(!enabled){update();return;}
+    if(!enabled){
+      for(const entry of models.values())entry.node.destroy();models.clear();
+      for(const entry of standing.values())entry.node.destroy();standing.clear();
+      update();return;
+    }
     camera.fov=2*Math.atan(uiCamera.orthoHeight/SCALE/TABLE_CAMERA.distance)*180/Math.PI;
     const handModels:any[]=[];
     for(const p of state.players){
@@ -173,7 +190,13 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
       if(!row.length)continue;
       for(const t of standingHandLayout(row,offset)){
         const {width,height,depth}=t;
-        const holder=new cc.Node(`standing-${t.id}`);holder.layer=layer;root.addChild(holder);
+        retainedStanding.add(t.id);
+        const key=`${width}:${height}:${depth}`,previous=standing.get(t.id);
+        if(previous&&previous.key!==key){previous.node.destroy();standing.delete(t.id);}
+        let holder=standing.get(t.id)?.node;
+        if(!holder){
+        holder=new cc.Node(`standing-${t.id}`);holder.layer=layer;root.addChild(holder);
+        standing.set(t.id,{node:holder,key});
         holder.setPosition(t.x,0,t.z);holder.setRotationFromEuler(0,t.yaw,0);
         // A normal rounded rectangular tile, stood on its short edge. Reuse
         // the physical tile body instead of drawing a sliced green ribbon.
@@ -183,6 +206,8 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
         const backBody=meshNode(upright,'Green backing',bodyMesh,jade);backBody.setPosition(0,depth*.70,0);backBody.setScale(width,depth*.30,height);
         const back=meshNode(upright,'Rounded rectangular enamel back',roundedFaceMesh,enamelBack);back.setPosition(0,depth+.002,0);back.setScale(width*.94,1,height*.94);
         const shadow=meshNode(holder,'Individual standing contact',faceMesh,shadowMaterial);shadow.setPosition(0,.002,0);shadow.setScale(width*1.08,1,depth*1.2);
+        }
+        holder.setPosition(t.x,0,t.z);holder.setRotationFromEuler(0,t.yaw,0);
         const up=new cc.Vec3();cc.Vec3.transformQuat(up,new cc.Vec3(0,1,0),holder.worldRotation);
         handModels.push({...t,seat:p.seat,up:[up.x,up.y,up.z]});
       }
@@ -196,8 +221,16 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
       const t=middle?{...original,yaw:middle.yaw,pose:middle.pose}:original;
       if(t.area==='hand'&&(t.seat===state.me||t.tile===undefined))continue;
       const w=t.modelWidth,length=t.modelLength,thickness=t.modelThickness;
-      const holder = new cc.Node(t.id); holder.layer=layer; root.addChild(holder);
-      models.set(t.id,{node:holder,tile:t});
+      retained.add(t.id);
+      // Geometry/material identity only: selection, countdowns and movement
+      // must not destroy and re-upload every mesh on the table.
+      const key=`${t.tile===undefined?'back':tileKind(t.tile)}:${w}:${length}:${thickness}:${!!t.stack}:${!!t.globalAnchor}:${!!t.highlight}:${!!t.claimTarget}`;
+      const previous=models.get(t.id);
+      if(previous&&previous.key!==key){previous.node.destroy();models.delete(t.id);}
+      let model=models.get(t.id),holder=model?.node;
+      if(!model){
+      holder = new cc.Node(t.id); holder.layer=layer; root.addChild(holder);
+      model={node:holder,tile:t,key};models.set(t.id,model);
       const x=t.groundX,z=t.groundZ;
       holder.setPosition(x,t.stack?thickness:0,z);
       holder.setRotationFromEuler(0,t.yaw,0);
@@ -210,9 +243,15 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
       const face=meshNode(tile,'Face',roundedFaceMesh,t.tile===undefined?enamelBack:(t.globalAnchor?anchorFaces:t.highlight?inspectedFaces:faces)[tileKind(t.tile)]);
       face.setPosition(0,thickness+.002,0); face.setScale(w*.94,1,length*.94);
       if(t.claimTarget){const outline=meshNode(holder,'Claim face outline',outlineMesh,claimOutline);outline.setPosition(0,thickness+.007,0);outline.setScale(w,1,length);}
+      }
+      model.tile=t;model.pose=undefined;
+      const x=t.groundX,z=t.groundZ;
+      holder.setPosition(x,t.stack?thickness:0,z);holder.setRotationFromEuler(0,t.yaw,0);
       const top=new cc.Vec3();cc.Vec3.transformQuat(top,new cc.Vec3(0,0,-1),holder.worldRotation);
       diagnostics.push({id:t.id,seat:t.seat,area:t.area,yaw:t.yaw,alignmentAngle:t.alignmentAngle,top:[top.x,top.z],model:true,stack:!!t.stack,globalAnchor:!!t.globalAnchor,claimTarget:!!t.claimTarget,x,z,width:w,length,thickness,height:t.stack?thickness:0});
     }
+    for(const [id,entry] of models)if(!retained.has(id)){entry.node.destroy();models.delete(id);}
+    for(const [id,entry] of standing)if(!retainedStanding.has(id)){entry.node.destroy();standing.delete(id);}
     (window as any).__JINLING_TABLE_3D__={enabled:true,meshTiles:diagnostics.length,tiles:diagnostics,handModels};
     update();
   }

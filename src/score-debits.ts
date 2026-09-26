@@ -16,6 +16,10 @@ export interface ScoreDebit {
   amount: number;
   label: string;
 }
+export const isDiscardPenalty = (event: ScoreDebit) =>
+  event.label === "四家同牌" || event.label === "四张同牌";
+export const scoreDebitDuration = (event: ScoreDebit) =>
+  isDiscardPenalty(event) ? 3600 : SCORE_DEBIT_MS;
 const sameTransfer = (a: ScoreTransfer, b: ScoreTransfer) =>
   a.from === b.from &&
   a.to === b.to &&

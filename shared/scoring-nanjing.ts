@@ -105,8 +105,10 @@ function scoreNanjingBase(
     if (closed && !shape.seven && !windOnlyB) add("门清", values.closed);
     if (ctx.earthly) big("地胡", values.earthly);
     const large = ctx.replacement === "kong";
-    if (large) big("大杠开花", values.largeReplacement);
-    if (ctx.replacement === "flower") big("小杠开花", values.smallReplacement);
+    // B-profile replacement wins add points/trigger 比下胡, but are not an
+    // independent hard-flower exemption (175382, round 8).
+    if (large) big("大杠开花", values.largeReplacement, !bProfile);
+    if (ctx.replacement === "flower") big("小杠开花", values.smallReplacement, !bProfile);
     if (ctx.seaBottom && rules.seaBottom && ctx.tile === undefined)
       add("海底捞月", values.seaBottom);
     let soft = suits.size === 2 ? 1 : 0;

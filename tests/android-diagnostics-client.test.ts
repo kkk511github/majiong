@@ -39,3 +39,7 @@ it('does not renew the age of stale logs when the app restarts',async()=>{
  localStorage.setItem('jinling:android-diagnostics-v1',JSON.stringify({account:'a',events:[{at:Date.now()-2*86400000,code:'table-error',message:'expired-error'}]}));
  const {appDiagnostics:d}=await import('../src/app-diagnostics');d.install();const report=await d.manualReport('a');expect(JSON.stringify(report)).not.toContain('expired-error');d.logout();
 });
+it('normal network events are not labelled as application errors',async()=>{
+ const {appDiagnostics:d}=await import('../src/app-diagnostics');d.install();d.session('a',false,()=>false);d.record('network','socket-open');
+ const report=await d.manualReport('a');expect(report.events.find(e=>e.message==='socket-open')?.name).toBe('Network');d.logout();
+});

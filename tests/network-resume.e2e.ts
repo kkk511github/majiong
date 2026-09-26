@@ -1,6 +1,16 @@
 import { test, expect, legacyRoom } from "./browser-fixtures";
 import pkg from "../package.json" with { type: "json" };
 
+test('重连重新测速，不继承旧连接高延迟或清除历史超时计数',async({page})=>{
+ await page.goto('/');await legacyRoom(page);
+ await expect.poll(()=>page.evaluate(async()=>{const{client}=await import('/src/game-client.ts' as string);return client.state.network.samples;})).toBeGreaterThan(0);
+ const before=await page.evaluate(async()=>{const{client}=await import('/src/game-client.ts' as string);const old={code:client.state.view!.code,reconnects:client.state.network.reconnects};client.state.network={...client.state.network,rttMs:2400,smoothedRttMs:2400,timeouts:2,commandTimeouts:1};client.retryNetwork();return old;});
+ await expect.poll(()=>page.evaluate(async()=>{const{client}=await import('/src/game-client.ts' as string);return client.state.connected&&client.state.view?.code;})).toBe(before.code);
+ await expect.poll(()=>page.evaluate(async()=>{const{client}=await import('/src/game-client.ts' as string);return client.state.network.smoothedRttMs??Infinity;})).toBeLessThan(600);
+ const health=await page.evaluate(async()=>{const{client}=await import('/src/game-client.ts' as string);return client.state.network;});
+ expect(health.reconnects).toBeGreaterThan(before.reconnects);expect(health.timeouts).toBe(2);expect(health.commandTimeouts).toBe(1);
+});
+
 test("短暂后台保留连接，失效连接两秒内重建并恢复原桌与登录", async ({
   page,
 }) => {

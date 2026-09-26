@@ -51,6 +51,11 @@ export function scoreDebitPosition(
     { x: 640, y: 278, w: 124, h: 96 },
     { x: 548, y: 280, w: 66, h: 66 },
     { x: 732, y: 280, w: 66, h: 66 },
+    ...(state.tableStyle === 'reference-3d' ? [
+      { x: 640, y: 247, w: 127, h: 102 },
+      { x: 531, y: 253, w: 66, h: 60 },
+      { x: 772, y: 251, w: 66, h: 60 },
+    ] : []),
   ];
   if (claimPrompt(state)) obstacles.push({ x: 122, y: 388, w: 196, h: 76 });
   const fits = (x: number, y: number) =>
@@ -66,16 +71,19 @@ export function scoreDebitPosition(
       ),
     );
   if (fits(preferred.x, preferred.y)) return preferred;
-  const zone = zones[offset],
-    candidates = [];
-  for (let y = zone.top; y <= zone.bottom; y += 6)
-    for (let x = zone.left; x <= zone.right; x += 6)
-      if (fits(x, y))
-        candidates.push({
-          x,
-          y,
-          distance: (x - preferred.x) ** 2 + (y - preferred.y) ** 2,
-        });
-  const best = candidates.sort((a, b) => a.distance - b.distance)[0];
-  return best ? { x: best.x, y: best.y } : null;
+  const searchZones = [zones[offset]];
+  // The new single-row meld rails can completely fill the former side bay.
+  // Try free felt elsewhere rather than silently dropping a confirmed debit.
+  if (state.tableStyle === 'reference-3d')
+    searchZones.push({ left: 164, right: 1110, top: 45, bottom: 455 });
+  for (const zone of searchZones) {
+    let best: {x:number;y:number;distance:number} | undefined;
+    for (let y = zone.top; y <= zone.bottom; y += 6)
+      for (let x = zone.left; x <= zone.right; x += 6) {
+        const distance = (x - preferred.x) ** 2 + (y - preferred.y) ** 2;
+        if ((!best || distance < best.distance) && fits(x, y)) best = {x,y,distance};
+      }
+    if (best) return {x:best.x,y:best.y};
+  }
+  return null;
 }

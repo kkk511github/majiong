@@ -77,7 +77,7 @@ for (const [width, height] of [
       )
       .toBe(true);
     await expect(page.locator(".cocos-loading")).toHaveCount(0);
-    for (const example of ["concealed", "open", "winds", "fourSame"] as const) {
+    for (const example of ["concealed", "open", "winds", "fourSame", "fourFollow"] as const) {
       const before = debitGame(example);
       before.id = `test-debit-${example}`;
       current = viewFor(before, 0);
@@ -170,7 +170,8 @@ for (const [width, height] of [
       current = { ...current, revision: current.revision + 1 };
       send();
       await expect(page.locator(".score-debit")).toHaveCount(0, {
-        timeout: 3500,
+        // Discard penalties deliberately remain legible for 3.6 seconds.
+        timeout: 4500,
       });
       current = { ...current, revision: current.revision + 1 };
       send();

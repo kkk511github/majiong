@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { viewFor } from "../shared/engine";
-import { scoreDebits } from "../src/score-debits";
+import { scoreDebits, scoreDebitDuration } from "../src/score-debits";
 import {
   DEBIT_HEIGHT,
   DEBIT_RISE,
@@ -17,6 +17,18 @@ import {
 } from "./fixtures/debit-game";
 
 describe("服务器即时扣分提醒", () => {
+  it.each([1,2])('第四家真实出牌即时扣分、四个视角都显示同一实际罚分（倍率%i）', multiplier => {
+    const before=debitGame('fourFollow',multiplier),after=applyDebit(before,'fourFollow');
+    expect(after.players[1]!.score).toBe(before.players[1]!.score-15*multiplier);
+    expect(after.result).toBeUndefined();
+    expect(after.history).toHaveLength(0);
+    for(const me of [0,1,2,3] as const){
+      const events=scoreDebits(viewFor(before,me),viewFor(after,me));
+      expect(events.map(e=>[e.seat,e.amount,e.label])).toEqual([[1,15*multiplier,'四家同牌']]);
+      expect(scoreDebitDuration(events[0])).toBe(3600);
+      expect(scoreDebits(viewFor(after,me),viewFor({...after,revision:after.revision+1},me))).toEqual([]);
+    }
+  });
   it.each([1, 2])(
     "暗杠倍率 %i 显示三家实际支付数，不给收分者显示扣分",
     (multiplier) => {
@@ -178,8 +190,11 @@ describe("扣分提示不挡牌", () => {
               ? Array.from({ length: 5 }, (_, i) => 124 + i + p.seat * 5)
               : [];
           });
+          for (const style of [undefined,'reference-3d'] as const) {
+          state.tableStyle=style;
+          const notices: {x:number;y:number;w:number;h:number}[]=[];
           for (const p of state.players) {
-            const at = scoreDebitPosition(state, p.seat);
+            const at = scoreDebitPosition(state, p.seat, notices);
             expect(
               at,
               `seat=${p.seat}, me=${me}, dense=${dense}`,
@@ -198,6 +213,8 @@ describe("扣分提示不挡牌", () => {
                   ),
                 ),
               ).toBe(true);
+            if(at)notices.push({...at,y:at.y-DEBIT_RISE/2,w:DEBIT_WIDTH,h:DEBIT_HEIGHT+DEBIT_RISE});
+          }
           }
         }
     },

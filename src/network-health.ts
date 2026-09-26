@@ -37,6 +37,11 @@ export const initialNetworkHealth = (): NetworkHealth => ({
   consecutiveTimeouts: 0,
   recoverySamples: 0,
 });
+/** A newly established transport must not inherit latency from the old route.
+ * Cumulative failure counters and timeout recovery stay intact. */
+export function resetNetworkMeasurements(): Partial<NetworkHealth> {
+  return {rttMs:null,smoothedRttMs:null,lastResponseAt:null,samples:0,recoverySamples:0};
+}
 /** Equal jitter avoids a reconnect stampede while retaining a finite cap. */
 export function reconnectDelay(
   attempt: number,

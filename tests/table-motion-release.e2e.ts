@@ -196,6 +196,8 @@ test("clock updates retain the HUD, flower troughs, markers and contact shadows 
 });
 
 test("same-frame snapshots paint once, retain confirmed cues and never stack a seat's action words", async ({ page }) => {
+  // This test checks batching/identity, not the action word's .88→1.04→1 pulse.
+  await page.emulateMedia({reducedMotion:'reduce'});
   const { frame, send } = await table(page), before = fixture("batched-scene"); await send(before);
   await frame.evaluate(async () => {
     const cc = await (window as any).System.import("cc"), scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");

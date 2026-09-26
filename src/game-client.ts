@@ -2,6 +2,7 @@ import {
   initialNetworkHealth,
   timedOut,
   measuredResponse,
+  resetNetworkMeasurements,
   reconnectDelay,
   type NetworkHealth,
 } from "./network-health";
@@ -858,7 +859,7 @@ export class GameClient {
     this.clock.reset();
     this.updateNetwork({
       phase: "connecting",
-      rttMs: null,
+      ...resetNetworkMeasurements(),
       reconnects: this.state.network.reconnects + (this.openedAt ? 1 : 0),
     });
     const endpoint = new URL((base?.replace(/\/$/, "") ?? "") + "/ws", `${location.protocol}//${location.host}/`);

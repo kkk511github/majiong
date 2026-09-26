@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { View } from "../shared/types";
-import { SCORE_DEBIT_MS, scoreDebits, type ScoreDebit } from "./score-debits";
+import { scoreDebitDuration, scoreDebits, type ScoreDebit } from "./score-debits";
 
 /** Per-player queues keep rapid successive payments legible without replaying on reconnect. */
 export function useScoreDebits(
@@ -63,7 +63,7 @@ export function useScoreDebits(
           setTimeout(() => {
             timers.current.delete(key);
             setQueue((old) => old.filter((event) => event.key !== key));
-          }, SCORE_DEBIT_MS),
+          }, scoreDebitDuration(current.find((event) => event.key === key)!)),
         );
       }
   }, [current, ready, live, visible]);

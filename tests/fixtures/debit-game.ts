@@ -9,7 +9,7 @@ import { ruleDefaults } from "../../shared/nanjing-rules";
 import type { Game } from "../../shared/types";
 
 export type DebitExample =
-  "concealed" | "open" | "added" | "winds" | "fourSame";
+  "concealed" | "open" | "added" | "winds" | "fourSame" | "fourFollow";
 /** Deterministic real engine actions for UI previews and integration assertions. */
 export function debitGame(
   example: DebitExample = "concealed",
@@ -70,6 +70,16 @@ export function debitGame(
     g.players[0]!.discards = previous;
     g.ruleState.ownDiscards[0] = previous.map((t) => Math.floor(t / 4));
   }
+  if (example === "fourFollow") {
+    // Seats 1, 2 and 3 have each discarded an east; seat 0 is the fourth.
+    g.players[0]!.hand = [111, ...g.players[0]!.hand.slice(1)];
+    for (const seat of [1, 2, 3] as const) {
+      const tile = 107 + seat;
+      g.players[seat]!.discards = [tile];
+      g.ruleState.ownDiscards[seat] = [27];
+      g.ruleState.discards.push({ seat, tile });
+    }
+  }
   const used = new Set(
     g.players.flatMap((p) => [
       ...p!.hand,
@@ -91,7 +101,7 @@ export function applyDebit(g: Game, example: DebitExample) {
     0,
     example === "open"
       ? { type: "kong" }
-      : example === "winds" || example === "fourSame"
+      : example === "winds" || example === "fourSame" || example === "fourFollow"
         ? { type: "discard", tile: g.players[0]!.hand[0] }
         : { type: "selfKong", tile: selfKongs(g, 0)[0] },
     Date.now(),

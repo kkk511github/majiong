@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { sceneOffset, type TableSceneState } from "../shared/table-scene";
-import { SCORE_DEBIT_MS, type ScoreDebit } from "./score-debits";
-import { scoreDebitPosition, type DebitObstacle } from "./score-debit-layout";
+import { isDiscardPenalty, scoreDebitDuration, type ScoreDebit } from "./score-debits";
+import { scoreDebitPosition, DEBIT_HEIGHT, DEBIT_WIDTH, DEBIT_RISE, type DebitObstacle } from "./score-debit-layout";
 import { tableOverlayLayout } from "./table-overlay-layout";
 import "./score-debits.css";
 
@@ -24,6 +24,8 @@ export function ScoreDebitOverlay({
         tableOverlayLayout(
           host.getBoundingClientRect(),
           iframe.getBoundingClientRect(),
+          state.safeArea,
+          state.tableStyle,
         ),
       );
     const observer = new ResizeObserver(resize);
@@ -31,7 +33,7 @@ export function ScoreDebitOverlay({
     observer.observe(iframe);
     resize();
     return () => observer.disconnect();
-  }, []);
+  }, [state.safeArea, state.tableStyle]);
   useLayoutEffect(() => {
     const host = ref.current?.parentElement;
     if (!host || !frame.scale) return;
@@ -54,6 +56,7 @@ export function ScoreDebitOverlay({
         }),
     );
   }, [frame, state]);
+  const occupied: DebitObstacle[] = [...controls];
   return (
     <div
       ref={ref}
@@ -66,8 +69,9 @@ export function ScoreDebitOverlay({
       {state.connected &&
         state.presentation !== "replay" &&
         events.map((event) => {
-          const position = scoreDebitPosition(state, event.seat, controls);
+          const position = scoreDebitPosition(state, event.seat, occupied);
           if (!position || !frame.scale) return null;
+          occupied.push({ ...position, y:position.y-DEBIT_RISE/2, w:DEBIT_WIDTH, h:DEBIT_HEIGHT+DEBIT_RISE });
           const name =
             state.players.find((p) => p.seat === event.seat)?.name ?? "牌友";
           return (
@@ -81,14 +85,15 @@ export function ScoreDebitOverlay({
                   left: frame.left + position.x * frame.scale,
                   top: frame.top + position.y * frame.scale,
                   transform: `translate(-50%,-50%) scale(${frame.scale})`,
-                  "--debit-duration": `${SCORE_DEBIT_MS}ms`,
+                  "--debit-duration": `${scoreDebitDuration(event)}ms`,
                 } as CSSProperties
               }
             >
               <div
-                className="score-debit"
+                className={`score-debit${isDiscardPenalty(event) ? " score-debit-penalty" : ""}`}
                 aria-label={`${name} · ${event.label}扣${event.amount}分`}
               >
+                {isDiscardPenalty(event) && <small aria-hidden="true">{name}</small>}
                 <strong aria-hidden="true">−{event.amount}</strong>
                 <span aria-hidden="true">{event.label}</span>
               </div>

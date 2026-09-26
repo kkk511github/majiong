@@ -84,5 +84,5 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
     printTitlesRow: "1:2", printArea: `A1:${last}${totalRow.number}` };
   const bytes = Buffer.from(await wb.xlsx.writeBuffer());
   return { filename: `${title}.xlsx`, xlsxBase64: bytes.toString("base64"),
-    caption: `${teamName} ${daily ? "日结算" : "周结算"}\n${start} 至 ${end}（北京时间）\n按统计期结束时最终战队归属\n${daily ? "分数÷2" : "局数×3"}=${Number(rows.reduce((n,r)=>n+r.points,0).toFixed(6))}${rows.length ? "" : "\n本期无结算记录"}` };
+    caption: `${teamName} ${daily ? "日结算" : "周结算"}\n${start} 至 ${end}（北京时间）\n按整桌结束时间归属日期，跨零点不拆桌\n按统计期结束时最终战队归属\n${daily ? "分数÷2" : "局数×3"}=${Number(rows.reduce((n,r)=>n+r.points,0).toFixed(6))}${rows.length ? "" : "\n本期无结算记录"}` };
 }

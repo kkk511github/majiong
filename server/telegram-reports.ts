@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { settlementWorkbook } from "./report-xlsx/workbook";
+import {completedTableWindow} from './completed-table-window';
 
 export const DAY_MS = 86_400_000;
 const CHINA_OFFSET = 8 * 3_600_000;
@@ -128,7 +129,7 @@ function validateReportRange(db: DatabaseSync, teamIds: string | string[], from:
   return teams;
 }
 
-/** Daily net score follows hand settlement time and the period's final roster.
+/** Daily net score follows completed-table time and the period's final roster.
  * Raw points include in-table and outside transfers. Apply the saved table fee
  * once, before filtering dates/teams, then use the requested fixed divisor 2.
  * Never divide the already-converted app points a second time. */
@@ -157,7 +158,7 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
     JOIN account_numbers n ON n.account_id=p.account_id
     JOIN final_roster f ON f.account_id=p.account_id
     JOIN teams t ON t.id=f.team_id
-    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND p.at>=? AND p.at<?
+    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND ${completedTableWindow}
       AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
       AND COALESCE(json_extract(r.record,'$.experience'),0)=0

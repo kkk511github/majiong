@@ -139,17 +139,20 @@ it("daily net scores charge one saved table fee then divide by two, never by the
   expect(sheet.getCell("D3").value).toBe(60);
   expect(sheet.getCell("E3").value).toEqual({ formula: "D3*0.5", result: 30 });
 });
-it("daily scores use completed hand timestamps across midnight and transfers, with only one fee", () => {
+it("daily scores wait for the whole table and attribute all cross-midnight hands once to its finish date", () => {
   const { db, table } = source(); table("overnight", null, 3);
   db.exec(`UPDATE round_records SET record=json_set(record,'$.initialScore',90,'$.settlementBase',100);
     UPDATE point_records SET points=11;`);
   db.prepare("UPDATE point_records SET at=? WHERE record_id='overnight-0'").run(end - 1);
   db.prepare("UPDATE point_records SET at=?,team_id='team-4' WHERE record_id='overnight-1'").run(end);
   db.prepare("UPDATE point_records SET at=?,team_id='team-4' WHERE record_id='overnight-2'").run(end + DAY_MS);
-  expect(dailyScoreRows(db, "team-3", end - DAY_MS, end).map(r => [r.score, r.points])).toEqual([[1, 0.5], [1, 0.5]]);
+  expect(dailyScoreRows(db, "team-3", end - DAY_MS, end)).toEqual([]);
   db.prepare("UPDATE team_memberships SET team_id='team-4',updated_at=?").run(end);
-  expect(dailyScoreRows(db, "team-4", end, end + DAY_MS).map(r => [r.score, r.points])).toEqual([[11, 5.5], [11, 5.5]]);
-  expect(dailyScoreRows(db, "team-4", end + DAY_MS, end + 2 * DAY_MS).map(r => r.score)).toEqual([11, 11]);
+  expect(dailyScoreRows(db, "team-4", end, end + DAY_MS)).toEqual([]);
+  expect(dailyScoreRows(db, "team-4", end + DAY_MS, end + 2 * DAY_MS)).toEqual([]);
+  db.prepare('INSERT INTO match_records(id,game_id,at) VALUES (?,?,?)').run('overnight','overnight',end+DAY_MS);
+  expect(dailyScoreRows(db, "team-4", end + DAY_MS, end + 2 * DAY_MS).map(r => r.score)).toEqual([23, 23]);
+  expect(dailyScoreRows(db, "team-4", end, end + DAY_MS)).toEqual([]);
   expect(participationRows(db, "team-3", end - DAY_MS, end + 2 * DAY_MS)).toEqual([]);
 });
 it("daily scores exclude dissolved hands, keep zero totals, and never invent missing legacy fees", () => {

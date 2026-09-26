@@ -11,6 +11,7 @@ import type { PointSummary, PointSummaryPage } from "../shared/types";
 import { AuthError } from "./accounts";
 import { roundNet, settlementRows } from "../shared/settlement";
 import { gzipSync, gunzipSync } from "node:zlib";
+import {completedTableWindow} from './completed-table-window';
 import type { RoundReplay } from "../shared/types";
 
 export function createRecords(
@@ -32,6 +33,7 @@ export function createRecords(
     record TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS match_records_time ON match_records(at DESC, id DESC);
     CREATE INDEX IF NOT EXISTS match_records_code ON match_records(code, at DESC);`);
+  db.exec('CREATE INDEX IF NOT EXISTS match_records_game_latest ON match_records(game_id,at DESC,id DESC)');
   db.exec(`CREATE TABLE IF NOT EXISTS round_rosters (
     game_id TEXT NOT NULL, round INTEGER NOT NULL, account_id TEXT NOT NULL,
     team_id TEXT NOT NULL, team_name TEXT NOT NULL, PRIMARY KEY(game_id,round,account_id));
@@ -508,7 +510,7 @@ export function createRecords(
       from >= to
     )
       throw new AuthError("请选择正确的起止日期");
-    where.push("p.at>=? AND p.at<?");
+    where.push(completedTableWindow);
     args.push(from, to);
     for (const [key, column] of [
       ["team", "p.team_id"],
@@ -543,7 +545,9 @@ export function createRecords(
       throw new AuthError("页码不正确");
     const filter = pointFilter(query);
     // Keep the raw hand ledger immutable. Charge the table fee on each member's
-    // first completed hand, before date/team filters, so split reports add up
+    // first completed hand, before date/team filters. Dates select whole tables
+    // by their final snapshot, never split a table at midnight.
+    // Historical team filters retain their existing per-hand attribution,
     // and a mid-table team change never charges that member twice.
     // Legacy records retain their saved baseline and multiplier (or 0 fee / 1x).
     const initial = "COALESCE(json_extract(r.record,'$.initialScore'),0)";
@@ -620,7 +624,7 @@ export function createRecords(
         : "不限";
     const rows: (string | number)[][] = [
       [
-        "统计开始（北京时间，含）",
+        "统计开始（整桌结束时间，北京时间，含）",
         date("from"),
         "统计结束（北京时间，不含）",
         date("to"),

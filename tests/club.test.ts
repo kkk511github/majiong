@@ -127,8 +127,9 @@ it("积分含一次桌费并按本桌倍率记分，历史战队锁定、去重�
   expect(all).toMatchObject({total:3,completedRounds:2,tables:1,playerRounds:4,points:-10});
   expect(all.rows.find((r:any)=>r.teamId==="team-1")).toMatchObject({points:10,rounds:1,tables:1});
   expect(all.rows.find((r:any)=>r.teamId==="team-3")).toMatchObject({points:-5,rounds:1,tables:1});
-  const one=(await api(`/api/admin/points?from=${at}&to=${at+86400000}&member=${a.account.id}`,undefined,root.token)).data;expect(one).toMatchObject({total:1,playerRounds:1,tables:1,points:10});
-  const next=(await api(`/api/admin/points?from=${at+86400000}&member=${a.account.id}&team=team-3`,undefined,root.token)).data;expect(next).toMatchObject({total:1,playerRounds:1,tables:1,points:-5});
+  const one=(await api(`/api/admin/points?from=${at}&to=${at+86400000}&member=${a.account.id}`,undefined,root.token)).data;expect(one).toMatchObject({total:0,playerRounds:0,tables:0,points:0});
+  const next=(await api(`/api/admin/points?from=${at+86400000}&member=${a.account.id}`,undefined,root.token)).data;expect(next).toMatchObject({total:2,playerRounds:2,tables:1,points:5});
+  expect((await api(`/api/admin/points?from=${at+86400000}&member=${a.account.id}&team=team-3`,undefined,root.token)).data.points).toBe(-5);
   expect(one.points+next.points).toBe(5);
   expect((await api(`/api/admin/points?from=${at}&to=${at}`,undefined,root.token)).status).toBe(400);
   g.history.push({...g.history[0],id:"partial",round:3,result:{reason:"dissolved",winners:[],details:{},deltas:[100,-100,0,0]}});records.capture(g);expect(records.points(new URLSearchParams()).completedRounds).toBe(2);
@@ -138,16 +139,16 @@ it("积分含一次桌费并按本桌倍率记分，历史战队锁定、去重�
   expect(csv).toContain('"桌数（8局/桌）","积分"');expect(csv).not.toContain("完成局数");
   const migrated=createRecords(db);expect(migrated.points(new URLSearchParams()).completedRounds).toBe(2);db.close();
 });
-it("已删除的旧牌桌从单局存档补统计，坏记录不阻断启动，重复迁移不重计",async()=>{
+it("旧单局流水仍可迁移，缺少整桌结束记录不纳入整桌统计，坏记录不阻断启动",async()=>{
   const {register,file}=await boot(),a=await register('legacy-member','旧成员');
   const db=new DatabaseSync(file);
   const record={id:'legacy-round',round:1,at:Date.now(),names:['旧成员'],scores:[108],result:{reason:'hu',deltas:[18],winners:[0],details:{}}};
   db.prepare('INSERT INTO round_records VALUES (?,?,?,?,?,?,?)').run(record.id,'deleted-room','123456',record.at,JSON.stringify([a.account.id]),0,JSON.stringify(record));
   db.prepare('INSERT INTO round_records VALUES (?,?,?,?,?,?,?)').run('bad-old','bad-room','123457',record.at,'[]',0,'{');
   const migrated=createRecords(db);
-  expect(migrated.points(new URLSearchParams())).toMatchObject({completedRounds:1,playerRounds:1,points:18});
-  expect(migrated.points(new URLSearchParams()).rows[0]).toMatchObject({teamId:'',teamName:'历史未归队',points:18,rounds:1});
-  expect(createRecords(db).points(new URLSearchParams()).completedRounds).toBe(1);
+  expect(migrated.points(new URLSearchParams())).toMatchObject({completedRounds:0,playerRounds:0,points:0});
+  expect(db.prepare("SELECT points FROM point_records WHERE record_id='legacy-round'").get()!.points).toBe(18);
+  expect(createRecords(db).points(new URLSearchParams()).completedRounds).toBe(0);
   expect(db.prepare("SELECT record FROM round_records WHERE id='bad-old'").get()!.record).toBe('{');db.close();
 });
 

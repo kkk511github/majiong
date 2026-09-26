@@ -241,9 +241,12 @@ it("the physically cleared first hand never recharges its fee in member statisti
     points: createRecords(db).points(query).points,
     report: dailyScoreRows(db, "team-1", cutoff, executionTime),
   }));
-  expect(cleared).toEqual(original);
-  expect(cleared.report[0].score).toBe(40);
-  expect(cleared.report[0].points).toBe(20);
+  // Whole-table date filtering excludes the still-active table. Explicit
+  // history clearing removes its old ledger rows, but must not recharge fees.
+  expect(original.report[0].score).toBe(30);
+  expect(cleared.points).toBe(0);
+  expect(cleared.report[0].score).toBe(20);
+  expect(cleared.report[0].points).toBe(10);
 });
 
 it("executes after 00:02 while retaining new records at 00:00:00 and 00:01:59 and their replay/archive state", async () => {

@@ -38,7 +38,8 @@ function source() {
       record.id, gameId, record.at, account, "历史成员", "", "历史未归队", record.result.deltas[0],
     );
   }
-  return { db, records, hand, archive, ledger };
+  function complete(record:RoundRecord,gameId:string){db.prepare('INSERT INTO match_records VALUES (?,?,?,?,?,?,?)').run(gameId,gameId,'123456',record.at,JSON.stringify(record.playerIds),0,JSON.stringify(record));}
+  return { db, records, hand, archive, ledger, complete };
 }
 
 it("按日期汇总整天积分，不受分页影响且会员只看到自己", () => {
@@ -85,11 +86,12 @@ it("练习桌即使使用正式账号也只保存战绩，实时捕获和旧牌�
 });
 
 it("旧练习战绩和真人战绩共存时只迁移真人积分，包含外部输赢且只扣一次桌费", () => {
-  const { db, hand, archive } = source();
+  const { db, hand, archive,complete } = source();
   archive(hand("practice-1", 10, 999), "practice", "练习桌");
   const online = hand("online-1", 20, 30);
   online.result.externalDeltas = [4];
   archive(online, "online");
+  complete(online,'online');
   const records = createRecords(db);
   expect(records.points(new URLSearchParams())).toMatchObject({ completedRounds: 1, playerRounds: 1, tables: 1, points: 12 });
   expect(db.prepare("SELECT record_id,points FROM point_records").all()).toEqual([{ record_id: "online-1", points: 34 }]);
@@ -101,7 +103,7 @@ it("旧练习战绩和真人战绩共存时只迁移真人积分，包含外部�
 });
 
 it("已入账的练习和解散记录不进入汇总或CSV，也不抢占异常混合牌桌的首把桌费", () => {
-  const { db, records, hand, archive, ledger } = source();
+  const { db, records, hand, archive, ledger,complete } = source();
   for (const [id, at, delta, reason, code] of [
     ["old-practice", 1, 999, "hu", "练习桌"],
     ["old-partial", 2, 888, "dissolved", "123456"],
@@ -115,13 +117,14 @@ it("已入账的练习和解散记录不进入汇总或CSV，也不抢占异常�
   const onlyPractice = hand("only-practice", 15, 777);
   archive(onlyPractice, "practice-table", "练习桌", "practice-only");
   ledger(onlyPractice, "practice-table", "practice-only");
+  complete(hand('final',30,40),'mixed-legacy');
   const all = records.points(new URLSearchParams());
   expect(all).toMatchObject({ total: 1, completedRounds: 2, playerRounds: 2, tables: 1, points: 15 });
   expect(all.rows[0]).toMatchObject({ accountId: "member", rounds: 2, tables: 1, points: 15 });
   const firstDay = new URLSearchParams({ from: "20", to: "30" });
   const secondDay = new URLSearchParams({ from: "30", to: "40" });
-  expect(records.points(firstDay).points).toBe(10);
-  expect(records.points(secondDay).points).toBe(5);
+  expect(records.points(firstDay).points).toBe(0);
+  expect(records.points(secondDay).points).toBe(15);
   const csv = records.exportPoints(new URLSearchParams({ page: "99" }));
   expect(csv).toContain('"online-member","正式成员","100001","1","15"');
   expect(csv).not.toContain("practice-only-member");
@@ -129,10 +132,11 @@ it("已入账的练习和解散记录不进入汇总或CSV，也不抢占异常�
   expect(db.prepare("SELECT COUNT(*) AS n FROM point_records").get()!.n).toBe(5);
 });
 
-it("未关联战绩的旧积分仍按原值统计，不因新增练习过滤丢失", () => {
-  const { records, hand, ledger } = source();
+it("缺少整桌结束记录的旧流水保留原值，但不猜测整桌结算日期", () => {
+  const { db,records, hand, ledger } = source();
   ledger(hand("orphan-ledger", 10, 18), "old-room");
-  expect(records.points(new URLSearchParams())).toMatchObject({ completedRounds: 1, playerRounds: 1, tables: 1, points: 18 });
+  expect(records.points(new URLSearchParams())).toMatchObject({ completedRounds: 0, playerRounds: 0, tables: 0, points: 0 });
+  expect(db.prepare('SELECT points FROM point_records').get()!.points).toBe(18);
 });
 
 it('正式服务器体验桌保留战绩，但机器人体验不进入会员积分、CSV或重启迁移',()=>{

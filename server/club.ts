@@ -23,7 +23,7 @@ export function createClub(
     );
   }
   function transaction(fn: () => void) {
-    db.exec("BEGIN");
+    db.exec("BEGIN IMMEDIATE");
     try {
       fn();
       db.exec("COMMIT");

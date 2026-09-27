@@ -1,0 +1,22 @@
+name: Check code and web release
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix server/report-xlsx
+      - run: npm test
+      - run: npx tsc --noEmit
+      - run: npm run build:web
+      - run: npm run build:control
+      - run: git diff --exit-code -- shared cocos-table/assets/scripts
+      # Native signing remains on the controlled macOS release host.
+      # Credentials and installable binaries must not be uploaded by this job.

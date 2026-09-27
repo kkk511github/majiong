@@ -82,6 +82,7 @@ export function RecordsPanel({
     [error, setError] = useState("");
   const [selected, setSelected] = useState<StoredRound | null>(null);
   const [replayId, setReplayId] = useState<string | null>(null);
+  const [replayTransfer,setReplayTransfer]=useState<number|undefined>();
   const [liveRefresh, setLiveRefresh] = useState(0);
   const [newGames, setNewGames] = useState<Set<string>>(new Set());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -819,14 +820,14 @@ export function RecordsPanel({
           <MatchRecordDetails
             selected={selected}
             onRead={onRead}
-            replay={setReplayId}
+            replay={(id,transfer)=>{setReplayTransfer(transfer);setReplayId(id);}}
             showTeams={showTeams}
           />
         </Dialog>
       )}
       {replayId !== null && (
         <DeferredFeature label="回放" modal close={() => setReplayId(null)}>
-          <ReplayPanel initialId={replayId} close={() => setReplayId(null)} />
+          <ReplayPanel initialId={replayId} initialTransfer={replayTransfer} close={() => {setReplayId(null);setReplayTransfer(undefined);}} />
         </DeferredFeature>
       )}
     </section>

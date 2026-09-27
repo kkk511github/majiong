@@ -1,6 +1,6 @@
 {
   "name": "jinling-mahjong",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,6 +11,8 @@
     "dev:web": "vite --host 0.0.0.0",
     "dev:control": "vite --config vite.control.config.ts",
     "server": "tsx server/index.ts",
+    "server:gateway": "tsx server/runtime-gateway-main.ts",
+    "runtime:rollout": "tsx scripts/runtime-rollout.ts",
     "build": "npm run build:cocos && tsc --noEmit && vite build && node scripts/check-web-assets.mjs",
     "build:native": "npm run build:cocos && tsc --noEmit && vite build --mode native",
     "build:web": "npm run build:cocos && tsc --noEmit && vite build --mode web && node scripts/check-web-assets.mjs",
@@ -20,6 +22,7 @@
     "test:load": "tsx scripts/load-test.ts",
     "check:deployment": "tsx scripts/check-auth-service.ts",
     "native:sync": "npm run build:native && cap sync && node scripts/normalize-native-paths.mjs",
+    "package:mobile": "node scripts/package-mobile.mjs",
     "ios": "cap open ios",
     "android": "cap open android",
     "format": "prettier --write src shared server tests docs *.ts *.json *.md",

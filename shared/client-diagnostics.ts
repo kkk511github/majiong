@@ -1,7 +1,13 @@
 /** Allowlisted app diagnostics: never serialize game state, tokens or arbitrary logs. */
-export const DIAGNOSTIC_EVENT_CODES=['app-start','network','table-loading','table-ready','table-error','window-error','promise-error','react-error','resource-error'] as const;
+export const DIAGNOSTIC_EVENT_CODES=['app-start','network','table-loading','table-ready','table-error','window-error','promise-error','react-error','resource-error','command-sent','command-ack','command-error','command-timeout'] as const;
 export type DiagnosticEventCode=typeof DIAGNOSTIC_EVENT_CODES[number];
-export interface DiagnosticEvent {at:number;code:DiagnosticEventCode;name?:string;message?:string;stack?:string;tableCode?:string}
+export interface DiagnosticEventMeta {requestId?:string;revision?:number;elapsedMs?:number}
+export interface DiagnosticEvent extends DiagnosticEventMeta {at:number;code:DiagnosticEventCode;name?:string;message?:string;stack?:string;tableCode?:string}
+export function diagnosticMeta(value:DiagnosticEventMeta):DiagnosticEventMeta {
+ return {...(typeof value.requestId==='string'&&/^[a-zA-Z0-9-]{1,64}$/.test(value.requestId)?{requestId:value.requestId}:{}),
+  ...(Number.isSafeInteger(value.revision)&&value.revision!>=0?{revision:value.revision}:{}),
+  ...(typeof value.elapsedMs==='number'&&Number.isFinite(value.elapsedMs)&&value.elapsedMs>=0&&value.elapsedMs<=3600000?{elapsedMs:Math.round(value.elapsedMs)}:{})};
+}
 export interface ClientDiagnosticReport {
  version:1;at:number;platform:'android'|'ios';
  environment:Record<string,string|number|boolean>;
@@ -31,7 +37,9 @@ export function sanitizeDiagnosticReport(value:unknown,now=Date.now()):AndroidDi
  if(typeof raw.api==='number'&&Number.isInteger(raw.api)&&raw.api>=24&&raw.api<=100)environment.api=raw.api;
  for(const key of ['roundRect','webgl','webgl2'])if(typeof raw[key]==='boolean')environment[key]=raw[key];
  const events=v.events.filter((e):e is Record<string,unknown>=>!!e&&typeof e==='object'&&!Array.isArray(e)).filter(e=>DIAGNOSTIC_EVENT_CODES.includes(e.code as DiagnosticEventCode)).slice(-32).map(e=>({at:timestamp(e.at),code:e.code as DiagnosticEventCode,...(typeof e.tableCode==='string'&&/^\d{6}$/.test(e.tableCode)?{tableCode:e.tableCode}:{}),...(typeof e.name==='string'?{name:diagnosticText(e.name,60)}:{}),...(typeof e.message==='string'?{message:diagnosticText(e.message)}:{}),...(typeof e.stack==='string'?{stack:diagnosticText(e.stack,500)}:{})}));
- const report:ClientDiagnosticReport={version:1,at:timestamp(v.at),platform:v.platform as 'ios'|'android',environment,events};
+ // Match metadata by the same accepted event sequence (not by raw array index).
+ const accepted=v.events.filter((e):e is Record<string,unknown>=>!!e&&typeof e==='object'&&!Array.isArray(e)).filter(e=>DIAGNOSTIC_EVENT_CODES.includes(e.code as DiagnosticEventCode)).slice(-32);
+ const report:ClientDiagnosticReport={version:1,at:timestamp(v.at),platform:v.platform as 'ios'|'android',environment,events:events.map((event,index)=>({...event,...diagnosticMeta(accepted[index] as DiagnosticEventMeta)}))};
  if(v.table&&typeof v.table==='object'){
   const t=v.table as Record<string,unknown>,table:NonNullable<AndroidDiagnosticReport['table']>={};
   if(typeof t.code==='string'&&/^\d{6}$/.test(t.code))table.code=t.code;

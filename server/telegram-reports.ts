@@ -92,7 +92,7 @@ export function parseReportConfig(value: unknown): TelegramReportConfig {
 }
 
 /** One completed table per participant, all assigned to their final team. */
-export function participationRows(db: DatabaseSync, teamIds: string | string[], from: number, to: number): ParticipationRow[] {
+export function participationRows(db: DatabaseSync, teamIds: string | string[], from: number, to: number,game?:string): ParticipationRow[] {
   const teams = validateReportRange(db, teamIds, from, to);
   const rows = db.prepare(`
     ${finalRoster}
@@ -103,13 +103,13 @@ export function participationRows(db: DatabaseSync, teamIds: string | string[], 
     JOIN account_numbers n ON n.account_id=p.account_id
     JOIN final_roster f ON f.account_id=p.account_id
     JOIN teams t ON t.id=f.team_id
-    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND ${completedTableWindow}
+    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND ${completedTableWindow}${game?' AND p.game_id=?':''}
       AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
       AND COALESCE(json_extract(r.record,'$.experience'),0)=0
     GROUP BY p.account_id, n.member_id, a.username, a.name, t.name
     ORDER BY t.name, n.member_id
-  `).all(to, to, ...teams, from, to);
+  `).all(to, to, ...teams, from, to,...(game?[game]:[]));
   return rows.map(row => {
     const rounds = Number(row.rounds);
     if (!Number.isSafeInteger(rounds * 3)) throw new Error("报表局数超出有效范围");
@@ -132,7 +132,7 @@ function validateReportRange(db: DatabaseSync, teamIds: string | string[], from:
  * Raw points include in-table and outside transfers. Apply the saved table fee
  * once, before filtering dates/teams, then use the requested fixed divisor 2.
  * Never divide the already-converted app points a second time. */
-export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], from: number, to: number): ScoreRow[] {
+export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], from: number, to: number,game?:string): ScoreRow[] {
   const teams = validateReportRange(db, teamIds, from, to);
   const initial = "COALESCE(json_extract(r.record,'$.initialScore'),0)";
   const baseline = `COALESCE(json_extract(r.record,'$.settlementBase'),${initial})`;
@@ -157,13 +157,13 @@ export function dailyScoreRows(db: DatabaseSync, teamIds: string | string[], fro
     JOIN account_numbers n ON n.account_id=p.account_id
     JOIN final_roster f ON f.account_id=p.account_id
     JOIN teams t ON t.id=f.team_id
-    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND ${completedTableWindow}
+    WHERE f.team_id IN (${teams.map(() => "?").join(",")}) AND ${completedTableWindow}${game?' AND p.game_id=?':''}
       AND r.code<>'练习桌'
       AND json_extract(r.record,'$.result.reason')<>'dissolved'
       AND COALESCE(json_extract(r.record,'$.experience'),0)=0
     GROUP BY p.account_id,n.member_id,a.username,a.name,t.name
     ORDER BY t.name,n.member_id
-  `).all(to, to, ...teams, from, to);
+  `).all(to, to, ...teams, from, to,...(game?[game]:[]));
   return rows.map(row => {
     const score = Number(row.score);
     if (!Number.isFinite(score) || Math.abs(score) > Number.MAX_SAFE_INTEGER)

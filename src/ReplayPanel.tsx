@@ -21,9 +21,11 @@ import { signedScore } from "../shared/settlement";
 
 export function ReplayPanel({
   initialId = "",
+  initialTransfer,
   close,
 }: {
   initialId?: string;
+  initialTransfer?: number;
   close: () => void;
 }) {
   const playbackRun = useRef(0);
@@ -63,6 +65,10 @@ export function ReplayPanel({
       .then((next) => {
         if (active) {
           setData(next);
+          if(initialTransfer!==undefined&&query.id===initialId){
+            const at=next.frames.findIndex(f=>f.transferCount!==undefined&&f.transferCount>initialTransfer);
+            setStep(Math.max(0,at));
+          }
           setSearchOpen(false);
         }
       })
@@ -182,6 +188,7 @@ export function ReplayPanel({
         )
       }
     >
+      {initialTransfer!==undefined&&data&&query.id===initialId&&!data.frames.some(f=>f.transferCount!==undefined&&f.transferCount>initialTransfer)&&<p className="score-note">该旧回放未保存逐笔定位信息，已从开头打开，不猜测对应操作。</p>}
       <section className="replay-panel">
         {data&&<button className="replay-keyboard-controls sr-only" onFocus={wakeControls} onClick={wakeControls}>显示回放控制</button>}
         {(!data || searchOpen) && (

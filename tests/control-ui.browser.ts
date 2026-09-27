@@ -18,6 +18,21 @@ const actor: ControlAccount = {
   createdAt: 1780000000000,
   suspended: false,
 };
+test('自动对账页显示差异与证据不足，手动核对不出现改分或重发入口',async({page})=>{
+  await setup(page);let scans=0;
+  await page.route('**/api/control/reconciliation?**',route=>{
+    if(route.request().method()==='POST'){scans++;return route.fulfill({json:{queued:2}});}
+    return route.fulfill({json:{pending:0,reports:[
+      {game:'demo-a',code:'123456',at:Date.now(),checkedAt:Date.now(),status:'mismatch',issues:['座位1后台积分与App终桌分不一致'],rounds:8,duplicateSnapshots:0},
+      {game:'demo-b',code:'234567',at:Date.now(),checkedAt:Date.now(),status:'unverifiable',issues:['历史记录不完整'],rounds:3,duplicateSnapshots:0},
+    ]}});
+  });
+  await page.getByRole('button',{name:'自动对账',exact:true}).click();
+  await expect(page.getByText('存在差异',{exact:true})).toBeVisible();await expect(page.getByText('证据不足',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'核对这个范围',exact:true}).click();expect(scans).toBe(1);
+  await expect(page.getByRole('button',{name:/改分|重发账单/})).toHaveCount(0);
+  await page.screenshot({path:'output/qa/reconciliation-control.png'});
+});
 const makeMember = (index: number): ControlAccount => ({
   id: `test-member-${index}`,
   memberId: String(100100 + index),

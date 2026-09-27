@@ -1,5 +1,5 @@
 import {Capacitor,registerPlugin} from '@capacitor/core';
-import {diagnosticText,sanitizeDiagnosticReport,type DiagnosticEvent,type DiagnosticEventCode} from '../shared/client-diagnostics';
+import {diagnosticText,diagnosticMeta,sanitizeDiagnosticReport,type DiagnosticEvent,type DiagnosticEventCode,type DiagnosticEventMeta} from '../shared/client-diagnostics';
 const native=registerPlugin<{getInfo():Promise<Record<string,string|number|boolean>>}>('AppDiagnostics');
 const KEY='jinling:android-diagnostics-v1';
 const enabled=()=>['android','ios'].includes(Capacitor.getPlatform())&&Capacitor.isPluginAvailable('AppDiagnostics');
@@ -22,10 +22,10 @@ async function collect(){
  return report;
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify({account,events,autoUploadedAt}));}catch{/* Never block gameplay for diagnostics. */}}
-function record(code:DiagnosticEventCode,error?:unknown){
+function record(code:DiagnosticEventCode,error?:unknown,meta:DiagnosticEventMeta={}){
  if(!enabled())return;
- const e=error instanceof Error?error:typeof error==='string'?{name:code==='network'?'Network':'Error',message:error,stack:''}:undefined;
- events=[...events.filter(e=>e.at>Date.now()-86400000),{at:Date.now(),code,...(table?.code&&/^\d{6}$/.test(table.code)?{tableCode:table.code}:{}),...(e?{name:diagnosticText(e.name,60),message:diagnosticText(e.message),stack:diagnosticText(e.stack,500)}:{})}].slice(-32);save();
+ const e=error instanceof Error?error:typeof error==='string'?{name:code==='network'?'Network':code==='command-sent'||code==='command-ack'?'Command':'Error',message:error,stack:''}:undefined;
+ events=[...events.filter(e=>e.at>Date.now()-86400000),{at:Date.now(),code,...diagnosticMeta(meta),...(table?.code&&/^\d{6}$/.test(table.code)?{tableCode:table.code}:{}),...(e?{name:diagnosticText(e.name,60),message:diagnosticText(e.message),stack:diagnosticText(e.stack,500)}:{})}].slice(-32);save();
  if(['table-error','window-error','promise-error','react-error'].includes(code))void upload('auto');
 }
 async function upload(id:string){

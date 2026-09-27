@@ -2,6 +2,11 @@ import {it,expect} from 'vitest';
 import {DatabaseSync} from 'node:sqlite';
 import {createClientDiagnostics,type DiagnosticConnection} from '../server/client-diagnostics';
 import {diagnosticText,sanitizeDiagnosticReport} from '../shared/client-diagnostics';
+it('command correlation keeps only bounded identifiers, revisions and timings, never raw action payloads',()=>{
+ const at=Date.now();const clean=sanitizeDiagnosticReport({version:1,at,platform:'ios',environment:{},events:[{at,code:'command-ack',requestId:'command-12',revision:14,elapsedMs:123.4,action:{tile:28},token:'secret'}]},at);
+ expect(clean.events[0]).toMatchObject({requestId:'command-12',revision:14,elapsedMs:123});
+ expect(JSON.stringify(clean)).not.toMatch(/secret|tile|action/);
+});
 import {roundedRectPath} from '../cocos-table/assets/scripts/canvas-compat';
 const report=(at:number)=>({version:1,at,platform:'android',environment:{appVersion:'0.8.1',webViewVersion:'83.0.4103.120',roundRect:false,token:'sensitive'},table:{code:'845400',round:1,phase:'playing',hand:[1,2,3]},events:[{at,code:'table-error',name:'TypeError',message:'roundRect is not a function',stack:'at https://localhost/cocos-table/index.js?token=secret:1'}]});
 function fixture(){const db=new DatabaseSync(':memory:');db.exec("CREATE TABLE accounts(id TEXT PRIMARY KEY);INSERT INTO accounts VALUES('a'),('b')");let now=1_000_000,state:DiagnosticConnection='offline';const sent:string[]=[];const manager=createClientDiagnostics(db,{now:()=>now,connection:()=>state,send:(_,id)=>sent.push(id)});return{db,manager,sent,setState:(s:DiagnosticConnection)=>state=s,tick:(n:number)=>now+=n,now:()=>now};}

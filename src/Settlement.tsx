@@ -1,4 +1,5 @@
 import { copyText } from "./clipboard";
+import {BillExplanation} from './BillExplanation';
 import { useState } from "react";
 import { ArrowRight, ChevronRight, Copy, Trophy } from "lucide-react";
 import type { RoundRecord, Seat } from "../shared/types";
@@ -196,11 +197,14 @@ export function ScoreDetails({
   record,
   me,
   ledgerFirst = false,
+  onReplayTransfer,
 }: {
   record: RoundRecord;
   me?: Seat;
   ledgerFirst?: boolean;
+  onReplayTransfer?: (index:number)=>void;
 }) {
+  const [explained,setExplained]=useState<number|null>(null);
   const hasExternal =
     record.result.transfers?.some((t) => t.scope === "external") ||
     record.result.externalDeltas?.some((n) => n !== 0);
@@ -214,6 +218,7 @@ export function ScoreDetails({
     : undefined;
   return (
     <div className={`score-details${ledgerFirst ? " record-score-ledger" : ""}`}>
+      {explained!==null&&<BillExplanation record={record} index={explained} close={()=>setExplained(null)} replay={onReplayTransfer?()=>onReplayTransfer(explained):undefined}/>}
       {ledgerFirst && <>
         <section className="record-transfer-section" aria-label="本把逐笔收支">
           <h4>本把逐笔收支 <small>{record.result.transfers?.length ?? 0} 笔</small></h4>
@@ -221,7 +226,7 @@ export function ScoreDetails({
             <thead><tr><th>事项</th><th>付分方</th><th>收分方</th><th>分数</th></tr></thead>
             <tbody>{record.result.transfers.map((entry, index) => <tr key={index}>
               <td>{entry.reason}{entry.scope === "external" && <small className="record-external-tag">桌外</small>}</td>
-              <td>{record.names[entry.from]}</td><td>{record.names[entry.to]}</td><td>{entry.amount}<small> 分</small></td>
+              <td>{record.names[entry.from]}</td><td>{record.names[entry.to]}</td><td><button aria-label={`解释第${index+1}笔收支`} onClick={()=>setExplained(index)}>{entry.amount}<small> 分</small></button></td>
             </tr>)}</tbody>
           </table> : <p className="score-note">{record.result.transfers === undefined ? "这局为旧版记录，未保存逐笔收支。" : "本把没有积分收支。"}</p>}
         </section>
@@ -352,9 +357,9 @@ export function ScoreDetails({
                       {entry.reason}
                       {entry.scope === "external" ? " · 桌外" : ""}
                     </small>
-                    <strong>
+                    <strong><button aria-label={`解释第${i+1}笔收支`} onClick={()=>setExplained(i)}>
                       {entry.amount} <small>分</small>
-                    </strong>
+                    </button></strong>
                   </li>
                 ))}
               </ol>

@@ -4,6 +4,13 @@ import { createClientUpdateSettings } from '../server/client-update-settings';
 import { createGame, newPlayer } from '../shared/engine';
 
 const databases: DatabaseSync[] = [];
+it('simultaneous runtime policy instances refresh protected seats and reject stale saves',()=>{
+ const f=fixture(),other=createClientUpdateSettings(f.db,()=>f.games);
+ f.policy.save('admin',{enabled:true,minimumVersion:'0.8.5',revision:0});
+ expect(other.accepts('0.8.4')).toBe(false);expect(other.allowsExisting('0.8.4','old',f.active)).toBe(true);
+ expect(()=>other.save('admin',{enabled:false,minimumVersion:'0.8.5',revision:0})).toThrow('设置已变化');
+ other.save('admin',{enabled:false,minimumVersion:'0.8.5',revision:1});expect(f.policy.accepts('0.8.4')).toBe(true);
+});
 afterEach(() => databases.splice(0).forEach(db => db.close()));
 function fixture() {
   const db = new DatabaseSync(':memory:'); databases.push(db);

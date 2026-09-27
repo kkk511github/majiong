@@ -62,6 +62,11 @@ it('跨周遗留终桌快照：后台、CSV、日结、周结只归最新一周�
   expect(f.records.exportPoints(q).includes('"member"')).toBe(expected===1);
   expect(dailyScoreRows(f.db,'team-3',a,b).find(r=>r.username==='member')?.points??0).toBe(expected*5);
   expect(participationRows(f.db,'team-3',a,b).find(r=>r.username==='member')?.rounds??0).toBe(expected);
+  const app=f.records.list(new URLSearchParams({from:String(a),to:String(b)}),'member');
+  expect(app.total).toBe(expected);
+  expect(app.scoreTotals?.find(r=>r.id==='member')?.points??0).toBe(expected*5);
+  expect(app.dateTotal).toBe(1);
+  expect(app.dates).toEqual([{date:'2026-09-21',count:1}]);
  }
  expect(f.db.prepare('SELECT * FROM point_records ORDER BY rowid').all()).toEqual(ledger);
 });

@@ -70,7 +70,7 @@ export function MatchRecordDetails({
 }: {
   selected: StoredRound;
   onRead?: (game: string, readAt: number) => void;
-  replay: (id: string) => void;
+  replay: (id: string,transfer?:number) => void;
   showTeams?: boolean;
 }) {
   const [data, setData] = useState<MatchDetails | null>(null);
@@ -179,7 +179,7 @@ export function MatchRecordDetails({
           {roundView === "details" ? (
             <>
               <div className="record-hand-heading"><h3>第 {round.record.round} 把 · {round.record.result.winners.length ? resultDisplayLabel(round.record.result) : round.record.result.reason === "dissolved" ? "提前解散" : "流局"}</h3><time>{recordClock(round.record.at)}</time></div>
-              <ScoreDetails record={visibleRecord} ledgerFirst />
+              <ScoreDetails key={visibleRecord.id} record={visibleRecord} ledgerFirst onReplayTransfer={index=>replay(visibleRecord.id,index)} />
             </>
           ) : round.record.hands ? (
             <RoundReveal

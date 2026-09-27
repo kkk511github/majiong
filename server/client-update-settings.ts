@@ -31,6 +31,7 @@ export function createClientUpdateSettings(db: DatabaseSync, games: () => Iterab
   function write(next: ClientUpdateSettings, rows: [string, string][], actor?: string) {
     db.exec('BEGIN IMMEDIATE');
     try {
+      if(actor){const saved=db.prepare('SELECT state FROM client_update_settings WHERE id=1').get();if(saved&&JSON.parse(String(saved.state)).revision!==settings.revision)throw new AuthError('设置已变化，请刷新后再保存',409);}
       db.prepare('INSERT INTO client_update_settings VALUES(1,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state').run(JSON.stringify(next));
       db.prepare('DELETE FROM client_update_grants').run();
       const insert = db.prepare('INSERT INTO client_update_grants VALUES(?,?)');
@@ -46,14 +47,23 @@ export function createClientUpdateSettings(db: DatabaseSync, games: () => Iterab
   if (!stored) write(settings, snapshot(settings.enabled));
   else for (const row of db.prepare('SELECT game_id,account_id FROM client_update_grants').all())
     grants.add(key(String(row.game_id), String(row.account_id)));
+  function refresh(){
+    const row=db.prepare('SELECT state FROM client_update_settings WHERE id=1').get();if(!row)return;
+    const current=JSON.parse(String(row.state)) as ClientUpdateSettings;
+    if(current.revision===settings.revision)return;
+    settings=current;policy=clientVersionPolicy(settings.enabled?settings.minimumVersion:undefined);
+    grants=new Set(db.prepare('SELECT game_id,account_id FROM client_update_grants').all().map(r=>key(String(r.game_id),String(r.account_id))));
+  }
   return {
-    get: (): ClientUpdateSettings => ({ ...settings }),
-    accepts: (version: unknown) => policy.accepts(version),
+    get: (): ClientUpdateSettings => {refresh();return { ...settings };},
+    accepts: (version: unknown) => {refresh();return policy.accepts(version);},
     allowsExisting(version: unknown, id: string, game?: Game) {
+      refresh();
       return policy.accepts(version) || (activeUpdateTable(game) &&
         game.players.some(p => p?.id === id && !p.bot) && grants.has(key(game.id, id)));
     },
     save(actor: string, body: Record<string, unknown>) {
+      refresh();
       if (!Number.isSafeInteger(body.revision) || body.revision !== settings.revision)
         throw new AuthError('设置已变化，请刷新后再保存', 409);
       if (typeof body.enabled !== 'boolean' || typeof body.minimumVersion !== 'string')

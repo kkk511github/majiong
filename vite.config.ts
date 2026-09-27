@@ -3,7 +3,9 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { auditNativeWeb, protectClientCode, protectNativeTable } from "./scripts/native-security";
+import {prunePreviewAssets} from './scripts/release-assets.mjs';
 export default defineConfig(({ command, mode }) => {
+  let releaseOutput='dist';
   const env = loadEnv(mode, process.cwd(), "VITE_");
   // The browser release shares the gateway's origin; moving servers must not
   // leave accounts, avatars or WebSockets pointing at the previous machine.
@@ -47,6 +49,10 @@ export default defineConfig(({ command, mode }) => {
         const files = await auditNativeWeb(root, env.VITE_GAME_SERVER_URL);
         console.log(`Native security audit: ${files} web files passed (network destination remains observable).`);
       },
+    },{
+      name:'exclude-design-only-assets',apply:'build',
+      configResolved(config){releaseOutput=config.build.outDir;},
+      async closeBundle(){const report=await prunePreviewAssets(resolve(releaseOutput));console.log(`Preview-only assets excluded: ${report.savedBytes} bytes`);},
     }],
     server: {
       port: 5173,

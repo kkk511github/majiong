@@ -11,6 +11,7 @@ export function captureReplay(
   if (!g.replay || g.replay.id !== `${g.id}-${g.round}` || g.replay.endedAt)
     return;
   g.replay.frames.push({
+    ...(g.roundTransfers?{transferCount:g.roundTransfers.length}:{}),
     globalAnchorDiscards: globalAnchorDiscards(g),
     at: now,
     type,

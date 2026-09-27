@@ -377,6 +377,8 @@ export interface View extends Omit<
 }
 
 export interface ReplayFrame {
+  /** Number of authoritative transfer entries applied by this frame. */
+  transferCount?: number;
   globalAnchorDiscards?: GlobalAnchorDiscard[];
   at: number;
   type:

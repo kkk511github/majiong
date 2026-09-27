@@ -28,7 +28,7 @@ export function Diagnostics({api,member,onClose}:{api:ControlApi;member:ControlA
   {active?.report&&<section className="control-diagnostic-report" aria-label="诊断报告">
    <h3>设备与环境 · {active.report.platform==='ios'?'iOS':'安卓'}</h3><dl>{Object.entries(active.report.environment).map(([key,value])=><div key={key}><dt>{fields[key]??key}</dt><dd>{typeof value==='boolean'?(value?'支持':'不支持'):String(value)}</dd></div>)}</dl>
    {active.report.table&&<p>采集时所在牌桌：{active.report.table.code??'—'} · 第 {active.report.table.round??'—'} 把 · {active.report.table.phase??'—'}</p>}
-   <h3>最近事件</h3>{active.report.events.map((event,i)=><article key={i}><strong>{displayTime(event.at)} · {event.code}{event.tableCode?` · 房号 ${event.tableCode}`:''}</strong><p>{event.name} {event.message}</p>{event.stack&&<pre>{event.stack}</pre>}</article>)}
+   <h3>最近事件</h3>{active.report.events.map((event,i)=><article key={i}><strong>{displayTime(event.at)} · {event.code}{event.tableCode?` · 房号 ${event.tableCode}`:''}</strong><p>{event.name} {event.message}</p>{event.requestId&&<p>操作 {event.requestId} · 牌局版本 {event.revision??'—'} · 确认耗时 {event.elapsedMs===undefined?'—':`${event.elapsedMs}ms`}</p>}{event.stack&&<pre>{event.stack}</pre>}</article>)}
   </section>}
  </Modal>;
 }

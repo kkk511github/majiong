@@ -8,6 +8,8 @@ interface Entry {
   status: TableInviteStatus; expiresAt: number; createdAt: number; finishedAt?: number; reason?: string;
 }
 interface Dependencies {
+  enabled?:()=>boolean;
+  storage?:{load:()=>Entry[];save:(entry:Entry)=>void;remove:(id:string)=>void};
   online: () => string[];
   account: (id: string) => Account | undefined;
   room: (id: string) => Game | undefined;
@@ -26,6 +28,8 @@ export function createTableInvitations(deps: Dependencies) {
   const signatures = new Map<string, string>();
   let joining = false;
   const now = deps.now ?? Date.now;
+  function reload(){if(!deps.storage)return;entries.clear();byParticipant.clear();for(const e of deps.storage.load()){entries.set(e.id,e);for(const id of [e.from,e.to]){if(!byParticipant.has(id))byParticipant.set(id,new Set());byParticipant.get(id)!.add(e.id);}}}
+  reload();
   const allowed = (a?: Account): a is Account => !!a?.memberId && !!a.canPlay && !a.mustChangePassword && !a.suspended;
   // Administrator accounts may still host/invite voluntarily, but must never
   // be targets. Check the authoritative account again when accepting an invite.
@@ -33,6 +37,7 @@ export function createTableInvitations(deps: Dependencies) {
   const person = (a: Account): InvitePerson => ({ memberId: a.memberId!, name: a.name, avatar: a.avatar });
   const available = (g?: Game): g is Game => !!g?.table && !g.table.closed && g.phase === 'waiting' && g.players.some(p => !p);
   function ownerRoom(id: string, game: string) {
+    if(deps.enabled&&!deps.enabled())throw Error('等待牌桌已切换版本，请刷新后重试');
     const g = deps.room(id);
     if (!allowed(deps.account(id))) throw Error('当前没有邀请权限');
     if (!available(g) || g.id !== game) throw Error('请在有空位的等待牌桌邀请牌友');
@@ -40,6 +45,7 @@ export function createTableInvitations(deps: Dependencies) {
   }
   function finish(e: Entry, status: TableInviteStatus, reason: string) {
     e.status = status; e.reason = reason; e.finishedAt = now();
+    deps.storage?.save(e);
   }
   function invalid(e: Entry, online = new Set(deps.online())) {
     if (now() >= e.expiresAt) return '邀请已过期';
@@ -72,7 +78,8 @@ export function createTableInvitations(deps: Dependencies) {
     }
   }
   function refresh() {
-    if (joining) return;
+    if (joining||deps.enabled&&!deps.enabled()) return;
+    reload();
     const online = new Set(deps.online());
     const participants = new Set(byParticipant.keys());
     for (const e of entries.values()) {
@@ -81,6 +88,7 @@ export function createTableInvitations(deps: Dependencies) {
         if (reason) finish(e, now() >= e.expiresAt ? 'expired' : 'unavailable', reason);
       } else if (now() - e.finishedAt! > 120_000) {
         entries.delete(e.id);
+        deps.storage?.remove(e.id);
         for (const id of [e.from, e.to]) {
           const index = byParticipant.get(id)!;
           index.delete(e.id);
@@ -94,6 +102,7 @@ export function createTableInvitations(deps: Dependencies) {
     for (const id of participants) if (online.has(id)) sync(id);
   }
   function peers(id: string, game: string): OnlineInvitePeer[] {
+    reload();
     const g = ownerRoom(id, game);
     const pendingByRecipient = new Map([...entries.values()]
       .filter(e => e.game === g.id && e.status === 'pending' && e.expiresAt > now()).map(e => [e.to, e]));
@@ -127,6 +136,7 @@ export function createTableInvitations(deps: Dependencies) {
       status: 'pending', expiresAt: now() + TABLE_INVITE_TTL_MS, createdAt: now(),
     };
     entries.set(e.id, e);
+    deps.storage?.save(e);
     for (const id of [e.from, e.to]) {
       if (!byParticipant.has(id)) byParticipant.set(id, new Set());
       byParticipant.get(id)!.add(e.id);
@@ -134,6 +144,8 @@ export function createTableInvitations(deps: Dependencies) {
     refresh();
   }
   function respond(id: string, invitation: string, accept: boolean) {
+    reload();
+    if(deps.enabled&&!deps.enabled())throw Error('邀请服务已切换版本，请刷新后重试');
     const e = entries.get(invitation);
     if (!e || e.to !== id) throw Error('这条邀请不存在或不属于你');
     if (e.status !== 'pending') {

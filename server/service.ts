@@ -1,4 +1,9 @@
 import { createExperienceTable, fillExperienceBots } from "./experience-table";
+import {lobbyProjection} from './lobby-projection';
+import {createSocketSender} from './socket-sender';
+import {createReconciliation} from './reconciliation';
+import {createRuntimeOwnership,type RuntimeOptions} from './runtime-ownership';
+import {forkGame} from './fork-game';
 import { createTableInvitations } from './table-invitations';
 import { clientVersionPolicy } from './client-version';
 import { createClientVersionReports } from './client-version-reports';
@@ -76,22 +81,29 @@ export function makeServer(
     host?: string;
     tickMs?: number;
     minimumClientVersion?: string;
+    runtime?:RuntimeOptions;
   } = {},
 ) {
   const initialMinimum = options.minimumClientVersion ?? process.env.MIN_CLIENT_VERSION;
   clientVersionPolicy(initialMinimum); // Reject malformed startup configuration.
   const file = options.database ?? "data/mahjong.sqlite";
   if (file !== ":memory:") mkdirSync(dirname(file), { recursive: true });
-  const db = new DatabaseSync(file);
+  const db = new DatabaseSync(file,{timeout:5000});
   db.exec(
     "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, id TEXT UNIQUE, name TEXT, last_seen INTEGER); CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER); CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, user_id TEXT, message TEXT, at INTEGER);",
   );
   db.exec(
     "CREATE TABLE IF NOT EXISTS table_creations (session_id TEXT, creation_id TEXT, codes TEXT NOT NULL, PRIMARY KEY(session_id, creation_id)); CREATE TABLE IF NOT EXISTS table_archives (id TEXT PRIMARY KEY, state TEXT NOT NULL, at INTEGER NOT NULL);",
   );
+  let runtime:ReturnType<typeof createRuntimeOwnership>|undefined;
+  try{
+    if(!options.runtime&&db.prepare("SELECT 1 FROM sqlite_master WHERE name='runtime_config'").get())throw Error('This database requires a rollout-aware runtime; standalone writers are disabled');
+    runtime=options.runtime?createRuntimeOwnership(db,options.runtime):undefined;
+  }catch(error){db.close();throw error;}
   const games = new Map<string, Game>(),
     clients = new Map<string, WebSocket>(),
     lastAuto = new Map<string, number>();
+  const allPoolGames=()=>runtime?runtime.lobbyGames():[...games.values()];
   let invitations: ReturnType<typeof createTableInvitations> | undefined;
   // Connection-scoped: reconnecting with an old app must not inherit support
   // advertised by another connection for the same account.
@@ -108,7 +120,7 @@ export function makeServer(
       if (ws) send(ws, { type: "accountUpdated", account });
       for (const current of games.values()) {
         if (!current.players.some((p) => p?.id === account.id)) continue;
-        const changed = structuredClone(current);
+        const changed = forkGame(current);
         changed.revision++;
         publish(changed);
       }
@@ -119,15 +131,17 @@ export function makeServer(
             !current.table.settings.autoRenew
           )
             continue;
-          const changed = structuredClone(current);
+          const changed = forkGame(current);
           changed.table!.settings.autoRenew = false;
           changed.revision++;
           publish(changed);
         }
       }
+      if(clients.size)broadcastTables();
     },
   );
   const records = createRecords(db, accounts.getAvatar);
+  const reconciliation=createReconciliation(db,records);
   const club = createClub(db, accounts, records);
   const versionReports = createClientVersionReports(db);
   const diagnostics=createClientDiagnostics(db,{
@@ -143,13 +157,23 @@ export function makeServer(
       for (const [id, ws] of clients) enforceClientVersion(id, ws);
       return settings;
     },
-  },diagnostics,records);
+  },diagnostics,records,reconciliation);
   const controlReleases = createControlReleaseProxy(control.requireSession);
   const lobbySubscribers = new Set<string>(),
     lobbySent = new Map<string, string>();
-  const save = db.prepare(
+  const rawSave = db.prepare(
     "INSERT INTO rooms VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at",
   );
+  const save={run:(id:string,state:string,at:number)=>{if(runtime)runtime.save(JSON.parse(state) as Game);return rawSave.run(id,state,at);}};
+  function syncRuntimeRooms(){
+    if(!runtime)return;
+    const owned=runtime.owned(),ids=new Set(owned.map(r=>r.id));
+    for(const [code,g] of games)if(!ids.has(g.id)){games.delete(code);lastAuto.delete(g.id);}
+    for(const room of owned)if(!games.has(room.code)){
+      const row=db.prepare('SELECT state FROM rooms WHERE id=?').get(room.id);
+      if(row){const g=JSON.parse(String(row.state)) as Game;games.set(g.code,g);}
+    }
+  }
   function freshTableCode(reserved: ReadonlySet<string> = new Set()) {
     let code: string;
     do {
@@ -157,6 +181,7 @@ export function makeServer(
     } while (
       games.has(code) ||
       reserved.has(code) ||
+      (runtime&&db.prepare('SELECT 1 FROM room_routes WHERE code=?').get(code)) ||
       db.prepare("SELECT 1 FROM match_records WHERE code=? LIMIT 1").get(code)
     );
     return code;
@@ -168,7 +193,7 @@ export function makeServer(
     return number;
   }
   function tablePoolTarget(g: Game) {
-    const target = g.table?.poolTarget;
+    const target = g.table?(runtime?.poolTarget(g.table.groupId)??g.table.poolTarget):undefined;
     return Number.isInteger(target) && target! >= 1 && target! <= 5
       ? target!
       : 0;
@@ -184,7 +209,7 @@ export function makeServer(
   function managedTableCapacity(creatorId: string) {
     const pools = new Map<string, number>();
     let legacyTables = 0;
-    for (const game of games.values()) {
+    for (const game of allPoolGames()) {
       if (
         !game.table ||
         game.table.closed ||
@@ -211,6 +236,7 @@ export function makeServer(
     .all(Date.now() - 86400000)) {
     try {
       const g = JSON.parse(String(row.state)) as Game;
+      if(runtime&&!runtime.owns(g.id))continue;
       if (g.version !== 1) continue;
       if (g.table?.closed || (!g.table && !g.players.some((p) => p && !p.bot)))
         continue;
@@ -248,7 +274,7 @@ export function makeServer(
       g.history.length || g.players.some(Boolean) ||
       !db.prepare("SELECT 1 FROM match_records WHERE code=? LIMIT 1").get(oldCode)
     ) continue;
-    const renewed = structuredClone(g);
+    const renewed = forkGame(g);
     renewed.code = freshTableCode();
     renewed.table!.createdAt = Date.now();
     renewed.revision++;
@@ -271,14 +297,14 @@ export function makeServer(
       seenTableNumbers.add(number);
       continue;
     }
-    const repaired = structuredClone(g);
+    const repaired = forkGame(g);
     repaired.table!.number = reserveTableNumber(usedTableNumbers);
     repaired.revision++;
     repairedTables.push(repaired);
   }
   if (repairedTables.length) {
     try {
-      db.exec("BEGIN");
+      db.exec("BEGIN IMMEDIATE");
       for (const g of repairedTables) save.run(g.id, JSON.stringify(g), Date.now());
       db.exec("COMMIT");
     } catch (error) {
@@ -287,12 +313,11 @@ export function makeServer(
     }
     for (const g of repairedTables) games.set(g.code, g);
   }
-  const send = (ws: WebSocket, message: ServerMessage) => {
-    if (ws.readyState === WebSocket.OPEN)
-      ws.send(JSON.stringify({ ...message, serverNow: Date.now() }));
-  };
+  const sender=createSocketSender();
+  const send = (ws: WebSocket, message: ServerMessage) => sender.send(ws,message);
   function viewFor(g: Game, seat: Seat) {
     const view = baseViewFor(g, seat);
+    if(runtime&&!runtime.admitting()&&g.phase==='waiting')view.admissionMessage='服务升级准备中，准备状态会保留，暂不开始新牌局';
     view.players = view.players.map((p) =>
       p ? { ...p, avatar: p.bot ? undefined : accounts.getAvatar(p.id) } : null,
     );
@@ -322,7 +347,7 @@ export function makeServer(
         "SELECT 1 FROM accounts WHERE id=? AND role='admin' AND must_change=0",
       )
       .get(id);
-    const tables = [...games.values()]
+    const tables = allPoolGames()
       .filter(
         (g) =>
           g.table &&
@@ -390,7 +415,8 @@ export function makeServer(
     fallback?: Game,
     preserveId?: string,
   ) {
-    const group = [...games.values()].filter(
+    if(runtime&&!runtime.active())return [];
+    const group = allPoolGames().filter(
       (game) => game.table?.groupId === groupId && !game.table.closed,
     );
     const candidates =
@@ -430,7 +456,7 @@ export function makeServer(
     if (!removable.length && !createCount) return [];
     const now = Date.now();
     const usedNumbers = new Set(
-      [...games.values()]
+      allPoolGames()
         .filter((game) => game.table)
         .map((game) => game.table!.number),
     );
@@ -441,9 +467,12 @@ export function makeServer(
         )
       : [];
     try {
-      db.exec("BEGIN");
-      for (const room of removable)
+      db.exec("BEGIN IMMEDIATE");
+      for (const room of removable){
+        runtime?.assertOwner(room.id);
         db.prepare("DELETE FROM rooms WHERE id = ?").run(room.id);
+        runtime?.remove(room.id);
+      }
       for (const room of created) save.run(room.id, JSON.stringify(room), now);
       db.exec("COMMIT");
     } catch (error) {
@@ -460,7 +489,7 @@ export function makeServer(
   }
   function reconcileAllTablePools() {
     const groups = new Set(
-      [...games.values()]
+      allPoolGames()
         .filter((game) => tablePoolTarget(game))
         .map((game) => game.table!.groupId),
     );
@@ -479,6 +508,7 @@ export function makeServer(
     }
   }
   function persist(g: Game) {
+    if(g.table&&runtime){const target=runtime.poolTarget(g.table.groupId);if(target!==undefined){g.table.poolTarget=target;if(target===0)g.table.settings.autoRenew=false;}}
     // closeTable persists directly, bypassing publish. Stamp newly finished
     // tables here too; never re-date a table that already finished normally.
     if(g.table&&g.phase==='finished'&&g.table.finishedAt===undefined)g.table.finishedAt=Date.now();
@@ -488,16 +518,18 @@ export function makeServer(
       (g.table && (g.phase !== "finished" || g.table.settings.autoRenew))
     );
     try {
-      db.exec("BEGIN");
+      db.exec("BEGIN IMMEDIATE");
+      runtime?.assertOwner(g.id);
       records.capture(g);
       if (keep) save.run(g.id, JSON.stringify(g), Date.now());
-      else db.prepare("DELETE FROM rooms WHERE id = ?").run(g.id);
+      else {db.prepare("DELETE FROM rooms WHERE id = ?").run(g.id);runtime?.remove(g.id);}
       if (g.table && g.phase === "finished" && g.players.every(Boolean))
         db.prepare("INSERT OR IGNORE INTO table_archives VALUES (?,?,?)").run(
           g.id,
           JSON.stringify(g),
           Date.now(),
         );
+      if(g.phase==='finished'&&g.history.length)reconciliation.enqueue(g.id);
       db.exec("COMMIT");
     } catch (error) {
       db.exec("ROLLBACK");
@@ -529,16 +561,19 @@ export function makeServer(
           !game.table.closed,
       )
       .map((game) => {
-        const updated = structuredClone(game);
+        const updated = forkGame(game);
         updated.table!.poolTarget = nextTarget;
         if (!nextTarget) updated.table!.settings.autoRenew = false;
         return updated;
       });
     const now = Date.now();
     try {
-      db.exec("BEGIN");
+      db.exec("BEGIN IMMEDIATE");
+      runtime?.assertOwner(closing.id);
+      runtime?.setPoolTarget(closing.table!.groupId,nextTarget);
       records.capture(closing);
       db.prepare("DELETE FROM rooms WHERE id = ?").run(closing.id);
+      runtime?.remove(closing.id);
       if (closing.phase === "finished" && closing.players.every(Boolean))
         db.prepare("INSERT OR IGNORE INTO table_archives VALUES (?,?,?)").run(
           closing.id,
@@ -566,6 +601,7 @@ export function makeServer(
     }
   }
   function publish(g: Game) {
+    const previousLobby=lobbyProjection(games.get(g.code));
     refreshReadyDeadline(g, Date.now());
     if (
       g.table &&
@@ -597,7 +633,7 @@ export function makeServer(
     persist(g);
     broadcast(g);
     if (g.table?.closed) sendLeft(g, "管理员已解散这张牌桌");
-    broadcastTables();
+    if(previousLobby!==lobbyProjection(games.get(g.code)))broadcastTables();
     if (g.phase === 'finished' || g.table?.closed) for (const player of g.players) {
       const ws = player && clients.get(player.id);
       if (player && ws) enforceClientVersion(player.id, ws, g);
@@ -640,8 +676,7 @@ export function makeServer(
       if (player) player.resumedDeadline = undefined;
     if (g.replay?.id === `${g.id}-${g.round}`) {
       g.replay.startedAt = now;
-      const start = g.replay.frames.find((frame) => frame.type === "start");
-      if (start) start.at = now;
+      g.replay.frames=g.replay.frames.map(frame=>frame.type==='start'?{...frame,at:now}:frame);
     }
     g.revision++;
     lastAuto.set(g.id, now);
@@ -657,6 +692,7 @@ export function makeServer(
     return true;
   }
   function startIfReady(g: Game, connecting?: { id: string; socket: WebSocket }): Game {
+    if(runtime&&g.phase==='waiting'&&!runtime.admitting())return g;
     if (
       !["waiting", "ended"].includes(g.phase) ||
       (g.phase === "ended" &&
@@ -741,11 +777,11 @@ export function makeServer(
     const g = [...games.values()].find((g) =>
       g.players.some((p) => p?.id === id),
     );
-    return g ? structuredClone(g) : undefined;
+    return g ? forkGame(g) : undefined;
   };
   const seatFor = (g: Game, id: string) =>
     g.players.findIndex((p) => p?.id === id) as Seat;
-  const updateSettings = createClientUpdateSettings(db, () => games.values(), initialMinimum);
+  const updateSettings = createClientUpdateSettings(db, () => allPoolGames(), initialMinimum);
   function rejectClientVersion(ws: WebSocket) {
     if (ws.readyState !== WebSocket.OPEN) return;
     const minimumVersion = updateSettings.get().minimumVersion;
@@ -995,11 +1031,13 @@ export function makeServer(
       return;
     }
     if (req.method === "GET" && req.url === "/api/health") {
+      if(runtime)try{runtime.fence();}catch{res.statusCode=503;res.end(JSON.stringify({ok:false,reason:'runtime-fenced'}));return;}
       res.end(
         JSON.stringify({
           ok: true,
           service: "jinling-mahjong",
           version: APP_VERSION,
+          ...(runtime?{runtime:{id:runtime.id,release:runtime.release,protocol:1}}:{}),
         }),
       );
       return;
@@ -1138,9 +1176,11 @@ export function makeServer(
     res.end('{"error":"Not found"}');
   });
   invitations = createTableInvitations({
-    online: () => [...clients].filter(([, socket]) => socket.readyState === WebSocket.OPEN).map(([id]) => id),
+    online: () => runtime?runtime.online():[...clients].filter(([, socket]) => socket.readyState === WebSocket.OPEN).map(([id]) => id),
+    enabled:()=>!runtime||runtime.active(),
+    storage:runtime?.invitations,
     account: accounts.getAccount,
-    room: findRoom,
+    room: id=>findRoom(id)??(runtime?allPoolGames().find(g=>g.players.some(p=>p?.id===id)):undefined),
     table: code => games.get(code),
     summary: (game, viewer) => tableSummary(game, viewer, accounts.getAvatar),
     deliver: (id, invitations) => { const socket = clients.get(id); if (socket) send(socket, { type: 'tableInvitations', invitations }); },
@@ -1150,7 +1190,7 @@ export function makeServer(
       if (findRoom(recipient)) throw Error('请先离开当前牌桌');
       if (room.phase !== 'waiting' || room.table?.closed) throw Error('这张牌桌已开局或关闭');
       const account = accounts.getAccount(recipient)!;
-      let joined = structuredClone(room);
+      let joined = forkGame(room);
       const empty = joined.players.findIndex(player => !player);
       if (empty < 0) throw Error('这张牌桌已满');
       joined.players[empty] = newPlayer(recipient, account.name, false, joined.initialScore ?? 0);
@@ -1196,6 +1236,7 @@ export function makeServer(
       if (ws.readyState !== WebSocket.OPEN) return;
       let requestId: string | undefined;
       try {
+        syncRuntimeRooms();
         if (Date.now() - rateAt > 1000) {
           requests = 0;
           rateAt = Date.now();
@@ -1400,7 +1441,7 @@ export function makeServer(
             throw Error("请选择一张现有正式桌");
           let room=[...games.values()].find(r=>r.table?.experience?.sourceCode===source.code&&!r.table.closed);
           if(!room) {
-            const used=new Set([...games.values()].filter(r=>r.table).map(r=>r.table!.number));
+            const used=new Set(allPoolGames().filter(r=>r.table).map(r=>r.table!.number));
             const ownedSource={...source,table:{...source.table,creatorId:session.id}};
             room=createExperienceTable(ownedSource,freshTableCode(),randomUUID(),reserveTableNumber(used),Date.now());
             persist(room);
@@ -1450,7 +1491,7 @@ export function makeServer(
             now = Date.now();
           const created: Game[] = [];
           const reservedCodes = new Set<string>();
-          const usedNumbers = new Set([...games.values()]
+          const usedNumbers = new Set(allPoolGames()
             .filter((g) => g.table)
             .map((g) => g.table!.number));
           for (let i = 0; i < msg.count; i++) {
@@ -1476,7 +1517,7 @@ export function makeServer(
             created.push(room);
           }
           try {
-            db.exec("BEGIN");
+            db.exec("BEGIN IMMEDIATE");
             for (const room of created)
               save.run(room.id, JSON.stringify(room), now);
             db.prepare("INSERT INTO table_creations VALUES (?,?,?)").run(
@@ -1510,7 +1551,7 @@ export function makeServer(
           if (!["waiting", "finished"].includes(source.phase) && session.account.role !== "admin")
             throw Error("只有管理员可以解散进行中的牌桌");
           const closing = ["playing", "claiming", "ended"].includes(source.phase)
-            ? dissolveGame(source) : structuredClone(source);
+            ? dissolveGame(source) : forkGame(source);
           closing.table!.closed = true;
           closing.table!.endReason = "管理员收桌";
           closing.revision++;
@@ -1553,7 +1594,7 @@ export function makeServer(
             g = games.get(msg.code);
             if (!g || g.phase !== "waiting")
               throw Error("房间不存在，或已经开局");
-            g = structuredClone(g);
+            g = forkGame(g);
             if (
               msg.seat !== undefined &&
               (!Number.isInteger(msg.seat) || msg.seat < 0 || msg.seat > 3)
@@ -1720,9 +1761,13 @@ export function makeServer(
     return p.bot ? botAction(g, seat) : trusteeAction(g, seat);
   }
   let nextPoolAudit = Date.now() + 1000;
+  let reportedRuntimeFence=false;
   const tick = setInterval(() => {
+    try{runtime?.heartbeat();syncRuntimeRooms();}catch(error){if(!reportedRuntimeFence)console.error('Runtime fenced',error);reportedRuntimeFence=true;return;}
     for (const source of games.values()) {
-      let g = structuredClone(source);
+      if(runtime&&!runtime.owns(source.id))continue;
+      let g = forkGame(source);
+      if(g.table&&runtime?.poolTarget(g.table.groupId)===0){g.table.poolTarget=0;g.table.settings.autoRenew=false;}
       const now = Date.now();
       try {
         let presenceChanged = false;
@@ -1742,12 +1787,12 @@ export function makeServer(
         if (presenceChanged) {
           g.revision++;
           publish(g);
-          g = structuredClone(g);
+          g = forkGame(g);
         }
         if (refreshReadyDeadline(g, now)) {
           g.revision++;
           publish(g);
-          g = structuredClone(g);
+          g = forkGame(g);
         }
         if (g.table && g.phase === "waiting") {
           const settings = g.table.settings;
@@ -1770,7 +1815,7 @@ export function makeServer(
             g.revision++;
             publish(g);
             repairTablePool(g.table.groupId, undefined, g.id);
-            g = structuredClone(g);
+            g = forkGame(g);
             for (const id of kicked) {
               const ws = clients.get(id);
               if (ws)
@@ -1809,12 +1854,14 @@ export function makeServer(
             fillExperienceBots(renewed);
           }
           try {
-            db.exec("BEGIN");
+            db.exec("BEGIN IMMEDIATE");
+            runtime?.assertOwner(g.id);
             records.capture(g);
             db.prepare(
               "INSERT OR IGNORE INTO table_archives VALUES (?,?,?)",
             ).run(g.id, JSON.stringify(g), now);
             db.prepare("DELETE FROM rooms WHERE id=?").run(g.id);
+            runtime?.remove(g.id);
             if (renewed) save.run(renewed.id, JSON.stringify(renewed), now);
             db.exec("COMMIT");
           } catch (error) {
@@ -1918,13 +1965,16 @@ export function makeServer(
       nextPoolAudit = Date.now() + 1000;
       try { reconcileAllTablePools(); }
       catch (error) { console.error("Table pool audit failed", error); }
-      invitations?.refresh();
+      if(!runtime||runtime.active())invitations?.refresh();
+      try{reconciliation.tick();}catch(error){console.error('Reconciliation failed',error);}
+      void records.compressReplay().catch(error=>console.error('Replay compression failed',error));
       for (const [id, ws] of clients) enforceClientVersion(id, ws);
     }
   }, options.tickMs ?? 250);
   return {
     api,
     games,
+    runtimeFenced:()=>reportedRuntimeFence,
     listen: () =>
       new Promise<number>((resolve) =>
         api.listen(options.port ?? 8787, options.host ?? "0.0.0.0", () =>
@@ -1933,9 +1983,12 @@ export function makeServer(
       ),
     close: async () => {
       clearInterval(tick);
+      sender.close();
       for (const ws of wss.clients) ws.close();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve) => api.close(() => resolve()));
+      await records.drainReplayCompression();
+      runtime?.close();
       db.close();
     },
   };

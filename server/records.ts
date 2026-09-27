@@ -10,8 +10,9 @@ import { membership } from "./teams";
 import type { PointSummary, PointSummaryPage } from "../shared/types";
 import { AuthError } from "./accounts";
 import { roundNet, settlementRows } from "../shared/settlement";
-import { gzipSync, gunzipSync } from "node:zlib";
-import {completedTableWindow} from './completed-table-window';
+import { gunzipSync } from "node:zlib";
+import {createReplayStore} from './replay-store';
+import {completedTableWindow,latestCompletedSnapshot} from './completed-table-window';
 import type { RoundReplay } from "../shared/types";
 
 export function createRecords(
@@ -20,6 +21,7 @@ export function createRecords(
 ) {
   db.exec(`CREATE TABLE IF NOT EXISTS round_replays (
     id TEXT PRIMARY KEY, payload BLOB NOT NULL);`);
+  const replayStore=createReplayStore(db);
   db.exec(`CREATE TABLE IF NOT EXISTS round_records (
     id TEXT PRIMARY KEY, game_id TEXT NOT NULL, code TEXT NOT NULL,
     at INTEGER NOT NULL, player_ids TEXT NOT NULL, private_names INTEGER NOT NULL,
@@ -93,7 +95,7 @@ export function createRecords(
         totalRounds: original.totalRounds ?? g.rules.rounds,
         tableName: original.tableName ?? g.table?.settings.name ?? "南京好友桌",
       };
-      save.run(
+      const inserted=save.run(
         record.id,
         g.id,
         g.code,
@@ -102,6 +104,11 @@ export function createRecords(
         g.table?.settings.privacy === "all" ? 1 : 0,
         JSON.stringify(record),
       );
+      // Avoid rewriting complete old ledgers. Keep compatibility with a legacy
+      // player who registers an account only after the original hand ended.
+      if(!inserted.changes&&!db.prepare(`SELECT 1 FROM json_each(?) ids JOIN accounts a ON a.id=ids.value
+        LEFT JOIN point_records p ON p.record_id=? AND p.account_id=a.id WHERE p.record_id IS NULL LIMIT 1`)
+        .get(JSON.stringify(record.playerIds),record.id))continue;
       // Only completed online hands count; practice remains viewable history.
       if (
         g.code !== "练习桌" &&
@@ -142,10 +149,7 @@ export function createRecords(
       g.history.some((r) => r.id === g.replay!.id) &&
       !db.prepare("SELECT 1 FROM round_replays WHERE id=?").get(g.replay.id)
     ) {
-      db.prepare("INSERT OR IGNORE INTO round_replays VALUES (?,?)").run(
-        g.replay.id,
-        gzipSync(JSON.stringify(g.replay)),
-      );
+      replayStore.save(g.replay);
     }
     if (
       g.phase === "finished" &&
@@ -185,7 +189,7 @@ export function createRecords(
     }
   }
   // Existing completed rounds become queryable without rewriting a live game.
-  db.exec("BEGIN");
+  db.exec("BEGIN IMMEDIATE");
   try {
     for (const row of db
       .prepare(
@@ -279,6 +283,11 @@ export function createRecords(
       throw new AuthError("仅管理员可以筛选阅读状态", 403);
     const where: string[] = [],
       args: (string | number)[] = [];
+    // Apply before calendar/date filtering: an out-of-range newer snapshot
+    // also supersedes the old one, exactly as accounting and reports do.
+    if (source === 'match_records') where.push(latestCompletedSnapshot('match_records'));
+    const game=query.get('game');
+    if(game){if(!/^[A-Za-z0-9_-]{1,120}$/.test(game))throw new AuthError('牌桌ID不正确');where.push('game_id=?');args.push(game);}
     if (!admin) {
       where.push("EXISTS(SELECT 1 FROM json_each(player_ids) WHERE value=?)");
       args.push(viewer);
@@ -512,6 +521,8 @@ export function createRecords(
       throw new AuthError("请选择正确的起止日期");
     where.push(completedTableWindow);
     args.push(from, to);
+    const game=query.get('game');
+    if(game){if(!/^[A-Za-z0-9_-]{1,120}$/.test(game))throw new AuthError('牌桌ID不正确');where.push('p.game_id=?');args.push(game);}
     for (const [key, column] of [
       ["team", "p.team_id"],
       ["member", "p.account_id"],
@@ -714,5 +725,6 @@ export function createRecords(
     }
     return data;
   }
-  return { capture, list, details, markRead, points, exportPoints, replay };
+  return { capture, list, details, markRead, points, exportPoints, replay,
+    compressReplay:replayStore.compressNext,drainReplayCompression:replayStore.drain };
 }

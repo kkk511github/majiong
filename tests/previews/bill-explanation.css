@@ -1,0 +1,15 @@
+.app.classic.polished.bill-demo > main { display: block !important; }
+.bill-demo .score-details > .score-note {
+  display: block;
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  border: 1px solid #a6bdc0;
+  border-left: 4px solid #c6a254;
+  border-radius: 14px;
+  background: #fffdf7;
+  color: #234a4e;
+  box-shadow: 0 8px 24px #183e4910;
+}
+.bill-demo .score-details > .score-note h4 { font-size: 23px; margin: 0 0 10px; }
+.bill-demo .score-details > .score-note p { font-size: 15px; line-height: 1.7; margin: 6px 0; }
+.bill-demo .score-details > .score-note button { border-radius: 8px; padding: 9px 15px; margin-top: 10px; background: #19566a; color: white; }

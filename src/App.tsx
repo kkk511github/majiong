@@ -9,7 +9,6 @@ import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { ProfilePage } from "./ProfilePage";
 import { NotificationCenter } from "./NotificationCenter";
 import { RequiredUpdate } from './RequiredUpdate';
-import { CocosTable } from "./CocosTable";
 import { useScoreDebits } from "./useScoreDebits";
 import { openingScene, openingTitle, type OpeningCue } from "./TableOpening";
 import { cocosState } from "./cocos-state";
@@ -19,7 +18,6 @@ import { meldDisplayTiles } from "../shared/table-scene";
 import { MeldSourceArrow } from "./MeldSourceArrow";
 import { useRiverPlacement } from "./river-placement";
 import { RoomVoice } from "./RoomVoice";
-import { decisionCountdown } from "../shared/timing";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
 import {
@@ -72,6 +70,8 @@ import { roundReadiness } from "./round-readiness";
 import { RoundReveal } from "./RoundReveal";
 import { resultDisplayLabel } from "./win-label";
 import { listeningHints, readyDiscardTiles } from "./listening-hints";
+import {LiveCocosTable} from './LiveCocosTable';
+import {useVisibleClock} from './useVisibleClock';
 import { riverLayoutFor, tableRiverLayout } from "./river-layout";
 import { DiscardArrow } from "./DiscardArrow";
 import { TableLobby, TableSettingsSummary } from "./TableLobby";
@@ -209,12 +209,15 @@ export function App() {
   );
   const [selected, setSelected] = useState<number | null>(null);
   const selectionContext = useRef<{ id?: string; round?: number; canDiscard?: boolean }>({});
-  const [, refreshClock] = useState(0);
-  const now = client.now();
   const [dismissedResult, setDismissedResult] = useState("");
   const [finishedSnapshot, setFinishedSnapshot] = useState<View | null>(null);
   const v = state.view,
     mine = v?.players[v.me];
+  const now=useVisibleClock(!!v&&state.connected&&(['waiting','ended','finished'].includes(v.phase)||!!v.dissolve),()=>client.now(),at=>JSON.stringify([
+    Math.max(0,Math.ceil(((v?.table?.readyDeadline??0)-at)/1000)),
+    Math.max(0,Math.ceil(((v?.dissolve?.expires??0)-at)/1000)),
+    v?Math.ceil((state.mode==='local'&&v.phase==='ended'?Math.max(0,v.deadline-at):resultWait(v,at))/1000):0,
+  ]));
   useEffect(() => {
     if (v?.phase === "finished" && v.table?.settings.continuousRounds)
       setFinishedSnapshot(v);
@@ -279,10 +282,6 @@ export function App() {
   useEffect(() => {
     if (roomError) roomErrorRef.current?.scrollIntoView({ block: "nearest" });
   }, [roomError]);
-  useEffect(() => {
-    const t = setInterval(() => refreshClock((n) => n + 1), 250);
-    return () => clearInterval(t);
-  }, []);
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(""), 2500);
@@ -488,8 +487,6 @@ export function App() {
     setScoreDetailsKey("");
   }, [resultKey]);
   const gameActive = v && !["waiting"].includes(v.phase);
-  const ticking = !!v && ["playing", "claiming"].includes(v.phase);
-  const timed = ticking && v.rules.turnSeconds > 0;
   const resultSecondsLeft = v
     ? Math.ceil(
         (state.mode === "local" && v.phase === "ended"
@@ -507,41 +504,11 @@ export function App() {
     v?.phase === "ended" && state.mode === "online"
       ? roundReadiness(v, state.connected, resultSecondsLeft)
       : undefined;
-  const decisionTime =
-    v && timed ? decisionCountdown(v, now) : { seconds: 0, overtime: false };
-  const countdown = decisionTime.seconds;
-  const myOvertime =
-    state.connected &&
-    timed &&
-    decisionTime.overtime &&
-    (v?.canDiscard || !!v?.actions.length) &&
-    !mine?.trustee;
-  const waitingOthersOvertime =
-    !!v && v.phase === "claiming" && !v.actions.length && decisionTime.overtime;
   const paused = state.mode === "local" && (modal !== null || tableEntryBusy);
   const waitingFor = v?.players
     .filter((p) => p && !p.ready)
     .map((p) => p!.name)
     .join("、");
-  useEffect(() => {
-    if (
-      state.connected &&
-      !paused &&
-      (v?.canDiscard || !!v?.actions.length) &&
-      !mine?.trustee &&
-      countdown > 0 &&
-      countdown <= 5
-    )
-      gameAudio.play("warning");
-  }, [
-    state.connected,
-    countdown,
-    v?.deadline,
-    paused,
-    v?.canDiscard,
-    v?.actions.length,
-    mine?.trustee,
-  ]);
   useEffect(() => {
     const viewport = riverRef.current;
     if (!gameActive || !viewport) return;
@@ -862,7 +829,7 @@ export function App() {
         </main>
       )}
       {gameActive && v && mine && (
-        <CocosTable
+        <LiveCocosTable view={v} paused={paused} now={()=>client.now()}
           opening={opening}
           openingWaiting={v.openingGate
             ? v.openingGate.waiting.filter((seat) => seat !== v.me).length
@@ -875,7 +842,7 @@ export function App() {
           connectionQuality={state.mode === "online" && state.connected && (state.network.consecutiveTimeouts > 0 || (state.network.smoothedRttMs ?? 0) >= 600) ? networkLabel(state.network) : undefined}
           state={cocosState(v, {
             connected: state.connected, disabled: commandsDisabled || paused,
-            practice: state.mode === "local", countdown: !state.connected || paused || !timed ? "—" : v.openingGate || waitingOthersOvertime ? "…" : String(countdown).padStart(2, "0"),
+            practice: state.mode === "local", countdown: '—',
             selected, drawn: drawnTile, inspectedKind, hintKinds, hintDiscard,
             hintLabel: hintDiscard !== undefined ? `打${tileName(hintDiscard)}后可胡` : "已听牌 · 可胡",
             effects: motion,
@@ -905,7 +872,7 @@ export function App() {
           }}
         >
           {tableState => state.mode === "online" && <RoomVoice key={v.id} client={client} game={v.id} connected={state.connected} enabled={audioPreferences.chat !== false} volume={audioPreferences.voiceVolume} voiceGender={audioPreferences.voiceGender ?? "male"} phrases={state.phraseMessages} phrasesAvailable={state.phrasesAvailable} tableState={tableState} />}
-        </CocosTable>
+        </LiveCocosTable>
       )}
       <AudioRecovery />
       {!state.updateRequired && <NotificationCenter key={state.account?.id ?? "guest"} client={client} accountId={state.account?.id}

@@ -142,6 +142,7 @@ export class GameClient {
   private commandId?: string;
   private commandTimer?: ReturnType<typeof setTimeout>;
   private commandSequence = 0;
+  private commandStartedAt = 0;
   private lobbyWanted = false;
   private clock = new ServerClock();
   private clockTimer?: ReturnType<typeof setInterval>;
@@ -1101,7 +1102,10 @@ export class GameClient {
           this.finishInvitation(msg.requestId, undefined, msg.peers);
         } else if (msg.type === "ack") {
           if (msg.requestId === this.phraseRequest?.id) this.finishPhrase();
-          if (msg.requestId === this.commandId) this.finishCommand();
+          if (msg.requestId === this.commandId) {
+            androidDiagnostics.record('command-ack','confirmed',{requestId:this.commandId,elapsedMs:Date.now()-this.commandStartedAt,revision:this.state.view?.revision});
+            this.finishCommand();
+          }
         } else if(msg.type==='diagnosticRequest'){
           androidDiagnostics.request(msg.id,msg.expiresAt);
         } else if(msg.type==='diagnosticAck'){
@@ -1126,6 +1130,7 @@ export class GameClient {
           }
           // A renewal/leave notification can finish the old command before its late reply arrives.
           if (msg.requestId && msg.requestId !== this.commandId) return;
+          if(this.commandId)androidDiagnostics.record('command-error',msg.message,{requestId:this.commandId,revision:this.state.view?.revision,elapsedMs:Date.now()-this.commandStartedAt});
           if (!msg.requestId || msg.requestId === this.commandId)
             this.finishCommand();
           if (!msg.requestId) this.finishTables();
@@ -1226,8 +1231,11 @@ export class GameClient {
       (this.state.tableLobby && ["create", "join"].includes(msg.type));
     if (tracked) {
       this.commandId = `command-${++this.commandSequence}`;
+      this.commandStartedAt=Date.now();
+      androidDiagnostics.record('command-sent',msg.type,{requestId:this.commandId,revision:this.state.view?.revision});
       this.emit({ submitting: msg.type, error: "" });
       this.commandTimer = setTimeout(() => {
+        androidDiagnostics.record('command-timeout','awaiting confirmation',{requestId:this.commandId,revision:this.state.view?.revision,elapsedMs:Date.now()-this.commandStartedAt});
         // The server may have accepted the move: reconnect for authoritative state,
         // never replay an unconfirmed discard or ready command.
         this.updateNetwork({

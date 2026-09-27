@@ -5,9 +5,13 @@
  * this window must supersede an older one inside it. The unique id breaks at
  * ties, matching ORDER BY at DESC,id DESC without a per-point sort.
  * Bind [from, to]; caller's ledger alias is p. */
+export function latestCompletedSnapshot(alias: string) {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(alias)) throw Error('Invalid SQL alias');
+  return `NOT EXISTS (SELECT 1 FROM match_records latest
+    WHERE latest.game_id=${alias}.game_id AND (latest.at,latest.id)>(${alias}.at,${alias}.id))`;
+}
 export const completedTableWindow = `p.game_id IN (
   SELECT m.game_id FROM match_records m
   WHERE m.at>=? AND m.at<? AND m.code<>'练习桌'
-    AND NOT EXISTS (SELECT 1 FROM match_records latest
-      WHERE latest.game_id=m.game_id AND (latest.at,latest.id)>(m.at,m.id))
+    AND ${latestCompletedSnapshot('m')}
 )`;

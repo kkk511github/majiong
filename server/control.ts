@@ -19,6 +19,7 @@ import {version as serverVersion} from '../package.json';
 import type {createClientDiagnostics} from './client-diagnostics';
 import type {createRecords} from './records';
 import {createMemberGameQueries} from './member-games';
+import type {createReconciliation} from './reconciliation';
 
 type Accounts = ReturnType<typeof createAccounts>;
 
@@ -30,6 +31,7 @@ export function createControl(
   clientUpdates?: { get: () => ClientUpdateSettings; save: (actor: string, body: Record<string, unknown>) => ClientUpdateSettings },
   diagnostics?: Pick<ReturnType<typeof createClientDiagnostics>,'request'|'list'>,
   recordQueries?: Pick<ReturnType<typeof createRecords>,'details'>,
+  reconciliation?:ReturnType<typeof createReconciliation>,
 ) {
   const announcements = createAnnouncements(db, onAnnouncementsChanged);
   createClientVersionReports(db);
@@ -256,6 +258,13 @@ export function createControl(
         return true;
       }
       let actor = requireSession(req);
+      if(path==='/api/control/reconciliation'){
+        if(!reconciliation)throw new AuthError('对账服务暂不可用',503);
+        if(req.method==='GET')res.end(JSON.stringify(reconciliation.list(url.searchParams)));
+        else if(req.method==='POST')res.end(JSON.stringify(reconciliation.request(url.searchParams)));
+        else throw new AuthError('请求方式不支持',405);
+        return true;
+      }
       if(path==='/api/control/member-games'){
         if(req.method!=='GET')throw new AuthError('请求方式不支持',405);
         if(!memberGames)throw new AuthError('战绩查询服务暂不可用',503);

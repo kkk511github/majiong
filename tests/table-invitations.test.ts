@@ -5,7 +5,7 @@ import { normalizeTableSettings, tableSummary } from '../shared/table-settings';
 import type { Account, Game } from '../shared/types';
 import type { TableInvitation } from '../shared/table-invitations';
 
-function fixture(auto = false) {
+function fixture(auto = false, store?:Map<string,any>,enabled=()=>true) {
   let clock = 1_000_000;
   const users = new Map<string, Account>(['host', 'alice', 'bob', 'blocked', 'busy'].map((id, i) => [id, {
     id, memberId: String(100001 + i), username: id, name: id, role: 'member',
@@ -20,6 +20,7 @@ function fixture(auto = false) {
   const delivered = new Map<string, TableInvitation[]>();
   let joinCount = 0, failJoin = false;
   const manager = createTableInvitations({
+    enabled,storage:store?{load:()=>[...store.values()].map(e=>structuredClone(e)),save:e=>{store.set(e.id,structuredClone(e));},remove:id=>{store.delete(id);}}:undefined,
     now: () => clock, online: () => [...online], account: id => users.get(id),
     room: id => rooms.get(id), table: code => code === game.code ? game : undefined,
     summary: (g, id) => tableSummary(g, id),
@@ -43,6 +44,13 @@ function fixture(auto = false) {
 }
 
 describe('online table invitations', () => {
+  it('pending invitations survive a waiting-table runtime handoff and inactive writers cannot invalidate them',()=>{
+    const store=new Map<string,any>();let active=true;
+    const old=fixture(false,store,()=>active),invite=old.send();active=false;old.online.clear();old.manager.refresh();
+    expect(store.get(invite.id).status).toBe('pending');
+    const next=fixture(false,store);next.manager.respond('alice',invite.id,true);expect(next.joins()).toBe(1);
+    expect(store.get(invite.id).status).toBe('accepted');
+  });
   it('hides playable administrators and rejects direct invitation requests without delivery', () => {
     const f = fixture(); f.users.get('alice')!.role = 'admin';
     expect(f.manager.peers('host', f.game.id).map(p => p.memberId)).not.toContain(f.users.get('alice')!.memberId);

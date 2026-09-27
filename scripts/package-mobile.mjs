@@ -1,0 +1,37 @@
+import {mkdirSync,existsSync,openSync,closeSync,cpSync,readFileSync} from 'node:fs';
+import {resolve,join} from 'node:path';
+import {spawnSync,execFileSync} from 'node:child_process';
+const args=process.argv.slice(2);
+if(args.includes('--help')){console.log('npm run package:mobile -- --unsigned-ios --output output/release-<version>-build<N>\nRequires JAVA_HOME, ANDROID_HOME, MAHJONG_KEYSTORE, MAHJONG_STORE_PASSWORD, MAHJONG_EXPECTED_SIGNER_SHA256. Passwords must be environment values, never command arguments. No upload/deploy performed.');process.exit(0);}
+if(!args.includes('--unsigned-ios')||args.indexOf('--output')<0)throw Error('Explicit --unsigned-ios and --output required');
+if(args.length!==3)throw Error('Unsupported arguments');
+const destination=args[args.indexOf('--output')+1];if(!destination||destination.startsWith('--'))throw Error('Missing output directory');
+const root=process.cwd(),out=resolve(destination);
+if(!out.startsWith(resolve(root,'output')+'/')||existsSync(out))throw Error('Use a new directory under output/; existing artifacts are never overwritten');
+for(const key of ['JAVA_HOME','ANDROID_HOME','MAHJONG_KEYSTORE','MAHJONG_STORE_PASSWORD','MAHJONG_EXPECTED_SIGNER_SHA256'])if(!process.env[key])throw Error('Missing '+key);
+const expected=process.env.MAHJONG_EXPECTED_SIGNER_SHA256.toLowerCase();if(!/^[a-f0-9]{64}$/.test(expected))throw Error('Expected signer SHA256 invalid');
+if(process.platform!=='darwin')throw Error('iPhoneOS packaging requires macOS/Xcode');
+const version=JSON.parse(readFileSync('package.json','utf8')).version;
+const gradle=readFileSync('android/app/build.gradle','utf8'),build=/versionCode (\d+)/.exec(gradle)?.[1];
+if(!build||!gradle.includes(`versionName "${version}"`))throw Error('Android/package version mismatch');
+mkdirSync(out,{recursive:true});
+function run(name,command,args,cwd=root){const log=openSync(join(out,name+'.log'),'w',0o600);console.log(name);try{const r=spawnSync(command,args,{cwd,env:process.env,stdio:['ignore',log,log]});if(r.error||r.status!==0)throw Error(`${name} failed; inspect its local log`);}finally{closeSync(log);}}
+run('native-sync','npm',['run','native:sync']);
+run('android-build','./gradlew',['--no-daemon','assembleRelease'],resolve('android'));
+const apk=join(out,`jinling-mahjong-${version}-build${build}.apk`);cpSync('android/app/build/outputs/apk/release/app-release.apk',apk);
+const tools=join(process.env.ANDROID_HOME,'build-tools',process.env.MAHJONG_BUILD_TOOLS??'36.0.0');
+run('android-signature',join(tools,'apksigner'),['verify','--verbose','--print-certs',apk]);
+if(!readFileSync(join(out,'android-signature.log'),'utf8').toLowerCase().includes('certificate sha-256 digest: '+expected))throw Error('Signing certificate differs from approved release key');
+run('android-align',join(tools,'zipalign'),['-c','-P','16','4',apk]);
+run('android-manifest',join(tools,'aapt'),['dump','badging',apk]);
+const manifest=readFileSync(join(out,'android-manifest.log'),'utf8');if(!manifest.includes(`versionCode='${build}'`)||!manifest.includes(`versionName='${version}'`))throw Error('APK version mismatch');
+const archive=join(out,'JinlingMahjong.xcarchive');
+run('ios-archive','xcodebuild',['-project','ios/App/App.xcodeproj','-scheme','App','-configuration','Release','-destination','generic/platform=iOS','-archivePath',archive,'-derivedDataPath',join(out,'derived'),'CODE_SIGNING_ALLOWED=NO','CODE_SIGNING_REQUIRED=NO','CODE_SIGN_IDENTITY=','archive']);
+const app=join(archive,'Products/Applications/App.app'),plist=JSON.parse(execFileSync('plutil',['-convert','json','-o','-',join(app,'Info.plist')],{encoding:'utf8'}));
+if(plist.CFBundleVersion!==build||plist.CFBundleShortVersionString!==version)throw Error('IPA/Android version mismatch');
+const stage=join(out,'ipa-stage');mkdirSync(join(stage,'Payload'),{recursive:true});
+run('ios-copy','ditto',['--norsrc','--noextattr','--noqtn',app,join(stage,'Payload/App.app')]);
+const ipa=join(out,`unsign-${version}-build${build}.ipa`);
+run('ios-zip','zip',['-qryX',ipa,'Payload','-x','*/._*','*/.DS_Store','__MACOSX/*'],stage);
+run('verification','node',['scripts/verify-mobile-assets.mjs',apk,ipa,join(out,'verification.json')]);
+console.log(JSON.stringify({version,build,apk,ipa,iosSignature:'unsigned',deployed:false}));

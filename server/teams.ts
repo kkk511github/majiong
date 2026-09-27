@@ -5,12 +5,12 @@ export function teamSchema(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS team_memberships (account_id TEXT PRIMARY KEY, team_id TEXT REFERENCES teams(id), blocked INTEGER NOT NULL DEFAULT 0 CHECK(blocked IN(0,1)), updated_by TEXT NOT NULL, updated_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS club_migrations (id TEXT PRIMARY KEY);`);
   if (!db.prepare("SELECT 1 FROM club_migrations WHERE id='initial-teams'").get()) {
-    db.exec("BEGIN");
+    db.exec("BEGIN IMMEDIATE");
     try {
       ["一生所爱战队", "冰茉莉战队", "日结丁战队", "日结冰战队"].forEach((name, i) => {
         db.prepare("INSERT OR IGNORE INTO teams VALUES (?,?,?)").run(`team-${i + 1}`, name, Date.now());
       });
-      db.prepare("INSERT INTO club_migrations VALUES ('initial-teams')").run();
+      db.prepare("INSERT OR IGNORE INTO club_migrations VALUES ('initial-teams')").run();
       db.exec("COMMIT");
     } catch (e) { db.exec("ROLLBACK"); throw e; }
   }

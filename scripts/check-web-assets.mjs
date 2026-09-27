@@ -2,7 +2,8 @@ import {readdir,readFile,access,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,relative} from 'node:path';
 import {createHash} from 'node:crypto';
 import {resourceDigest,sourceDigest} from './runtime-integrity.mjs';
-const publicRoot=resolve('public'),builtRoot=resolve('dist');
+import {previewOnlyAssets} from './release-assets.mjs';
+const publicRoot=resolve('public'),builtRoot=resolve(process.argv[2]??'dist');
 const required=['cocos-table/index.html','audio/mahjong-table.m4a','audio/mahjong-lobby.m4a','audio/nanjing-male.wav','audio/nanjing-female.wav'];
 for(const gender of ['male','female']){
  const pack=JSON.parse(await readFile(`src/nanjing-${gender}.json`,'utf8'));
@@ -13,6 +14,7 @@ const entries=await readdir(publicRoot,{recursive:true,withFileTypes:true});
 const groups={};let checked=0;
 for(const e of entries.filter(e=>e.isFile())){
  const path=resolve(e.parentPath,e.name),name=relative(publicRoot,path),data=await readFile(path);
+ if(previewOnlyAssets.includes(name)){try{await access(resolve(builtRoot,name));throw Error('Preview asset was not excluded: '+name);}catch(error){if(error.code!=='ENOENT')throw error;}continue;}
  const built=await readFile(resolve(builtRoot,name));
  if(!data.equals(built))throw new Error('Web release asset differs from source: '+name);
  const group=name.split('/')[0];groups[group]??={files:0,bytes:0};groups[group].files++;groups[group].bytes+=data.length;checked++;

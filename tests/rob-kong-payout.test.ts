@@ -174,11 +174,12 @@ describe("B档抢杠由补杠者付三份给实际胡牌者", () => {
     expect(() => act(g, 0, { type: "hu" }, 4000)).toThrow();
   });
 
-  it("零花无花果独立资格仍能抢，胡者得三份成牌10+无花30+压绝30", () => {
-    const g = resolve(robTable({ flowerCounts: [0] }));
-    expect(g.result!.details[0]!.total).toBe(70);
-    expect(g.result!.details[0]!.items).toContainEqual({ label: "无花果", value: 30 });
-    expect(g.result!.deltas).toEqual([210, -210, 0, 0]);
+  it("开门零花只有压绝，不能借无花果抢杠收三份", () => {
+    const g = offered(robTable({ flowerCounts: [0] })), before=structuredClone(g);
+    expect(viewFor(g, 0).actions).not.toContain('hu');
+    expect(() => act(g, 0, {type:'hu'}, 4000)).toThrow();
+    expect(g).toEqual(before);
+    expect(g.result).toBeUndefined();
   });
 
   it("无大胡的四花两面普通抢杠，赔三家仍触发下一把包牌比下胡", () => {

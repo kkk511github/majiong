@@ -71,7 +71,7 @@ function waitingPlayer(handKinds: number[], pungKinds: number[], flowerCount: nu
 describe("听牌的花数门槛保留当前规则豁免，不能统一强制四花", () => {
   const rules = ruleDefaults("nj-garden-b-v3");
   const plain = [0, 1, 2, 9, 10, 11, 18, 19, 20, 28];
-  it.each([1, 2, 3])("普通开门%d硬花没有听口，软花不能凑门槛", flowers => {
+  it.each([0, 1, 2, 3])("普通开门%d硬花没有听口，软花不能凑门槛", flowers => {
     const p = waitingPlayer(plain, [27], flowers);
     expect(structuralWaits(p)).toEqual([28]);
     expect(listeningHints(p, rules)).toEqual([]);
@@ -88,7 +88,7 @@ describe("听牌的花数门槛保留当前规则豁免，不能统一强制四�
     { name: "豪华双七对", hand: [0,0,0,0,9,9,9,9,18,18,19,19,20], pungs: [], flowers: 1, wait: 20 },
     { name: "超豪华双七对", hand: [0,0,0,0,9,9,9,9,18,18,18,18,20], pungs: [], flowers: 1, wait: 20 },
     { name: "风一色", hand: [27,27,27,27,28,28,28,28,29,29,29,29,30], pungs: [], flowers: 1, wait: 30 },
-    { name: "无花果", hand: plain, pungs: [27], flowers: 0, wait: 28 },
+    { name: "门清无花果", hand: [0,1,2,9,10,11,18,19,20,27,27,27,28], pungs: [], flowers: 0, wait: 28 },
   ])("$name仍按合法条件显示", ({ hand, pungs, flowers, wait }) => {
     expect(listeningHints(waitingPlayer(hand, pungs, flowers), rules)).toContain(wait);
   });

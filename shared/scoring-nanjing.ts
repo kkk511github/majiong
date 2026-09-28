@@ -152,8 +152,13 @@ function scoreNanjingBase(
         else if (oneWait && shape.pair === winKind) add("独占", flower);
       }
     }
-    if (!p.flowers.length && (bProfile || closed || major)) big("无花果", values.noFlower);
+    // Preserve historical profiles. In current B rules, zero hard flowers
+    // earn a bonus only AFTER independent win eligibility has been checked.
+    // In particular, 压绝/开花 being major must not grant flower exemption.
+    if (!bProfile && !p.flowers.length && (closed || major)) big("无花果", values.noFlower);
     if (!closed && !flowerExempt && p.flowers.length < rules.minimumFlowers) continue;
+    if (bProfile && !p.flowers.length && (closed || flowerExempt))
+      big("无花果", values.noFlower, false);
     add(`硬花 ${p.flowers.length} × ${flower}`, p.flowers.length * flower);
     add(`软花 ${soft} × ${flower}`, soft * flower);
     let total = items.reduce((n, i) => n + i.value, 0);

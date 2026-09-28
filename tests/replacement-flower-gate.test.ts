@@ -18,7 +18,7 @@ function actualHand(flowers=2){
 }
 describe('杠上开花本身不免硬花门槛',()=>{
   for(const replacement of ['kong','flower'] as const){
-    it.each([1,2,3])(`${replacement}: 开门只有%i硬花，即使软花够也不能胡`,flowers=>{
+    it.each([0,1,2,3])(`${replacement}: 开门只有%i硬花，即使软花够也不能胡`,flowers=>{
       expect(scoreHand(actualHand(flowers),rules,{winTile:15,replacement,multiplier:2})).toBeNull();
     });
     it(`${replacement}: 补足4硬花才加开花分，仍保留比下胡资格`,()=>{
@@ -27,11 +27,10 @@ describe('杠上开花本身不免硬花门槛',()=>{
       expect(score.major).toBe(true);
       expect(score.items).toContainEqual({label:replacement==='flower'?'小杠开花':'大杠开花',value:replacement==='flower'?10:20});
     });
-    it(`${replacement}: 门清、无花果、其他大胡的独立免花资格不受影响`,()=>{
+    it(`${replacement}: 门清和其他大胡的免花资格不受影响，零花不独立放行`,()=>{
       const closed=actualHand(2);closed.melds[0]={type:'kong',tiles:[68,69,70,71],from:0,concealed:true};
       expect(scoreHand(closed,rules,{winTile:15,replacement})).not.toBeNull();
-      const zero=scoreHand(actualHand(0),rules,{winTile:15,replacement})!;
-      expect(zero.items.some(i=>i.label==='无花果')).toBe(true);
+      expect(scoreHand(actualHand(0),rules,{winTile:15,replacement})).toBeNull();
       const triplets=actualHand(2);triplets.hand=[4,5,6,24,27,93,94,95];
       const score=scoreHand(triplets,rules,{winTile:6,replacement})!;
       expect(score.items.some(i=>i.label==='对对胡')).toBe(true);

@@ -135,7 +135,7 @@ describe("B档压绝：唯一夹张、他人公开碰牌的第四张", () => {
     inventory(ended);
   });
 
-  it.each([1, 2, 3].flatMap(flowers => ["self", "discard", "rob"].map(placement => ({ flowers, placement: placement as Placement }))))(
+  it.each([0, 1, 2, 3].flatMap(flowers => ["self", "discard", "rob"].map(placement => ({ flowers, placement: placement as Placement }))))(
     "普通开门$flowers硬花，$placement合法卡绝不能单独豁免四花门槛", ({ flowers, placement }) => {
       const value = fixture({ flowers, placement });
       expect(scoreFixture(value, placement)).toBeNull();
@@ -152,32 +152,34 @@ describe("B档压绝：唯一夹张、他人公开碰牌的第四张", () => {
     expect(() => act(value.game, 0, { type: "hu" }, 2100)).toThrow();
   });
 
-  it.each([1, 2, 3].flatMap(flowers => ["self", "discard"].map(placement => ({ flowers, placement: placement as Placement }))))(
+  it.each([0, 1, 2, 3].flatMap(flowers => ["self", "discard"].map(placement => ({ flowers, placement: placement as Placement }))))(
     "清一色$flowers花+$placement合法卡绝，独立大胡资格仍允许两项相加", ({ flowers, placement }) => {
       const value = fixture({ flowers, waiting: pureMiddleWait, ownPungs: [0], placement });
       const score = scoreFixture(value, placement)!;
       expect(score.items).toEqual(expect.arrayContaining([{ label: "清一色", value: 40 }, { label: "压绝", value: 30 }]));
-      expect(score.total).toBe(80 + flowers * 2);
+      expect(score.total).toBe(80 + flowers * 2 + (flowers === 0 ? 30 : 0));
       expect(finishWin(value, placement).result!.details[0]!.items).toEqual(score.items);
     },
   );
 
-  it.each([1, 2, 3].flatMap(flowers => ["self", "discard"].map(placement => ({ flowers, placement: placement as Placement }))))(
+  it.each([0, 1, 2, 3].flatMap(flowers => ["self", "discard"].map(placement => ({ flowers, placement: placement as Placement }))))(
     "门清$flowers花+$placement合法卡绝仍能胡", ({ flowers, placement }) => {
       const value = fixture({ flowers, waiting: closedMiddleWait, ownPungs: [], placement });
       const score = scoreFixture(value, placement)!;
       expect(score.items).toEqual(expect.arrayContaining([{ label: "门清", value: 10 }, { label: "压绝", value: 30 }]));
-      expect(score.total).toBe(50 + flowers * 2);
+      expect(score.total).toBe(50 + flowers * 2 + (flowers === 0 ? 30 : 0));
       expect(finishWin(value, placement).result!.details[0]!.items).toEqual(score.items);
     },
   );
 
-  it.each(["self", "discard", "rob"] as Placement[])("零花无花果独立允许%s胡，也可叠合法压绝", placement => {
+  it.each(["self", "discard", "rob"] as Placement[])("零花开门只有压绝，%s不能借无花果胡牌", placement => {
     const value = fixture({ flowers: 0, placement });
-    const score = scoreFixture(value, placement)!;
-    expect(score.items).toEqual(expect.arrayContaining([{ label: "无花果", value: 30 }, { label: "压绝", value: 30 }]));
-    expect(score.total).toBe(70);
-    expect(finishWin(value, placement).result!.details[0]!.items).toEqual(score.items);
+    expect(scoreFixture(value, placement)).toBeNull();
+    const checked = placement === 'self' ? value.game : offer(value, placement);
+    const before = structuredClone(checked);
+    expect(viewFor(checked, 0).actions).not.toContain('hu');
+    expect(() => act(checked, 0, {type:'hu'}, 2100)).toThrow();
+    expect(checked).toEqual(before);
   });
 
   it.each([

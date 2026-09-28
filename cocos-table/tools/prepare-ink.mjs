@@ -15,7 +15,9 @@ for(let kind=0;kind<42;kind++) {
 console.log('Prepared 42 exact semantic ink textures');
 // Production imagegen ink sheets override the older vector design. Only split,
 // trim transparent padding and pack UV cells; preserve the generated artwork.
-for(const [file,start,count] of [['wan-v1.png',0,9],['dots-v1.png',9,9],['bamboo-v2.png',18,9],['honors-v1.png',27,7],['flowers-v1.png',34,8]]) {
+// Wan, dots and bamboo use a reviewed fixed-grid importer below so their per-tile
+// scale and placement survive the source-sheet round trip exactly.
+for(const [file,start,count] of [['honors-v1.png',27,7],['flowers-v1.png',34,8]]) {
  const input=resolve(root,'cocos-table/art-source/imagegen',file);
  try{await access(input)}catch{continue}
  const metadata=await sharp(input).metadata(),iw=metadata.width,ih=metadata.height;
@@ -31,13 +33,52 @@ for(const [file,start,count] of [['wan-v1.png',0,9],['dots-v1.png',9,9],['bamboo
  console.log('Prepared imagegen',file);
 }
 
-// The eight bamboo is a separately reviewed W-over-M engraving. It supersedes
-// the rejected narrow symbol on the original bamboo sheet, at every camera pose.
-for(const [file,kind] of [['eight-bamboo-v3.png',25],['six-dots-v2.png',14],['two-dots-v2.png',10],['five-dots-v2.png',13],['nine-dots-v2.png',17]]) {
- const image=resolve(root,'cocos-table/art-source/imagegen',file);
- await sharp(image).trim({threshold:24}).resize(244,336,{fit:'contain',background:{r:0,g:0,b:0,alpha:0}}).extend({top:8,bottom:8,left:6,right:6,background:{r:0,g:0,b:0,alpha:0}}).png().toFile(resolve(out,`${kind}.png`));
+const suitGrid={left:32,top:60,width:320,height:472,columns:3,rows:3};
+const target={width:512,height:755};
+function cleanTransparentPixels(data) {
+ for(let i=0;i<data.length;i+=4) {
+  const alpha=data[i+3];
+  if(alpha<=8) data[i]=data[i+1]=data[i+2]=data[i+3]=0;
+  else if(alpha>=250) data[i+3]=255;
+ }
 }
 
-// Reviewed v3 dots supersede the old one-off pips as one consistent family.
-const { prepareDots } = await import('./prepare-dots-v3.mjs');
-await prepareDots();
+// The approved replacement sheets deliberately include transparent padding.
+// Their 320 x 472 cells map almost exactly 1.6x to the shared 512 x 755 UV.
+// Keep the reviewed cell centre, but enlarge the motifs so they fill the jade
+// face at gameplay size.  The mixed honor/season sheet is not in kind order,
+// so its explicit semantic map is intentionally kept alongside the filename.
+const fixedGridSheets=[
+ {file:'honors-seasons-v2.png',kinds:[36,35,30,27,37,34,33,31,32],artScale:1.20}, // 秋夏北 / 東冬春 / 白中發
+ {file:'south-west-botanicals-v2.png',kinds:[40,41,28,29,38,39],artScale:1.20}, // 竹菊南 / 西梅兰
+ {file:'wan-v2.png',kinds:[0,1,2,3,4,5,6,7,8],artScale:1.20},
+ {file:'dots-v1.png',kinds:[9,10,11,12,13,14,15,16,17],artScale:1.28},
+ {file:'bamboo-v2.png',kinds:[18,19,20,21,22,23,24,25,26],artScale:1.20},
+];
+for(const {file,kinds,artScale} of fixedGridSheets) {
+ const input=resolve(root,'cocos-table/art-source/imagegen',file);
+ const metadata=await sharp(input).metadata();
+ const expectedWidth=suitGrid.left*2+suitGrid.width*suitGrid.columns;
+ const expectedHeight=suitGrid.top*2+suitGrid.height*suitGrid.rows;
+ if(metadata.width!==expectedWidth||metadata.height!==expectedHeight)
+  throw new Error(`Unexpected fixed-grid sheet dimensions: ${file} (${metadata.width}x${metadata.height})`);
+ for(let i=0;i<kinds.length;i++) {
+  const left=suitGrid.left+i%suitGrid.columns*suitGrid.width;
+  const top=suitGrid.top+Math.floor(i/suitGrid.columns)*suitGrid.height;
+  const cell=await sharp(input).extract({left,top,width:suitGrid.width,height:suitGrid.height}).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  cleanTransparentPixels(cell.data);
+  const enlarged={width:Math.round(target.width*artScale),height:Math.round(target.height*artScale)};
+  const resized=await sharp(cell.data,{raw:cell.info})
+   .resize(enlarged.width,enlarged.height,{fit:'fill',kernel:sharp.kernel.lanczos3})
+   .extract({
+    left:Math.floor((enlarged.width-target.width)/2),
+    top:Math.floor((enlarged.height-target.height)/2),
+    width:target.width,
+    height:target.height,
+   })
+   .raw().toBuffer({resolveWithObject:true});
+  cleanTransparentPixels(resized.data);
+  await sharp(resized.data,{raw:resized.info}).png({compressionLevel:9,adaptiveFiltering:true}).toFile(resolve(out,`${kinds[i]}.png`));
+ }
+ console.log('Prepared fixed-grid HD sheet',file);
+}

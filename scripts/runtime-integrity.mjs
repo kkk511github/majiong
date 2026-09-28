@@ -16,6 +16,10 @@ export async function resourceDigest(root){
 
 export async function sourceDigest(project){
  const hash=createHash('sha256');
+ // Runtime export transforms are part of the portable build's identity too.
+ for(const file of ['build-cocos.mjs','table-render-density.mjs']){
+  hash.update(file);hash.update(await readFile(resolve(project,'../scripts',file)));
+ }
  for(const folder of ['assets','settings']) {
   const base=resolve(project,folder),files=await readdir(base,{recursive:true,withFileTypes:true});
   for(const file of files.filter(f=>f.isFile()).sort((a,b)=>(a.parentPath+a.name).localeCompare(b.parentPath+b.name))){

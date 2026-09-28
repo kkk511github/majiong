@@ -1,7 +1,7 @@
 {
-  "at": "2026-09-27T14:22:10.520Z",
+  "at": "2026-09-28T17:56:35.493Z",
   "kind": "web-build-public-assets",
-  "checked": 359,
+  "checked": 360,
   "groups": {
     "android-icon-foreground.png": {
       "files": 1,
@@ -53,7 +53,7 @@
     },
     "tiles": {
       "files": 63,
-      "bytes": 27171311
+      "bytes": 27033907
     },
     "icon-preview": {
       "files": 5,
@@ -64,8 +64,8 @@
       "bytes": 99701
     },
     "cocos-table": {
-      "files": 197,
-      "bytes": 51594922
+      "files": 198,
+      "bytes": 54397839
     },
     "audio": {
       "files": 34,
@@ -77,10 +77,10 @@
     }
   },
   "runtime": {
-    "sha256": "a54841cf9c1105bb30b1525fe8ef54f5a700f26583c00e3c46d68ad51ca27d42",
-    "files": 197,
-    "bytes": 51594922
+    "sha256": "d96bebda5c7768f05d2f660b56384d3632a39e96f42964a7e56169fe2668862e",
+    "files": 198,
+    "bytes": 54397839
   },
-  "archiveBytes": 48193959,
+  "archiveBytes": 50929634,
   "note": "Local stored sizes; not measured download, memory or launch timing."
 }

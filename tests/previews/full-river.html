@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>满弃牌效果 · 本地预览</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#062b35;color:#eef7ef;font:14px system-ui}
+    header{height:36px;display:flex;align-items:center;justify-content:center;gap:16px;font-size:12px}
+    header small{color:#bfd6d5}
+    main{height:calc(100dvh - 36px);display:flex;align-items:center;justify-content:center}
+    iframe{border:0;width:min(100vw,calc((100dvh - 36px)*1280/590));aspect-ratio:1280/590}
+  </style>
+</head>
+<body>
+  <header><span>每家 30 张 · 完整牌桌原比例</span><small>仅本地展示，不是真实牌局</small></header>
+  <main><iframe title="满弃牌牌桌"></iframe></main>
+  <script type="module">
+    import {busyTableFixture} from './table-full-meld-fixture.ts';
+    if(!import.meta.env.DEV||!['localhost','127.0.0.1'].includes(location.hostname))throw Error('仅限本地预览');
+    const frame=document.querySelector('iframe'),channel='full-river-preview';
+    const state=busyTableFixture();
+    Object.assign(state,{key:channel,code:'满弃牌展示',tableStyle:'reference-3d',disabled:true,canDiscard:false,drawn:undefined,countdown:'—',externalControls:true});
+    state.players.forEach(p=>{p.discards=Array.from({length:30},(_,i)=>((i+p.seat*7)%34)*4+p.seat);});
+    state.lastDiscard=undefined;
+    window.addEventListener('message',event=>{
+      if(event.origin!==location.origin||event.source!==frame.contentWindow||event.data?.scope!=='jinling-table-v1'||event.data?.channel!==channel)return;
+      if(event.data.type==='ready')frame.contentWindow.postMessage({scope:'jinling-table-v1',channel,type:'state',state},location.origin);
+    });
+    frame.src='/cocos-table/index.html?channel='+channel;
+  </script>
+</body>
+</html>

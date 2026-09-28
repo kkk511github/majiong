@@ -5,6 +5,10 @@ function tileSeatYaw(tile:SceneTile,state:TableSceneState) {
 }
 
 export const REFERENCE = { width:1280,height:589,handLeft:130,handBottom:572,handWidth:71.3,handHeight:100,compass:{x:640,y:247,w:127,h:102} };
+// Public discards need to stay readable beside the much larger local hand.
+// Keep one shared physical size for all four seats so perspective, not seat,
+// is the only reason a tile appears smaller in the distance.
+const RIVER_MODEL = { width:.32, length:.38 };
 // Match the reference table's elevated view. Do not compensate a low camera
 // by rotating each seat's tiles: that tilts otherwise horizontal tile seams.
 export const TABLE_CAMERA = { pitch:55*Math.PI/180, distance:13.26, focal:1326 };
@@ -99,9 +103,9 @@ export function layout3DTable(state:TableSceneState) {
       if(o===1){t.y=376-i*28;t.x=980-.17*(376-t.y);}
     });
     for(const t of all.filter(t=>t.seat===p.seat&&t.area==='river')) {
-      // Correct the excessive fore/aft face depth, keeping face width and
-      // body thickness. Three rows now fit inside their reserved band.
-      t.modelWidth=.30;t.modelLength=.37;
+      // Give public information a modest size lift without touching hands,
+      // flowers or melds. Three full rows still fit inside the reserved band.
+      t.modelWidth=RIVER_MODEL.width;t.modelLength=RIVER_MODEL.length;
       const i=p.discards.indexOf(t.tile!),capacity=o%2?6:8,row=Math.floor(i/capacity),col=i%capacity;
       if(o===0){t.x=516+col*35.5;t.y=333-row*48;}
       if(o===2){t.x=750-col*34;t.y=155-row*43;}
@@ -148,6 +152,10 @@ export function layout3DTable(state:TableSceneState) {
       }
       groups.forEach((group,gi)=>{
         const cards=bases.filter(t=>Number(t.id.split('-')[2])===group).sort((a,b)=>Number(a.id.split('-')[3])-Number(b.id.split('-')[3]));
+        // The top rail is packed left-to-right to preserve its reserved band,
+        // but each set reads right-to-left from that player's perspective.
+        // Reverse only its physical traversal, not IDs, suppliers or group order.
+        if(o===2)cards.reverse();
         for(const t of cards){
           const size=footprint(t),point={x:0,z:0};
           point[axis]=cursor+rackDirection*size[axis]/2;
@@ -199,8 +207,12 @@ export function layout3DTable(state:TableSceneState) {
       }
       // Fixed horizontal bands exist from the first discard onwards, not
       // only when the table becomes dense: hand / flowers / three rows / HUD.
-      if(o===0)origin=groundAt(500,326);
-      if(o===2)origin=groundAt(760,179);
+      // Centre the two horizontal ten-slot rails between the side rails.
+      // Their cards grow in opposite directions, so enlarging the public
+      // tiles requires opposite origin corrections to keep both end gaps
+      // visually balanced.
+      if(o===0)origin=groundAt(495,326);
+      if(o===2)origin=groundAt(775,179);
       if(o===1)origin={x:2.06,z:.95};
       if(o===3)origin={x:-2.06,z:-1.825};
       // The reference's second row starts beside its first tile, towards

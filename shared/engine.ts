@@ -1009,15 +1009,17 @@ function completeAddedKong(g: Game, from: Seat, tile: Tile, now: number) {
 }
 function resolveClaims(g: Game, now: number) {
   const pending = g.pending!;
-  if (
-    Object.keys(pending.offers).some(
-      (s) => pending.replies[Number(s) as Seat] === undefined,
-    )
-  )
-    return;
   // Persisted claims from an older server must obey the current payer limit too.
   const winners = seats.filter((s) => pending.replies[s] === "hu" &&
     canClaimHuFrom(g, pending.from, s, pending.tile, pending.kind === "robKong"));
+  // A confirmed Hu outranks pung/kong. Only other possible winners can still
+  // change its outcome; keep waiting for them to preserve multiple winners.
+  // Without a valid Hu, retain the normal all-claimants arbitration.
+  if (
+    seats.some((s) => pending.offers[s] && pending.replies[s] === undefined &&
+      (!winners.length || pending.offers[s]!.includes("hu")))
+  )
+    return;
   if (winners.length) {
     settle(g, winners, pending.from, now, pending.kind === "robKong");
     return;

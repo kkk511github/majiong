@@ -1,6 +1,7 @@
 import { sceneOffset, tileKind, type TableSceneState } from './table-scene';
 import * as engine from 'cc';
 import {roundedRectPath} from './canvas-compat';
+import {toneTileInk} from './tile-ink-tone';
 const cc:any=engine;
 import { standingHandLayout, planeAt, TABLE_CAMERA, type Table3DTile } from './table-3d-layout';
 
@@ -13,6 +14,7 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
   const win:any=window;
   const scene=table.node.scene;
   await new Promise((resolve,reject)=>cc.resources.load('table-standard',cc.Material,(e:Error,value:any)=>e?reject(e):resolve(value)));
+  const faceEffect=await new Promise((resolve,reject)=>cc.resources.load('tile-face',cc.EffectAsset,(e:Error,value:any)=>e?reject(e):resolve(value)));
   const layer = 1 << 1; // Dedicated study layer, excluded from the production UI camera.
   const root = new cc.Node('Table 3D models'); root.layer = layer; scene.addChild(root);
   const cameraNode = new cc.Node('Table model camera'); scene.addChild(cameraNode);
@@ -25,21 +27,22 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
   cameraNode.setPosition(0, TABLE_CAMERA.distance*Math.sin(PITCH), TABLE_CAMERA.distance*Math.cos(PITCH)); cameraNode.lookAt(new cc.Vec3(0, 0, 0));
   const lightNode = new cc.Node('Soft tabletop light'); scene.addChild(lightNode);
   lightNode.setRotationFromEuler(-55, -30, 0);
-  const light = lightNode.addComponent(cc.DirectionalLight); light.illuminance = 65000;
-  scene.globals.ambient.skyLightingColor = new cc.Color('#e6ebe4');
-  scene.globals.ambient.skyIllum = 11000;
-  scene.globals.ambient.groundLightingColor = new cc.Color('#879b88');
+  const light = lightNode.addComponent(cc.DirectionalLight); light.illuminance = 38000;
+  scene.globals.ambient.skyLightingColor = new cc.Color('#fafaf8');
+  scene.globals.ambient.skyIllum = 24000;
+  scene.globals.ambient.groundLightingColor = new cc.Color('#eeefec');
 
   const materials: any[] = [], textures: any[] = [];
-  const material = (color: string, texture?: any) => {
+  const material = (color: string, texture?: any, roughness=.30, bakedFace=false, detailBias=0) => {
     const m = new cc.Material();
-    m.initialize({ effectName: 'builtin-standard', defines: { USE_ALBEDO_MAP: !!texture } });
+    m.initialize(bakedFace?{effectAsset:faceEffect}:{effectName:'builtin-standard',defines:{USE_ALBEDO_MAP:!!texture}});
     m.setProperty('mainColor', new cc.Color(color));
-    m.setProperty('roughness', .30); m.setProperty('metallic', 0);
+    if(bakedFace)m.setProperty('faceSampling',new cc.Vec4(detailBias,detailBias<0?.5:0,1/64,1/64));
+    if(!bakedFace){m.setProperty('roughness', roughness); m.setProperty('metallic', 0);}
     if (texture) m.setProperty('mainTexture', texture);
     materials.push(m); return m;
   };
-  const ivory = material('#f4efdf'), jade = material('#397d36');
+  const ivory = material('#fcfdfa',undefined,.28), jade = material('#397d36');
   // Procedural enamel, not a flat green placeholder: restrained inset border,
   // soft corner highlights and a darker perimeter make concealed tiles legible.
   const backCanvas=win.document.createElement('canvas');backCanvas.width=256;backCanvas.height=352;
@@ -57,19 +60,51 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
     const tex=new cc.Texture2D();tex.image=await loadImage(path);textures.push(tex);return tex;
   };
   const boardFrame=new cc.SpriteFrame();boardFrame.texture=await uiTexture('art/table3d-background');
-  const texture = async (kind: number) => {
+  const texture = async (kind: number, river=false) => {
     const image = await loadImage(`face-source/${kind}`);
-    const canvas = win.document.createElement('canvas'); canvas.width = 192; canvas.height = 256;
+    const canvas = win.document.createElement('canvas');
+    const width=river?256:384,height=river?256:512;
+    canvas.width=width;canvas.height=height;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#fffdf4'; ctx.fillRect(0, 0, 192, 256);
-    if(kind===33){ctx.strokeStyle='#282722';ctx.lineWidth=5;ctx.strokeRect(34,38,124,180);ctx.lineWidth=2;ctx.strokeRect(42,46,108,164);}
-    else ctx.drawImage(image.data, 10, 12, 172, 232);
-    const tex = new cc.Texture2D(); tex.image = new cc.ImageAsset(canvas); textures.push(tex); return tex;
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+    // Small public tiles need less empty margin. Do not crop or redraw glyphs.
+    if(river)ctx.drawImage(image.data,4,4,248,248);
+    else ctx.drawImage(image.data,20,24,344,464);
+    const ink=ctx.getImageData(0,0,width,height);toneTileInk(ink.data,kind);ctx.putImageData(ink,0,0);
+    ctx.globalCompositeOperation='destination-over';
+    const jadeFace=ctx.createLinearGradient(0,0,0,height);
+    jadeFace.addColorStop(0,'#fcfdfa');jadeFace.addColorStop(1,'#f4f5f2');
+    ctx.fillStyle = jadeFace; ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation='source-over';
+    const tex = new cc.Texture2D();
+    if(river){
+      // Reduce every level from the original, not the already softened prior
+      // level. Keep antialiasing while avoiding accumulated reduction blur.
+      const mips=[new cc.ImageAsset(canvas)];
+      for(let size=width/2;size>=1;size/=2){
+        const level=win.document.createElement('canvas');level.width=level.height=size;
+        const g=level.getContext('2d')!;g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
+        g.drawImage(canvas,0,0,size,size);mips.push(new cc.ImageAsset(level));
+      }
+      tex.mipmaps=mips;tex.setFilters(cc.Texture2D.Filter.LINEAR,cc.Texture2D.Filter.LINEAR);
+      tex.setMipFilter(cc.Texture2D.Filter.LINEAR);tex.setAnisotropy(4);
+    }else tex.image = new cc.ImageAsset(canvas);
+    textures.push(tex);return tex;
   };
   const faceTextures=await Promise.all(Array.from({length:42},(_,k)=>texture(k)));
-  const faces=faceTextures.map(tex=>material('#ffffff',tex));
-  const anchorFaces=faceTextures.map(tex=>material('#ffe16a',tex));
-  const inspectedFaces=faceTextures.map(tex=>material('#fff7b1',tex));
+  // Enamel artwork already includes its highlights. Lighting it a second time
+  // adds a grey veil and changes colour by seat. ACES also compresses white to
+  // grey, so display-referred faces bypass it; only the solid/bevel stays lit.
+  const faces=faceTextures.map(tex=>material('#ffffff',tex,.28,true));
+  const anchorFaces=faceTextures.map(tex=>material('#ffe16a',tex,.28,true));
+  const inspectedFaces=faceTextures.map(tex=>material('#fff7b1',tex,.28,true));
+  // Flowers cannot enter a discard river; share each texture across its tints.
+  const riverTextures=await Promise.all(Array.from({length:34},(_,k)=>texture(k,true)));
+  // Half a mip finer preserves small strokes without nearest-neighbour jaggies
+  // or boosting the already carefully balanced ink saturation/brightness.
+  const riverFaces=riverTextures.map(tex=>material('#ffffff',tex,.28,true,-.5));
+  const riverAnchorFaces=riverTextures.map(tex=>material('#ffe16a',tex,.28,true,-.5));
+  const riverInspectedFaces=riverTextures.map(tex=>material('#fff7b1',tex,.28,true,-.5));
   const anchorBody=material('#ffe16a'),claimOutline=material('#ffd765');
 
   // Bevelled rectangular prism in normalized local coordinates. The cap is
@@ -226,7 +261,8 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
       retained.add(t.id);
       // Geometry/material identity only: selection, countdowns and movement
       // must not destroy and re-upload every mesh on the table.
-      const key=`${t.tile===undefined?'back':tileKind(t.tile)}:${w}:${length}:${thickness}:${!!t.stack}:${!!t.globalAnchor}:${!!t.highlight}:${!!t.claimTarget}`;
+      const river=t.area==='river'&&t.tile!==undefined&&tileKind(t.tile)<34;
+      const key=`${t.tile===undefined?'back':tileKind(t.tile)}:${river}:${w}:${length}:${thickness}:${!!t.stack}:${!!t.globalAnchor}:${!!t.highlight}:${!!t.claimTarget}`;
       const previous=models.get(t.id);
       if(previous&&previous.key!==key){previous.node.destroy();models.delete(t.id);}
       let model=models.get(t.id),holder=model?.node;
@@ -242,7 +278,8 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
       const concealed=t.tile===undefined;
       const base=meshNode(tile,concealed?'Ivory backing':'Jade backing',bodyMesh,concealed?ivory:jade); base.setScale(w,thickness*.34,length);
       const wall=meshNode(tile,concealed?'Enamel sidewall':'Ivory sidewall',bodyMesh,concealed?jade:t.globalAnchor?anchorBody:ivory); wall.setPosition(0,thickness*.25,0); wall.setScale(w,thickness*.75,length);
-      const face=meshNode(tile,'Face',roundedFaceMesh,t.tile===undefined?enamelBack:(t.globalAnchor?anchorFaces:t.highlight?inspectedFaces:faces)[tileKind(t.tile)]);
+      const palette=river?(t.globalAnchor?riverAnchorFaces:t.highlight?riverInspectedFaces:riverFaces):(t.globalAnchor?anchorFaces:t.highlight?inspectedFaces:faces);
+      const face=meshNode(tile,'Face',roundedFaceMesh,t.tile===undefined?enamelBack:palette[tileKind(t.tile)]);
       face.setPosition(0,thickness+.002,0); face.setScale(w*.94,1,length*.94);
       if(t.claimTarget){const outline=meshNode(holder,'Claim face outline',outlineMesh,claimOutline);outline.setPosition(0,thickness+.007,0);outline.setScale(w,1,length);}
       }

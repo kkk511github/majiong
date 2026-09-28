@@ -2,6 +2,89 @@ import {test,expect} from '@playwright/test';
 import {fullMeldFixture,busyTableFixture} from './previews/table-full-meld-fixture';
 import {referenceSnapshot} from './previews/table-reference-layout';
 
+test('supplier ends stay correct on real 3D meshes across all seats and replay viewpoints',async({page})=>{
+ await page.goto('/cocos-table/index.html');
+ await page.waitForFunction(()=>!!(window as any).__JINLING_TABLE_READY__,{},{timeout:45000});
+ for(const kind of ['pung','direct','added'] as const)for(const me of [0,1,2,3]){
+  const state=fullMeldFixture(kind==='pung'?'pung':'kong');state.me=me;state.tableStyle='reference-3d';
+  state.players.forEach(p=>{p.melds=p.melds.slice(0,3).map((m,i)=>({...m,from:(p.seat+i+1)%4,added:kind==='added'}));});
+  await page.evaluate(async s=>{
+   const cc=await(window as any).System.import('cc'),scene=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+   scene.state=s;scene.skipNextTransition=true;scene.draw();
+   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  },state);
+  const tiles=await page.evaluate(async()=>{
+   const cc=await(window as any).System.import('cc'),scene=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene'),root=cc.director.getScene().getChildByName('Table 3D models');
+   return [...scene.tileLayout.values()].filter((t:any)=>t.area==='meld').map((t:any)=>{
+    const n=root.getChildByName(t.id);
+    return {id:t.id,seat:t.seat,cross:t.pose.includes('cross'),stack:!!t.stack,x:n.position.x,z:n.position.z,y:n.position.y};
+   });
+  });
+  for(const owner of [0,1,2,3])for(const group of [0,1,2]){
+   const all=tiles.filter((t:any)=>t.id.startsWith(`meld-${owner}-${group}-`)),base=all.filter((t:any)=>!t.stack);
+   const offset=(owner-me+4)%4,axis=offset%2?'z':'x',right=[1,-1,-1,1][offset];
+   const ordered=[...base].sort((a,b)=>right*(a[axis]-b[axis]));
+   expect(ordered.map(t=>Number(t.id.split('-')[3]))).toEqual(Array.from({length:kind==='direct'?4:3},(_,i)=>i));
+   expect(ordered.filter(t=>t.cross).map(t=>t.id)).toEqual(group===1?[]:[ordered[group===0?ordered.length-1:0].id]);
+   if(kind==='added'){
+    const upper=all.find((t:any)=>t.stack)!,middle=ordered[1];
+    expect(upper.x).toBeCloseTo(middle.x,6);expect(upper.z).toBeCloseTo(middle.z,6);expect(upper.y).toBeGreaterThan(middle.y);
+   }
+  }
+  if(me===0)await page.screenshot({path:`output/qa/supplier-direction-${kind}.png`});
+ }
+});
+
+test('white jade faces keep HD artwork without a second lighting or tone-mapping pass',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/cocos-table/index.html');
+ await page.waitForFunction(()=>!!(window as any).__JINLING_TABLE_READY__);
+ const faces:{effect:string;width:number;height:number;mips:number;river:boolean;bias:number;detail:number}[]=await page.evaluate(async()=>{
+  const cc=await(window as any).System.import('cc');
+  const root=cc.director.getScene().getChildByName('Table 3D models');
+  return root.children.flatMap((n:any)=>{
+   const face=n.getChildByName('Physical tile')?.getChildByName('Face');
+   if(!face)return [];
+   const material=face.getComponent(cc.MeshRenderer).sharedMaterials[0];
+   const texture=material.getProperty('mainTexture');
+   return [{effect:material.effectName,width:texture.width,height:texture.height,mips:texture.mipmapLevel,river:n.name.startsWith('river-'),bias:material.getProperty('faceSampling').x,detail:material.getProperty('faceSampling').y}];
+  });
+ });
+ expect(faces.length).toBeGreaterThan(20);
+ expect(faces.every(f=>f.effect.endsWith('tile-face'))).toBe(true);
+ expect(faces.filter(f=>!f.river).every(f=>f.width===384&&f.height===512&&f.bias===0&&f.detail===0)).toBe(true);
+ const rivers=faces.filter(f=>f.river);expect(rivers.length).toBeGreaterThan(0);
+ expect(rivers.every(f=>f.width===256&&f.height===256&&f.mips===9&&f.bias===-.5&&f.detail===.5)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+test('full river stays at normal whole-table phone size and uses native 3x pixels',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:844,height:426},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+ const page=await context.newPage();
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:5199/tests/previews/full-river.html');
+ const frame=()=>page.frames().find(f=>f.url().includes('/cocos-table/index.html'))!;
+ await expect.poll(()=>frame()?.evaluate(()=>(window as any).__JINLING_TABLE_3D__?.tiles.filter((t:any)=>t.area==='river').length)).toBe(120);
+ await expect(page.getByRole('button',{name:'弃牌放大'})).toHaveCount(0);
+ const box=await page.locator('iframe').boundingBox();expect(box!.width).toBeLessThanOrEqual(844);expect(box!.x).toBeGreaterThanOrEqual(0);
+ await expect.poll(()=>frame().evaluate(()=>document.querySelector('canvas')!.width/document.querySelector('canvas')!.clientWidth)).toBeCloseTo(3,2);
+ await page.locator('iframe').screenshot({path:'output/qa/river-phone-after.png'});
+ // A density change must preserve hit testing, including touch on native 3x.
+ const playing=referenceSnapshot();playing.disabled=false;playing.canDiscard=true;playing.turn=0;
+ const hand=await frame().evaluate(async state=>{
+  const cc=await(window as any).System.import('cc'),c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+  c.state={...state,tableStyle:'reference-3d',externalControls:false};c.skipNextTransition=true;c.draw();
+  (window as any).testCommands=[];c.emit=(command:any)=>(window as any).testCommands.push(command);
+  return (window as any).__JINLING_TABLE_LAYOUT__.find((t:any)=>t.area==='hand'&&t.seat===0);
+ },playing);
+ await page.touchscreen.tap(box!.x+hand.x*box!.width/1280,box!.y+hand.y*box!.height/590);
+ await expect.poll(()=>frame().evaluate(()=>(window as any).testCommands[0]?.tile)).toBe(hand.tile);
+ await page.setViewportSize({width:667,height:344});
+ await expect.poll(()=>frame().evaluate(()=>document.querySelector('canvas')!.width/document.querySelector('canvas')!.clientWidth)).toBeCloseTo(3,2);
+ expect(errors).toEqual([]);
+ await context.close();
+});
+
 test('older canvas without roundRect still initializes the production 3D table',async({page})=>{
  await page.addInitScript(()=>{delete (CanvasRenderingContext2D.prototype as any).roundRect;});
  await page.goto('/cocos-table/index.html');

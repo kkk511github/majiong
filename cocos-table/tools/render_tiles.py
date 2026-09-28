@@ -35,8 +35,8 @@ s.view_settings.look = 'None'
 s.view_settings.exposure = 0
 s.world.color = (0.45, 0.45, 0.45)
 s.world.use_nodes = True
-s.world.node_tree.nodes.get('Background').inputs['Color'].default_value=(0.85,0.9,1,1)
-s.world.node_tree.nodes.get('Background').inputs['Strength'].default_value=.45
+s.world.node_tree.nodes.get('Background').inputs['Color'].default_value=(1,1,1,1)
+s.world.node_tree.nodes.get('Background').inputs['Strength'].default_value=.52
 
 def mat(name,color,rough=.25):
     m=bpy.data.materials.new(name); m.diffuse_color=(*color,1); m.use_nodes=True
@@ -45,14 +45,18 @@ def mat(name,color,rough=.25):
     b.inputs['IOR'].default_value=1.48
     return m
 
-ivory=mat('Ivory polished melamine',(.94,.955,.92),.24)
-# A shared substrate normal and roughness carry across the face and moulding.
+white_jade=(.98,.985,.975,1)
+ivory=mat('Polished white jade face',white_jade[:3],.28)
+# A restrained stone micro-surface and soft subsurface response make the face
+# read as polished white jade instead of flat white plastic.
 nt=ivory.node_tree; bsdf=nt.nodes.get('Principled BSDF')
-noise=nt.nodes.new('ShaderNodeTexNoise'); noise.inputs['Scale'].default_value=165; noise.inputs['Detail'].default_value=2
-micro=nt.nodes.new('ShaderNodeBump'); micro.inputs['Strength'].default_value=.14; micro.inputs['Distance'].default_value=.002
+noise=nt.nodes.new('ShaderNodeTexNoise'); noise.inputs['Scale'].default_value=120; noise.inputs['Detail'].default_value=2
+micro=nt.nodes.new('ShaderNodeBump'); micro.inputs['Strength'].default_value=.025; micro.inputs['Distance'].default_value=.0008
 nt.links.new(noise.outputs['Fac'],micro.inputs['Height']); nt.links.new(micro.outputs['Normal'],bsdf.inputs['Normal'])
-bsdf.inputs['Coat Weight'].default_value=.42; bsdf.inputs['Coat Roughness'].default_value=.16
-bsdf.inputs['Subsurface Weight'].default_value=.025
+bsdf.inputs['Coat Weight'].default_value=.20; bsdf.inputs['Coat Roughness'].default_value=.28
+bsdf.inputs['Subsurface Weight'].default_value=.035
+bsdf.inputs['Specular IOR Level'].default_value=.28
+if 'Subsurface Scale' in bsdf.inputs: bsdf.inputs['Subsurface Scale'].default_value=.035
 jade=mat('Dense green back',(.035,.23,.005),.23)
 jnt=jade.node_tree; jb=jnt.nodes.get('Principled BSDF')
 jn=jnt.nodes.new('ShaderNodeTexNoise');jn.inputs['Scale'].default_value=110
@@ -98,20 +102,29 @@ def ink_mat(k,rotate=False):
         coord=nt.nodes.new('ShaderNodeTexCoord');mapping=nt.nodes.new('ShaderNodeMapping')
         mapping.inputs['Location'].default_value=(1,1,0);mapping.inputs['Rotation'].default_value=(0,0,math.pi)
         nt.links.new(coord.outputs['UV'],mapping.inputs['Vector']);nt.links.new(mapping.outputs['Vector'],tex.inputs['Vector'])
-    mix=nt.nodes.new('ShaderNodeMixRGB'); mix.blend_type='MIX'; mix.inputs[1].default_value=(.94,.955,.92,1)
-    nt.links.new(tex.outputs['Alpha'],mix.inputs[0]); pigment=nt.nodes.new('ShaderNodeHueSaturation');pigment.inputs['Saturation'].default_value=1.05 if 9 <= k <= 17 else 1.55;pigment.inputs['Value'].default_value=1.10 if 9 <= k <= 17 else 1.55
-    nt.links.new(tex.outputs['Color'],pigment.inputs['Color']);nt.links.new(pigment.outputs['Color'],mix.inputs[2]); nt.links.new(mix.outputs[0],b.inputs['Base Color'])
+    mix=nt.nodes.new('ShaderNodeMixRGB'); mix.blend_type='MIX'; mix.inputs[1].default_value=white_jade
+    # The source already contains enamel highlights. Do not amplify them or
+    # boost saturated green a second time when lighting the actual solid.
+    nt.links.new(tex.outputs['Alpha'],mix.inputs[0])
+    pigment=nt.nodes.new('ShaderNodeHueSaturation')
+    pigment.inputs['Saturation'].default_value=1 if k == 33 else (.78 if 18 <= k <= 26 else .90)
+    pigment.inputs['Value'].default_value=1.0
+    nt.links.new(tex.outputs['Color'],pigment.inputs['Color'])
+    tone=nt.nodes.new('ShaderNodeMixRGB');tone.blend_type='MULTIPLY';tone.inputs[0].default_value=1
+    tone.inputs[2].default_value=(1,1,1,1) if k == 33 else (.82,.82,.82,1)
+    nt.links.new(pigment.outputs['Color'],tone.inputs[1])
+    nt.links.new(tone.outputs[0],mix.inputs[2]);nt.links.new(mix.outputs[0],b.inputs['Base Color'])
     # Shallow recessed enamel: the rim catches light while the centre sits inside
     # the same tile surface. The noise stays beneath the engraving normal.
     carve=nt.nodes.new('ShaderNodeBump'); carve.invert=True
-    carve.inputs['Strength'].default_value=.4 if 9 <= k <= 17 else .6; carve.inputs['Distance'].default_value=.008 if 9 <= k <= 17 else .023
+    carve.inputs['Strength'].default_value=.16; carve.inputs['Distance'].default_value=.004
     nt.links.new(tex.outputs['Alpha'],carve.inputs['Height'])
     nt.links.new(nt.nodes.get('Bump').outputs['Normal'],carve.inputs['Normal'])
     nt.links.new(carve.outputs['Normal'],b.inputs['Normal'])
-    spec=nt.nodes.new('ShaderNodeMapRange'); spec.inputs['To Min'].default_value=.5; spec.inputs['To Max'].default_value=.18
+    spec=nt.nodes.new('ShaderNodeMapRange'); spec.inputs['To Min'].default_value=.28; spec.inputs['To Max'].default_value=.12
     nt.links.new(tex.outputs['Alpha'],spec.inputs['Value']); nt.links.new(spec.outputs['Result'],b.inputs['Specular IOR Level'])
     rough=nt.nodes.new('ShaderNodeMapRange'); rough.inputs['From Min'].default_value=0; rough.inputs['From Max'].default_value=1
-    rough.inputs['To Min'].default_value=.24; rough.inputs['To Max'].default_value=.31
+    rough.inputs['To Min'].default_value=.28; rough.inputs['To Max'].default_value=.40
     nt.links.new(tex.outputs['Alpha'],rough.inputs['Value']); nt.links.new(rough.outputs['Result'],b.inputs['Roughness'])
     return m
 
@@ -130,6 +143,7 @@ def area(name,loc,power,size):
     return o
 key=area('Large softbox upper left',(-4,-6,10),1300,7)
 fill=area('Soft rim', (6,4,8),850,8)
+face_fill=area('Broad neutral front fill',(0,-60,15),10000,45)
 
 poses={
  'own':{'eye':(0,-12,3),'rot':(90,0,0),'kinds':42},
@@ -229,8 +243,10 @@ for name,pose in poses.items():
                 if t==front: o.data.materials[1]=ivory if pose.get('back') else (reverse_inks if pose.get('reverseInk') else inks)[k]
                 objects.append(o)
         # Very broad lighting keeps all atlas cells at the same exposure.
-        key.location=Vector((-30,-40,70)); key.data.energy=60000; key.data.size=19
-        fill.location=Vector((35,20,55)); fill.data.energy=14000; fill.data.size=35
+        # A balanced softbox/fill pair keeps the jade face bright through its
+        # lower half without clipping the polished highlight along the crown.
+        key.location=Vector((-30,-40,70)); key.data.energy=38000; key.data.size=40
+        fill.location=Vector((35,20,55)); fill.data.energy=18000; fill.data.size=45
         key.rotation_euler=(-key.location).to_track_quat('-Z','Y').to_euler()
         fill.rotation_euler=(-fill.location).to_track_quat('-Z','Y').to_euler()
         s.render.filepath=str(out/(name+'-'+str(frame)+'.png' if args.individual else name+'.png'))

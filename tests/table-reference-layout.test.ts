@@ -100,9 +100,22 @@ describe('reference table physical alignment',()=>{
     const tiles=referenceTiles(s);
     for(const p of s.players){
       const cards=tiles.filter(t=>t.area==='river'&&t.seat===p.seat).sort((a,b)=>p.discards.indexOf(a.tile!)-p.discards.indexOf(b.tile!)).map(local),capacity=10;
+      for(const card of cards){expect(card.modelWidth).toBe(.32);expect(card.modelLength).toBe(.38);}
       const axis=p.seat%2?'groundZ':'groundX',edge=p.seat%2?'groundX':'groundZ',out=p.seat===0||p.seat===1?1:-1;
       for(let i=1;i<capacity;i++)expect(cards[i][edge]).toBeCloseTo(cards[0][edge]);
       expect(cards[capacity][axis]).toBeCloseTo(cards[0][axis]);expect((cards[capacity][edge]-cards[0][edge])*out).toBeGreaterThan(0);
+    }
+  });
+  it('centres both horizontal discard rails between the two side rails',()=>{
+    for(const me of [0,1,2,3]){
+      const s=referenceSnapshot();s.me=me;s.players.forEach(p=>p.discards=Array.from({length:27},(_,i)=>p.seat*27+i));
+      const tiles=referenceTiles(s),box=(offset:number)=>{
+        const seat=(me+offset)%4,bounds=tiles.filter(t=>t.area==='river'&&t.seat===seat).map(projectedBounds);
+        return {left:Math.min(...bounds.map(b=>b.left)),right:Math.max(...bounds.map(b=>b.right))};
+      };
+      const self=box(0),right=box(1),opposite=box(2),left=box(3);
+      expect(Math.abs((opposite.left-left.right)-(right.left-opposite.right))).toBeLessThan(1);
+      expect(Math.abs((self.left-left.right)-(right.left-self.right))).toBeLessThan(1);
     }
   });
   it('27 discards per seat have visible corner gutters and never enter either horizontal hand or the compass',()=>{

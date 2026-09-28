@@ -468,6 +468,54 @@ describe("真实 WebSocket 房间服务", () => {
       expect(s.games.get(state.code)).toEqual(settled);
     }
   });
+  it.each([false, true])("胡牌及时广播且不等碰杠，迟到请求不重复结算（多家胡%s）", async multiple => {
+    const { s, port } = await boot();
+    const peers = await Promise.all(["甲", "乙", "丙", "丁"].map(n => peer(port, n)));
+    peers[0].send({ type: "create" });
+    const { state } = await peers[0].read("state");
+    for (const p of peers.slice(1)) {
+      p.send({ type: "join", code: state.code });
+      await p.read("state");
+    }
+    const g = s.games.get(state.code)!;
+    g.phase = "claiming";
+    g.round = 1;
+    g.deadline = Date.now() + 100_000;
+    const before = g.revision;
+    g.pending = {
+      openedAtRevision: before, tile: 16, from: 0, kind: "discard",
+      offers: { 1: ["hu", "pass"], ...(multiple ? { 2: ["hu", "pass"] as ("hu" | "pass")[] } : {}), 3: ["kong", "pung", "pass"] },
+      replies: {},
+    };
+    const used = new Map<number, number>([[4, 1]]);
+    const hands = [[], [2, 3, 9, 10, 11, 18, 19, 20, 27, 27, 27, 28, 28],
+      [5, 6, 12, 13, 14, 21, 22, 23, 29, 29, 29, 30, 30], [4, 4, 4]];
+    g.players.forEach((p, seat) => {
+      p!.hand = hands[seat].map(k => {
+        const copy = used.get(k) ?? 0;
+        used.set(k, copy + 1);
+        return k * 4 + copy;
+      });
+    });
+    g.players[0]!.discards = [16];
+    peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "hu-now" });
+    await peers[1].read("ack", m => m.requestId === "hu-now");
+    if (multiple) {
+      expect(s.games.get(state.code)!.phase).toBe("claiming");
+      peers[2].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "second-hu" });
+      await peers[2].read("ack", m => m.requestId === "second-hu");
+    }
+    for (const p of peers) {
+      const ended = await p.read("state", m => m.state.phase === "ended");
+      expect(ended.state.result!.winners).toEqual(multiple ? [1, 2] : [1]);
+    }
+    const settled = structuredClone(s.games.get(state.code));
+    expect(settled!.history).toHaveLength(1);
+    expect(settled!.players[3]!.melds).toEqual([]);
+    peers[3].send({ type: "action", revision: before, action: { type: "kong" }, requestId: "late-kong" });
+    await peers[3].read("error", m => m.requestId === "late-kong");
+    expect(s.games.get(state.code)).toEqual(settled);
+  });
   it("创建加入、四人准备、屏蔽手牌、拒绝过期与重复出牌", async () => {
     const { s, port } = await boot();
     const peers = await Promise.all(

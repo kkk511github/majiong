@@ -1,0 +1,53 @@
+// Display-referred enamel: keep the approved white/ink colours out of ACES.
+// Geometry and depth remain 3D; the separate tile body supplies bevel lighting.
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: tile-face-vs:vert
+      frag: tile-face-fs:frag
+      properties:
+        mainTexture: { value: white }
+        mainColor: { value: [1, 1, 1, 1], editor: { type: color } }
+        faceSampling: { value: [0, 0, 0, 0] }
+}%
+
+CCProgram tile-face-vs %{
+  precision highp float;
+  #include <legacy/input>
+  #include <builtin/uniforms/cc-global>
+  #include <legacy/local-batch>
+  out vec2 v_uv;
+  vec4 vert () {
+    vec4 position;
+    CCVertInput(position);
+    mat4 matWorld;
+    CCGetWorldMatrix(matWorld);
+    v_uv = a_texCoord;
+    return cc_matProj * cc_matView * matWorld * position;
+  }
+}%
+
+CCProgram tile-face-fs %{
+  precision highp float;
+  in vec2 v_uv;
+  uniform sampler2D mainTexture;
+  uniform FaceColor { vec4 mainColor; vec4 faceSampling; };
+  vec4 frag () {
+    vec4 ink = texture(mainTexture, v_uv, faceSampling.x);
+    if (faceSampling.y > 0.0) {
+      // Only small river faces: recover local edge contrast lost to reduction.
+      // A bounded luminance correction keeps flat jade/ink colours unchanged,
+      // with no chroma boost or broad white halo around the glyphs.
+      vec2 stepUV = faceSampling.zw;
+      vec3 adjacent = (
+        texture(mainTexture, v_uv + vec2(stepUV.x, 0.0), faceSampling.x).rgb +
+        texture(mainTexture, v_uv - vec2(stepUV.x, 0.0), faceSampling.x).rgb +
+        texture(mainTexture, v_uv + vec2(0.0, stepUV.y), faceSampling.x).rgb +
+        texture(mainTexture, v_uv - vec2(0.0, stepUV.y), faceSampling.x).rgb
+      ) * 0.25;
+      float detail = clamp(dot(ink.rgb - adjacent, vec3(0.2126, 0.7152, 0.0722)) * faceSampling.y, -0.045, 0.045);
+      ink.rgb = clamp(ink.rgb + vec3(detail), 0.0, 1.0);
+    }
+    return ink * mainColor;
+  }
+}%

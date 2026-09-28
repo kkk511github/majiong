@@ -1,4 +1,5 @@
 import { resourceDigest, sourceDigest } from './runtime-integrity.mjs';
+import { applyTableRenderDensity } from './table-render-density.mjs';
 import { cp, mkdir, readFile, readdir, rm, writeFile, access } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -59,6 +60,7 @@ if(![0,36].includes(result.status))throw new Error(`Cocos build failed: ${result
 await access(resolve(built,'index.html'));
 await rm(output,{recursive:true,force:true});await mkdir(output,{recursive:true});
 await cp(built,output,{recursive:true,filter:src=>!src.endsWith('.map')});
+await applyTableRenderDensity(output);
 const completedSource=await fingerprint();
 await writeFile(resolve(output,'build-manifest.json'),JSON.stringify({creator:'3.8.8',source:completedSource,resourceLayout,debug:false}));
 await saveRuntime(completedSource);

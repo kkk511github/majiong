@@ -5,6 +5,10 @@ import {resourceDigest,sourceDigest} from './runtime-integrity.mjs';
 import {previewOnlyAssets} from './release-assets.mjs';
 const publicRoot=resolve('public'),builtRoot=resolve(process.argv[2]??'dist');
 const required=['cocos-table/index.html','audio/mahjong-table.m4a','audio/mahjong-lobby.m4a','audio/nanjing-male.wav','audio/nanjing-female.wav'];
+for(const folder of ['actions-jade-v2','actions-crystal-v3']){
+ const actionArt=JSON.parse(await readFile(resolve(publicRoot,`ui/${folder}/manifest.json`),'utf8'));
+ for(const item of actionArt.sprites){const name=`ui/${folder}/${item.file}`;required.push(name);if(createHash('sha256').update(await readFile(resolve(publicRoot,name))).digest('hex')!==item.sha256)throw Error('Action sprite checksum mismatch: '+name);}
+}
 for(const gender of ['male','female']){
  const pack=JSON.parse(await readFile(`src/nanjing-${gender}.json`,'utf8'));
  required.push(pack.file.replace(/^\//,''));
@@ -19,7 +23,7 @@ for(const e of entries.filter(e=>e.isFile())){
  if(!data.equals(built))throw new Error('Web release asset differs from source: '+name);
  const group=name.split('/')[0];groups[group]??={files:0,bytes:0};groups[group].files++;groups[group].bytes+=data.length;checked++;
 }
-for(const name of ['table-scene.ts','tile-pose-metrics.ts']){
+for(const name of ['table-scene.ts','tile-pose-metrics.ts','table-hand-motion.ts','action-presentation.ts','action-anchors.ts']){
  if(!(await readFile(resolve('shared',name))).equals(await readFile(resolve('cocos-table/assets/scripts',name))))throw new Error('Shared table source not synchronized: '+name);
 }
 const manifest=JSON.parse(await readFile('cocos-table/runtime/manifest.json','utf8'));

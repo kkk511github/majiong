@@ -40,25 +40,25 @@ it.each(kinds)("%s removes retired fields from the actual XLSX and preserves the
     expect(cell.text).not.toMatch(/20分数|20金额|50积分/);
   }));
   expect(sheet.model.merges).toEqual(["A1:F1"]);
-  expect(Array.from({ length: 6 }, (_, i) => sheet.getColumn(i + 1).width)).toEqual([19, 15, 28, 16, 16, 16]);
+  expect(Array.from({ length: 6 }, (_, i) => sheet.getColumn(i + 1).width)).toEqual([14, 10, 18, 10, 10, 10]);
   expect(sheet.views[0]).toMatchObject({ state: "frozen", ySplit: 2, topLeftCell: "A3", showGridLines: false });
   expect(sheet.autoFilter).toBe("A2:F5");
   expect(sheet.pageSetup).toMatchObject({
     printArea: "A1:F6", printTitlesRow: "1:2", orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0,
   });
-  expect(sheet.getRow(1).height).toBe(32);
-  expect(sheet.getRow(2).height).toBe(24);
-  expect(sheet.getRow(3).height).toBe(26);
-  expect(sheet.getRow(6).height).toBe(28);
-  expect(sheet.getCell("A3").value).toBe("日结丁战队");
-  expect(sheet.getCell(kind === 'dailyScore' ? "A4" : "A5").value).toBe("日结冰战队");
+  expect(sheet.getRow(1).height).toBe(28);
+  expect(sheet.getRow(2).height).toBe(22);
+  expect(sheet.getRow(3).height).toBe(22);
+  expect(sheet.getRow(6).height).toBe(24);
+  expect(sheet.getCell("A3").value).toBe(kind==='dailyScore'?"日结丁战队":"日结冰战队");
+  expect(sheet.getCell(kind === 'dailyScore' ? "A4" : "A3").value).toBe("日结冰战队");
 });
 
 it.each(kinds)("%s preserves numeric inputs, signed cached amounts and every bottom total", async kind => {
   const daily = kind === "dailyScore";
   const rows = daily ? scoreRows : participationRows;
   const sheet = (await readWorkbook(await settlementWorkbook(kind, teamName, "2026-09-16", "2026-09-22", rows))).worksheets[0];
-  const expectedRows = daily ? [scoreRows[0], scoreRows[2], scoreRows[1]] : rows;
+  const expectedRows = daily ? [scoreRows[0], scoreRows[2], scoreRows[1]] : [...rows].reverse();
   expectedRows.forEach((row, i) => {
     const r = i + 3;
     expect(sheet.getCell(`D${r}`).value).toBe(daily ? (row as ScoreRow).score : (row as ParticipationRow).rounds);
@@ -80,7 +80,7 @@ it.each(kinds)("%s preserves numeric inputs, signed cached amounts and every bot
   if (daily) for (const col of ["D", "E", "F"]) expect(sheet.getCell(`${col}5`).numFmt).toBe("0");
 });
 
-it('sorts the entire daily report by signed numeric amount, breaks ties by numeric ID, and never mutates input or weekly order', async () => {
+it('sorts complete daily and weekly reports numerically without mutating inputs', async () => {
   const amounts = [-8, 10, 100, 0, 10, 9.5, -0.5];
   const ids = ['100001', '10', '100003', '100004', '2', '100006', '100007'];
   const rows: ScoreRow[] = amounts.map((points, i) => ({ teamName: i % 2 ? '日结冰战队' : '日结丁战队', userId: ids[i], username: `玩家${i}`, score: points * 2, points }));
@@ -101,13 +101,30 @@ it('sorts the entire daily report by signed numeric amount, breaks ties by numer
   expect(rows).toEqual(before);
   const weeklyRows = before.map((row, i) => ({ ...row, rounds: i + 1, points: (i + 1) * 3 }));
   const weekly = (await readWorkbook(await settlementWorkbook('weeklyTables', teamName, '2026-09-17', '2026-09-23', weeklyRows))).worksheets[0];
-  expect(weeklyRows.map((_, i) => weekly.getCell(i + 3, 2).value)).toEqual(ids);
+  expect(weeklyRows.map((_, i) => weekly.getCell(i + 3, 2).value)).toEqual([...ids].reverse());
+  expect(weeklyRows.map(r=>r.userId)).toEqual(ids);
 });
 
 it('keeps a single daily participant above the total', async () => {
   const sheet = (await readWorkbook(await settlementWorkbook('dailyScore', teamName, '2026-09-23', '2026-09-23', [scoreRows[1]]))).worksheets[0];
   expect(sheet.getCell('B3').value).toBe('100002'); expect(sheet.getCell('E3').result).toBe(-8);
   expect(sheet.getCell('A4').value).toBe('总计：'); expect(sheet.getCell('E4').result).toBe(-8);
+});
+it('weekly amount ties use numeric member IDs and keep rows/formulas together',async()=>{
+ const rows:ParticipationRow[]=[{teamName:'乙队',userId:'10',username:'十',rounds:9,points:27},{teamName:'甲队',userId:'2',username:'二',rounds:9,points:27},{teamName:'甲队',userId:'3',username:'三',rounds:12,points:36}];
+ const before=structuredClone(rows);Object.freeze(rows);
+ const s=(await readWorkbook(await settlementWorkbook('weeklyTables','甲队+乙队','2026-09-21','2026-09-27',rows))).worksheets[0];
+ expect([3,4,5].map(r=>s.getCell(r,2).value)).toEqual(['3','2','10']);
+ expect([3,4,5].map(r=>s.getCell(r,5).result)).toEqual([36,27,27]);expect(rows).toEqual(before);
+});
+it.each(kinds)('%s grows only overflowing number/ID columns and wraps long text without cutting data',async kind=>{
+ const rows=[{teamName:'名字很长很长很长的战队',userId:'00000000000000000001',username:'第一行\n第二行\n第三行',score:-1234567890.123456,rounds:123456789,points:kind==='dailyScore'?-617283945.061728:370370367}];
+ const s=(await readWorkbook(await settlementWorkbook(kind,'非常长的战队名称'.repeat(5),'2026-12-29','2027-01-04',rows))).worksheets[0];
+ expect(s.getColumn(1).width).toBe(14);expect(s.getColumn(3).width).toBe(18);expect(s.getColumn(2).width).toBeGreaterThan(10);
+ expect(s.getRow(3).height).toBeGreaterThanOrEqual(52);
+ if(kind==='weeklyTables')expect(s.getRow(1).height).toBeGreaterThan(28);else expect(s.getRow(1).height).toBe(28);
+ expect(s.getCell('C3').value).toBe(rows[0].username);expect(s.getCell('B3').value).toBe(rows[0].userId);expect(s.getCell('E3').result).toBe(rows[0].points);
+ expect(s.getCell('A3').alignment.wrapText).toBe(true);
 });
 
 it.each(kinds)('%s displays nicknames as safe text, retains IDs for duplicate names and falls back only when missing', async kind => {
@@ -121,7 +138,7 @@ it.each(kinds)('%s displays nicknames as safe text, retains IDs for duplicate na
     expect(cell.type).toBe(ExcelJS.ValueType.String); expect(cell.formula).toBeUndefined();
     expect(sheet.getCell(i+3, 2).value).toBe(row.userId);
   });
-  expect(sheet.getRow(6).height).toBe(42);
+  expect(sheet.getRow(6).height).toBeGreaterThanOrEqual(52);
 });
 
 it.each(kinds)("%s keeps an empty report printable with formula totals of zero", async kind => {
@@ -158,7 +175,7 @@ it("keeps long names and formula-like member text as strings, without losing fra
     expect(cell.alignment).toMatchObject({ wrapText: true, horizontal: "left", vertical: "middle" });
     expect(sheet.getCell(i + 3, 2).value).toBe(`00000${i + 1}`);
   });
-  expect(sheet.getRow(7).height).toBe(42);
+  expect(sheet.getRow(7).height).toBeGreaterThanOrEqual(52);
   expect(sheet.getCell("D3").value).toBe(1.000001);
   expect(sheet.getCell("E3").result).toBe(0.5000005);
   expect(sheet.getCell("F8").result).toBe(0.5000005);

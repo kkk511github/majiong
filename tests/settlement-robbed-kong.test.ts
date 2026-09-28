@@ -57,11 +57,22 @@ it("新B抢杠元数据可解释无逐笔账的结果，但旧reason始终按旧
   expect(r).toEqual(before);
 });
 
-it("当前B文案明确赔给另外三家，v2文案保留原三份承包", () => {
+it("当前B文案明确三份全给胡者，v2文案保留三份承包", () => {
   const current = ruleSections(ruleDefaults("nj-garden-b-v3")).flat().join("");
-  expect(current).toContain("向其他三家各赔一份");
-  expect(current).toContain("多人胡牌按每名胡牌者依次累计");
+  expect(current).toContain("按胡牌分的三份全部付给实际胡牌者");
+  expect(current).toContain("未胡牌的玩家不收这笔钱");
+  expect(current).not.toContain("向其他三家各赔一份");
   const old = ruleSections(ruleDefaults("nj-garden-v2")).flat().join("");
   expect(old).toContain("抢杠胡由补杠者付三份");
   expect(old).not.toContain("抢杠时，补杠者按每名实际胡牌者");
+});
+
+it.each([false,true])('修正后的抢杠说明只列实际胡者（无流水%s）',withoutLedger=>{
+ const r=record([48,86]);r.result.robbedKongPayout='winner-triple';
+ r.result.transfers=withoutLedger?undefined:[{from:1,to:0,amount:144,reason:'抢杠包三家'},{from:1,to:2,amount:258,reason:'抢杠包三家'}];
+ r.result.deltas=[144,-402,258,0];r.scores=r.result.deltas.map(n=>500+n);
+ const before=structuredClone(r),html=text(renderToStaticMarkup(createElement(ScoreDetails,{record:r,ledgerFirst:true})));
+ expect(html).toContain('乙向甲应付48×3＝144分');expect(html).toContain('乙向丙应付86×3＝258分');
+ expect(html).toContain('未胡牌的玩家不分这笔钱');expect(html).not.toContain('向其他三家各赔一份');
+ expect(r).toEqual(before);
 });

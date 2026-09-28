@@ -1,0 +1,24 @@
+{
+  "version": "crystal-v3",
+  "origin": "OpenAI built-in image_gen; original generated art",
+  "sprites": [
+    {
+      "name": "plate",
+      "file": "plate.png",
+      "width": 256,
+      "height": 256,
+      "bytes": 133704,
+      "sha256": "2dfe615ad1afaea5ba2d6741e24a8c727483d3f1472532036930f205c16c4e40",
+      "alpha": true
+    },
+    {
+      "name": "fire-ring",
+      "file": "fire-ring.png",
+      "width": 256,
+      "height": 256,
+      "bytes": 73154,
+      "sha256": "937ecfb7ad21e75dae69ed9280fc09f406b7f25d9ce7a44db121a35dfef2ae11",
+      "alpha": true
+    }
+  ]
+}

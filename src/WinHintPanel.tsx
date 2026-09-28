@@ -25,13 +25,19 @@ export function WinHintPanel({
       const parent=host.getBoundingClientRect(),rect=iframe?.getBoundingClientRect()??parent;
       const f=tableOverlayLayout(parent,rect,s.safeArea,s.tableStyle),k=f.scale;
       const hu=s.actions.some(a=>a.id==="hu") && (s.pending || s.hintDiscard === undefined),count=hu?1:s.hintKinds.length;
+      if(hu){
+        // Reuse the source-card bay; a second floating instruction strip over
+        // the lower river competes with both the cards and the player's thumb.
+        setPosition({left:f.sourceLeft,top:f.sourceTop,width:f.sourceWidth,height:f.sourceHeight,'--claim-scale':k,'--hint-tile-height':`${Math.min(32,Math.max(20,f.sourceHeight-28))}px`} as CSSProperties);
+        return;
+      }
       const meta=hu?26:12;
       const local=f.players[0];
       const hintLeft=Math.max(f.safeLeft,f.left+(local.x+local.w/2)*k+8);
       const right=Math.min(parent.width-f.safeRight,f.contentRight);
       const available=Math.max(0,Math.min(right-hintLeft,1020*k));
       const width=Math.min(available,Math.max(hu?200:0,meta+count*Math.max(40,52*k)));
-      const left=Math.max(hintLeft,Math.min(f.left+624*k,right-width));
+      let left=Math.max(hintLeft,Math.min(f.left+624*k,right-width));
       const own=s.players?.length ? layoutTable(s).filter(t=>t.seat===s.me&&t.area==="hand") : [];
       const under=own.filter(t=>f.left+(t.x+t.w/2)*k>left&&f.left+(t.x-t.w/2)*k<left+width);
       const handTop=under.length?Math.min(...under.map(t=>t.y-t.h/2)):491;
@@ -39,18 +45,33 @@ export function WinHintPanel({
       const arrowGap=under.some(t=>t.tile!==undefined&&readyDiscards.includes(t.tile))?Math.max(14,22*k):0;
       let top=f.top+handTop*k-h-arrowGap-4;
       const controls=host.querySelector(".table-claim-actions")?.getBoundingClientRect();
-      if(controls&&left+width>controls.left-parent.left-8&&left<controls.right-parent.left+8)
-        top=Math.min(top,controls.top-parent.top-h-8);
+      // Include the decorative perimeter (outside the button hit box), not
+      // just its rectangular control row. Never cover an available action.
+      const controlGap=12;
+      if(controls&&left+width>controls.left-parent.left-controlGap&&left<controls.right-parent.left+controlGap)
+        top=Math.min(top,controls.top-parent.top-h-controlGap);
+      // Very short embedded previews can lack a full row above the controls.
+      // Use the free left gutter then, instead of clamping the hint over them.
+      const minTop=Math.max(4,f.top+4);
+      if(controls&&top<minTop&&controls.left-parent.left-controlGap-width>=8){
+        left=controls.left-parent.left-controlGap-width;
+        top=Math.max(minTop,controls.top-parent.top);
+      }
       const item=Math.max(5,(width-(hu?meta+12:12))/Math.max(1,count));
       const dense=item<32;
       // Account for both borders, vertical padding and the small contact
       // shadow. The tile must fit inside the content box, not the outer box.
       const innerHeight=h-10;
-      setPosition({left,top:Math.max(54,top),width,height:h,"--hint-direction":dense?"column":"row","--hint-gap":dense?"0px":"2px","--hint-tile-height":`${dense?Math.min(innerHeight-8,item*1.1):Math.min(innerHeight-4,(item-12)/.69)}px`,"--hint-font":`${dense?Math.min(9,item*.55):Math.min(13,item*.24)}px`} as CSSProperties);
+      setPosition({left,top:Math.max(4,top),width,height:h,"--hint-direction":dense?"column":"row","--hint-gap":dense?"0px":"2px","--hint-tile-height":`${dense?Math.min(innerHeight-8,item*1.1):Math.min(innerHeight-4,(item-12)/.69)}px`,"--hint-font":`${dense?Math.min(9,item*.55):Math.min(13,item*.24)}px`} as CSSProperties);
     };
     const observer=new ResizeObserver(resize);observer.observe(host);if(iframe)observer.observe(iframe);
     const controls=host.querySelector(".table-claim-actions");if(controls)observer.observe(controls);
-    resize();return ()=>observer.disconnect();
+    // TableControls applies bottom/right in a separate React commit. A
+    // ResizeObserver alone misses a move with unchanged width/height, so a
+    // hint measured earlier in that commit can remain across the buttons.
+    const controlPosition=new MutationObserver(resize);
+    if(controls)controlPosition.observe(controls,{attributes:true,attributeFilter:['style','class']});
+    resize();return ()=>{observer.disconnect();controlPosition.disconnect();};
   },[s.hintKinds.length,s.actions,s.selected,s.drawn,s.players,s.hintDiscard,s.safeArea,s.tableStyle,readyDiscards]);
   const active =
     s.presentation !== "replay" && ["playing", "claiming"].includes(s.phase);
@@ -66,6 +87,13 @@ export function WinHintPanel({
     : canPreview
       ? "打出后可听"
       : "已经听牌";
+  if(show&&hu)return <div ref={hostRef} className="mahjong-hint-layer">
+    <section className="win-hint-panel can-win win-hint-claim table-claim-source" style={position} aria-label="胡牌提示">
+      <div className="table-claim-source-copy"><span>{s.pending?`${s.players.find(p=>p.seat===s.pending!.from)?.name??'牌友'}${s.pending.kind==='robKong'?'补杠':'打出'}`:'自己摸到'}</span><strong>{winningTile===undefined?'可以胡牌':tileName(winningTile)}</strong></div>
+      {winningTile!==undefined&&<span className="winning-tile-art" aria-label={`胡牌${tileName(winningTile)}`}><TileFace tile={winningTile}/></span>}
+      <small className="table-claim-source-status">{s.pending?'可胡牌':'可自摸'} · 点胡</small>
+    </section>
+  </div>;
   return (
     <div ref={hostRef} className="mahjong-hint-layer">
       {show && (

@@ -63,13 +63,13 @@ for (const [width, height] of [[568,320], [844,390], [1280,590]]) {
     expect(commands[0].action).toEqual({ type: "pung" });
     await expect(controls.getByRole("button", { name: "碰", exact: true })).toBeDisabled();
     await expect(controls.locator(".is-chosen")).toHaveCount(1);
-    await expect(controls.locator(".is-chosen")).toContainText("提交中");
+    await expect(controls.locator(".is-chosen")).toContainText("等待确认");
     await expect(source).toContainText("正在提交操作");
 
     view.pending!.kind = "robKong"; view.actions = ["pass", "hu"]; view.revision++; push();
     await expect(controls.getByRole("button")).toHaveCount(2);
     await expect(source).toContainText(`${view.players[1]!.name}补杠`);
-    await expect(controls.getByRole("button", { name: "胡", exact: true })).toContainText("抢杠胡");
+    await expect(controls.getByRole("button", { name: "胡", exact: true })).toHaveAccessibleName("胡");
     await expect(controls.locator(".is-chosen")).toHaveCount(0);
     view.pending!.answered = true; view.actions = []; view.revision++; push();
     await expect(source).toHaveCount(0);

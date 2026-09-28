@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { View } from "../shared/types";
 import { gameFeedback, type GameFeedback } from "./game-feedback";
 import "./game-motion.css";
+import {ACTION_TIMING} from '../shared/action-presentation';
 
 /** One short batch, never a queue: reconnecting must not replay old turns. */
 export function useGameMotion(view: View | null, live: boolean) {
@@ -28,12 +29,14 @@ export function useGameMotion(view: View | null, live: boolean) {
       clearTimeout(timeout.current);
       return;
     }
-    const fresh = gameFeedback(before.current, view);
+    const prior=before.current;
+    const fresh = gameFeedback(prior, view);
     before.current = view;
+    if(!view||!prior||prior.id!==view.id||prior.round!==view.round||prior.me!==view.me){clearTimeout(timeout.current);setEvents(fresh);}
     if (!fresh.length) return;
     setEvents(fresh);
     clearTimeout(timeout.current);
-    timeout.current = setTimeout(() => setEvents([]), fresh.some(e => e.type === "hu") ? 2200 : 1050);
+    timeout.current = setTimeout(() => setEvents([]), fresh.some(e => e.type === "hu") ? ACTION_TIMING.hu.duration+80 : ACTION_TIMING.kong.duration+80);
   }, [view, live, visible]);
   return events;
 }

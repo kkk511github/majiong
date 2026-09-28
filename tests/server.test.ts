@@ -388,7 +388,11 @@ describe("真实 WebSocket 房间服务", () => {
       if (phase === "ended") {
         for (const p of back) p.send({ type: "ready" });
         const next = await back[0].read("state", (m) => m.state.round === before.round + 1);
-        expect(next.state.history).toEqual(before.history);
+        expect(next.state.history).toEqual(before.history.map(r=>({...r,hands:r.hands?.map((p,seat)=>{
+          const visible=seat===0||(r.result.reason==='hu'&&r.result.winners.includes(seat as Seat));
+          return {...p,hand:visible?p.hand:[],melds:p.melds.map(m=>m.concealed&&!visible?{...m,tiles:m.tiles.slice(0,1)}:m)};
+        })})));
+        expect(resumed.s.games.get(state.code)!.history).toEqual(before.history);
       } else {
         const seat = (
           phase === "playing"

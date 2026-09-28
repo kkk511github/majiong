@@ -4,11 +4,13 @@ import {
   layoutTable,
   sceneOffset,
   type TableSceneState,
+  type SceneTile,
 } from "../shared/table-scene";
+import {handActionAnchor} from '../shared/action-anchors';
 
-export const DEBIT_WIDTH = 92,
-  DEBIT_HEIGHT = 58,
-  DEBIT_RISE = 14;
+export const DEBIT_WIDTH = 108,
+  DEBIT_HEIGHT = 76,
+  DEBIT_RISE = 0;
 export type DebitObstacle = { x: number; y: number; w: number; h: number };
 type Box = DebitObstacle;
 export const debitSeparated = (a: Box, b: Box) =>
@@ -20,14 +22,13 @@ export function scoreDebitPosition(
   state: TableSceneState,
   seat: number,
   controls: Box[] = [],
+  previous?:{x:number;y:number},
+  metrics={w:DEBIT_WIDTH,h:DEBIT_HEIGHT},
+  tiles:readonly SceneTile[]=layoutTable(state),
 ) {
   const offset = sceneOffset(seat, state.me);
-  const preferred = [
-    { x: 650, y: 440 },
-    { x: 935, y: 260 },
-    { x: 650, y: 125 },
-    { x: 385, y: 265 },
-  ][offset];
+  const hand=handActionAnchor(state,seat,tiles),dx=640-hand.x,dy=295-hand.y,distance=Math.max(1,Math.hypot(dx,dy));
+  const preferred={x:hand.x+dx/distance*150,y:hand.y+dy/distance*150};
   const zones = [
     { left: 230, right: 1110, top: 395, bottom: 466 },
     { left: 918, right: 1120, top: 150, bottom: 420 },
@@ -45,7 +46,7 @@ export function scoreDebitPosition(
     return { ...p, y: p.plateY };
   });
   const obstacles: Box[] = [
-    ...layoutTable(state),
+    ...tiles,
     ...hud,
     ...controls,
     { x: 640, y: 278, w: 124, h: 96 },
@@ -59,23 +60,27 @@ export function scoreDebitPosition(
   ];
   if (claimPrompt(state)) obstacles.push({ x: 122, y: 388, w: 196, h: 76 });
   const fits = (x: number, y: number) =>
-    obstacles.every((b) =>
+    x-metrics.w*.54>=(state.safeArea?.left??0)+6&&x+metrics.w*.54<=1274-(state.safeArea?.right??0)&&y-metrics.h*.54>=(state.safeArea?.top??0)+6&&y+metrics.h*.54<=584-(state.safeArea?.bottom??0)&&obstacles.every((b) =>
       debitSeparated(
         {
           x,
           y: y - DEBIT_RISE / 2,
-          w: DEBIT_WIDTH,
-          h: DEBIT_HEIGHT + DEBIT_RISE,
+          w: metrics.w*1.08,
+          h: metrics.h*1.08 + DEBIT_RISE,
         },
         b,
       ),
     );
+  if(previous&&fits(previous.x,previous.y))return previous;
   if (fits(preferred.x, preferred.y)) return preferred;
   const searchZones = [zones[offset]];
   // The new single-row meld rails can completely fill the former side bay.
   // Try free felt elsewhere rather than silently dropping a confirmed debit.
   if (state.tableStyle === 'reference-3d')
     searchZones.push({ left: 164, right: 1110, top: 45, bottom: 455 });
+  // Fully occupied three-row rivers can consume the inner bays. Portrait-side
+  // gaps are allowed, while the same HUD/card/safe-area exclusions still apply.
+  searchZones.push({left:Math.ceil((state.safeArea?.left??0)+metrics.w*.54+6),right:Math.floor(1274-(state.safeArea?.right??0)-metrics.w*.54),top:Math.ceil((state.safeArea?.top??0)+metrics.h*.54+6),bottom:Math.floor(584-(state.safeArea?.bottom??0)-metrics.h*.54)});
   for (const zone of searchZones) {
     let best: {x:number;y:number;distance:number} | undefined;
     for (let y = zone.top; y <= zone.bottom; y += 6)

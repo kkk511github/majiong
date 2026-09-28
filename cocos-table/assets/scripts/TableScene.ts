@@ -1,9 +1,11 @@
-import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, sp, EventTouch } from 'cc';
+import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, EventTouch } from 'cc';
 import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type TileDragOrigin } from './tile-drag';
 import { createTable3DView,type Table3DView } from './Table3DView';
 import type { Table3DTile } from './table-3d-layout';
 import {drawnTileInsertion,handInsertionPoint} from './table-hand-motion';
+import {TableActionEffects} from './TableActionEffects';
+import {ACTION_TIMING,actionKind} from './action-presentation';
 const { ccclass } = _decorator;
 // Visual tokens for the straight-table skin.  Gameplay never reads these
 // values; keeping them together makes the Cocos scene easy to retheme without
@@ -13,7 +15,7 @@ const PANEL='#063d3f';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
 type VisualTile=Pick<SceneTile,'x'|'y'|'w'|'h'>;
 type MotionSnapshot=Pick<TableSceneState,'key'|'round'|'me'|'revision'|'connected'|'phase'|'presentation'>&{renderedAt:number};
-type TileFlight={tile:SceneTile;identity?:number;progress:{t:number};animation:Tween<{t:number}>;endsAt:number;kind?:'insert'};
+type TileFlight={tile:SceneTile;identity?:number;progress:{t:number};animation:Tween<{t:number}>;endsAt:number;kind?:'insert'|'stack'};
 type ReleasedTile={tile:number;id:string;visual:VisualTile;key:string;round:number;me:number;revision:number;sawDisabled:boolean;timer:ReturnType<typeof setTimeout>;rejectionTimer?:ReturnType<typeof setTimeout>};
 type AvatarFailure={attempts:number;retryAt:number};
 const AVATAR_ATTEMPT_LIMIT=3,AVATAR_RETRY_BASE_MS=500;
@@ -26,7 +28,7 @@ export class TableScene extends Component {
  private compassRoot?:Node; private compassWinds:Label[]=[]; private compassHighlights:UIOpacity[]=[];
  private compassMemory?:CompassMemory; private compassActive=-1; private compassPerspective=-1;
  private stateFrame=0;
- private effectData=new Map<string,sp.SkeletonData>();
+ private actionFx?:TableActionEffects;
  private frames=new Map<string,SpriteFrame>(); private nodes=new Map<string,Node>(); private shadows=new Map<string,Node>();
  private tileLayout=new Map<string,SceneTile>();
  private previousTiles=new Map<string,SceneTile>(); private previousPhysical=new Map<string,number>(); private byPhysical=new Map<number,SceneTile>();
@@ -44,7 +46,7 @@ export class TableScene extends Component {
  private pointer?:Node; private pointerKey=''; private pointerAt='';
  private cancelHandTouch=()=>{if(!this.handTouch)return;this.handTouch=undefined;this.layoutKey='';if(this.ready&&this.state)this.draw();};
  private onBlur=()=>{this.handTouch=undefined;this.lastHandTap=undefined;this.clearReleasedTile();this.skipNextTransition=true;if(this.ready&&this.state)this.draw();};
- private onVisibility=()=>{this.skipNextTransition=true;if(document.hidden){this.handTouch=undefined;this.clearReleasedTile();}if(this.ready&&this.state)this.draw();};
+ private onVisibility=()=>{this.skipNextTransition=true;this.actionFx?.reset(this.state?.effects);if(document.hidden){this.handTouch=undefined;this.clearReleasedTile();}if(this.ready&&this.state)this.draw();};
  // Creator converts an actual touchend outside the last rendered tile bounds to
  // TOUCH_CANCEL. Remember the browser event before Creator dispatches it, so an
  // updated release position still discards, while a real system cancel never does.
@@ -97,11 +99,14 @@ export class TableScene extends Component {
     if(name==='avatars')for(let k=0;k<4;k++){const a=new SpriteFrame();a.texture=tex;a.rect=new Rect(k%2*img.width/2,Math.floor(k/2)*img.height/2,img.width/2,img.height/2);this.frames.set('avatar-'+k,a);}
    }));
    loadStage='action-art';
-   const effects=(await load<JsonAsset>('art/action-fx-data',JsonAsset)).json as any;
-   const fxTexture=new Texture2D();fxTexture.image=await load<ImageAsset>('art/action-fx',ImageAsset);
-   for(const [key,json] of Object.entries(effects.skeletons)){
-    const data=new sp.SkeletonData();data.skeletonJson=json as any;data.atlasText=effects.atlas;data.textures=[fxTexture];data.textureNames=['action-fx.png'];this.effectData.set(key,data);
-   }
+   await Promise.all(['pung','kong','hu','pass','plate'].map(async key=>{
+    const url=new URL(`../ui/actions-jade-v2/${key}.png`,location.href).href;
+    const img=await new Promise<ImageAsset>((resolve,reject)=>assetManager.loadRemote<ImageAsset>(url,{ext:'.png'},(error,img)=>error?reject(error):resolve(img!)));
+    if(!this.isValid)return;const texture=new Texture2D();texture.image=img;const frame=new SpriteFrame();frame.texture=texture;this.frames.set('action-'+key,frame);
+   }));
+   if(!this.isValid)return;
+   const actionEvent=(type:string,cue:any)=>window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type,key:cue.key,seat:cue.seat,action:cue.type},location.origin==='null'?'*':location.origin);
+   this.actionFx=new TableActionEffects(this.effectsRoot,this.frames,cue=>actionEvent('action-impact',cue),cue=>actionEvent('action-complete',cue));
    loadStage='3d-models';this.staticTable();this.view3D=await createTable3DView(this);this.ready=true;
    (window as any).__JINLING_TABLE_READY__=true;
    window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'ready'},location.origin==='null'?'*':location.origin);
@@ -109,7 +114,7 @@ export class TableScene extends Component {
    if(this.state)this.draw();
   }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);const error=e as Error;window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error',diagnostic:{stage:loadStage,name:error?.name,message:error?.message,stack:error?.stack}},location.origin==='null'?'*':location.origin);}
  }
- onDestroy(){this.view3D?.destroy();cancelAnimationFrame(this.stateFrame);for(const opacity of this.compassHighlights)Tween.stopAllByTarget(opacity);window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
+ onDestroy(){this.actionFx?.destroy();for(const key of ['pung','kong','hu','pass','plate']){const frame=this.frames.get('action-'+key);frame?.texture?.destroy();frame?.destroy();}this.view3D?.destroy();cancelAnimationFrame(this.stateFrame);for(const opacity of this.compassHighlights)Tween.stopAllByTarget(opacity);window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}
  private text(parent:Node,str:string,x:number,y:number,w:number,h:number,size=20,color=INK){const n=this.make(str,x,y,w,h,parent),l=n.addComponent(Label);l.string=str;l.fontSize=size;l.lineHeight=size+4;l.color=new Color(color);l.isBold=true;l.overflow=Label.Overflow.SHRINK;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;return n;}
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
@@ -151,6 +156,15 @@ export class TableScene extends Component {
  }
  private hudAvatarFrame(parent:Node,name:string,x:number,y:number,size:number,border:string){const n=this.make(name,x,y,size,size,parent),g=n.addComponent(Graphics);g.fillColor=new Color('#073c3f00');g.roundRect(-size/2,-size/2,size,size,9);g.fill();g.strokeColor=new Color(border);g.lineWidth=1.6;g.stroke();return n;}
  private button(parent:Node,label:string,x:number,y:number,w:number,h:number,command:TableSceneCommand,gold=false){
+  const kind=command.type==='action'?actionKind(command.action):undefined;
+  if(kind){
+   const n=this.make('button-'+label,x,y,w,h,parent),base=this.image('action-plate',640,295,w,h,n),glyph=this.image('action-'+kind,640,295,w*.64,h*.64,n);
+   if(kind==='pass')base.getComponent(Sprite)!.color=new Color('#a4aaa4');if(kind==='hu')glyph.getComponent(Sprite)!.color=new Color('#fff0ca');
+   if(this.state?.disabled)n.addComponent(UIOpacity).opacity=120;
+   n.on(Node.EventType.TOUCH_START,()=>{if(!this.state?.disabled)n.setScale(.96,.96,1);});
+   n.on(Node.EventType.TOUCH_CANCEL,()=>n.setScale(1,1,1));
+   n.on(Node.EventType.TOUCH_END,()=>{n.setScale(1,1,1);if(this.state?.connected&&!this.state.disabled&&this.state.actions.some(a=>command.type==='action'&&a.id===command.action&&a.tile===command.tile))this.emit(command);});return n;
+  }
   const n=this.make('button-'+label,x,y,w,h,parent),g=n.addComponent(Graphics);
   const pass=command.type==='action'&&command.action==='pass',modern=this.state?.tableStyle==='reference-3d',hu=command.type==='action'&&command.action==='hu';
   g.fillColor=new Color('#022d30');g.roundRect(-w/2,-h/2-3,w,h,10);g.fill();
@@ -283,7 +297,7 @@ export class TableScene extends Component {
    this.tileFlights.delete(t.id);
    if(this.isValid&&node.isValid){this.placeTile(node,t,t);if(shadow?.isValid){this.placeTileShadow(shadow,t);shadow.setScale(1,1,1);}if(arrival)this.flowerArrival(t);}
   });
-  this.tileFlights.set(t.id,{tile:t,identity:this.physicalTile(t,this.state!),progress,animation,endsAt:performance.now()+ms*scale,kind:insertion?'insert':undefined});
+  this.tileFlights.set(t.id,{tile:t,identity:this.physicalTile(t,this.state!),progress,animation,endsAt:performance.now()+ms*scale,kind:insertion?'insert':t.area==='meld'&&t.stack?'stack':undefined});
   paint();animation.start();
  }
  private applyTileMotion(t:SceneTile,node:Node){
@@ -312,7 +326,8 @@ export class TableScene extends Component {
   this.stopFlight(t.id);
   if(!from||Math.hypot(from.x-t.x,from.y-t.y)<.5&&Math.abs(from.w-t.w)<.5&&Math.abs(from.h-t.h)<.5){node.setScale(1,1,1);shadow?.setScale(1,1,1);return;}
   const insertion=t.area==='hand'&&t.seat===this.state!.me&&physical!==undefined&&physical===this.insertingTile&&old?.id.startsWith('draw-');
-  const ms=insertion?460:t.area==='river'?280:t.area==='flower'?300:t.area==='meld'?300:crossing?260:t.area==='hand'&&t.seat===this.state!.me?120:210;
+  const meld=t.area==='meld'?this.state!.players.find(p=>p.seat===t.seat)?.melds[Number(t.id.split('-')[2])]:undefined;
+  const ms=insertion?ACTION_TIMING.insertion:t.area==='river'?280:t.area==='flower'?300:t.area==='meld'?ACTION_TIMING[meld?.type==='kong'?'kong':'pung'].travel:crossing?260:t.area==='hand'&&t.seat===this.state!.me?120:210;
   this.startFlight(node,from,t,ms,crossing||t.area==='river',t.area==='flower'&&crossing,!!insertion);
  }
  private flowerArrival(t:SceneTile){
@@ -722,21 +737,15 @@ export class TableScene extends Component {
   h.setSiblingIndex(this.root.children.length-1);
  }
  private drawEffect(s:TableSceneState){
+  this.actionFx?.render(s,Array.from(this.tileLayout.values()),this.tileLayout);
   for(const e of s.effects){
    if(this.seenEffects.has(e.key))continue;
    this.seenEffects.add(e.key);
    // Entering, restoring and replay seeks consume historical feedback instead
    // of presenting all of it as if the player had just performed the actions.
    if(!this.animateEffects)continue;
-   const label=e.type==='pung'?'碰':e.type==='flower'?'补花':e.type==='kong'?(e.concealed?'暗杠':e.upgraded?'补杠':'明杠'):'';
+   const label=e.type==='flower'?'补花':'';
    if(label){this.actionWord(s,e.seat,label);continue;}
-   // The React bridge normally owns wins. Keep the standalone canvas fallback
-   // without changing the installed app's TableWinEffect behavior.
-   if(e.type==='hu'){
-    const key=e.selfDraw?'self-draw':'hu',data=this.effectData.get(key);if(!data)continue;
-    const node=this.make('spine-'+key,640,300,280,280,this.effectsRoot),effect=node.addComponent(sp.Skeleton);this.motionEffects.add(node);
-    effect.skeletonData=data;effect.premultipliedAlpha=false;effect.setCompleteListener(()=>{this.motionEffects.delete(node);if(node.isValid)node.destroy();});effect.setAnimation(0,'activate',false);
-   }
   }
  }
  private actionPosition(s:TableSceneState,seat:number){
@@ -784,7 +793,7 @@ export class TableScene extends Component {
  }
  private demo():TableSceneState{
   const hand=[20,21,22,24,25,28,32,33,84,85,56,57,60,64];
-  return {tableStyle:'reference-3d',key:'demo',revision:1,me:0,turn:3,dealer:0,phase:'playing',code:'582619',round:2,rounds:4,remaining:46,countdown:'10',connected:true,disabled:false,practice:true,canDiscard:true,selected:null,drawn:64,inspectedKind:null,hintKinds:[],hintLabel:'可胡',trusteeDisabled:false,actions:[{id:'pass',label:'过'},{id:'pung',label:'碰'},{id:'kong',label:'杠'},{id:'hu',label:'胡'}],effects:[],lastDiscard:{tile:79,seat:3},players:[
+  return {tableStyle:'reference-3d',key:'demo',revision:1,me:0,turn:3,dealer:0,phase:'playing',code:'582619',round:2,rounds:4,remaining:46,countdown:'10',connected:true,disabled:true,practice:true,canDiscard:false,selected:null,drawn:64,inspectedKind:null,hintKinds:[],hintLabel:'',trusteeDisabled:true,actions:[],effects:[],lastDiscard:{tile:79,seat:3},players:[
    {name:'金陵牌友',score:90,seat:0,bot:false,trustee:false,hand,handCount:14,flowers:[132,140],melds:[],discards:[120,47,0,1]},
    {name:'秦淮',score:90,seat:1,bot:true,trustee:false,hand:[],handCount:10,flowers:[136,128],melds:[{type:'pung',tiles:[56,57,58],from:2,concealed:false}],discards:[4,68,100,112,108]},
    {name:'钟山',score:90,seat:2,bot:true,trustee:false,hand:[],handCount:10,flowers:[124,137,129,139],melds:[{type:'pung',tiles:[96,97,98],from:3,concealed:false}],discards:[5,6,7,48,116]},

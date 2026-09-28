@@ -72,6 +72,9 @@ describe("洗牌与暗牌公平性", () => {
     }
     expect(g.players[0]!.melds[0].tiles).toHaveLength(4);
     g.phase = "ended";
+    expect(viewFor(g, 1).players[0]!.melds[0].tiles).toHaveLength(1);
+    expect(viewFor(g, 1).players[0]!.hand).toEqual([]);
+    g.result={reason:'hu',winners:[0],details:{},deltas:[0,0,0,0]};
     expect(viewFor(g, 1).players[0]!.melds[0].tiles).toHaveLength(4);
   });
   it("电脑决策不受对手暗手和牌墙次序影响", () => {

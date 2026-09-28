@@ -165,6 +165,8 @@ export interface Result {
   winningTile?: Tile;
   /** Actual rob-kong win, independent of whether limited funds reached its winner. */
   robbedKong?: boolean;
+  /** Versioned explanation only: preserve older recorded three-recipient ledgers. */
+  robbedKongPayout?: "winner-triple";
   bankrupt?: boolean;
   reason: "hu" | "draw" | "dissolved" | "bankrupt";
   winners: Seat[];

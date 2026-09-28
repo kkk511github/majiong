@@ -39,7 +39,7 @@ export function winPhrases(result: Result, seat: Seat): string[] {
   return [main, ...patterns.filter(has).slice(0, 2)];
 }
 
-export function actionVoices(before: View | null, after: View | null) {
+export function actionVoices(before: View | null, after: View | null,options?:{deferConfirmed?:boolean}) {
   const events = gameFeedback(before, after);
   // The initial flower racks are part of the deal, not live replacements.
   // Do not enqueue them: decoding can otherwise finish after the entrance and
@@ -70,5 +70,11 @@ export function actionVoices(before: View | null, after: View | null) {
   // Several flower replacements and simultaneous winners may share a snapshot.
   return phrases.filter(
     (p, i) => phrases.findIndex((other) => other.phrase === p.phrase) === i,
-  );
+  ).filter(phrase=>{
+    if(!options?.deferConfirmed)return true;
+    const event=events.find(e=>phrase.key.startsWith(e.key+':'));
+    if(!event)return true;
+    if(['pung','kong','hu'].includes(event.type))return false;
+    return !(event.type==='flower'&&events.some(e=>e.type==='kong'&&e.seat===event.seat));
+  });
 }

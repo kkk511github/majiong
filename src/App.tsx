@@ -22,6 +22,7 @@ import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
 import {
   lazy,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -195,6 +196,7 @@ export function App() {
           ? "female"
           : "male",
       chat: storage.get("chat", true),
+      simplifiedEffects:storage.get('simplifiedEffects',false),
     }),
   );
   const [toast, setToast] = useState("");
@@ -238,7 +240,9 @@ export function App() {
   const motion = useGameMotion(v, motionLive);
   const [opening, setOpening] = useState<OpeningCue | null>(null);
   const [tableEntryBusy, setTableEntryBusy] = useState(false);
-  const debitEvents = useScoreDebits(v, motionLive, !tableEntryBusy);
+  const [completedActionKeys,setCompletedActionKeys]=useState<ReadonlySet<string>>(()=>new Set());
+  const completeAction=useCallback((key:string)=>setCompletedActionKeys(old=>{if(old.has(key))return old;const next=new Set(old);next.add(key);while(next.size>96)next.delete(next.values().next().value!);return next;}),[]);
+  const debitEvents = useScoreDebits(v, motionLive, !tableEntryBusy,completedActionKeys);
   useEffect(() => {
     if (state.openingCue) setOpening(state.openingCue);
   }, [state.openingCue]);
@@ -377,12 +381,12 @@ export function App() {
       openingAudioKey.current = start.key;
       if (!cues.includes("deal")) cues.unshift("deal");
     }
-    cues.forEach((cue, i) =>
+    cues.filter(cue=>!['pung','kong','hu'].includes(cue)).forEach((cue, i) =>
       gameAudio.play(cue, i * 0.12),
     );
     const spoken = discardedVoice(previousAudioView.current, v);
     if (spoken) gameAudio.sayTile(spoken.key, spoken.tile);
-    actionVoices(previousAudioView.current, v).forEach(({ key, phrase }) =>
+    actionVoices(previousAudioView.current, v,{deferConfirmed:true}).forEach(({ key, phrase }) =>
       gameAudio.sayTile(key, phrase),
     );
     previousAudioView.current = v;
@@ -836,6 +840,7 @@ export function App() {
             : undefined}
           onOpeningComplete={(cue) => client.openingComplete(cue.game, cue.round)}
           onEntryBusyChange={setTableEntryBusy}
+          onActionComplete={completeAction}
           readyDiscards={readyDiscards}
           winResult={showingWinEffect ? v.result : undefined}
           scoreDebits={debitEvents}
@@ -846,6 +851,7 @@ export function App() {
             selected, drawn: drawnTile, inspectedKind, hintKinds, hintDiscard,
             hintLabel: hintDiscard !== undefined ? `打${tileName(hintDiscard)}后可胡` : "已听牌 · 可胡",
             effects: motion,
+            simplifiedEffects:audioPreferences.simplifiedEffects,
           })}
           onCommand={(command) => {
             gameAudio.unlock();

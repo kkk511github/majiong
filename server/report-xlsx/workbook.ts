@@ -7,10 +7,10 @@ import type { ParticipationRow, ReportDocument, ReportKind, ScoreRow } from "../
 export async function settlementWorkbook(kind: ReportKind, teamName: string, start: string, end: string,
   rows: (ParticipationRow | ScoreRow)[]): Promise<ReportDocument> {
   const daily = kind === "dailyScore";
-  // Rank the complete daily report by its signed numeric amount, not by team
+  // Rank each complete report by its signed numeric amount, not by team
   // or formatted text. Copy first so callers and saved delivery snapshots stay intact.
-  const orderedRows = daily ? [...rows].sort((a, b) => b.points - a.points ||
-    a.userId.localeCompare(b.userId, 'en', { numeric: true })) : rows;
+  const orderedRows = [...rows].sort((a, b) => b.points - a.points ||
+    a.userId.localeCompare(b.userId, 'en', { numeric: true }));
   const day = (date: string, year: boolean) => {
     const [y, m, d] = date.split("-").map(Number);
     return `${year ? y + "." : ""}${m}.${d}`;
@@ -31,14 +31,29 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
   sheet.getCell("C2").value = "昵称";
   sheet.getCell("E2").value = "50金额";
   sheet.mergeCells("A1:F1");
+  // Templates supply compact base widths. Widen only IDs/numeric columns
+  // when their actual values need it; long names wrap instead of widening all rows.
+  const textUnits=(text:string)=>Array.from(text).reduce((n,c)=>n+(/\p{Mark}|\u200d/u.test(c)?0:c.codePointAt(0)!>255?2:1),0);
+  const lines=(text:string,width:number)=>text.split(/\r?\n/).reduce((n,line)=>n+Math.max(1,Math.ceil(textUnits(line)/Math.max(1,width-2))),0);
+  const numericText=(n:number)=>Number.isInteger(n)?String(n):n.toFixed(7).replace(/0+$/,'').replace(/\.$/,'');
+  const totals=[0,0,0];
+  for(const row of orderedRows){
+    sheet.getColumn(2).width=Math.max(sheet.getColumn(2).width??10,textUnits(row.userId)+2);
+    const values=[daily?(row as ScoreRow).score:(row as ParticipationRow).rounds,row.points,row.points];
+    values.forEach((n,i)=>{totals[i]+=n;sheet.getColumn(i+4).width=Math.max(sheet.getColumn(i+4).width??10,numericText(n).length+2);});
+  }
+  totals.forEach((n,i)=>sheet.getColumn(i+4).width=Math.max(sheet.getColumn(i+4).width??10,numericText(n).length+2));
   const styles = Array.from({ length: cols }, (_, i) => structuredClone(sheet.getCell(3, i + 1).style));
   sheet.getCell("A1").value = title;
+  const titleWidth=Array.from({length:cols},(_,i)=>sheet.getColumn(i+1).width??10).reduce((a,b)=>a+b,0);
+  sheet.getCell('A1').alignment={...sheet.getCell('A1').alignment,wrapText:true};
+  sheet.getRow(1).height=Math.max(28,Math.ceil(textUnits(title)*16/12/(titleWidth-2))*20+6);
   wb.creator = "金陵麻将";
   wb.calcProperties.fullCalcOnLoad = true;
   for (const [i, data] of orderedRows.entries()) {
     const r = i + 3;
     const line = sheet.getRow(r);
-    line.height = 26;
+    line.height = 22;
     const points = data.points;
     const nickname = data.nickname?.trim() ? data.nickname : data.username;
     line.values = daily
@@ -54,14 +69,15 @@ export async function settlementWorkbook(kind: ReportKind, teamName: string, sta
         : value && typeof value === "object" && "formula" in value ? cell.result : undefined;
       if (typeof number === "number") cell.numFmt = Number.isInteger(number) ? "0" : "0.#######";
     }
-    line.getCell(3).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-    if (Array.from(nickname).length > 18) line.height = 42;
+    for(const c of [1,3])line.getCell(c).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    const textLines=Math.max(lines(data.teamName,sheet.getColumn(1).width!),lines(nickname,sheet.getColumn(3).width!));
+    line.height=Math.max(22,textLines*16+4);
   }
   if (!rows.length) sheet.getCell("A3").value = "本期无结算记录";
   const last = String.fromCharCode(64 + cols);
   const lastDetail = Math.max(3, rows.length + 2);
   const totalRow = sheet.getRow(lastDetail + 1);
-  totalRow.height = 28;
+  totalRow.height = 24;
   totalRow.getCell(1).value = "总计：";
   for (let c = 1; c <= cols; c++) {
     const cell = totalRow.getCell(c);

@@ -28,7 +28,7 @@ describe('杠上开花本身不免硬花门槛',()=>{
       expect(score.items).toContainEqual({label:replacement==='flower'?'小杠开花':'大杠开花',value:replacement==='flower'?10:20});
     });
     it(`${replacement}: 门清、无花果、其他大胡的独立免花资格不受影响`,()=>{
-      const closed=actualHand(2);closed.melds[0].concealed=true;
+      const closed=actualHand(2);closed.melds[0]={type:'kong',tiles:[68,69,70,71],from:0,concealed:true};
       expect(scoreHand(closed,rules,{winTile:15,replacement})).not.toBeNull();
       const zero=scoreHand(actualHand(0),rules,{winTile:15,replacement})!;
       expect(zero.items.some(i=>i.label==='无花果')).toBe(true);

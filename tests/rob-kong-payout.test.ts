@@ -88,39 +88,35 @@ function resolve(value: ReturnType<typeof robTable>, choose = value.winners) {
 }
 const received = (g: Game, seat: Seat) => g.result!.transfers!.filter(transfer => transfer.to === seat).reduce((sum, transfer) => sum + transfer.amount, 0);
 
-describe("B档抢杠按实际胡牌逐组赔给其余三家", () => {
-  it.each([0, 1, 2, 3])("座位轮转%i：非胡牌两家也各获一份，但winners仅有实际胡牌者", shift => {
+describe("B档抢杠由补杠者付三份给实际胡牌者", () => {
+  it.each([0, 1, 2, 3])("座位轮转%i：三份只归胡者，另外两家不收分", shift => {
     const value = robTable({ shift }), g = resolve(value);
     expect(g.result!.winners).toEqual(value.winners);
     expect(g.result!.robbedKong).toBe(true);
     expect(g.result!.from).toBe(value.payer);
     expect(Object.keys(g.result!.details)).toEqual(value.winners.map(String));
-    for (const seat of seats) expect(g.result!.deltas[seat]).toBe(seat === value.payer ? -144 : 48);
-    expect(g.result!.transfers).toHaveLength(3);
-    expect(g.result!.transfers!.every(transfer => transfer.from === value.payer && transfer.reason === "抢杠赔三家")).toBe(true);
+    for (const seat of seats) expect(g.result!.deltas[seat]).toBe(seat === value.payer ? -144 : value.winners.includes(seat) ? 144 : 0);
+    expect(g.result!.transfers).toEqual([{from:value.payer,to:value.winners[0],amount:144,reason:'抢杠包三家'}]);
+    expect(g.result!.robbedKongPayout).toBe('winner-triple');
     expect(g.players[value.payer]!.melds[0].type).toBe("pung");
     expect(g.ruleState!.nextReasons).toContain("包牌");
   });
 
-  it.each([1, 2, 5, 90, 143, 144, 500])("付款人余额%i：按比例和座序分配余数，实付封顶且守恒", payerBalance => {
+  it.each([1, 2, 5, 90, 143, 144, 500])("付款人余额%i：封顶金额全部给胡者且守恒", payerBalance => {
     const value = robTable({ payerBalance }), g = resolve(value), total = Math.min(payerBalance, 144);
     expect(g.result!.deltas[value.payer]).toBe(-total);
     expect(g.players[value.payer]!.score).toBe(payerBalance - total);
-    const each = Math.floor(total / 3), remainder = total % 3;
-    for (let distance = 1; distance <= 3; distance++) {
-      const seat = ((value.payer + distance) % 4) as Seat;
-      expect(received(g, seat)).toBe(each + Number(distance <= remainder));
-    }
+    for (const seat of seats) expect(received(g,seat)).toBe(value.winners.includes(seat)?total:0);
     expect(g.result!.deltas.reduce((sum, delta) => sum + delta, 0)).toBe(0);
     expect(g.players.reduce((sum, player) => sum + player!.score, 0)).toBe(3000 + payerBalance);
     expect(g.result!.winners).toEqual([0]);
   });
 
-  it("付款只剩1分时实际胡牌者未分到零头，仍保留抢杠事实标记", () => {
+  it("付款只剩1分时全部付给实际胡者，仍保留抢杠事实标记", () => {
     const g = resolve(robTable({ payerBalance: 1 }));
     expect(g.result!.winners).toEqual([0]);
-    expect(g.result!.deltas[0]).toBe(0);
-    expect(g.result!.transfers).toEqual([{ from: 1, to: 2, amount: 1, reason: "抢杠赔三家" }]);
+    expect(g.result!.deltas[0]).toBe(1);
+    expect(g.result!.transfers).toEqual([{ from: 1, to: 0, amount: 1, reason: "抢杠包三家" }]);
     expect(g.result!.robbedKong).toBe(true);
     expect(g.history.at(-1)!.result.robbedKong).toBe(true);
     expect(g.result!.details[0]!.items).toContainEqual({ label: "压绝", value: 30 });
@@ -142,34 +138,32 @@ describe("B档抢杠按实际胡牌逐组赔给其余三家", () => {
     const g = resolve(value);
     expect(g.wall).toEqual(value.game.wall);
     expect(g.players[value.payer]!.melds[0]).toEqual(value.game.players[value.payer]!.melds[0]);
-    expect(g.roundTransfers!.every(transfer => transfer.reason === "抢杠赔三家")).toBe(true);
+    expect(g.roundTransfers!.every(transfer => transfer.reason === "抢杠包三家")).toBe(true);
   });
 
-  it.each([1, 2])("多人抢杠、倍率%i：每名Hu各触发一组，非胡牌者也收到各组份额", multiplier => {
+  it.each([1, 2])("多人抢杠、倍率%i：分别给每位胡者三份，未胡者不收", multiplier => {
     const value = robTable({ flowerCounts: [4, 5], multiplier }), g = resolve(value);
     expect(g.result!.winners).toEqual([0, 2]);
     expect(Object.keys(g.result!.details)).toEqual(["0", "2"]);
     expect(g.result!.details[0]!.total).toBe(48 * multiplier);
     expect(g.result!.details[2]!.total).toBe(50 * multiplier);
-    expect(g.result!.transfers).toHaveLength(6);
-    const each = 98 * multiplier;
-    expect(g.result!.deltas).toEqual([each, -3 * each, each, each]);
-    for (const seat of [0, 2, 3] as Seat[]) expect(received(g, seat)).toBe(each);
-    expect(g.result!.transfers!.every(transfer => transfer.reason === "抢杠赔三家" && transfer.from === 1)).toBe(true);
+    expect(g.result!.transfers).toHaveLength(2);
+    expect(g.result!.deltas).toEqual([144*multiplier,-294*multiplier,150*multiplier,0]);
+    expect(g.result!.transfers!.every(transfer => transfer.reason === "抢杠包三家" && transfer.from === 1 && [0,2].includes(transfer.to))).toBe(true);
     expect(g.result!.robbedKong).toBe(true);
   });
 
   it("两个合法听牌人只有一家点胡，另一家过牌不触发第二组赔付", () => {
     const value = robTable({ flowerCounts: [4, 5] }), g = resolve(value, [0]);
     expect(g.result!.winners).toEqual([0]);
-    expect(g.result!.transfers).toHaveLength(3);
-    expect(g.result!.deltas).toEqual([48, -144, 48, 48]);
+    expect(g.result!.transfers).toHaveLength(1);
+    expect(g.result!.deltas).toEqual([144, -144, 0, 0]);
   });
 
-  it("多人抢杠但付款人仅剩90时，总封顶90、其余三家各30", () => {
+  it("多人抢杠但付款人仅剩90时，仅向两名胡者按应收比例分配", () => {
     const g = resolve(robTable({ flowerCounts: [4, 5], payerBalance: 90 }));
     expect(g.result!.winners).toEqual([0, 2]);
-    expect(g.result!.deltas).toEqual([30, -90, 30, 30]);
+    expect(g.result!.deltas).toEqual([44, -90, 46, 0]);
     expect(g.result!.transfers!.reduce((sum, transfer) => sum + transfer.amount, 0)).toBe(90);
   });
 
@@ -180,18 +174,18 @@ describe("B档抢杠按实际胡牌逐组赔给其余三家", () => {
     expect(() => act(g, 0, { type: "hu" }, 4000)).toThrow();
   });
 
-  it("零花无花果独立资格仍能抢，三家各得成牌10+无花30+压绝30", () => {
+  it("零花无花果独立资格仍能抢，胡者得三份成牌10+无花30+压绝30", () => {
     const g = resolve(robTable({ flowerCounts: [0] }));
     expect(g.result!.details[0]!.total).toBe(70);
     expect(g.result!.details[0]!.items).toContainEqual({ label: "无花果", value: 30 });
-    expect(g.result!.deltas).toEqual([70, -210, 70, 70]);
+    expect(g.result!.deltas).toEqual([210, -210, 0, 0]);
   });
 
   it("无大胡的四花两面普通抢杠，赔三家仍触发下一把包牌比下胡", () => {
     const g = resolve(robTable({ twoSided: true }));
     expect(g.result!.details[0]!.total).toBe(18);
     expect(g.result!.details[0]!.major).toBe(false);
-    expect(g.result!.deltas).toEqual([18, -54, 18, 18]);
+    expect(g.result!.deltas).toEqual([54, -54, 0, 0]);
     expect(g.ruleState!.nextReasons).toContain("包牌");
     expect(g.ruleState!.nextMultiplier).toBe(2);
   });
@@ -218,17 +212,17 @@ function recordDatabase(g: Game) {
 }
 
 describe("抢杠新分账的战绩与练习统计范围", () => {
-  it("真人战绩保存三家实际收入，不把收分的两家误记为胡牌者", () => {
+  it("真人战绩只将三份记给实际胡牌者，另两家积分为零", () => {
     const g = resolve(robTable()), db = recordDatabase(g);
     try {
       createRecords(db).capture(g, false);
       const record = JSON.parse(String(db.prepare("SELECT record FROM round_records").get()!.record));
       expect(record.result.winners).toEqual([0]);
       expect(record.result.robbedKong).toBe(true);
-      expect(record.result.deltas).toEqual([48, -144, 48, 48]);
+      expect(record.result.deltas).toEqual([144, -144, 0, 0]);
       expect(db.prepare("SELECT account_id,points FROM point_records ORDER BY account_id").all()).toEqual([
-        { account_id: "rob-payout-0", points: 48 }, { account_id: "rob-payout-1", points: -144 },
-        { account_id: "rob-payout-2", points: 48 }, { account_id: "rob-payout-3", points: 48 },
+        { account_id: "rob-payout-0", points: 144 }, { account_id: "rob-payout-1", points: -144 },
+        { account_id: "rob-payout-2", points: 0 }, { account_id: "rob-payout-3", points: 0 },
       ]);
     } finally { db.close(); }
   });
@@ -245,7 +239,7 @@ describe("抢杠新分账的战绩与练习统计范围", () => {
       const record = JSON.parse(String(db.prepare("SELECT record FROM round_records").get()!.record));
       expect(record.result.winners).toEqual([0]);
       expect(record.result.robbedKong).toBe(true);
-      expect(record.result.deltas).toEqual([48, -144, 48, 48]);
+      expect(record.result.deltas).toEqual([144, -144, 0, 0]);
       if (mode === "experience") expect(record.experience).toBe(true);
       expect(db.prepare("SELECT COUNT(*) AS n FROM point_records").get()!.n).toBe(0);
       db.prepare("INSERT INTO table_archives VALUES (?)").run(JSON.stringify(g));

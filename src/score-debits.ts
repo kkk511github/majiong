@@ -1,6 +1,7 @@
 import type { ScoreTransfer, Seat, View } from "../shared/types";
+import {ACTION_TIMING} from '../shared/action-presentation';
 
-export const SCORE_DEBIT_MS = 1800;
+export const SCORE_DEBIT_MS = ACTION_TIMING.debit.regular;
 const labels: Partial<Record<ScoreTransfer["reason"], string>> = {
   直杠: "明杠",
   补杠: "补杠",
@@ -15,11 +16,15 @@ export interface ScoreDebit {
   seat: Seat;
   amount: number;
   label: string;
+  /** Local visual sequencing only; never part of a financial/server record. */
+  afterAction?:{key:string;seat:Seat;fallbackAt:number};
+  waiting?:boolean;
 }
 export const isDiscardPenalty = (event: ScoreDebit) =>
   event.label === "四家同牌" || event.label === "四张同牌";
 export const scoreDebitDuration = (event: ScoreDebit) =>
-  isDiscardPenalty(event) ? 3600 : SCORE_DEBIT_MS;
+  isDiscardPenalty(event) ? ACTION_TIMING.debit.penalty : SCORE_DEBIT_MS;
+export const scoreDebitTone=(event:ScoreDebit)=>isDiscardPenalty(event)?'penalty':event.label==='四连风'?'wind':event.label==='花杠'?'flower':'kong';
 const sameTransfer = (a: ScoreTransfer, b: ScoreTransfer) =>
   a.from === b.from &&
   a.to === b.to &&

@@ -116,6 +116,8 @@ export function ReplayPanel({
   }, [playing]);
   useEffect(() => {
     if (!playing || !frame) return;
+    // Confirmed action calls are synchronized to the renderer's impact point.
+    if(['pung','kong','concealedKong','addedKong'].includes(frame.type)||frame.type==='finish'&&frame.result?.winners.length)return;
     const voice =
       frame.type === "discard"
         ? frame.tile

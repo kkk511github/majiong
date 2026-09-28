@@ -1,4 +1,4 @@
-import { layoutLegacyTable, sceneOffset, type SceneTile, type TableSceneState } from './table-scene';
+import { layoutLegacyTable, sceneOffset, meldSourceTileIndex, type SceneTile, type TableSceneState } from './table-scene';
 function tileSeatYaw(tile:SceneTile,state:TableSceneState) {
   if(tile.area==='river'&&sceneOffset(tile.seat,state.me)===2)return 0;
   return sceneOffset(tile.seat,state.me)*90+(tile.area==='meld'&&tile.pose.includes('cross')?90:0);
@@ -42,10 +42,20 @@ export function standingHandLayout(cards:Array<{id:string,x:number,y:number,w:nu
 }
 export function layout3DTable(state:TableSceneState) {
   const denseRivers=state.players.some(p=>p.discards.length>18);
-  const all=layoutLegacyTable(state).map(t=>({...t,drawSlot:t.area==='hand'&&t.seat!==state.me&&Number(t.id.split('-')[2])>=Math.max(0,13-3*state.players.find(p=>p.seat===t.seat)!.melds.length),yaw:tileSeatYaw(t,state),layoutYaw:tileSeatYaw(t,state),alignmentAngle:0,alignmentPivotX:0,alignmentPivotZ:0,modelWidth:.35,modelLength:.48,modelThickness:.16,handRotation:0,groundX:0,groundZ:0}));
+  const all=layoutLegacyTable(state).map(original=>{
+    const t={...original};
+    if(t.area==='meld'){
+      const [,seat,group,index]=t.id.split('-').map(Number),m=state.players.find(p=>p.seat===seat)?.melds[group];
+      if(m?.type==='kong'&&!m.concealed&&!m.added&&meldSourceTileIndex(seat,m.from,false,4)===index)
+        t.pose=['meld-bottom-cross','meld-cross-right','meld-bottom-cross','meld-cross-left'][sceneOffset(seat,state.me)];
+    }
+    return {...t,drawSlot:t.area==='hand'&&t.seat!==state.me&&Number(t.id.split('-')[2])>=Math.max(0,13-3*state.players.find(p=>p.seat===t.seat)!.melds.length),yaw:tileSeatYaw(t,state),layoutYaw:tileSeatYaw(t,state),alignmentAngle:0,alignmentPivotX:0,alignmentPivotZ:0,modelWidth:.35,modelLength:.48,modelThickness:.16,handRotation:0,groundX:0,groundZ:0};
+  });
   for(const p of state.players) {
     const o=sceneOffset(p.seat,state.me),handTiles=all.filter(t=>t.seat===p.seat&&t.area==='hand').sort((a,b)=>o===0||o===2?a.x-b.x:a.y-b.y);
     const hand=handTiles.filter(t=>!t.drawSlot),draws=handTiles.filter(t=>t.drawSlot);
+    if(['ended','finished'].includes(state.phase)&&state.revealedWinners?.includes(p.seat))
+      for(const t of handTiles)t.laidDown=true;
     const melds=all.filter(t=>t.seat===p.seat&&t.area==='meld');
     const groups=Array.from(new Set(melds.map(t=>Number(t.id.split('-')[2])))).sort((a,b)=>a-b);
     const groupGap=groups.length>2?(o===2?.08:o%2?.13:.16):.16;
@@ -61,6 +71,13 @@ export function layout3DTable(state:TableSceneState) {
         if(o===3){t.y=70+gi*84+i*23;t.x=320-.28*t.y;}
         if(o===1){t.y=370-gi*87-i*25;t.x=1000+.25*(t.y-300);}
       });
+      const meld=p.melds[group];
+      if(meld?.type==='kong'&&!meld.concealed&&!meld.added&&cards.some(t=>t.pose.includes('cross'))){
+        // Turning one body must not lengthen a four-kong rail into the next
+        // player's hand. Scale this group uniformly to its previous rail span.
+        const axis=o%2?'z':'x',previous=cards.reduce((n,t)=>n+t.modelWidth,0),now=cards.reduce((n,t)=>n+footprint(t)[axis],0),scale=previous/now;
+        for(const t of cards){t.modelWidth*=scale;t.modelLength*=scale;}
+      }
       if(o===0)ownCursor+=14;
       for(const t of melds.filter(t=>Number(t.id.split('-')[2])===group&&t.stack)){
         const middle=cards.find(c=>c.id.endsWith('-1'))!;
@@ -211,7 +228,7 @@ export function layout3DTable(state:TableSceneState) {
         });
       }
     }
-    // Replays/settlement legally reveal other hands. Show those as face-up
+    // Replays/winning settlements reveal authorized hands. Show those as face-up
     // solids in the same reserved rail, not thin standing-edge sprites.
     const exposed=handTiles.filter(t=>p.seat!==state.me&&t.tile!==undefined);
     if(o%2===1&&exposed.length){
@@ -240,7 +257,11 @@ export function layout3DTable(state:TableSceneState) {
   // Shared visible bounds drive clicks, drag targets, markers and React overlays.
   for(const t of all) {
     t.rotation=0;t.shear=0;
-    if(t.area==='hand'&&(t.seat===state.me||t.tile===undefined)) {
+    if(t.area==='hand'&&t.seat===state.me&&t.laidDown){
+      t.modelWidth=Math.min(.60,t.w/100);t.modelLength=.82;t.modelThickness=.16;
+      const point=groundAt(t.x,530);t.groundX=point.x;t.groundZ=point.z;
+    }
+    if(t.area==='hand'&&((t.seat===state.me&&!t.laidDown)||t.tile===undefined)) {
       if(t.seat===state.me&&t.selected)t.y-=18;
       if(t.tile===state.drawn&&t.id.startsWith('draw-')){
         const offset=sceneOffset(t.seat,state.me);

@@ -873,11 +873,10 @@ function settle(
       for (const other of seats)
         if (other !== seat) bill(other, seat, score.total, "天胡");
     } else if (isNanjingB(g.rules) && robbed && from !== undefined) {
-      // Each actual rob-kong winner supplies one hand value. The attempted
-      // upgrader compensates every other seat once, including non-winners.
-      // Multiple winners remain independent, as for other simultaneous wins.
-      for (const recipient of seats)
-        if (recipient !== from) bill(from, recipient, score.total, "抢杠赔三家");
+      // The upgrader pays all three shares to the actual winner, not one
+      // share to each bystander. Multiple winners retain independent values.
+      result.robbedKongPayout = "winner-triple";
+      bill(from, seat, score.total * 3, "抢杠包三家");
     } else if (isNanjingV2(g.rules) && responsibility !== undefined) {
       liability(responsibility, seat, score.total, "三口承包");
     } else if (isNanjingV2(g.rules) && robbed && from !== undefined) {
@@ -1211,10 +1210,16 @@ export function viewFor(g: Game, me: Seat): View {
     ruleState: _ruleState,
     ...rest
   } = g;
-  const reveal = ["ended", "finished"].includes(g.phase);
+  const revealedWinners = ["ended", "finished"].includes(g.phase) && g.result?.reason === "hu" ? g.result.winners : [];
   const openingBlocked = !!g.openingGate;
   return clone({
     ...rest,
+    // Live snapshots must not leak losing hands through the history payload
+    // either. Persisted records/replay are unchanged; only this projection is redacted.
+    history: g.history.map(record=>({...record,hands:record.hands?.map((p,seat)=>{
+      const visible=seat===me||(record.result.reason==='hu'&&record.result.winners.includes(seat as Seat));
+      return {...p,hand:visible?p.hand:[],melds:p.melds.map(m=>m.concealed&&!visible?{...m,tiles:m.tiles.slice(0,1)}:m)};
+    })})),
     globalAnchorDiscards: globalAnchorDiscards(g),
     me,
     ...(g.ruleState
@@ -1229,6 +1234,7 @@ export function viewFor(g: Game, me: Seat): View {
     players: players.map((p, seat) => {
       if (!p) return null;
       const { passedHu, passedPung, hand, ...visible } = p;
+      const reveal = revealedWinners.includes(seat as Seat);
       return {
         ...visible,
         handCount: hand.length,

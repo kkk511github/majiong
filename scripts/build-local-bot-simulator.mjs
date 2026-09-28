@@ -5,8 +5,12 @@ const source=process.argv[2],serverUrl=process.argv[3]??'http://127.0.0.1:5199/t
 if(!source)throw Error('Usage: node scripts/build-local-bot-simulator.mjs /path/to/Debug-iphonesimulator/App.app [localhost URL]');
 const url=new URL(serverUrl);if(!['127.0.0.1','localhost'].includes(url.hostname))throw Error('Local bot simulator must use localhost, never a production service');
 await access(resolve(source,'Info.plist'));
-const root=await mkdir(resolve('output/local-bot-simulator'),{recursive:true});
-const target=resolve('output/local-bot-simulator/LocalBots.app');await cp(resolve(source),target,{recursive:true});
+const output=resolve(process.argv[4]??'output/local-bot-simulator');
+if(!output.startsWith(resolve('output')+'/'))throw Error('Simulator output must be under output/');
+await mkdir(output,{recursive:true});
+const target=resolve(output,'LocalBots.app');
+try{await access(target);throw Error('Simulator artifact exists; use a fresh output directory');}catch(e){if(e.code!=='ENOENT')throw e;}
+await cp(resolve(source),target,{recursive:true});
 const config=JSON.parse(await readFile(resolve(target,'capacitor.config.json'),'utf8'));
 config.appId='com.jinling.mahjong.localbots';config.appName='金陵麻将本地演示';config.server={url:serverUrl,cleartext:true};
 await writeFile(resolve(target,'capacitor.config.json'),JSON.stringify(config,null,2));

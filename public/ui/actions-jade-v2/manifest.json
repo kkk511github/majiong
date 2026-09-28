@@ -1,0 +1,51 @@
+{
+  "version": "jade-v2",
+  "origin": "OpenAI built-in image_gen; original generated art",
+  "sprites": [
+    {
+      "name": "pung",
+      "file": "pung.png",
+      "width": 320,
+      "height": 320,
+      "bytes": 103341,
+      "sha256": "b8e1818b25d3e824ff4676268f0660c792c65bcb917487504c6af696745dc710",
+      "alpha": true
+    },
+    {
+      "name": "kong",
+      "file": "kong.png",
+      "width": 320,
+      "height": 320,
+      "bytes": 81859,
+      "sha256": "d3624c485df99152f971824482f7dab009aa93a8a49fb95541c5989575a322b4",
+      "alpha": true
+    },
+    {
+      "name": "hu",
+      "file": "hu.png",
+      "width": 320,
+      "height": 320,
+      "bytes": 115708,
+      "sha256": "0d9672b34539778ec91c08a4291ea1d9cd3b42061b88c432f23202a9de7be7ab",
+      "alpha": true
+    },
+    {
+      "name": "pass",
+      "file": "pass.png",
+      "width": 320,
+      "height": 320,
+      "bytes": 103088,
+      "sha256": "736bdb14977a5edf350a978b90312c59455c3f0a0018c424b9f883f58b924057",
+      "alpha": true
+    },
+    {
+      "name": "plate",
+      "file": "plate.png",
+      "width": 256,
+      "height": 256,
+      "bytes": 113763,
+      "sha256": "9b132f558cc20a52e80d186557eab8b6ebed8289fbff119c07d58b47539ac1c3",
+      "alpha": true
+    }
+  ]
+}

@@ -68,6 +68,26 @@ function finish(records: ReturnType<typeof createRecords>, g: Game) {
 const ledger = (db: DatabaseSync, id: string) => db.prepare("SELECT account_id,points FROM point_records WHERE game_id=? ORDER BY account_id").all(id);
 
 describe("抢杠赔三家的真实账本投影", () => {
+  it("修正后三份全给胡者，战绩积分和日结一致且重启不重算历史分账",()=>{
+    const {db,records}=source(),old=game('old-three-recipients');finish(records,old);
+    const oldLedger=ledger(db,old.id),oldRound=db.prepare('SELECT record FROM round_records WHERE game_id=?').get(old.id)!.record;
+    const g=game('corrected-winner-triple'),r=g.history[0];
+    r.result.robbedKongPayout='winner-triple';r.result.deltas=[144,-144,0,0];
+    r.result.transfers=[{from:1,to:0,amount:144,reason:'抢杠包三家'}];r.scores=[344,56,200,200];
+    finish(records,g);
+    expect(ledger(db,g.id)).toEqual(users.map((account_id,seat)=>({account_id,points:[144,-144,0,0][seat]})));
+    expect(records.details(g.id,users[0]).rounds[0].record.result).toMatchObject({robbedKongPayout:'winner-triple',winners:[0],deltas:[144,-144,0,0]});
+    const totals=records.points(new URLSearchParams({from:String(from),to:String(from+day)}));
+    expect(totals.rows.map(row=>[row.accountId,row.points])).toEqual([['u0',192],['u1',-288],['u2',48],['u3',48]]);
+    expect(dailyScoreRows(db,'team-3',from,from+day).map(row=>[row.username,row.score])).toEqual(users.map((_,seat)=>[`real-player-${seat}`,[192,-288,48,48][seat]]));
+    expect(participationRows(db,'team-3',from,from+7*day).map(row=>[row.username,row.rounds])).toEqual(users.map((_,seat)=>[`real-player-${seat}`,2]));
+    db.prepare('INSERT INTO table_archives VALUES(?)').run(JSON.stringify(old));
+    db.prepare('INSERT INTO table_archives VALUES(?)').run(JSON.stringify(g));
+    const restarted=createRecords(db);restarted.capture(old,false);restarted.capture(g,false);
+    expect(ledger(db,old.id)).toEqual(oldLedger);
+    expect(db.prepare('SELECT record FROM round_records WHERE game_id=?').get(old.id)!.record).toBe(oldRound);
+    expect(ledger(db,g.id)).toEqual(users.map((account_id,seat)=>({account_id,points:[144,-144,0,0][seat]})));
+  });
   it("仅一名胡牌者时三名收款真人均入账，战绩、日结和周结保留四人参与", () => {
     const { db, records } = source(), g = game("rob-three-recipients"); finish(records, g);
     expect(ledger(db, g.id)).toEqual(users.map((account_id, seat) => ({ account_id, points: [48, -144, 48, 48][seat] })));

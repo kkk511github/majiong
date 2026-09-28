@@ -51,7 +51,7 @@ for (const [width, height] of [
   [844, 390],
   [1280, 590],
 ]) {
-  test(`真实App四家扣分位置与米金色动画 ${width}`, async ({ page }, info) => {
+  test(`真实App四家无框扣分位置与浮字动画 ${width}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height });
     let socket: WebSocketRoute;
     let current = viewFor(debitGame(), 0);
@@ -122,7 +122,8 @@ for (const [width, height] of [
         .locator(".score-debit strong")
         .first()
         .evaluate((el) => getComputedStyle(el).color);
-      expect(color).toBe("rgb(232, 214, 170)");
+      expect(color).toBe("rgb(243, 232, 201)");
+      expect(await page.locator('.score-debit').first().evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
       const box = (await page
         .locator("#cocos-table-board iframe")
         .boundingBox())!;
@@ -204,7 +205,9 @@ test("同一玩家连续扣分依次显示，重连时不补播旧流水", async
   ).toBeVisible();
   current = viewFor(applyDebit(debitGame("open"), "open"), 0);
   send();
-  await expect(page.locator(".score-debit")).toHaveText("−10明杠");
+  await expect(page.locator(".score-debit strong")).toHaveText("−10");
+  await expect(page.locator(".score-debit-reason")).toHaveText("明杠");
+  await expect(page.locator(".score-debit-player")).toHaveText("秦淮");
   current = {
     ...current,
     revision: current.revision + 1,
@@ -214,8 +217,8 @@ test("同一玩家连续扣分依次显示，重连时不补播旧流水", async
     ],
   };
   send();
-  await expect(page.locator(".score-debit")).toHaveText("−10明杠");
-  await expect(page.locator(".score-debit")).toHaveText("−10花杠", {
+  await expect(page.locator(".score-debit-reason")).toHaveText("明杠");
+  await expect(page.locator(".score-debit-reason")).toHaveText("花杠", {
     timeout: 3000,
   });
   await page.reload();

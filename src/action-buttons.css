@@ -1,0 +1,58 @@
+.table-controls .jade-action-row{gap:var(--action-gap,24px);align-items:center;overflow:visible;padding:3px;touch-action:none;pointer-events:none}
+.jade-action-slot{display:block;flex:none;width:var(--action-main-size,56px);height:var(--action-main-size,56px);pointer-events:none}
+.jade-action-slot.jade-pass-slot{width:var(--action-pass-size,44px);height:var(--action-pass-size,44px);margin-left:var(--action-pass-margin,10px)}
+.table-controls .jade-action-row .jade-action{display:block;position:relative;isolation:isolate;width:100%;height:100%;min-width:44px;min-height:44px;padding:0;border:0;border-radius:9px;background:none!important;box-shadow:none!important;pointer-events:auto;touch-action:none;transition:none;filter:none;outline:none}
+.table-controls .jade-action-row .jade-action::before,.table-controls .jade-action-row .jade-action::after{content:none!important;animation:none!important}
+.jade-contact-shadow{position:absolute;inset:6px 4px 1px;border-radius:50%;background:#09251e;box-shadow:0 2px 3px #02171366;opacity:.65;pointer-events:none;transition:opacity var(--action-release-ms),transform var(--action-release-ms)}
+.jade-press-layer{position:absolute;inset:0;pointer-events:none;transition:transform var(--action-release-ms) ease-out}
+.jade-plate{position:absolute;width:100%;height:100%;inset:0;pointer-events:none}
+.jade-glyph{position:absolute;width:63%;height:63%;left:18.5%;top:17%;object-fit:contain;pointer-events:none}
+.jade-hu .jade-glyph{filter:sepia(.26) saturate(1.25)}
+.jade-hu .jade-plate{filter:hue-rotate(185deg) saturate(.68)}
+.jade-kong .jade-plate{filter:hue-rotate(14deg) saturate(1.2)}
+.jade-pass .jade-plate{filter:saturate(.13) brightness(.95)}
+.jade-pass .jade-glyph{width:60%;height:60%;left:20%;top:18.5%}
+.jade-signature{position:absolute;pointer-events:none}
+.jade-kong .jade-signature{width:5px;height:7px;left:12%;top:13%;border-left:1px solid #cfbd85;border-right:1px solid #cfbd85}
+.jade-hu .jade-signature{width:5px;height:5px;right:12%;bottom:13%;border-radius:1px;background:#a94d3c;box-shadow:inset 0 1px #cb786366}
+.jade-action.is-pressed .jade-press-layer{transform:translateY(1.5px) scale(.96)}
+.jade-action.is-pressed .jade-contact-shadow{transform:translateY(1px) scale(.97);opacity:.42}
+.jade-action.is-pressed .jade-press-layer,.jade-action.is-pressed .jade-contact-shadow{transition-duration:var(--action-press-ms)}
+.table-controls .jade-action-row .jade-action:disabled{opacity:.44}
+.table-controls .jade-action-row .jade-action.is-chosen{opacity:.9;outline:none}
+.jade-pending-mark{display:none;position:absolute;inset:5px;border:1px dashed #e5d9ab99;border-radius:50%}
+.jade-action.is-chosen .jade-pending-mark{display:block}
+.table-controls .jade-action-row .jade-action:focus-visible{outline:2px solid #ded8b9;outline-offset:3px}
+.table-controls .jade-action-row .claim-choice-tile{right:-2px;bottom:-2px;width:17px;height:25px;z-index:2}
+@media(prefers-reduced-motion:reduce){.jade-press-layer,.jade-contact-shadow{transition:none}}
+
+/* Small, independent perimeter effects. Transform/opacity only for flames;
+   two dashed blue arcs distinguish collision from the heavier paired kong. */
+.crystal-aura{position:absolute;inset:-4px;z-index:1;pointer-events:none}
+.crystal-aura svg{width:100%;height:100%;overflow:visible}
+.crystal-fire,.fire-breath{position:absolute;inset:0;pointer-events:none}
+.crystal-fire-ring{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.fire-flow-a{animation:crystal-fire-flow 12s linear infinite;opacity:.92}
+.fire-flow-b{animation:crystal-fire-flow 17s linear infinite reverse;opacity:.42}
+.fire-breath{animation:crystal-fire-breath 1.3s ease-in-out infinite alternate}
+.jade-glyph,.jade-pending-mark{z-index:2}
+.blue-orbit{fill:none;stroke-linecap:round;stroke-width:2.2;stroke:#5dcaff;stroke-dasharray:52 231;animation:crystal-blue 2.6s linear infinite}
+.blue-orbit-b{stroke:#c7f4ff;stroke-width:1.2;stroke-dasharray:22 280;animation-direction:reverse;animation-duration:3.6s}
+.jade-kong .blue-orbit-a{stroke-width:2.8;stroke-dasharray:34 45 34 170;animation-duration:3.4s}
+.jade-kong .blue-orbit-b{animation-duration:2.8s}
+.blue-spark{fill:#d6f8ff;animation:crystal-spark 2s ease-in-out infinite}
+.jade-kong .blue-spark{animation-delay:-1s}
+.crystal-sheen{position:absolute;inset:7%;border-radius:50%;overflow:hidden;pointer-events:none}
+.crystal-sheen::before{content:'';position:absolute;top:-20%;bottom:-20%;width:18%;left:-50%;background:linear-gradient(90deg,transparent,#e7ffff66,transparent);transform:rotate(25deg);animation:crystal-sheen 4.6s ease-in-out infinite}
+.jade-pass .crystal-sheen::before{opacity:.35;animation-duration:6.5s}
+.jade-hu .crystal-sheen::before{animation-delay:-1.3s}
+.jade-action:disabled .crystal-aura{display:none}
+.jade-action:disabled .crystal-sheen::before{animation:none;display:none}
+.crystal-simplified .crystal-aura{display:none}
+.crystal-simplified .crystal-sheen::before{animation:none;display:none}
+@keyframes crystal-fire-flow{to{transform:rotate(360deg)}}
+@keyframes crystal-fire-breath{0%{transform:scale(.975);opacity:.38}55%{opacity:.8}100%{transform:scale(1.02);opacity:.6}}
+@keyframes crystal-blue{to{stroke-dashoffset:-283}}
+@keyframes crystal-spark{0%,100%{opacity:.15}45%{opacity:.9}}
+@keyframes crystal-sheen{0%,60%{left:-50%;opacity:0}65%{opacity:.8}90%,100%{left:135%;opacity:0}}
+@media(prefers-reduced-motion:reduce){.crystal-aura{display:none}.crystal-sheen::before{animation:none;display:none}}

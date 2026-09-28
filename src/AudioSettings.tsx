@@ -22,6 +22,7 @@ export function AudioSettings({
   }[preview];
   return (
     <div className="audio-settings">
+      <button className="setting-row" role="switch" aria-checked={!!value.simplifiedEffects} aria-label="简化对局特效" onClick={()=>change({simplifiedEffects:!value.simplifiedEffects})}><span>简化对局特效<small>保留动作文字与玩家归属，减少装饰</small></span><span className={`switch ${value.simplifiedEffects?'on':''}`}/></button>
       {(
         [
           {

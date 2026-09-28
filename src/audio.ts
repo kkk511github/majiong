@@ -28,6 +28,7 @@ export interface AudioPreferences {
   voiceVolume: number;
   voiceGender?: "male" | "female";
   chat?: boolean;
+  simplifiedEffects?:boolean;
 }
 
 /** Compare authoritative snapshots, so rejected actions and presence updates make no game sound. */
@@ -516,6 +517,9 @@ export class GameAudio {
       this.tileClick(at + 0.025, 0.16);
     }
     if (cue === "draw") this.tileClick(at, 0.24);
+    if(cue==='pung'){this.tileClick(at,.65);this.tileClick(at+.028,.27);}
+    if(cue==='kong'){this.tone(240,at,.13,.14,out,'sine',.003);this.tileClick(at+.012,.5);}
+    if(cue==='hu'){this.tone(hz(72),at,.28,.10,out,'sine',.012);this.tone(hz(79),at+.095,.40,.075,out,'sine',.015);}
     if (cue === "deal") {
       // One gentle two-note opening cue. Suppress duplicate dispatches rather
       // than layering eight overlapping noise clicks over the opening voice.
@@ -532,9 +536,6 @@ export class GameAudio {
       flower: [79, 84],
       warning: [81],
       ready: [76, 79],
-      pung: [67, 72],
-      kong: [67, 72, 79],
-      hu: [72, 76, 79, 84],
     };
     chimes[cue]?.forEach((note, i) =>
       this.tone(
@@ -546,6 +547,13 @@ export class GameAudio {
         "sine",
       ),
     );
+  }
+  /** A scene owns only these short action oscillators, never another table's
+   * click/voice/music nodes. Safe to cancel on exit, reconnect or replay seek. */
+  playOwnedAction(cue:'pung'|'kong'|'hu') {
+    const existing=new Set(this.effects);this.play(cue);
+    const owned=[...this.effects].filter(node=>!existing.has(node));
+    return ()=>{for(const node of owned)if(this.effects.has(node)){try{node.stop();}catch{/* already ended */}this.effects.delete(node);}};
   }
   setReplayActive(active: boolean) {
     const track = this.musicTrack;

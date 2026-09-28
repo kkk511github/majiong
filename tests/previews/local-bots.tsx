@@ -46,10 +46,11 @@ function LocalBots(){
  const [game,setGame]=useState(initialGame),[selected,setSelected]=useState<number|null>(null),[paused,setPaused]=useState(false),[busy,setBusy]=useState(true),[hidden,setHidden]=useState(document.hidden),[error,setError]=useState('');
  const [phrases,setPhrases]=useState<RoomPhraseMessage[]>([]),[opening,setOpening]=useState<OpeningCue|null>(null);
  const [resultVisible,setResultVisible]=useState(false),[details,setDetails]=useState(false),[autoDemo,setAutoDemo]=useState(false);
+ const [completedActions,setCompletedActions]=useState<ReadonlySet<string>>(()=>new Set());
  const previousAudio=useRef<View|null>(null);
  const view=useMemo(()=>viewFor(game,0),[game]);
  const live=!paused&&!hidden&&!opening&&!resultVisible;
- const effects=useGameMotion(view,live),debits=useScoreDebits(view,live,!busy);
+ const effects=useGameMotion(view,live),debits=useScoreDebits(view,live,!busy,completedActions);
  const mine=view.players[0]!;
  const hintDiscard=mine.hand.length%3===2?selected??undefined:undefined;
  const hints=useMemo(()=>['playing','claiming'].includes(view.phase)?listeningHints(mine,view.rules,hintDiscard,view.players,{seat:0,earthlyWaits:view.earthlyWaits}):[],[view,hintDiscard,mine]);
@@ -65,7 +66,7 @@ function LocalBots(){
  useEffect(()=>{
   if(!live){previousAudio.current=view;return;}
   const spoken=discardedVoice(previousAudio.current,view);if(spoken)gameAudio.sayTile(spoken.key,spoken.tile);
-  actionVoices(previousAudio.current,view).forEach(({key,phrase})=>gameAudio.sayTile(key,phrase));
+  actionVoices(previousAudio.current,view,{deferConfirmed:true}).forEach(({key,phrase})=>gameAudio.sayTile(key,phrase));
   previousAudio.current=view;
  },[view,live]);
  const ended=['ended','finished'].includes(game.phase);
@@ -99,6 +100,7 @@ function LocalBots(){
  const record=view.history.at(-1);
  return <div className="app classic polished local-bot-app">
   <CocosTable state={scene} onCommand={command} onEntryBusyChange={setBusy} readyDiscards={ready} scoreDebits={debits}
+   onActionComplete={key=>setCompletedActions(old=>{const next=new Set(old);next.add(key);while(next.size>96)next.delete(next.values().next().value!);return next;})}
    opening={opening} onOpeningComplete={()=>setOpening(null)}
    winResult={effects.some(e=>e.type==='hu')?game.result:undefined}>
    {tableState=><RoomVoice client={phraseClient} game={game.id} connected={true} enabled={true} volume={.6} voiceGender="male" phrases={phrases} phrasesAvailable={true} tableState={tableState}/>}

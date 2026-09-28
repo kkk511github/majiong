@@ -65,9 +65,12 @@ function scoreNanjingBase(
   );
   const winds = all.some((k) => k >= 27);
   const windOnlyB = bProfile && suits.size === 0;
-  const closed = p.melds.every(
-    (m) => m.concealed || (m.type === "kong" && !m.added),
-  );
+  // Current B rules treat every completed kong alike: upgrading the last
+  // pung restores closed-hand status. A remaining pung still opens the hand.
+  // Historical v2 profiles keep their original interpretation.
+  const closed = p.melds.every((m) => bProfile
+    ? m.type === "kong"
+    : m.concealed || (m.type === "kong" && !m.added));
   const winTile = ctx.tile ?? ctx.winTile,
     winKind = winTile === undefined ? -1 : kind(winTile);
   let oneWait = false;

@@ -162,3 +162,4 @@
 .theme-gold .special-win-title{font-size:clamp(32px,22cqw,84px)}
 .special-win-title{paint-order:stroke fill;-webkit-text-stroke:1px var(--win-shadow)}
 .special-win-player{background:#063d35d9;padding:2px 10px;border-radius:3px}
+@font-face{font-family:"Mahjong Win Brush";src:url("/fonts/mahjong-win-brush-v2.ttf") format("truetype");font-display:block}

@@ -103,7 +103,7 @@ describe("用户最终确认的严格头三嘴责任", () => {
     const ended = finish(g, 0, 3, 8, true), price = ended.result!.details[0]!.total;
     expect(ended.result!.robbedKong).toBe(true);
     expect(ended.result!.details[0]!.snapshot).toBeUndefined();
-    expect(ended.result!.transfers).toEqual(([0, 1, 2] as Seat[]).map(to => ({ from: 3, to, amount: price, reason: "抢杠赔三家" })));
+    expect(ended.result!.transfers).toEqual([{ from: 3, to: 0, amount: price*3, reason: "抢杠包三家" }]);
     expect(ended.result!.externalDeltas?.some(amount => amount !== 0)).not.toBe(true);
     expect(ended.players[3]!.melds[0].type).toBe("pung");
   });

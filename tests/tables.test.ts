@@ -583,7 +583,7 @@ describe("建桌大厅真实联机", () => {
     await ps[0].read("state", (m) => m.state.phase === "playing");
     const ended = await win(s, code, ps[0]);
     expect(ended.history.at(-1)!.hands).toHaveLength(4);
-    expect(ended.players.every((p) => p!.hand.length > 0)).toBe(true);
+    ended.players.forEach((p,seat)=>expect(p!.hand.length>0).toBe(seat===ended.me||ended.result!.winners.includes(seat as Seat)));
     let g = s.games.get(code)!;
     g.history.at(-1)!.at = Date.now() - 9000;
     await new Promise((r) => setTimeout(r, 75));

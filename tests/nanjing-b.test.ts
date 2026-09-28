@@ -132,14 +132,14 @@ it.each([1, 2])("暗杠即时每家5分，不乘花砸2，当前倍率%i", multi
 });
 it.each([1, 2])("杠费修正不改变胡牌软花和门清，当前倍率%i", multiplier => {
   for (const [concealed, added, soft, total] of [
-    [true, false, 2, 34], [false, false, 1, 32], [false, true, 1, 22],
+    [true, false, 2, 34], [false, false, 1, 32], [false, true, 1, 32],
   ] as const) {
     const p = player([3, 4, 5, 9, 10, 11, 18, 19, 20, 22, 22]);
     p.melds = [{ type: "kong", tiles: [0, 1, 2, 3], from: concealed ? 0 : 1, concealed, added }];
     const score = scoreHand(p, rules, { multiplier })!;
     expect(score.total).toBe(total * multiplier);
     expect(score.items).toContainEqual({ label: `软花 ${soft} × 2`, value: soft * 2 });
-    expect(score.items.some(i => i.label === "门清")).toBe(!added);
+    expect(score.items.some(i => i.label === "门清")).toBe(true);
   }
 });
 it("B档三嘴后第四嘴暗杠立即结束，只记外包不收暗杠费", () => {
@@ -238,12 +238,12 @@ it.each(["暗杠","花杠"])("%s导致两家归零，杠牌者不足100同样保
     expect(ended.wall).toHaveLength(g.wall.length-1);
   }
 });
-it("B档直杠与暗杠保留门清，碰后补杠不恢复门清", () => {
+it("B档直杠、暗杠、补杠均算杠，没有剩余碰牌即门清", () => {
   const p = player([3, 4, 5, 9, 10, 11, 18, 19, 20, 22, 22], 4, [0]);
   p.melds[0] = { type: "kong", tiles: [0, 1, 2, 3], from: 1, concealed: false };
   expect(scoreHand(p, rules)!.items).toContainEqual({ label: "门清", value: 10 });
   p.melds[0].added = true;
-  expect(scoreHand(p, rules)!.items.some(i => i.label === "门清")).toBe(false);
+  expect(scoreHand(p, rules)!.items).toContainEqual({ label: "门清", value: 10 });
   p.melds[0].concealed = true; p.melds[0].added = false;
   expect(scoreHand(p, rules)!.items).toContainEqual({ label: "门清", value: 10 });
 });

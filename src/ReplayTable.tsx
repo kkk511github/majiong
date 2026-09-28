@@ -17,16 +17,17 @@ export function ReplayTable({data,step,perspective,setPerspective,reveal,animate
   const lastDiscard=discard?.seat!==undefined&&discard.tile!==undefined&&frame.players[discard.seat].discards.includes(discard.tile)?{seat:discard.seat,tile:discard.tile}:undefined;
   const event=preceding.find(f=>f.seat===perspective&&['draw','discard','pung','kong','concealedKong','addedKong'].includes(f.type));
   const drawn=event?.type==='draw'&&event.tile!==undefined&&frame.players[perspective].hand.includes(event.tile)?event.tile:undefined;
-  const effectType=frame.type==='pung'?'pung':['kong','concealedKong','addedKong'].includes(frame.type)?'kong':undefined;
+  const effectType=frame.type==='pung'?'pung':['kong','concealedKong','addedKong'].includes(frame.type)?'kong':frame.type==='finish'&&frame.result?.winners.length?'hu':undefined;
   return {
    globalAnchorDiscards:frame.globalAnchorDiscards??[],
+   revealedWinners:frame.result?.reason==='hu'?frame.result.winners:[],
    key:data.id,revision:step,presentation:'replay',me:perspective,turn:frame.turn,dealer:data.frames[0].turn,
    phase:frame.result?'ended':'playing',code:data.code,round:data.round,rounds:data.rules?.rounds,remaining:frame.remaining,
    rulesName:ruleDisplayName(data.rules),roundMultiplier:data.multiplier,
    countdown:animate?'▶':'Ⅱ',connected:true,disabled:true,practice:false,canDiscard:false,selected:null,drawn,inspectedKind:null,hintKinds:[],hintLabel:'',actions:[],trusteeDisabled:true,lastDiscard,
-   effects:animate&&effectType?[{key:`${data.id}:${step}:${perspective}`,type:effectType,seat:frame.seat??frame.result?.winners[0]??frame.turn,concealed:frame.type==='concealedKong',upgraded:frame.type==='addedKong',selfDraw:frame.result?.from===undefined}]:[],
+   effects:animate&&effectType?(effectType==='hu'?frame.result!.winners:[frame.seat??frame.turn]).map(seat=>({key:`${data.id}:${step}:${perspective}:${seat}`,type:effectType,seat,concealed:frame.type==='concealedKong',upgraded:frame.type==='addedKong',selfDraw:frame.result?.from===undefined})):[],
    players:frame.players.map((p,seat)=>({name:data.names[seat],avatar:avatarURL(data.avatars?.[seat]),seat,score:p.score,bot:false,trustee:false,handCount:p.hand.length,
-    hand:seat===perspective||reveal||!!frame.result?[...p.hand].sort((a,b)=>kind(a)-kind(b)||a-b):[],flowers:[...p.flowers],discards:[...p.discards],melds:p.melds.map(m=>({...m,tiles:m.concealed?m.tiles.slice(0,1):[...m.tiles]}))})),
+    hand:seat===perspective||reveal||(frame.result?.reason==='hu'&&frame.result.winners.includes(seat as Seat))?[...p.hand].sort((a,b)=>kind(a)-kind(b)||a-b):[],flowers:[...p.flowers],discards:[...p.discards],melds:p.melds.map(m=>({...m,tiles:m.concealed?m.tiles.slice(0,1):[...m.tiles]}))})),
   };
  },[data,step,perspective,reveal,animate]);
  const result=data.frames[step].result;

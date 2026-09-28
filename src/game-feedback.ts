@@ -47,7 +47,7 @@ export function gameFeedback(
     return events;
   }
   if (after.round !== before.round) return [];
-  if (after.result && !before.result) {
+  if (after.result?.reason === 'hu' && !before.result) {
     after.result.winners.forEach((seat) => add("hu", seat));
     return events;
   }

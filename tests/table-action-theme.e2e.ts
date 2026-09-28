@@ -4,7 +4,7 @@ for(const [width,height]of [[568,320],[844,390],[1280,590],[680,843]])test(`winn
  const panel=page.locator('.win-hint-panel.can-win');await expect(panel).toBeVisible();
  await expect.poll(async()=>panel.evaluate(el=>{const outer=el.getBoundingClientRect(),tile=el.querySelector('.winning-tile-art > .tile-art')!.getBoundingClientRect();return Math.min(tile.top-outer.top,outer.bottom-tile.bottom,tile.left-outer.left,outer.right-tile.right);})).toBeGreaterThanOrEqual(4);
 });
-test('new action discs have no captions, preserve clicks and respect reduced motion',async({page})=>{
+test('crystal action buttons have no captions and respect reduced motion',async({page})=>{
  await page.setViewportSize({width:1280,height:590});
  await page.goto('/tests/previews/room-communication.html?actions=all');
  const actions=page.getByRole('group',{name:'碰杠胡操作'});
@@ -15,7 +15,7 @@ test('new action discs have no captions, preserve clicks and respect reduced mot
   const button=actions.getByRole('button',{name:label,exact:true});
   expect(await button.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
   const animation=await button.evaluate(el=>getComputedStyle(el,'::after').animationName);
-  expect(animation).toBe(label==='过'?'claim-pass-glow':'claim-ready-glow');
+  expect(animation).toBe('none');
   await expect(button).not.toHaveAttribute('title');
   expect(await button.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await button.hover();
@@ -25,6 +25,7 @@ test('new action discs have no captions, preserve clicks and respect reduced mot
  }
  await page.screenshot({path:'output/qa/action-discs-animated.png'});
  await page.emulateMedia({reducedMotion:'reduce'});
+ for(const aura of await actions.locator('.crystal-aura').all())await expect(aura).toBeHidden();
  for(const button of await actions.getByRole('button').all())expect(await button.evaluate(el=>getComputedStyle(el,'::after').animationName)).toBe('none');
 });
 
@@ -44,9 +45,9 @@ test('confirmed pung shows one short cue above the hand rather than on its faces
  const button=page.getByRole('group',{name:'碰杠胡操作'}).getByRole('button',{name:'碰',exact:true});
  await expect(button).toBeEnabled();
  const frame=()=>page.frames().find(f=>f.url().includes('/cocos-table/index.html'))!;
- const cue=()=>frame().evaluate(async()=>{const cc=await(window as any).System.import('cc'),c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');const n=c.effectsRoot.children.find((n:any)=>n.name==='motion-action-0');return n?{text:n.getChildByName('table-action-value')?.getComponent(cc.Label)?.string,halo:!!n.getChildByName('action-confirm-halo'),bottom:295-n.position.y+27,handTop:Math.min(...Array.from(c.tileLayout.values()).filter((t:any)=>t.area==='hand'&&t.seat===0).map((t:any)=>t.y-t.h/2))}:null;});
+ const cue=()=>frame().evaluate(async()=>{const cc=await(window as any).System.import('cc'),c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene'),s=c.actionFx.slots.get(0);return s?.root.active?{text:s.kind==='pung'?'碰':'',art:!!s.glyph.getComponent(cc.Sprite)?.spriteFrame,halo:!!s.root.getChildByName('action-confirm-halo'),bottom:s.rect.y+s.rect.h/2,handTop:Math.min(...Array.from(c.tileLayout.values()).filter((t:any)=>t.area==='hand'&&t.seat===0).map((t:any)=>t.y-t.h/2))}:null;});
  await button.click();await expect.poll(cue).not.toBeNull();
- const shown=await cue();expect(shown?.text).toBe('碰');expect(shown?.halo).toBe(true);expect(shown!.bottom).toBeLessThan(shown!.handTop);
+ const shown=await cue();expect(shown?.text).toBe('碰');expect(shown?.art).toBe(true);expect(shown?.halo).toBe(false);expect(shown!.bottom).toBeLessThan(shown!.handTop);
  await page.screenshot({path:'output/qa/action-confirmed-pung.png'});
  await expect.poll(cue,{timeout:4000}).toBeNull();
 });

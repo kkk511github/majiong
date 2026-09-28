@@ -26,6 +26,10 @@ export interface TableSceneState {
   tableStyle?:'reference-3d';
   globalAnchorDiscards?:{seat:number;tile:number}[];
   externalControls?:boolean;
+  /** Local presentation preference; never sent to the game server. */
+  simplifiedEffects?:boolean;
+  /** Only these confirmed winners lay down their hands after a live win. */
+  revealedWinners?:number[];
   /** Local viewport cutouts, in 1280×590 design coordinates. */
   safeArea?:TableSafeArea;
   key:string; revision:number; presentation?:'replay'; me:number; turn:number; dealer:number;
@@ -39,7 +43,7 @@ export interface TableSceneState {
   actions:{id:string; label:string; tile?:number}[];
   lastDiscard?:{tile:number;seat:number};
   pending?:{tile:number;from:number;answered:boolean;kind:string};
-  effects:{key:string;type:string;seat:number;concealed?:boolean;upgraded?:boolean;selfDraw?:boolean}[];
+  effects:{key:string;type:string;seat:number;concealed?:boolean;upgraded?:boolean;selfDraw?:boolean;label?:string}[];
   trusteeDisabled:boolean;
 }
 export interface TableSafeArea { left:number; right:number; top:number; bottom:number }
@@ -86,6 +90,7 @@ export interface SceneTile {
   id:string; tile?:number; seat:number; pose:string;
   x:number; y:number; w:number; h:number; z:number;
   area:'hand'|'meld'|'flower'|'river'; selected?:boolean; highlight?:boolean;
+  laidDown?:boolean;
   clickable?:boolean; source?:number; stack?:boolean; last?:boolean; claimTarget?:boolean;
   /** Baked screen-space projection; the rack uses the exact same edge vectors. */
   shear?:number; rack?:number;
@@ -107,10 +112,10 @@ export const sceneOffset=(seat:number,me:number)=>(seat-me+4)%4;
  * upstream/left supplier is the first tile.  A claim from the opposite seat
  * keeps all three faces upright; only adjacent suppliers turn a tile.
  */
-export function meldSourceTileIndex(owner:number,from:number,concealed=false):0|2|undefined {
+export function meldSourceTileIndex(owner:number,from:number,concealed=false,baseCount=3):number|undefined {
  if(concealed||from===owner)return undefined;
  const relative=(from-owner+4)%4;
- return relative===1?2:relative===3?0:undefined;
+ return relative===1?baseCount-1:relative===3?0:undefined;
 }
 
 /** Local presentation memory only; a claimed discard can disappear from the
@@ -343,7 +348,7 @@ export function layoutLegacyTable(s:TableSceneState):SceneTile[] {
      const scale=65/TILE_POSE_METRICS.own.w;
      const directKong=m.type==='kong'&&m.added!==true;
      const stacked=m.type==='kong'&&m.added===true;
-     // A direct/open kong is four complete straight bodies on the felt. An
+     // The legacy adapter reserves four forward bodies for a direct kong. An
      // added kong keeps the original three-body pung and locks tile 4 to the
      // middle target; its original source direction remains visible.
      const baseCount=stacked?3:ts.length;
@@ -445,7 +450,7 @@ export function layoutLegacyTable(s:TableSceneState):SceneTile[] {
    const lowerHandLimit=(revealed?460:442)-regularSpan-lowerDrawSpan;
    const sideGroupGap=6,sideHandGap=13,sideHandHeight=revealed?36:70;
    type SidePlanCard={tile:number|undefined;ti:number;stack:boolean;screenIndex:number;pose:string;turned:boolean;w:number;h:number;y:number;normalWidth:number};
-   const sidePlans:{sourceIndex:0|2|undefined;cards:SidePlanCard[];min:number;max:number}[]=o%2?p.melds.map(m=>{
+   const sidePlans:{sourceIndex:number|undefined;cards:SidePlanCard[];min:number;max:number}[]=o%2?p.melds.map(m=>{
     const directKong=m.type==='kong'&&!m.concealed&&m.added!==true;
     const sourceIndex=directKong?undefined:meldSourceTileIndex(p.seat,m.from,m.concealed),ts=meldDisplayTiles(m);
     const stacked=m.type==='kong'&&(m.concealed||m.added===true),baseCount=stacked?3:ts.length;

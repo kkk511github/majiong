@@ -153,13 +153,15 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
       const {node,tile}=model;
       const sprite=table.nodes.get(tile.id);if(!sprite?.isValid||!node.isValid)continue;
       const size=sprite.getComponent(cc.UITransform),x=sprite.position.x+640,y=295-sprite.position.y;
-      const w=size.width*sprite.scale.x,h=size.height*sprite.scale.y,old=model.pose;
-      if(old&&old[0]===x&&old[1]===y&&old[2]===w&&old[3]===h)continue;
-      model.pose=[x,y,w,h];
+      const w=size.width*sprite.scale.x,h=size.height*sprite.scale.y,old=model.pose,flight=table.tileFlights.get(tile.id);
+      const height=tile.stack?tile.modelThickness+(flight?.kind==='stack'?tile.modelThickness*1.5*(1-flight.progress.t)**2:0):0;
+      if(old&&old[0]===x&&old[1]===y&&old[2]===w&&old[3]===h&&old[4]===height)continue;
+      model.pose=[x,y,w,h,height];
       const at=planeAt(x,y,tile.modelThickness/2);
       const end=planeAt(tile.x,tile.y,tile.modelThickness/2);
-      node.setPosition(tile.groundX+at.x-end.x,tile.stack?tile.modelThickness:0,tile.groundZ+at.z-end.z);
+      node.setPosition(tile.groundX+at.x-end.x,height,tile.groundZ+at.z-end.z);
       node.setScale(w/tile.w,1,h/tile.h);
+      if(tile.stack){const shadow=node.getChildByName('Stack contact on middle tile');if(shadow){shadow.setPosition(0,.002-(height-tile.modelThickness),0);const spread=1.08+(flight?.kind==='stack'?.14*(1-flight.progress.t):0);shadow.setScale(tile.modelWidth*spread,1,tile.modelLength*spread);}}
     }
   }
   function render(state:TableSceneState,placements:Table3DTile[]) {
@@ -173,7 +175,7 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
     const retained=new Set<string>(),retainedStanding=new Set<string>();
     layerKey='';
     for(const t of placements){
-      const visibleHand=t.area==='hand'&&(t.seat===state.me||t.tile===undefined&&sceneOffset(t.seat,state.me)===2);
+      const visibleHand=t.area==='hand'&&(t.seat===state.me&&!t.laidDown||t.tile===undefined&&sceneOffset(t.seat,state.me)===2);
       const node=table.nodes.get(t.id);if(node)node.active=!enabled||visibleHand;
       const shadow=table.shadows.get(t.id);if(shadow)shadow.active=!enabled;
     }
@@ -219,7 +221,7 @@ export async function createTable3DView(table:any):Promise<Table3DView> {
       // Keep the upper tile's projected bounds: replacing them with the base
       // bounds makes update() apply the stack's visual lift a second time.
       const t=middle?{...original,yaw:middle.yaw,pose:middle.pose}:original;
-      if(t.area==='hand'&&(t.seat===state.me||t.tile===undefined))continue;
+      if(t.area==='hand'&&(t.seat===state.me&&!t.laidDown||t.tile===undefined))continue;
       const w=t.modelWidth,length=t.modelLength,thickness=t.modelThickness;
       retained.add(t.id);
       // Geometry/material identity only: selection, countdowns and movement

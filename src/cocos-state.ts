@@ -19,9 +19,10 @@ export function cocosState(
     hintLabel: string;
     hintDiscard?: number;
     effects: GameFeedback[];
+    simplifiedEffects?:boolean;
   },
 ): TableSceneState {
-  const reveal = ["ended", "finished"].includes(view.phase);
+  const revealedWinners = ["ended", "finished"].includes(view.phase) && view.result?.reason === 'hu' ? view.result.winners : [];
   const actions = view.actions.map((id) => ({
     id,
     label:
@@ -37,6 +38,7 @@ export function cocosState(
   }));
   return {
     globalAnchorDiscards: view.globalAnchorDiscards ?? [],
+    revealedWinners: [...revealedWinners],
     hintUnseen: unseenHintCounts(view, ui.hintKinds),
     zhaozhiAvailable: false,
     zhaozhi: false,
@@ -68,7 +70,7 @@ export function cocosState(
               trustee: p.trustee,
               online: p.online,
               avatar: avatarURL(p.avatar),
-              hand: seat === view.me || reveal ? [...p.hand] : [],
+              hand: seat === view.me || revealedWinners.includes(seat as View['me']) ? [...p.hand] : [],
               handCount: p.handCount,
               flowers: [...p.flowers],
               discards: [...p.discards],
@@ -78,7 +80,7 @@ export function cocosState(
                 concealed: m.concealed,
                 added: m.added,
                 tiles:
-                  m.concealed && seat !== view.me && !reveal
+                  m.concealed && seat !== view.me && !revealedWinners.includes(seat as View['me'])
                     ? m.tiles.slice(0, 1)
                     : [...m.tiles],
               })),

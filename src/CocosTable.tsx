@@ -13,6 +13,8 @@ import { tableSafeArea } from "./table-safe-area";
 import "./cocos-table.css";
 import {androidDiagnostics} from './android-diagnostics';
 import { createTableChannel } from "./cocos-channel";
+import {winDisplayLabel} from './win-label';
+import type {Seat} from '../shared/types';
 
 /** One canvas and one renderer for Android, iOS and the browser. The iframe
  * receives only the public view and explicit local UI state, never the wall. */
@@ -30,6 +32,7 @@ export function CocosTable({
   openingWaiting,
   onOpeningComplete,
   onEntryBusyChange,
+  onActionComplete,
 }: {
   state: TableSceneState;
   onCommand: (command: TableSceneCommand) => void;
@@ -44,6 +47,7 @@ export function CocosTable({
   openingWaiting?: number;
   onOpeningComplete?: (opening: OpeningCue) => void;
   onEntryBusyChange?: (busy: boolean) => void;
+  onActionComplete?:(key:string)=>void;
 }) {
   const [dismissedOpening, setDismissedOpening] = useState("");
   const [acceptedOpening, setAcceptedOpening] = useState("");
@@ -59,11 +63,22 @@ export function CocosTable({
     }
   }, [opening?.key]);
   const frame = useRef<HTMLIFrameElement>(null);
+  const gestureBarrier=useRef(false),heardActions=useRef(new Set<string>());
+  const actionSounds=useRef(new Map<number,()=>void>());
+  const knownCues=useRef(new Map<string,TableSceneState['effects'][number]>()),completedCues=useRef(new Set<string>()),cueContext=useRef('');
+  const [,setCompletionRevision]=useState(0);
+  const [handBlocked,setHandBlocked]=useState(false);
+  const guardHand=useCallback((blocked:boolean)=>{gestureBarrier.current=blocked;setHandBlocked(blocked);},[]);
   const surfaceInteraction=useRef(onSurfaceInteraction);
   surfaceInteraction.current=onSurfaceInteraction;
   const safeProbe = useRef<HTMLDivElement>(null);
   const [safeArea,setSafeArea] = useState<TableSafeArea>({left:0,right:0,top:0,bottom:0});
-  const viewState=useMemo(()=>({...state,safeArea,tableStyle:'reference-3d' as const}),[state,safeArea]);
+  const viewState=useMemo(()=>({...state,safeArea,tableStyle:'reference-3d' as const,effects:state.effects.map(e=>e.type==='hu'&&winResult?{...e,label:winDisplayLabel(winResult,e.seat as Seat)}:e)}),[state,safeArea,winResult]);
+  const context=`${state.key}:${state.round}:${state.me}:${state.presentation}`;
+  useEffect(()=>()=>{for(const cancel of actionSounds.current.values())cancel();actionSounds.current.clear();},[context,state.connected,state.presentation==='replay'?state.revision:undefined]);
+  if(cueContext.current!==context||!state.connected){knownCues.current.clear();completedCues.current.clear();cueContext.current=context;}
+  if(state.connected)for(const cue of viewState.effects)knownCues.current.set(cue.key,cue);
+  while(knownCues.current.size>96)knownCues.current.delete(knownCues.current.keys().next().value!);
   const [channel,setChannel] = useState(createTableChannel);
   const [failure,setFailure] = useState<"timeout"|"page"|"resources"|"graphics">("resources");
   const lastGraphicsRecovery = useRef(-Infinity);
@@ -87,16 +102,15 @@ export function CocosTable({
     onEntryBusyChange?.(status !== "ready" || showingOpening || waitingForOpening);
   }, [status, showingOpening, waitingForOpening, onEntryBusyChange]);
   useEffect(() => () => onEntryBusyChange?.(false), [onEntryBusyChange]);
-  const latest = useRef({ state:viewState, onCommand });
+  const latest = useRef({ state:viewState, onCommand,onActionComplete });
   useEffect(() => {
-    // Decode before a win occurs so the short reveal never starts with empty art.
-    for (const theme of ["sea", "jade", "bloom", "celestial", "gold"]) {
+    for (const theme of ["plate", "pung", "kong", "hu", "pass", "crystal", "fire-ring"]) {
       const image = new Image();
-      image.src = `${import.meta.env.BASE_URL}art/win-v2/${theme}.webp`;
-      void image.decode().catch(() => {});
+      image.src = `${import.meta.env.BASE_URL}ui/${theme==='crystal'?'actions-crystal-v3/plate':theme==='fire-ring'?'actions-crystal-v3/fire-ring':`actions-jade-v2/${theme}`}.png`;
+      if(typeof image.decode==='function')void image.decode().catch(() => {});
     }
   }, []);
-  latest.current = { state:viewState, onCommand };
+  latest.current = { state:viewState, onCommand,onActionComplete };
   useEffect(()=>{androidDiagnostics.context(state);},[state.code,state.round,state.phase]);
   useEffect(()=>{
     const probe=safeProbe.current,iframe=frame.current;
@@ -123,9 +137,7 @@ export function CocosTable({
         scope: "jinling-table-v1",
         channel,
         type: "state",
-        // Live games and replays share the seat-aware result overlay. Sending
-        // hu to the iframe would also play its older centre-table effect.
-        state: { ...latest.current.state, effects: latest.current.state.effects.filter(e => e.type !== "hu"), externalControls: !embedded },
+        state: { ...latest.current.state, externalControls: !embedded },
       };
     const key = JSON.stringify(message);
     // App clocks tick four times per second. Identical snapshots need not
@@ -152,12 +164,32 @@ export function CocosTable({
         send(true);
       }
       if (data.type === "error") {androidDiagnostics.tableError(data.diagnostic??{});setFailure("resources");setStatus("error");}
+      if(data.type==='action-impact'||data.type==='action-complete'){
+        const s=latest.current.state,e=knownCues.current.get(data.key);
+        if(!e||e.seat!==data.seat||e.type!==data.action||!s.connected||document.hidden||!['pung','kong','hu'].includes(e.type))return;
+        if(data.type==='action-complete'){
+          if(completedCues.current.has(e.key))return;completedCues.current.add(e.key);
+          while(completedCues.current.size>96)completedCues.current.delete(completedCues.current.values().next().value!);
+          setCompletionRevision(v=>v+1);latest.current.onActionComplete?.(e.key);return;
+        }
+        // Simultaneous winners get individual visuals but one shared shout.
+        const key=e.type==='hu'?`hu:${e.key.slice(0,e.key.lastIndexOf(':'))}`:e.key;
+        if(heardActions.current.has(key))return;heardActions.current.add(key);
+        while(heardActions.current.size>96)heardActions.current.delete(heardActions.current.values().next().value!);
+        actionSounds.current.get(e.seat)?.();actionSounds.current.set(e.seat,gameAudio.playOwnedAction(e.type as 'pung'|'kong'|'hu'));
+        gameAudio.sayTile(key+':landed',e.type==='hu'?'胡了':e.type==='pung'?'碰':e.concealed?'暗杠':e.upgraded?'补杠':'杠');
+        if(e.type==='kong'){
+          const batch=(key:string)=>key.split(':').slice(0,-2).join(':');
+          const flower=[...knownCues.current.values()].find(f=>f.type==='flower'&&f.seat===e.seat&&batch(f.key)===batch(e.key));
+          if(flower)gameAudio.sayTile(flower.key+':after-kong','补花');
+        }
+      }
       if (
         data.type === "command" &&
         data.command &&
         typeof data.command.type === "string"
       )
-        latest.current.onCommand(data.command);
+        {if(gestureBarrier.current&&['select','discard'].includes(data.command.type))return;latest.current.onCommand(data.command);}
     };
     const resume = () => {
       if (!document.hidden) send(true);
@@ -241,6 +273,7 @@ export function CocosTable({
         title="金陵麻将牌桌"
         src={`${import.meta.env.BASE_URL}cocos-table/index.html?channel=${encodeURIComponent(channel)}`}
         allow="autoplay"
+        style={{pointerEvents:handBlocked?'none':undefined}}
         onError={() => {androidDiagnostics.tableError({stage:'page',message:'Table iframe failed to load'});setFailure("page");setStatus("error");}}
       />
       {status !== "ready" && !showingOpening && (
@@ -269,14 +302,14 @@ export function CocosTable({
         </div>
       )}
       {status === "ready" && !embedded && (
-        <TableControls state={viewState} onCommand={onCommand} connectionQuality={connectionQuality} />
+        <TableControls state={viewState} onCommand={onCommand} connectionQuality={connectionQuality} onGestureBarrier={guardHand}/>
       )}
       {status === "ready" && !embedded && (
         <WinHintPanel state={viewState} onCommand={onCommand} readyDiscards={readyDiscards} />
       )}
       {status === "ready" && !embedded && <ReadyDiscardArrows state={viewState} tiles={readyDiscards} />}
-      {status === "ready" && !showingOpening && !embedded && <ScoreDebitOverlay state={viewState} events={scoreDebits} />}
-      {status === "ready" && winResult && <TableWinEffect state={viewState} result={winResult} />}
+      {status === "ready" && !showingOpening && !embedded && <ScoreDebitOverlay state={viewState} events={scoreDebits} completedActions={completedCues.current} />}
+      {status === "ready" && embedded && winResult && !viewState.effects.some(e=>e.type==='hu') && <TableWinEffect state={viewState} result={winResult} />}
       {status === "ready" && !showingOpening && children && <div className="cocos-voice">{typeof children === "function" ? children(viewState) : children}</div>}
       {(showingOpening || waitingForOpening) && opening && (
         <TableOpening

@@ -209,8 +209,9 @@ export function ScoreDetails({
     record.result.transfers?.some((t) => t.scope === "external") ||
     record.result.externalDeltas?.some((n) => n !== 0);
   const legacyRobbedKong = record.result.transfers?.some((entry) => entry.reason === "抢杠包三家");
-  const compensatedKong = record.result.transfers?.some((entry) => entry.reason === "抢杠赔三家") ||
-    !legacyRobbedKong && record.result.robbedKong && record.rules && isNanjingB(record.rules);
+  const winnerTripleKong = record.result.robbedKongPayout === "winner-triple";
+  const compensatedKong = !winnerTripleKong && (record.result.transfers?.some((entry) => entry.reason === "抢杠赔三家") ||
+    !legacyRobbedKong && record.result.robbedKong && record.rules && isNanjingB(record.rules));
   const kongPayer = record.result.from;
   const compensatedNames = record.names.filter((_, seat) => seat !== kongPayer).join("、");
   const kongTotalDue = record.result.winners.every((seat) => record.result.details[seat])
@@ -287,9 +288,17 @@ export function ScoreDetails({
         </p>
       </div>
       <div className="score-explanation">
+        {winnerTripleKong && <aside className="score-note" aria-label="抢杠赔付说明">
+          <strong>抢杠包三家</strong>
+          <p>被抢杠者一人承担三家的费用，全部付给实际胡牌者；未胡牌的玩家不分这笔钱。</p>
+          {record.result.winners.map(seat=>{const score=record.result.details[seat];return score&&<p key={seat}>
+            {kongPayer===undefined?'被抢杠者':record.names[kongPayer]}向{record.names[seat]}应付{score.total}×3＝{score.total*3}分。
+          </p>;})}
+          <p>{record.result.winners.length>1&&<>多人抢杠按每名胡牌者各自的胡牌分计算三份；</>}余额不足及保米调整后的实付金额，以逐笔收支为准。</p>
+        </aside>}
         {compensatedKong && <aside className="score-note" aria-label="抢杠赔付说明">
           <strong>抢杠赔三家</strong>
-          <p>补杠者向其他三家各赔一份。收到赔分不代表胡牌，胡牌标记只属于实际胡牌者。</p>
+          <p>本条为历史分账记录：补杠者向其他三家各赔一份。收到赔分不代表胡牌，胡牌标记只属于实际胡牌者；保留原账，不按现规则重算。</p>
           {record.result.winners.map((seat) => {
             const score = record.result.details[seat];
             return score && <p key={seat}>

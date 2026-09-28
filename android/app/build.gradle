@@ -17,8 +17,8 @@ android {
         applicationId "com.jinling.mahjong"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 82
-        versionName "0.8.5"
+        versionCode 85
+        versionName "0.8.8"
         testInstrumentationRunner project.findProperty('compatInstrumentationRunner') ?: "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

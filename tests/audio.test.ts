@@ -47,3 +47,7 @@ it("试听恢复超时后不播迟到语音，也不修改静音设置", async (
     expect(a.preferences).toEqual(before);
   } finally { vi.useRealTimers(); }
 });
+it('动作音效的场景取消只停止自己创建的音源，不误停其他提示',()=>{
+ const audio=new GameAudio() as any,other={stop:vi.fn()},owned={stop:vi.fn()};audio.effects.add(other);audio.play=vi.fn(()=>audio.effects.add(owned));
+ const cancel=audio.playOwnedAction('kong');cancel();cancel();expect(owned.stop).toHaveBeenCalledTimes(1);expect(other.stop).not.toHaveBeenCalled();expect(audio.effects.has(other)).toBe(true);
+});

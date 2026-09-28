@@ -17,6 +17,8 @@ async function saveRuntime(source){
 await cp(resolve(app,'shared/table-scene.ts'),resolve(project,'assets/scripts/table-scene.ts'));
 await cp(resolve(app,'shared/table-3d-layout.ts'),resolve(project,'assets/scripts/table-3d-layout.ts'));
 await cp(resolve(app,'shared/table-hand-motion.ts'),resolve(project,'assets/scripts/table-hand-motion.ts'));
+await cp(resolve(app,'shared/action-presentation.ts'),resolve(project,'assets/scripts/action-presentation.ts'));
+await cp(resolve(app,'shared/action-anchors.ts'),resolve(project,'assets/scripts/action-anchors.ts'));
 await cp(resolve(project,'art-source/ink'),resolve(project,'assets/resources/face-source'),{recursive:true});
 await cp(resolve(project,'art-source/imagegen/reference-table-v1/table-background.png'),resolve(project,'assets/resources/art/table3d-background.png'));
 await cp(resolve(app,'shared/tile-pose-metrics.ts'),resolve(project,'assets/scripts/tile-pose-metrics.ts'));

@@ -41,10 +41,12 @@ it('passes the existing added-kong display flag through the Cocos view bridge',(
  v.players[0]!.melds=[{type:'kong',tiles:[100,101,102,103],from:1,concealed:false,added:true}];
  expect(cocosState(v,ui).players[0].melds[0].added).toBe(true);
 });
-it('reveals the confirmed end-of-round hands for results, using the same scene renderer',()=>{
-  const g=fixture();g.phase='ended';
+it('reveals only the confirmed winning hand at the end of a round',()=>{
+  const g=fixture();g.phase='ended';g.result={reason:'hu',winners:[1],details:{},deltas:[0,0,0,0]};
   const v=viewFor(g,0),result=cocosState(v,ui);
   expect(result.players[1].hand).toEqual(g.players[1]!.hand);
+  expect(result.players[2].hand).toEqual([]);expect(result.players[3].hand).toEqual([]);
+  expect(result.revealedWinners).toEqual([1]);
 });
 it('keeps the eight distinct seasons/flowers and eight-bamboo mapping',()=>{
   expect(Array.from({length:8},(_,i)=>sceneTileName(i+136))).toEqual(['春','夏','秋','冬','梅','兰','竹','菊']);

@@ -61,12 +61,14 @@ class ErrorBoundary extends React.Component<
     );
   }
 }
+const studio=import.meta.env.DEV&&['localhost','127.0.0.1','[::1]'].includes(location.hostname)&&new URLSearchParams(location.search).get('actionStudio')==='1';
+const ActionStudio=studio?React.lazy(()=>import('./dev/ActionStudio')):null;
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <LegalGate>
+      {ActionStudio?<React.Suspense fallback={<p>载入本地动作验收…</p>}><ActionStudio/></React.Suspense>:<LegalGate>
         <App />
-      </LegalGate>
+      </LegalGate>}
     </ErrorBoundary>
   </React.StrictMode>,
 );

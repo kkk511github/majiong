@@ -51,7 +51,7 @@ function contactEdge(tile: SceneTile, seat: number) {
   return seat === 0 || seat === 2 ? box.bottom : seat === 1 ? box.right : box.left;
 }
 
-it.each([0, 1, 2, 3])('lays seat %i direct/open kong as four complete forward bases with no stack or supplier turn', seat => {
+it.each([0, 1, 2, 3])('legacy adapter reserves four direct-kong bases at seat %i before 3D supplier orientation', seat => {
   const group = groupTiles(kongFixture(1, 'direct'), seat);
   expect(group).toHaveLength(4);
   expect(group.filter(tile => tile.stack)).toHaveLength(0);

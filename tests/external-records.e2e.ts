@@ -47,6 +47,9 @@ for (const [width, height] of [
       name: "牌桌战绩详情",
       exact: true,
     });
+    // MatchRecordDetails opens the first round directly; return to the table
+    // summary before asserting the per-round list.
+    await dialog.getByRole("button", { name: "返回整桌明细", exact: true }).click();
     const first = page.getByLabel("第 1 把明细");
     await expect(first.locator(".round-player-points b")).toHaveText([
       "-50",

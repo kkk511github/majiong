@@ -12,6 +12,7 @@ import { membership, teamSchema } from "./teams";
 import sharp from "sharp";
 import { MIN_PASSWORD_LENGTH } from "../shared/account-profile";
 import { isTableCreator, TABLE_CREATOR_USERNAME } from "../shared/permissions";
+import { createAuthAudit, type AuthAuditSink } from "./auth-audit";
 
 export const ADMIN_USERNAME = "guanli@1";
 export const tokenHash = (token: string) =>
@@ -54,6 +55,10 @@ export function accountSchema(db: DatabaseSync) {
     granted_by TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
   db.exec(`CREATE TABLE IF NOT EXISTS account_avatars (
     account_id TEXT PRIMARY KEY, digest TEXT NOT NULL, image BLOB NOT NULL);`);
+  db.exec(`CREATE TABLE IF NOT EXISTS control_sessions (
+    token_hash TEXT PRIMARY KEY, id TEXT NOT NULL UNIQUE,
+    last_seen INTEGER NOT NULL, credential_hash TEXT NOT NULL,
+    suspension_at INTEGER NOT NULL);`);
   // Account suspension is separate from a member's existing play-only block.
   db.exec(`CREATE TABLE IF NOT EXISTS account_suspensions (
     account_id TEXT PRIMARY KEY, suspended INTEGER NOT NULL CHECK(suspended IN(0,1)),
@@ -212,8 +217,10 @@ export function createAccounts(
   db: DatabaseSync,
   revoke: (id: string) => void,
   permissionsChanged: (account: Account) => void = () => {},
+  auditSink?: AuthAuditSink,
 ) {
   accountSchema(db);
+  const authAudit = createAuthAudit(auditSink);
   const rates = new Map<string, { count: number; until: number }>();
   let hashing = 0;
   let avatarUploads = 0;
@@ -231,12 +238,14 @@ export function createAccounts(
       rates.set(key, { count: 1, until: now + 15 * 60000 });
     }
   }
-  function getSession(token: unknown): AuthSession | undefined {
+  function getSession(token: unknown, scope: "app" | "control" = "app"): AuthSession | undefined {
     if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token)) return;
     const row = db
       .prepare(
-        `SELECT a.*, s.token_hash, s.last_seen FROM sessions s
-      JOIN accounts a ON a.id=s.id WHERE s.token_hash=? AND s.last_seen>?`,
+        `SELECT a.*, s.token_hash, s.last_seen FROM ${scope === "control" ? "control_sessions" : "sessions"} s
+      JOIN accounts a ON a.id=s.id WHERE s.token_hash=? AND s.last_seen>?
+      ${scope === "control" ? `AND s.credential_hash=a.password_hash
+        AND s.suspension_at=COALESCE((SELECT updated_at FROM account_suspensions WHERE account_id=a.id),0)` : ""}`,
       )
       .get(tokenHash(token), Date.now() - SESSION_AGE) as unknown as
       (AccountRow & { token_hash: string; last_seen: number }) | undefined;
@@ -251,26 +260,37 @@ export function createAccounts(
       account: current,
     };
   }
-  function requireSession(req: IncomingMessage, admin = false) {
+  function requireSession(req: IncomingMessage, admin = false, scope: "app" | "control" = "app") {
     const session = getSession(
       req.headers.authorization?.replace(/^Bearer /, ""),
+      scope,
     );
-    if (!session) throw new AuthError("请登录账号后继续", 401);
-    if (session.account.mustChangePassword)
+    if (!session) {
+      authAudit.emit("auth-rejected", req, { status: 401, reason: "session-invalid" });
+      throw new AuthError("请登录账号后继续", 401);
+    }
+    authAudit.identify(req, session.account);
+    if (session.account.mustChangePassword) {
+      authAudit.emit("auth-rejected", req, { status: 403, reason: "password-change-required" });
       throw new AuthError("请先设置你的新密码", 403);
-    if (admin && session.account.role !== "admin")
+    }
+    if (admin && session.account.role !== "admin") {
+      authAudit.emit("auth-rejected", req, { status: 403, reason: "admin-role-required" });
       throw new AuthError("仅管理员可以执行此操作", 403);
+    }
     return session;
   }
-  function issue(row: AccountRow) {
+  function issue(row: AccountRow, reason: string, req?: IncomingMessage) {
     const current = account(row, db);
     if (current.suspended)
       throw new AuthError("账号已暂停使用，请联系管理员", 403);
     const token = randomBytes(32).toString("hex");
+    const replaced = !!db.prepare("SELECT 1 FROM sessions WHERE id=?").get(row.id);
     db.prepare(
       `INSERT INTO sessions VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET
       token_hash=excluded.token_hash, name=excluded.name, last_seen=excluded.last_seen`,
     ).run(tokenHash(token), row.id, row.name, Date.now());
+    authAudit.emit("session-issued", req, { accountId: row.id, username: row.username, reason, replaced });
     revoke(row.id);
     return { token, account: current };
   }
@@ -301,11 +321,13 @@ export function createAccounts(
       throw new AuthError("你的牌局权限已暂停，请联系管理员", 403);
     if (!a.canPlay) throw new AuthError("请联系管理员分配战队后再入桌", 403);
   }
-  function revokeSessions(id: string) {
-    db.prepare("DELETE FROM sessions WHERE id=?").run(id);
-    revoke(id);
+  function revokeSessions(id: string, reason = "account-revocation", req?: IncomingMessage, scope: "all" | "app" | "control" = "all") {
+    if (scope !== "control") db.prepare("DELETE FROM sessions WHERE id=?").run(id);
+    if (scope !== "app") db.prepare("DELETE FROM control_sessions WHERE id=?").run(id);
+    authAudit.emit("session-revoked", req, { accountId: id, username: getAccount(id)?.username, reason });
+    if (scope !== "control") revoke(id);
   }
-  function issueAdministratorSession(id: string, credentialHash: string) {
+  function issueAdministratorSession(id: string, credentialHash: string, req?: IncomingMessage) {
     const row = db
       .prepare("SELECT * FROM accounts WHERE id=? AND password_hash=?")
       .get(id, credentialHash) as unknown as AccountRow | undefined;
@@ -317,7 +339,18 @@ export function createAccounts(
       current.suspended
     )
       throw new AuthError("后台权限已变更，请重新登录", 403);
-    return issue(row);
+    const token = randomBytes(32).toString("hex");
+    const replaced = !!db.prepare("SELECT 1 FROM control_sessions WHERE id=?").get(id);
+    // Do not touch App sessions or their live sockets. The credential check also
+    // invalidates this token when an older worker resets the account password.
+    const suspensionAt = db.prepare("SELECT updated_at FROM account_suspensions WHERE account_id=?").get(id)?.updated_at ?? 0;
+    db.prepare(`INSERT INTO control_sessions(token_hash,id,last_seen,credential_hash,suspension_at)
+      VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET token_hash=excluded.token_hash,
+      last_seen=excluded.last_seen,credential_hash=excluded.credential_hash,
+      suspension_at=excluded.suspension_at`)
+      .run(tokenHash(token), id, Date.now(), credentialHash, suspensionAt);
+    authAudit.emit("session-issued", req, { accountId: id, username: row.username, reason: "control-login", replaced });
+    return { token, account: current };
   }
   async function verifyAdministrator(
     req: IncomingMessage,
@@ -326,6 +359,7 @@ export function createAccounts(
     limit(`ip:${req.socket.remoteAddress ?? "unknown"}`, 150);
     const login = username(body.username),
       secret = password(body.password);
+    authAudit.attempt(req, login);
     limit(`account:${login}`, 15);
     if (hashing >= 6) throw new AuthError("登录服务繁忙，请稍后重试", 429);
     hashing++;
@@ -349,6 +383,7 @@ export function createAccounts(
       if (verified.mustChangePassword)
         throw new AuthError("请先在 APP 设置你的新密码", 403);
       rates.delete(`account:${login}`);
+      authAudit.identify(req, verified);
       return { account: verified, credentialHash: current.password_hash };
     } finally {
       hashing--;
@@ -396,6 +431,7 @@ export function createAccounts(
       path !== "/api/admin/table-permissions"
     )
       return false;
+    authAudit.observe(req, res);
     res.setHeader("Cache-Control", "no-store");
     let entered = false;
     try {
@@ -517,6 +553,7 @@ export function createAccounts(
           req.headers.authorization?.replace(/^Bearer /, ""),
         );
         if (!session) throw new AuthError("请登录账号后继续", 401);
+        authAudit.identify(req, session.account);
         res.end(JSON.stringify({ account: session.account }));
         return true;
       }
@@ -528,8 +565,8 @@ export function createAccounts(
           req.headers.authorization?.replace(/^Bearer /, ""),
         );
         if (session) {
-          db.prepare("DELETE FROM sessions WHERE id=?").run(session.id);
-          revoke(session.id);
+          authAudit.identify(req, session.account);
+          revokeSessions(session.id, "app-logout", req, "app");
         }
         res.end('{"ok":true}');
         return true;
@@ -592,7 +629,8 @@ export function createAccounts(
           .run(encoded, old.id, old.password_hash);
         if (!changed.changes)
           throw new AuthError("密码已经变更，请重新登录", 401);
-        revokeSessions(old.id);
+        authAudit.identify(req, session.account);
+        revokeSessions(old.id, "password-change", req);
         db.prepare("INSERT INTO account_audit VALUES (?,?,?,?)").run(
           randomUUID(),
           old.id,
@@ -601,13 +639,14 @@ export function createAccounts(
         );
         res.end(
           JSON.stringify(
-            issue({ ...old, password_hash: encoded, must_change: 0 }),
+            issue({ ...old, password_hash: encoded, must_change: 0 }, "password-change", req),
           ),
         );
         return true;
       }
       const login = username(body.username),
         secret = password(body.password);
+      authAudit.attempt(req, login);
       limit(`account:${login}`, 15);
       let row = db
         .prepare("SELECT * FROM accounts WHERE username=?")
@@ -663,7 +702,8 @@ export function createAccounts(
         row = current;
       }
       rates.delete(`account:${login}`);
-      res.end(JSON.stringify(issue(row!)));
+      authAudit.identify(req, { id: row!.id, username: row!.username });
+      res.end(JSON.stringify(issue(row!, path === "/api/auth/register" ? "app-register" : "app-login", req)));
     } catch (error) {
       res.statusCode = error instanceof AuthError ? error.status : 500;
       res.end(
@@ -680,8 +720,12 @@ export function createAccounts(
     return true;
   }
   return {
+    auditRequest: authAudit.observe,
     getSession,
     requireSession,
+    getControlSession: (token: unknown) => getSession(token, "control"),
+    requireControlSession: (req: IncomingMessage) => requireSession(req, true, "control"),
+    revokeControlSession: (id: string, req?: IncomingMessage) => revokeSessions(id, "control-logout", req, "control"),
     handle,
     canOpenTables,
     getAccount,

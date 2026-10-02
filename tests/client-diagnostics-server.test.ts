@@ -4,13 +4,14 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {WebSocket} from 'ws';
 import {makeServer} from '../server/service';
-import {seedTestAdmin,registerTestPort,peerCredential} from './account-fixtures';
+import {seedTestAdmin,registerTestPort,peerCredential,controlCredential} from './account-fixtures';
 const cleanups:(()=>Promise<void>)[]=[];
 afterEach(async()=>{for(const close of cleanups.splice(0))await close();});
 async function fixture(){
  const dir=mkdtempSync(join(tmpdir(),'mahjong-diagnostics-')),database=join(dir,'test.sqlite');await seedTestAdmin(database);
  const server=makeServer({database,port:0,host:'127.0.0.1',tickMs:25}),port=await server.listen();registerTestPort(port);
- const admin=await peerCredential(port,'诊断管理员'),member=await peerCredential(port,'诊断玩家'),sockets:WebSocket[]=[];
+ await peerCredential(port,'诊断管理员');
+ const admin=await controlCredential(port),member=await peerCredential(port,'诊断玩家'),sockets:WebSocket[]=[];
  cleanups.push(async()=>{sockets.forEach(s=>s.close());await server.close();rmSync(dir,{recursive:true,force:true});});
  async function connect(supported=true,platform='android'){
   const socket=new WebSocket(`ws://127.0.0.1:${port}/ws`);sockets.push(socket);const messages:any[]=[];socket.on('message',r=>messages.push(JSON.parse(String(r))));await new Promise<void>(r=>socket.once('open',r));
@@ -24,7 +25,7 @@ async function fixture(){
 }
 it.each(['android','ios'])('admin pulls %s logs over the live channel; metadata is sanitized and game pings continue',async(platform)=>{
  const f=await fixture(),peer=await f.connect(true,platform);
- expect((await f.call(peer.id,false,'')).status).toBe(401);expect((await f.call(peer.id,false,f.member)).status).toBe(403);
+ expect((await f.call(peer.id,false,'')).status).toBe(401);expect((await f.call(peer.id,false,f.member)).status).toBe(401);
  const requested=await f.call(peer.id,true);expect(requested.status).toBe(200);const command=await peer.read('diagnosticRequest');
  expect(requested.data.requests[0].actorId).toBeTruthy();
  const report={version:1,at:Date.now(),platform,environment:{appVersion:'0.8.1',webViewVersion:'83',token:'hidden'},table:{code:'123456',hand:[1,2]},events:Array.from({length:32},()=>({at:Date.now(),code:'table-error',message:'roundRect missing',stack:'at local.js:1\n'.repeat(35)}))};

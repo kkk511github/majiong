@@ -40,13 +40,14 @@ export function makeRuntimeGateway(options:{database:string;port?:number;host?:s
    const token=req.headers.authorization?.replace(/^Bearer /,'')??'',user=identity(token);actor=user?String(user.id):undefined;
    const member=/^\/api\/control\/members\/([a-zA-Z0-9_-]{1,100})(?:\/|$)/.exec(req.url)?.[1];
    const personal=/^\/api\/(?:auth\/|voice|diagnostics)/.test(req.url);
-   const node=(member&&owner(member))||(personal&&actor&&owner(actor))||active();
+   const control=req.url.startsWith('/api/control/');
+   const node=control?active():(member&&owner(member))||(personal&&actor&&owner(actor))||active();
    const target=new URL(endpoint(node));
    const upstream=httpRequest({hostname:target.hostname,port:target.port,path:req.url,method:req.method,headers:{...req.headers,connection:'close'}},response=>{
     res.writeHead(response.statusCode??502,response.headers);response.pipe(res);
     if((response.statusCode??500)<400){
      lobbySignature='';
-     if(req.url?.startsWith('/api/auth/logout')||req.url?.startsWith('/api/control/auth/logout')){if(actor)people.get(actor)?.socket.close(4003,'Signed out');}
+     if(req.url?.startsWith('/api/auth/logout')){if(actor)people.get(actor)?.socket.close(4003,'Signed out');}
      if(req.method!=='GET'&&req.url?.startsWith('/api/control/announcements'))for(const c of people.values())send(c,JSON.stringify({type:'announcementsChanged'}));
     }
    });

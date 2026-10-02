@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { clientVersionPolicy } from '../server/client-version';
 import { makeServer } from '../server/service';
-import { seedTestAdmin, registerTestPort, peerCredential } from './account-fixtures';
+import { seedTestAdmin, registerTestPort, peerCredential, controlCredential } from './account-fixtures';
 import type { ClientMessage, ServerMessage, Seat } from '../shared/types';
 
 describe('minimum client version policy', () => {
@@ -32,6 +32,7 @@ async function boot(minimumClientVersion = '0.7.37') {
   server = makeServer({ database, port: 0, host: '127.0.0.1', tickMs: 25, minimumClientVersion });
   let port = await server.listen(); registerTestPort(port);
   const token = await peerCredential(port, '版本验证管理员');
+  const controlToken = await controlCredential(port);
   const tokens = new Map([['版本验证管理员', token]]);
   async function connect(clientVersion?: string, name = '版本验证管理员', clientPlatform?: 'ios'|'android'|'web') {
     if (!tokens.has(name)) tokens.set(name, await peerCredential(port, name));
@@ -55,12 +56,12 @@ async function boot(minimumClientVersion = '0.7.37') {
   }
   return Object.assign(connect, {
     async reports() {
-      const response=await fetch(`http://127.0.0.1:${port}/api/control/members?targetVersion=0.8.0`,{headers:{Authorization:`Bearer ${token}`}});
+      const response=await fetch(`http://127.0.0.1:${port}/api/control/members?targetVersion=0.8.0`,{headers:{Authorization:`Bearer ${controlToken}`}});
       expect(response.status).toBe(200);return response.json();
     },
     async settings(body?: unknown) {
       const response = await fetch(`http://127.0.0.1:${port}/api/control/settings/client-update`, {
-        method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${controlToken}`, 'Content-Type': 'application/json' },
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
       expect(response.status).toBe(200); return response.json();

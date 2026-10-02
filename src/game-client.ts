@@ -11,6 +11,7 @@ import { isRoomPhraseId, isRoomPhraseMessage, ROOM_PHRASE_TTL_MS, ROOM_PHRASE_HI
   type RoomPhraseId, type RoomPhraseMessage } from "../shared/room-phrases";
 import { newGameRules } from "../shared/nanjing-rules";
 import { ServerClock } from "./server-clock";
+import { CONNECTION_POLICY } from "./connection-policy";
 import type { OpeningCue } from "./TableOpening";
 import type { OnlineInvitePeer, TableInvitation } from '../shared/table-invitations';
 import { decisionDeadline, setTrustee } from "../shared/timing";
@@ -18,6 +19,7 @@ import { Capacitor } from "@capacitor/core";
 import { App as NativeApp } from '@capacitor/app';
 import { version as webVersion } from '../package.json';
 import {androidDiagnostics} from './android-diagnostics';
+import type {DiagnosticEventMeta,DiagnosticEventCode} from '../shared/client-diagnostics';
 import { isAvatarPath } from "../shared/account-profile";
 import {
   act,
@@ -148,6 +150,10 @@ export class GameClient {
   private clockTimer?: ReturnType<typeof setInterval>;
   private timeSync = false;
   private clockPing?: number;
+  private pendingPings = new Set<number>();
+  private missedPongs = 0;
+  private probeStartedAt?: number;
+  private resumeStartedAt?: number;
   private pongTimer?: ReturnType<typeof setTimeout>;
   private connectTimer?: ReturnType<typeof setTimeout>;
   private tablesTimer?: ReturnType<typeof setTimeout>;
@@ -158,6 +164,21 @@ export class GameClient {
   private recoveryStartedAt?: number;
   private heartbeatAt = 0;
   private openedAt = 0;
+  private diagnosticConnection = '';
+  private receivedAt = 0;
+  private diagnosticHeartbeatAt = 0;
+  private diagnosticSnapshotAt = 0;
+  private diagnosticCommand = '';
+  private traceNetwork(message:string,extra:DiagnosticEventMeta={},code:DiagnosticEventCode='network') {
+    androidDiagnostics.record(code,message,{
+      connectionId:this.diagnosticConnection,phase:this.state.network.phase,
+      online:navigator.onLine!==false,visible:this.networkVisible,
+      socketState:this.socket?.readyState,bufferedBytes:this.socket?.bufferedAmount,
+      lastReceivedAgoMs:this.receivedAt?Date.now()-this.receivedAt:undefined,
+      revision:this.state.view?.revision,requestId:this.commandId,
+      ...extra,
+    });
+  }
   private lastResumeAt = -Infinity;
   private openingCompletion?: {
     game: string;
@@ -197,14 +218,23 @@ export class GameClient {
       this.clock.resample();
       // A response requested before sleep may carry an old timestamp. Start a new exchange now.
       this.clockPing = undefined;
+      this.pendingPings.clear();
       clearTimeout(this.pongTimer);
+      this.missedPongs = 0;
+      this.probeStartedAt = undefined;
     }
     if (!this.networkVisible) return;
     const now = performance.now();
-    if (this.clockPing !== undefined && now - this.clockPing < 10000) return;
+    if (this.clockPing !== undefined) return;
     clearTimeout(this.pongTimer);
     this.clockPing = now;
+    this.pendingPings.add(now);
+    // Retain a few outstanding probes so a genuinely slow, valid response
+    // can still recover the connection after its next probe has started.
+    while (this.pendingPings.size > 4) this.pendingPings.delete(this.pendingPings.values().next().value!);
     this.heartbeatAt = Date.now();
+    this.probeStartedAt ??= this.heartbeatAt;
+    const socket = this.socket;
     try {
       this.socket.send(
         JSON.stringify({
@@ -216,19 +246,41 @@ export class GameClient {
       if (this.networkVisible)
         this.pongTimer = setTimeout(
           () => {
+            if (this.socket !== socket || this.clockPing !== now || !this.networkVisible) return;
+            this.clockPing = undefined;
+            this.missedPongs++;
+            this.traceNetwork('heartbeat-timeout',{
+              elapsedMs:Date.now()-this.heartbeatAt, attempt:this.missedPongs,
+              reason:this.resumePending?'resume-probe':'heartbeat-probe',
+            });
             this.updateNetwork(timedOut(this.state.network));
-            this.restartConnection("正在恢复牌桌连接…", this.resumePending);
+            const expired = this.resumePending
+              ? Date.now() - this.resumeStartedAt! >= CONNECTION_POLICY.resumeDeadlineMs
+              : Date.now() - Math.max(this.probeStartedAt!, this.receivedAt) >= CONNECTION_POLICY.heartbeatSilenceMs;
+            if (expired) {
+              this.restartConnection("正在恢复牌桌连接…", this.resumePending,
+                this.resumePending?'resume-sync-timeout':'heartbeat-silence');
+            } else {
+              // A slow/missing pong alone is not a dead connection. Keep the
+              // socket and probe again; authoritative state traffic is liveness.
+              this.syncTime();
+            }
           },
-          this.resumePending ? 2000 : 5000,
+          this.resumePending ? CONNECTION_POLICY.resumeProbeMs : CONNECTION_POLICY.heartbeatProbeMs,
         );
     } catch {
-      this.restartConnection("连接中断，正在重新连接…");
+      this.traceNetwork('send-failed',{operation:'ping'});
+      this.restartConnection("连接中断，正在重新连接…", false, 'ping-send-failed');
     }
   };
   private stopClock() {
     clearInterval(this.clockTimer);
     this.clockTimer = undefined;
     this.clockPing = undefined;
+    this.pendingPings.clear();
+    this.missedPongs = 0;
+    this.probeStartedAt = undefined;
+    this.resumeStartedAt = undefined;
     this.timeSync = false;
     this.resumePending = false;
     this.awaitingRoom = undefined;
@@ -241,6 +293,8 @@ export class GameClient {
     this.tablesTimer = undefined;
   }
   private updateNetwork(patch: Partial<NetworkHealth>) {
+    if(patch.phase&&patch.phase!==this.state.network.phase)
+      this.traceNetwork('phase-change',{phase:patch.phase,reason:this.state.network.phase});
     this.emit({ network: { ...this.state.network, ...patch } });
   }
   private connectionReady() {
@@ -250,15 +304,19 @@ export class GameClient {
         ? {}
         : { lastRecoveryMs: Date.now() - this.recoveryStartedAt }),
     });
+    this.traceNetwork('connection-ready',{elapsedMs:this.recoveryStartedAt===undefined?Date.now()-this.openedAt:Date.now()-this.recoveryStartedAt});
     this.recoveryStartedAt = undefined;
   }
   retryNetwork = () => {
+    this.traceNetwork('manual-retry');
     if (this.state.mode === "online" && !this.stopped)
-      this.restartConnection("正在重新连接…", true);
+      this.restartConnection("正在重新连接…", true, 'manual-retry');
   };
-  private restartConnection(notice: string, immediate = false) {
+  private restartConnection(notice: string, immediate = false, reason = 'connection-recovery') {
     if (this.stopped || this.state.mode !== "online") return;
     this.recoveryStartedAt ??= Date.now();
+    this.traceNetwork('reconnect-requested',{reason,attempt:this.missedPongs,operation:this.diagnosticCommand,elapsedMs:this.commandId?Date.now()-this.commandStartedAt:undefined});
+    androidDiagnostics.disconnect();
     this.updateNetwork({
       phase: navigator.onLine === false ? "offline" : "retrying",
     });
@@ -281,6 +339,7 @@ export class GameClient {
     // while the OS has suspended the WebView. Foreground resumes immediately.
     if (!this.networkVisible) return;
     const delay = immediate ? 0 : reconnectDelay(this.attempt++);
+    this.traceNetwork('retry-scheduled',{attempt:this.attempt,delayMs:delay});
     this.retry = setTimeout(() => this.open(), delay);
   }
   resumeConnection = () => {
@@ -291,42 +350,45 @@ export class GameClient {
       this.resumePending
     )
       return;
+    this.traceNetwork('foreground-resume');
     if (this.state.connected && this.socket?.readyState === WebSocket.OPEN) {
       if (Date.now() - this.lastResumeAt < 750) return;
       this.lastResumeAt = Date.now();
       if (!this.timeSync) {
-        this.restartConnection("正在恢复牌桌连接…", true);
+        this.restartConnection("正在恢复牌桌连接…", true, 'legacy-resume');
         return;
       }
-      clearTimeout(this.commandTimer);
-      this.commandTimer = undefined;
-      this.finishTables();
-      this.resumePending = true;
-      this.resumeViewSeen = false;
-      this.recoveryStartedAt ??= Date.now();
-      this.updateNetwork({ phase: "syncing" });
-      this.emit({
-        connected: false,
-        connecting: true,
-        notice: "正在同步牌桌…",
-      });
-      this.syncTime(true);
+      this.syncCurrentConnection('foreground-resume');
     } else if (
       !this.socket ||
       this.socket.readyState === WebSocket.CLOSING ||
       this.socket.readyState === WebSocket.CLOSED ||
       Date.now() - this.openedAt >= 2000
     ) {
-      this.restartConnection("正在恢复牌桌连接…", true);
+      this.restartConnection("正在恢复牌桌连接…", true, 'foreground-closed-socket');
     } else {
       clearTimeout(this.connectTimer);
       this.connectTimer = setTimeout(
-        () => this.restartConnection("正在恢复牌桌连接…", true),
+        () => this.restartConnection("正在恢复牌桌连接…", true, 'foreground-pending-handshake'),
         2000,
       );
     }
   };
+  private syncCurrentConnection(reason: string) {
+    clearTimeout(this.commandTimer);
+    this.commandTimer = undefined;
+    this.finishTables();
+    this.resumePending = true;
+    this.resumeStartedAt = Date.now();
+    this.resumeViewSeen = false;
+    this.recoveryStartedAt ??= Date.now();
+    this.traceNetwork('snapshot-requested', { reason, operation:this.diagnosticCommand });
+    this.updateNetwork({ phase: 'syncing' });
+    this.emit({ connected:false, connecting:true, notice:'正在同步牌桌…' });
+    this.syncTime(true);
+  }
   setNetworkVisible = (visible: boolean) => {
+    if(visible!==this.networkVisible)this.traceNetwork('visibility-change',{visible});
     const returning = visible && !this.networkVisible;
     this.networkVisible = visible;
     if (visible) {
@@ -347,6 +409,7 @@ export class GameClient {
       clearTimeout(this.pongTimer);
       this.pongTimer = undefined;
       this.clockPing = undefined;
+      this.pendingPings.clear();
       clearTimeout(this.connectTimer);
       clearTimeout(this.commandTimer);
       this.commandTimer = undefined;
@@ -355,12 +418,15 @@ export class GameClient {
       this.retry = undefined;
     }
   };
-  networkOffline = () =>
-    this.restartConnection("网络已断开，恢复后自动同步牌桌…");
+  networkOffline = () => {
+    this.traceNetwork('browser-offline');
+    this.restartConnection("网络已断开，恢复后自动同步牌桌…", false, 'device-offline');
+  };
   private finishCommand() {
     clearTimeout(this.commandTimer);
     this.commandTimer = undefined;
     this.commandId = undefined;
+    this.diagnosticCommand = '';
     this.emit({ submitting: null });
   }
   private finishPhrase(error?: Error) {
@@ -425,6 +491,11 @@ export class GameClient {
     this.emit({ lobbyNotice: "" });
   }
   async api<T>(path: string, body?: unknown): Promise<T> {
+    const started=performance.now();
+    // Route family only: never log query strings, account IDs, bodies or headers.
+    const route=['auth','records','tables','profile','app','diagnostics'].find(part=>path.startsWith(`/api/${part}/`)||path===`/api/${part}`)??'other';
+    const operation=`${body===undefined?'GET':'POST'}:${route}`;
+    let status:number|undefined;
     const controller = new AbortController(),
       timeout = setTimeout(() => controller.abort(), 15000);
     try {
@@ -438,6 +509,7 @@ export class GameClient {
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
+      status=response.status;
       const data = await response.json();
       if (!response.ok) {
         if (
@@ -454,8 +526,10 @@ export class GameClient {
           status: response.status,
         });
       }
+      this.traceNetwork('http-complete',{operation,status,elapsedMs:performance.now()-started});
       return data as T;
     } catch (error) {
+      this.traceNetwork(route==='diagnostics'?'diagnostic-upload-failed':'http-failed',{operation,status,elapsedMs:performance.now()-started,reason:error instanceof Error?error.name:'Unknown'});
       if (
         error instanceof TypeError ||
         (error instanceof Error && error.name === "AbortError")
@@ -866,16 +940,19 @@ export class GameClient {
     const endpoint = new URL((base?.replace(/\/$/, "") ?? "") + "/ws", `${location.protocol}//${location.host}/`);
     endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
     const url = endpoint.href;
+    this.diagnosticConnection=`ws-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+    this.receivedAt=0;this.diagnosticHeartbeatAt=0;this.diagnosticSnapshotAt=0;
     const ws = new WebSocket(url);
     this.socket = ws;
     this.openedAt = Date.now();
+    this.traceNetwork('socket-connect',{attempt:this.attempt});
     this.connectTimer = setTimeout(
-      () => this.restartConnection("连接牌桌超时，正在重试…"),
+      () => {this.traceNetwork('connect-timeout',{elapsedMs:Date.now()-this.openedAt});this.restartConnection("连接牌桌超时，正在重试…", false, 'handshake-timeout');},
       10000,
     );
     ws.onopen = async () => {
       if (this.socket !== ws || this.stopped) return;
-      androidDiagnostics.record('network','socket-open');
+      this.traceNetwork('socket-open',{elapsedMs:Date.now()-this.openedAt});
       this.updateNetwork({ phase: "authenticating" });
       let clientVersion: string | undefined = webVersion;
       if (Capacitor.isNativePlatform()) {
@@ -889,18 +966,27 @@ export class GameClient {
           type: "hello",
           capabilities: { openingComplete: true, ...(androidDiagnostics.enabled()?{clientDiagnostics:true}:{}) },
           clientVersion,
+          clientPlatform: Capacitor.getPlatform(),
           name: this.name,
           token: storage.get("token", undefined),
         }),
       );
+      this.traceNetwork('hello-sent',{elapsedMs:Date.now()-this.openedAt});
     };
     ws.onmessage = (event) => {
       if (this.socket !== ws || this.stopped) return;
       try {
         const msg = JSON.parse(event.data) as ServerMessage;
+        if (!msg || typeof msg.type !== 'string') throw new Error('Invalid server message');
+        // Only authoritative traffic or a matching pong extends probe grace.
+        // Garbage and stale pongs must not keep a half-open connection alive.
+        if ((msg.type === 'state' && msg.state?.code && Number.isFinite(msg.state.revision)) ||
+            (msg.type === 'pong' && msg.sentAt !== undefined && this.pendingPings.has(msg.sentAt) && Number.isFinite(msg.serverNow)) ||
+            msg.type === 'session' || msg.type === 'ack') this.receivedAt=Date.now();
         this.clock.observe(msg.serverNow);
         if (msg.type === "session") {
-          androidDiagnostics.session(msg.id,msg.clientDiagnostics===true||msg.androidDiagnostics===true,(diagnosticId,report)=>{if(this.socket!==ws||ws.readyState!==WebSocket.OPEN)return false;ws.send(JSON.stringify({type:'diagnosticUpload',diagnosticId,report}));return true;});
+          androidDiagnostics.session(msg.id,msg.clientDiagnostics===true||msg.androidDiagnostics===true,(diagnosticId,report)=>{if(this.socket!==ws||ws.readyState!==WebSocket.OPEN||ws.bufferedAmount>65536)return false;ws.send(JSON.stringify({type:'diagnosticUpload',diagnosticId,report}));return true;},msg.clientDiagnosticsVersion);
+          this.traceNetwork('session-confirmed',{elapsedMs:Date.now()-this.openedAt});
           clearTimeout(this.connectTimer);
           this.connectTimer = undefined;
           this.commandAck = msg.commandAck === true;
@@ -916,8 +1002,8 @@ export class GameClient {
           this.updateNetwork({ phase: msg.roomCode ? "syncing" : "ready" });
           if (msg.roomCode)
             this.connectTimer = setTimeout(
-              () => this.restartConnection("牌桌状态未同步，正在重试…"),
-              5000,
+              () => {this.traceNetwork('sync-timeout');this.restartConnection("牌桌状态未同步，正在重试…", false, 'initial-snapshot-timeout');},
+              CONNECTION_POLICY.snapshotDeadlineMs,
             );
           else this.connectionReady();
           this.emit({
@@ -950,18 +1036,25 @@ export class GameClient {
           this.pending = undefined;
         } else if (msg.type === "pong") {
           if (
-            msg.sentAt === this.clockPing &&
-            this.clockPing !== undefined &&
+            msg.sentAt !== undefined && this.pendingPings.has(msg.sentAt) &&
             Number.isFinite(msg.serverNow)
           ) {
             this.updateNetwork(
               measuredResponse(
                 this.state.network,
-                performance.now() - this.clockPing,
+                performance.now() - msg.sentAt,
               ),
             );
-            this.clock.sample(msg.serverNow!, this.clockPing);
+            this.clock.sample(msg.serverNow!, msg.sentAt);
+            const rtt=performance.now()-msg.sentAt;
+            if(rtt>=600||this.resumePending||Date.now()-this.diagnosticHeartbeatAt>=60000){
+              this.traceNetwork('heartbeat-received',{rttMs:rtt,smoothedRttMs:this.state.network.smoothedRttMs??undefined,serverTimeMs:msg.serverNow});
+              this.diagnosticHeartbeatAt=Date.now();
+            }
             this.clockPing = undefined;
+            this.pendingPings.clear();
+            this.missedPongs = 0;
+            this.probeStartedAt = undefined;
             clearTimeout(this.pongTimer);
             this.pongTimer = undefined;
             if (this.resumePending) {
@@ -971,10 +1064,11 @@ export class GameClient {
                   (!this.resumeViewSeen ||
                     this.state.view?.code !== msg.roomCode))
               ) {
-                this.restartConnection("正在重新获取完整牌桌…", true);
+                this.restartConnection("正在重新获取完整牌桌…", true, 'incomplete-sync-response');
                 return;
               }
               this.resumePending = false;
+              this.resumeStartedAt = undefined;
               this.connectionReady();
               this.finishCommand();
               if (msg.synced && !msg.roomCode)
@@ -1067,6 +1161,11 @@ export class GameClient {
           const starting = next.table?.settings.openingAnimation !== false &&
             !currentOpening && (openingPending || legacyStarting);
           this.resumeViewSeen = this.resumePending;
+          if(restored||before?.round!==next.round||Date.now()-this.diagnosticSnapshotAt>=60000){
+            androidDiagnostics.context({code:next.code,round:next.round,phase:next.phase});
+            this.traceNetwork('snapshot-received',{revision:next.revision,round:next.round});
+            this.diagnosticSnapshotAt=Date.now();
+          }
           this.updateNetwork({
             lastSnapshotAt: Date.now(),
             lastResponseAt: Date.now(),
@@ -1101,9 +1200,11 @@ export class GameClient {
         } else if (msg.type === 'invitationResult') {
           this.finishInvitation(msg.requestId, undefined, msg.peers);
         } else if (msg.type === "ack") {
+          if(msg.requestId!==this.commandId&&msg.requestId!==this.phraseRequest?.id)
+            this.traceNetwork('late-ack',{requestId:msg.requestId});
           if (msg.requestId === this.phraseRequest?.id) this.finishPhrase();
           if (msg.requestId === this.commandId) {
-            androidDiagnostics.record('command-ack','confirmed',{requestId:this.commandId,elapsedMs:Date.now()-this.commandStartedAt,revision:this.state.view?.revision});
+            this.traceNetwork('confirmed',{operation:this.diagnosticCommand,elapsedMs:Date.now()-this.commandStartedAt},'command-ack');
             this.finishCommand();
           }
         } else if(msg.type==='diagnosticRequest'){
@@ -1129,8 +1230,8 @@ export class GameClient {
             return;
           }
           // A renewal/leave notification can finish the old command before its late reply arrives.
-          if (msg.requestId && msg.requestId !== this.commandId) return;
-          if(this.commandId)androidDiagnostics.record('command-error',msg.message,{requestId:this.commandId,revision:this.state.view?.revision,elapsedMs:Date.now()-this.commandStartedAt});
+          if (msg.requestId && msg.requestId !== this.commandId) {this.traceNetwork('late-command-error',{requestId:msg.requestId});return;}
+          if(this.commandId)this.traceNetwork(msg.message,{operation:this.diagnosticCommand,elapsedMs:Date.now()-this.commandStartedAt},'command-error');
           if (!msg.requestId || msg.requestId === this.commandId)
             this.finishCommand();
           if (!msg.requestId) this.finishTables();
@@ -1158,13 +1259,14 @@ export class GameClient {
           }
         }
       } catch {
+        this.traceNetwork('message-invalid');
         this.emit({ error: "收到无效牌局信息，请重新连接" });
       }
     };
     ws.onclose = (event) => {
       if (this.socket !== ws || this.stopped) return;
-      androidDiagnostics.record('network',`socket-close ${event.code}`);
       androidDiagnostics.disconnect();
+      this.traceNetwork('socket-close',{closeCode:event.code,wasClean:event.wasClean,closeReason:event.reason,elapsedMs:Date.now()-this.openedAt});
       this.stopClock();
       clearTimeout(this.connectTimer);
       this.finishTables();
@@ -1187,10 +1289,11 @@ export class GameClient {
         });
         return;
       }
-      this.restartConnection("连接中断，正在重新连接…");
+      this.restartConnection("连接中断，正在重新连接…", false, 'socket-close');
     };
     ws.onerror = () => {
       if (this.socket !== ws || this.stopped) return;
+      this.traceNetwork('socket-error');
       if (!this.state.view)
         this.emit({
           error:
@@ -1200,11 +1303,12 @@ export class GameClient {
   }
   send(msg: ClientMessage) {
     // A read-only list refresh must not be blocked by (or acknowledge) a game command.
-    if (this.state.submitting && msg.type !== "tables") return;
+    if (this.state.submitting && msg.type !== "tables") {this.traceNetwork('command-blocked',{operation:msg.type,reason:'pending-confirmation'});return;}
     if (msg.type === "tables" && this.tablesTimer) return;
     if (!this.state.connected || this.socket?.readyState !== WebSocket.OPEN) {
+      this.traceNetwork('command-blocked',{operation:msg.type,reason:'not-connected'});
       this.emit({ error: "正在重连，请稍候" });
-      if (msg.type === "tables") this.restartConnection("正在重新同步牌桌…");
+      if (msg.type === "tables") this.restartConnection("正在重新同步牌桌…", false, 'tables-socket-unavailable');
       return;
     }
     if (
@@ -1232,22 +1336,25 @@ export class GameClient {
     if (tracked) {
       this.commandId = `command-${++this.commandSequence}`;
       this.commandStartedAt=Date.now();
-      androidDiagnostics.record('command-sent',msg.type,{requestId:this.commandId,revision:this.state.view?.revision});
+      this.diagnosticCommand=msg.type==='action'?`action:${msg.action.type}`:msg.type;
+      this.traceNetwork('sent',{operation:this.diagnosticCommand},'command-sent');
       this.emit({ submitting: msg.type, error: "" });
       this.commandTimer = setTimeout(() => {
-        androidDiagnostics.record('command-timeout','awaiting confirmation',{requestId:this.commandId,revision:this.state.view?.revision,elapsedMs:Date.now()-this.commandStartedAt});
-        // The server may have accepted the move: reconnect for authoritative state,
-        // never replay an unconfirmed discard or ready command.
+        this.traceNetwork('awaiting confirmation',{operation:this.diagnosticCommand,elapsedMs:Date.now()-this.commandStartedAt},'command-timeout');
+        // The server may have accepted the move. Sync over the existing socket
+        // first, keeping input blocked; never resend an uncertain operation.
         this.updateNetwork({
           commandTimeouts: this.state.network.commandTimeouts + 1,
         });
-        this.restartConnection("牌桌响应较慢，正在重新同步…");
-      }, 8000);
+        if (this.timeSync && this.networkVisible && this.socket?.readyState === WebSocket.OPEN)
+          this.syncCurrentConnection('command-confirmation-timeout');
+        else this.restartConnection("牌桌响应较慢，正在重新同步…", false, 'command-confirmation-timeout');
+      }, CONNECTION_POLICY.commandConfirmationMs);
     }
     if (msg.type === "tables") {
       this.emit({ tablesLoading: true });
       this.tablesTimer = setTimeout(
-        () => this.restartConnection("牌桌列表响应较慢，正在重新同步…"),
+        () => {this.traceNetwork('tables-timeout');this.restartConnection("牌桌列表响应较慢，正在重新同步…", false, 'tables-timeout');},
         8000,
       );
     }
@@ -1259,9 +1366,10 @@ export class GameClient {
         }),
       );
     } catch {
+      this.traceNetwork('send-failed',{operation:this.diagnosticCommand});
       this.finishCommand();
       this.emit({ error: "操作未发送，正在重新连接牌桌…" });
-      this.restartConnection("操作未发送，正在重新连接牌桌…");
+      this.restartConnection("操作未发送，正在重新连接牌桌…", false, 'command-send-failed');
     }
   }
   action(action: Action) {
@@ -1301,7 +1409,7 @@ export class GameClient {
       // Keep the idempotent completion pending, then obtain an authoritative
       // snapshot before retrying it. Otherwise the last gated player can leave
       // the table waiting until the server's opening timeout expires.
-      this.restartConnection("开局同步未完成，正在重新连接…", true);
+      this.restartConnection("开局同步未完成，正在重新连接…", true, 'opening-sync-timeout');
     }
   }
   openingComplete(game: string, round: number) {

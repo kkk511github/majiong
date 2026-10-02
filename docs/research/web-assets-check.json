@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-28T17:56:35.493Z",
+  "at": "2026-09-30T18:17:36.515Z",
   "kind": "web-build-public-assets",
   "checked": 360,
   "groups": {
@@ -65,7 +65,7 @@
     },
     "cocos-table": {
       "files": 198,
-      "bytes": 54397839
+      "bytes": 54399064
     },
     "audio": {
       "files": 34,
@@ -77,10 +77,10 @@
     }
   },
   "runtime": {
-    "sha256": "d96bebda5c7768f05d2f660b56384d3632a39e96f42964a7e56169fe2668862e",
+    "sha256": "1ee741456d4ef3ae4a57c3bdffce8d623e7f2293d5dc520a4d8d1215aa59e91d",
     "files": 198,
-    "bytes": 54397839
+    "bytes": 54399064
   },
-  "archiveBytes": 50929634,
+  "archiveBytes": 50930251,
   "note": "Local stored sizes; not measured download, memory or launch timing."
 }

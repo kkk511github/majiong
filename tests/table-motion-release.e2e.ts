@@ -59,7 +59,7 @@ async function inspect(frame: Frame) {
     const win = window as any, cc = await win.System.import("cc"), scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
     return {
       moving: [...scene.tileFlights.keys()] as string[], held: scene.releasedTile?.tile as number | undefined,
-      effects: scene.motionEffects.size as number, hud: scene.hud.children.map((node: any) => node.name) as string[],
+      effects: scene.motionEffects.size + [...scene.actionFx.slots.values()].filter((slot: any) => slot.root.active).length as number, hud: scene.hud.children.map((node: any) => node.name) as string[],
       tiles: win.__JINLING_TABLE_LAYOUT__.map((tile: any) => {
         const node = scene.nodes.get(tile.id);
         return { id: tile.id as string, tile: tile.tile as number | undefined, area: tile.area as string, seat: tile.seat as number,
@@ -165,7 +165,7 @@ test("continuous replay retains its current action cue without animating seeks o
   const step = concealed(initial); await send(step);
   expect((await inspect(frame)).moving).toEqual([]); expect((await inspect(frame)).effects).toBe(1);
   await send({ ...step, selected: 0 }); expect((await inspect(frame)).effects).toBe(1);
-  await page.waitForTimeout(1200); expect((await inspect(frame)).effects).toBe(0);
+  await expect.poll(async () => (await inspect(frame)).effects).toBe(0);
   await send({ ...step, selected: null }); expect((await inspect(frame)).effects).toBe(0);
   const seek = { ...step, revision: 30, effects: [{ key: "jumped-replay-pung", type: "pung", seat: 0 }] };
   await send(seek); expect((await inspect(frame)).effects).toBe(0); expect((await inspect(frame)).moving).toEqual([]);
@@ -218,10 +218,12 @@ test("same-frame snapshots paint once, retain confirmed cues and never stack a s
     const cc = await (window as any).System.import("cc"), scene = cc.director.getScene().getChildByName("Canvas").getComponent("TableScene");
     return { draws: (window as any).__drawCalls, cues: [...scene.motionEffects].filter((node: any) => node.name.startsWith("motion-action-")).map((node: any) => ({
       name: node.name, scale: node.scale.x, text: node.children[0]?.getComponent(cc.Label)?.string,
-    })) };
+    })).concat([...scene.actionFx.slots.values()].filter((slot: any) => slot.root.active).map((slot: any) => ({
+      name: slot.root.name, scale: slot.glyph.scale.x, text: slot.tag.string,
+    }))) };
   });
   const batch = await cues(); expect(batch.draws).toBe(1);
-  expect(batch.cues.map(cue => cue.name).sort()).toEqual(["motion-action-0", "motion-action-1"]);
+  expect(batch.cues.map(cue => cue.name).sort()).toEqual(["confirmed-action-0", "motion-action-1"]);
   expect(batch.cues.every(cue => cue.scale === 1)).toBe(true);
   await send({ ...replacement, effects: [{ key: "next-seat-flower", type: "flower", seat: 0 }] });
   const fresh = (await cues()).cues.filter(cue => cue.name === "motion-action-0");

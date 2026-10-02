@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameClient } from "../src/game-client";
+import {androidDiagnostics} from '../src/android-diagnostics';
 import { completedRound } from "./fixtures/completed-round";
 let client: GameClient;
 it("战绩列表合并相同的并发请求，完成后重新拉取", async () => {
@@ -20,6 +21,7 @@ it("战绩列表合并相同的并发请求，完成后重新拉取", async () =
 afterEach(() => {
   client?.disconnect();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 describe("练习入口已关闭",()=>{
   it.each([false,true])("旧入口不能启动或恢复练习，resume=%s",resume=>{
@@ -83,11 +85,31 @@ function online(ack = true) {
   ws.receive({ type: "state", state: viewFor(g, 0) });
   return { ws, g };
 }
+it('diagnostics correlate command/ack and reconnect without copying private action payloads',()=>{
+ vi.useFakeTimers();const logs=vi.spyOn(androidDiagnostics,'record');const {ws}=online();
+ client.send({type:'action',action:{type:'discard',tile:18},revision:client.state.view!.revision});
+ const sent=ws.sent.filter(m=>m.type==='action').slice(-1)[0]!;
+ ws.receive({type:'ack',requestId:sent.requestId!});
+ const request=logs.mock.calls.find(c=>c[0]==='command-sent')!,ack=logs.mock.calls.find(c=>c[0]==='command-ack')!;
+ expect(request[2]).toMatchObject({operation:'action:discard',requestId:sent.requestId});
+ expect(ack[2]).toMatchObject({connectionId:request[2]!.connectionId,requestId:sent.requestId,operation:'action:discard'});
+ ws.onclose?.({code:1006});
+ expect(logs.mock.calls.find(c=>c[1]==='socket-close')?.[2]).toMatchObject({closeCode:1006,connectionId:request[2]!.connectionId});
+ expect(logs.mock.calls.some(c=>c[1]==='retry-scheduled')).toBe(true);
+ expect(JSON.stringify(logs.mock.calls)).not.toMatch(/test-token|"tile"|"players"|"hand"/);
+});
+it('diagnostics capture timeout before clearing the pending command, not a second move',()=>{
+ vi.useFakeTimers();const logs=vi.spyOn(androidDiagnostics,'record');const {ws}=online();
+ client.send({type:'ready'});vi.advanceTimersByTime(8001);
+ expect(logs.mock.calls.find(c=>c[0]==='command-timeout')?.[2]).toMatchObject({requestId:expect.any(String),operation:'ready',elapsedMs:8000});
+ expect(ws.sent.filter(m=>m.type==='ready')).toHaveLength(1);
+});
 afterEach(() => vi.unstubAllGlobals());
 it('hello explicitly advertises opening completion support', () => {
   const { ws } = online();
   expect(ws.sent.find(m => m.type === 'hello')).toMatchObject({ capabilities: { openingComplete: true } });
   expect(ws.sent.find(m => m.type === 'hello')).toHaveProperty('clientVersion');
+  expect(ws.sent.find(m => m.type === 'hello')).toHaveProperty('clientPlatform','web');
 });
 it('mandatory update blocks entry and automatic reconnection without clearing the account token', () => {
   vi.useFakeTimers();
@@ -538,7 +560,7 @@ describe("握手心跳与前后台恢复", () => {
       tableLobby: true,
     });
     const ping = ws.sent.find((m) => m.type === "ping")!;
-    vi.advanceTimersByTime(11000);
+    vi.advanceTimersByTime(16000);
     expect(TestSocket.instances).toHaveLength(2);
     ws.receive({
       type: "pong",
@@ -670,17 +692,110 @@ describe("后台保留连接、前台快速同步", () => {
     vi.advanceTimersByTime(0);
     expect(TestSocket.instances).toHaveLength(2);
   });
-  it("假在线连接最多探测两秒，立即重连，不等十秒加退避", () => {
+  it("假在线连接容忍两次慢探测，12秒内无同步结果才立即重连", () => {
     vi.useFakeTimers();
     const { ws } = syncedOnline();
     client.setNetworkVisible(false);
     vi.advanceTimersByTime(30000);
     client.setNetworkVisible(true);
-    vi.advanceTimersByTime(1999);
+    vi.advanceTimersByTime(11999);
     expect(TestSocket.instances).toHaveLength(1);
+    expect(ws.sent.filter(m=>m.type==='ping'&&m.sync)).toHaveLength(3);
     vi.advanceTimersByTime(2);
     expect(TestSocket.instances).toHaveLength(2);
     expect(ws.readyState).toBe(TestSocket.CLOSED);
+  });
+  it('单次心跳丢失但牌桌持续有更新，不断开工作连接', () => {
+    vi.useFakeTimers();
+    const {ws,g}=syncedOnline();
+    client.syncTime();
+    for(let i=0;i<8;i++){
+      vi.advanceTimersByTime(4000);
+      g.revision++;
+      ws.receive({type:'state',state:viewFor(g,0)});
+    }
+    expect(TestSocket.instances).toHaveLength(1);
+    expect(client.state.connected).toBe(true);
+    const ping=ws.sent.filter(m=>m.type==='ping').at(-1)! as Extract<ClientMessage,{type:'ping'}>;
+    ws.receive({type:'pong',sentAt:ping.sentAt,serverNow:Date.now()});
+    expect(client.state.network.timeouts).toBeGreaterThan(0);
+    client.disconnect();
+    vi.advanceTimersByTime(60000);
+    expect(TestSocket.instances).toHaveLength(1);
+  });
+  it('超过单次探测期限的有效pong仍可恢复，重复pong不能再次确认',()=>{
+    vi.useFakeTimers();const {ws}=syncedOnline();
+    client.syncTime();
+    const ping=ws.sent.at(-1) as Extract<ClientMessage,{type:'ping'}>;
+    vi.advanceTimersByTime(6000);
+    ws.receive({type:'pong',sentAt:ping.sentAt,serverNow:Date.now()});
+    expect(client.state.network.rttMs).toBe(6000);
+    vi.advanceTimersByTime(1000);
+    ws.receive({type:'pong',sentAt:ping.sentAt,serverNow:Date.now()});
+    expect(client.state.network.rttMs).toBe(6000);
+    expect(client.state.connected).toBe(true);
+    expect(TestSocket.instances).toHaveLength(1);
+  });
+  it('没有牌桌消息时，无效包与旧pong不阻止15秒失联重连',()=>{
+    vi.useFakeTimers();const {ws}=syncedOnline();
+    client.syncTime();
+    for(let i=0;i<14;i++){
+      vi.advanceTimersByTime(1000);
+      ws.onmessage?.({data:'{}'});
+      ws.receive({type:'pong',sentAt:-1,serverNow:Date.now()});
+    }
+    expect(TestSocket.instances).toHaveLength(1);
+    vi.advanceTimersByTime(2000);
+    expect(TestSocket.instances).toHaveLength(2);
+  });
+  it('前台同步超过旧2秒阈值仍可在原连接恢复，不重放未确认操作',()=>{
+    vi.useFakeTimers();
+    const {ws,g}=syncedOnline();
+    client.ready();
+    client.setNetworkVisible(false);client.setNetworkVisible(true);
+    vi.advanceTimersByTime(3000);
+    const ping=ws.sent.at(-1) as Extract<ClientMessage,{type:'ping'}>;
+    expect(client.state.connected).toBe(false);
+    ws.receive({type:'state',state:viewFor(g,0)});
+    ws.receive({type:'pong',sentAt:ping.sentAt,serverNow:Date.now(),synced:true,roomCode:g.code});
+    expect(client.state.connected).toBe(true);
+    expect(ws.sent.filter(m=>m.type==='ready')).toHaveLength(1);
+    expect(TestSocket.instances).toHaveLength(1);
+  });
+  it('操作确认超时先在原连接只读同步，快照与同步pong齐备后才解锁',()=>{
+    vi.useFakeTimers();
+    const logs=vi.spyOn(androidDiagnostics,'record');
+    const {ws,g}=syncedOnline();
+    client.ready();vi.advanceTimersByTime(8000);
+    expect(client.state.connected).toBe(false);
+    expect(client.state.submitting).toBe('ready');
+    const ping=ws.sent.at(-1) as Extract<ClientMessage,{type:'ping'}>;
+    expect(ping.sync).toBe(true);
+    client.ready();
+    g.revision++;
+    ws.receive({type:'state',state:viewFor(g,0)});
+    expect(client.state.connected).toBe(false);
+    ws.receive({type:'pong',sentAt:ping.sentAt,serverNow:Date.now(),synced:true,roomCode:g.code});
+    expect(client.state.connected).toBe(true);
+    expect(client.state.submitting).toBeNull();
+    expect(ws.sent.filter(m=>m.type==='ready')).toHaveLength(1);
+    expect(TestSocket.instances).toHaveLength(1);
+    expect(logs.mock.calls.find(c=>c[1]==='snapshot-requested')?.[2]).toMatchObject({reason:'command-confirmation-timeout'});
+  });
+  it('缺失同步快照不能靠其他消息无限延期，垃圾包也不延长心跳期限',()=>{
+    vi.useFakeTimers();
+    const logs=vi.spyOn(androidDiagnostics,'record');
+    const {ws,g}=syncedOnline();
+    client.setNetworkVisible(false);client.setNetworkVisible(true);
+    for(let i=0;i<3;i++){
+      vi.advanceTimersByTime(3999);
+      ws.receive({type:'state',state:viewFor(g,0)});
+      ws.onmessage?.({data:'null'});
+      ws.receive({type:'pong',sentAt:-1,serverNow:Date.now()});
+    }
+    vi.advanceTimersByTime(4);
+    expect(TestSocket.instances).toHaveLength(2);
+    expect(logs.mock.calls.find(c=>c[1]==='reconnect-requested')?.[2]).toMatchObject({reason:'resume-sync-timeout',attempt:3});
   });
   it("从后台恢复时退休挂起的旧握手，旧回调不能覆盖新状态", () => {
     vi.useFakeTimers();

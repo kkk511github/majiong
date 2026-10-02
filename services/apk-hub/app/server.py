@@ -68,7 +68,22 @@ def public_base_url():
     return value if valid else ''
 
 
-def ios_install_status(app):
+def ios_signing_url():
+    value = os.environ.get('IOS_SIGNING_URL', '').strip().rstrip('/')
+    try:
+        parsed = urlparse(value)
+        if (parsed.scheme == 'https' and parsed.hostname and not parsed.username and not parsed.password
+                and not parsed.path and not parsed.query and not parsed.fragment
+                and not any(c.isspace() for c in value) and parsed.port != 0):
+            return value
+    except ValueError:
+        pass
+    return ''
+
+
+def ios_install_status(app, allow_super_sign=True):
+    if allow_super_sign and ios_signing_url():
+        return True, '请用 Safari 打开，首次登记设备后自动签名安装，无需另建安装链接。苹果设备注册及证书要求仍然适用。'
     distribution = app.get('ios_distribution', '')
     if distribution == 'app_store':
         return False, '此包用于 App Store 分发，不能通过此页面直接安装。请上传适用的设备分发包。'
@@ -110,11 +125,18 @@ def app_response(row):
     app['install_url'] = ''
     app['installation_note'] = ''
     if app['platform'] == 'ios':
+        app['installation_method'] = 'super_sign' if ios_signing_url() else 'signed_ipa'
         ready, note = ios_install_status(app)
         app['installation_note'] = note
         if app.get('published') and ready:
             manifest = public_base_url()+'/manifest/'+app['id']+'.plist'
             app['install_url'] = 'itms-services://?action=download-manifest&url='+quote(manifest, safe='')
+            if ios_signing_url():
+                # Old installed clients only recognize the legacy manifest URL
+                # as an availability marker, then open the fixed web page.
+                # The web page uses signing_url; unsigned raw manifests remain
+                # blocked independently. Do not disable old clients' updates.
+                app['signing_url'] = ios_signing_url() + '/hub/' + app['id']
     return app
 
 
@@ -228,7 +250,9 @@ class Handler(BaseHTTPRequestHandler):
                 row = releases.resolve(c, match.group(1))
             if not row or not row['published'] or row['platform'] != 'ios' or not package_path(row): return self.send(404, {'error': '安装包不存在或已下架'})
             app = dict(row)
-            ready, note = ios_install_status(app)
+            # A raw manifest must never serve an unsigned source IPA, even
+            # when the public installation button uses the signing bridge.
+            ready, note = ios_install_status(app, allow_super_sign=False)
             if not ready: return self.send(409, {'error': note})
             return self.send(200, manifest_bytes(app), 'text/xml; charset=utf-8')
         if path.startswith('/icons/') and path.endswith('.png'):

@@ -1,14 +1,14 @@
 {
-  "at": "2026-09-16T06:45:36.427Z",
+  "at": "2026-10-02T13:39:14.195Z",
   "browser": "webkit",
   "outageMs": 120000,
-  "recoveryMs": 15251,
+  "recoveryMs": 21656,
   "serverAcceptedBeforeOutage": true,
   "clientActionRequests": 1,
   "sameAccountAndRoom": true,
   "handMatchesLatestServer": true,
   "initialRound": 1,
-  "restoredRound": 2,
+  "restoredRound": 1,
   "restoredPhase": "playing",
   "limitations": "Real local game with three bots and an authenticated browser. Application messages dropped; not OS process death or mobile radio switching."
 }

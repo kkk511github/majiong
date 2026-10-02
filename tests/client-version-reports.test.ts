@@ -13,3 +13,18 @@ it('keeps one latest authenticated report, accepts downgrades and clears unknown
  expect(createClientVersionReports(db)).toBeDefined();expect(read()!.reported_at).toBe(400);
  db.exec("DELETE FROM accounts WHERE id='one'");expect(read()).toBeUndefined();db.close();
 });
+it('stores only a validated latest platform, clears absent/invalid reports and survives old runtime writes',()=>{
+ const db=new DatabaseSync(':memory:');db.exec("CREATE TABLE accounts(id TEXT PRIMARY KEY);INSERT INTO accounts VALUES('one')");
+ const reports=createClientVersionReports(db),read=()=>db.prepare('SELECT * FROM client_platform_reports').get();
+ reports.record('one','0.9.1',100,'ios');reports.record('one','0.9.1',200,'android');
+ reports.record('one','0.9.1',150,'web');
+ expect(read()).toMatchObject({platform:'android',reported_at:200});
+ expect(db.prepare('SELECT count(*) AS n FROM client_platform_reports').get()!.n).toBe(1);
+ for(const input of [undefined,null,{},'IOS','android<script>']){reports.record('one','0.9.1',300,input);expect(read()!.platform).toBeNull();}
+ reports.record('one',undefined,400,'web');expect(read()!.platform).toBe('web');
+ // The old binary's positional INSERT must continue working after migration.
+ db.prepare('INSERT OR REPLACE INTO client_version_reports VALUES (?,?,?,?,?,?)').run('one','0.8.0',0,8,0,500);
+ expect(createClientVersionReports(db)).toBeDefined();
+ expect(db.prepare('SELECT p.platform FROM client_version_reports v LEFT JOIN client_platform_reports p ON p.account_id=v.account_id AND p.reported_at=v.reported_at').get()!.platform).toBeNull();
+ db.exec("DELETE FROM accounts WHERE id='one'");expect(read()).toBeUndefined();db.close();
+});

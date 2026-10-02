@@ -33,7 +33,7 @@ async function boot(minimumClientVersion = '0.7.37') {
   let port = await server.listen(); registerTestPort(port);
   const token = await peerCredential(port, '版本验证管理员');
   const tokens = new Map([['版本验证管理员', token]]);
-  async function connect(clientVersion?: string, name = '版本验证管理员') {
+  async function connect(clientVersion?: string, name = '版本验证管理员', clientPlatform?: 'ios'|'android'|'web') {
     if (!tokens.has(name)) tokens.set(name, await peerCredential(port, name));
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`); sockets.push(ws);
     const messages: ServerMessage[] = [];
@@ -41,7 +41,7 @@ async function boot(minimumClientVersion = '0.7.37') {
     const closed = new Promise<number>(resolve => ws.on('close', code => resolve(code)));
     await new Promise<void>(resolve => ws.on('open', resolve));
     const send = (message: ClientMessage) => ws.send(JSON.stringify(message));
-    send({ type: 'hello', token: tokens.get(name), name, clientVersion });
+    send({ type: 'hello', token: tokens.get(name), name, clientVersion, clientPlatform });
     async function read<T extends ServerMessage['type']>(type: T, match: (m: Extract<ServerMessage, { type: T }>) => boolean = () => true) {
       const until = Date.now() + 3000;
       while (Date.now() < until) {
@@ -92,14 +92,16 @@ it.each([undefined, '0.7.36'])('rejects legacy version=%s before seating or evic
 });
 it('persists authenticated hello reports even for rejected old clients, never records forged hello',async()=>{
  const connect=await boot();
- const old=await connect('0.7.36');await old.read('error');await old.closed;
+ const old=await connect('0.7.36',undefined,'android');await old.read('error');await old.closed;
+ expect((await connect.reports()).platformStats).toMatchObject({total:1,android:1,ios:0,web:0,unknown:0});
  expect((await connect.reports()).versionStats).toMatchObject({total:1,updated:0,older:1,unknown:0});
- const fresh=await connect('0.8.0');await fresh.read('session');
+ const fresh=await connect('0.8.0',undefined,'ios');await fresh.read('session');
  expect((await connect.reports()).accounts[0].clientVersion).toBe('0.8.0');
- fresh.send({type:'hello',token:'fake',name:'伪造',clientVersion:'9.0.0'});await fresh.read('error');
+ fresh.send({type:'hello',token:'fake',name:'伪造',clientVersion:'9.0.0',clientPlatform:'web'});await fresh.read('error');
  expect((await connect.reports()).accounts[0].clientVersion).toBe('0.8.0');
  await connect.restart();
  expect((await connect.reports()).versionStats).toMatchObject({total:1,updated:1,older:0,unknown:0});
+ expect((await connect.reports()).platformStats).toMatchObject({total:1,ios:1,android:0,web:0,unknown:0});
 });
 
 async function activeTable() {

@@ -21,7 +21,7 @@ export function networkFeedback(input: {
   notice?: string;
   now: number;
 }): NetworkFeedbackModel {
-  const { online, connected, health, room, elapsed, recovered, now } = input;
+  const { online, connected, health, room, elapsed, recovered } = input;
   if (!online) return null;
   if (health.phase === "blocked") return {
     tone: "error", title: "连接已停止",
@@ -32,10 +32,7 @@ export function networkFeedback(input: {
       tone: "success", title: "已恢复连接",
       detail: room ? "牌局已同步" : "可以继续操作",
     };
-    if ((health.smoothedRttMs ?? health.rttMs ?? 0) >= 600 ||
-        health.consecutiveTimeouts > 0 ||
-        (health.lastResponseAt !== null && now - health.lastResponseAt > 45_000))
-      return { tone: "warning", title: "网络波动", detail: "请留意操作确认" };
+    // Latency is diagnostic information, not an instruction to the player.
     return null;
   }
   // Do not flash a banner for a normal short handshake or foreground check.

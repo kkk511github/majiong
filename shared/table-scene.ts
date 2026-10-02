@@ -7,6 +7,8 @@ export interface ScenePlayer {
   online?: boolean;
   name: string; score: number; seat: number; bot: boolean; trustee: boolean;
   hand: number[]; handCount: number; flowers: number[]; discards: number[];
+  /** Authorized replay faces only; never populate for another live dark hand. */
+  drawn?: number;
   melds: {type:'pung'|'kong'; tiles:number[]; from:number; concealed:boolean; added?:boolean}[];
 }
 /** Presence comes from the public snapshot; never infer another player's claims. */
@@ -33,6 +35,8 @@ export interface TableSceneState {
   /** Local viewport cutouts, in 1280×590 design coordinates. */
   safeArea?:TableSafeArea;
   key:string; revision:number; presentation?:'replay'; me:number; turn:number; dealer:number;
+  /** Playback intent is separate from revision changes caused by seeking. */
+  replayPlaying?:boolean; replaySpeed?:number; replayReveal?:boolean;
   phase:string; code:string; round:number; rounds?:number; remaining:number;
   rulesName?:string; roundMultiplier?:number; nextRoundMultiplier?:number;
   countdown:string; connected:boolean; disabled:boolean; practice:boolean; canDiscard:boolean;
@@ -91,6 +95,9 @@ export interface SceneTile {
   x:number; y:number; w:number; h:number; z:number;
   area:'hand'|'meld'|'flower'|'river'; selected?:boolean; highlight?:boolean;
   laidDown?:boolean;
+  drawSlot?:boolean;
+  /** A recorded exposed draw, not an inferred fourteenth tile at the deal. */
+  recordedDraw?:boolean;
   clickable?:boolean; source?:number; stack?:boolean; last?:boolean; claimTarget?:boolean;
   /** Baked screen-space projection; the rack uses the exact same edge vectors. */
   shear?:number; rack?:number;
@@ -556,7 +563,7 @@ export function layoutLegacyTable(s:TableSceneState):SceneTile[] {
     // A separate draw slot changes only the distance along the hand rail.
     // Its player-side edge stays on the same line as the standing hand.
     const x=o===2?topX-topCrowdedShift+TOP_RACK_RIGHT_SHIFT:sideX;
-    add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?pose:back,area:'hand',x,y,w:o===2?33:revealed?tileAspect(pose)*36:tileAspect(back)*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
+    add({id:`hand-${p.seat}-${i}`,tile:revealed?p.hand[i]:undefined,seat:p.seat,pose:revealed?pose:back,area:'hand',drawSlot:extra,recordedDraw:revealed&&p.drawn!==undefined&&p.hand[i]===p.drawn,x,y,w:o===2?33:revealed?tileAspect(pose)*36:tileAspect(back)*70,h:o===2?46:revealed?36:70,shear:o%2&&revealed?slotMetrics(o,y).shear:0,z:y});
    }
    if(o===2){
     // The far player follows the same physical rule as the other three seats:

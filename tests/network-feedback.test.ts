@@ -25,10 +25,11 @@ describe("统一网络提示，不接管连接状态", () => {
       health: { ...initialNetworkHealth(), phase: "ready" } }))
       .toMatchObject({ tone: "success", title: "已恢复连接" });
   });
-  it("慢网为非阻断提示，恢复后无持续横幅", () => {
+  it("慢心跳、历史超时和陈旧响应均不显示网络波动横幅", () => {
     const ready = { ...initialNetworkHealth(), phase: "ready" as const, smoothedRttMs: 650 };
     expect(networkFeedback({ ...input(), connected: true, health: ready }))
-      .toMatchObject({ tone: "warning", title: "网络波动" });
+      .toBeNull();
+    expect(networkFeedback({ ...input(), connected: true, health: {...ready,consecutiveTimeouts:2,lastResponseAt:1} })).toBeNull();
     expect(networkFeedback({ ...input(), connected: true, health: { ...ready, smoothedRttMs: 80 } })).toBeNull();
   });
   it("长时间无响应保留自动恢复并提供重试，不自动返回大厅", () => {

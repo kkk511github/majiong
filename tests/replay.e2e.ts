@@ -148,8 +148,9 @@ for (const [width, height] of [
     await expect.poll(async () => (await scene()).state?.players.length).toBe(4);
     const fullscreen = await dialog.boundingBox();
     expect(fullscreen).toEqual({ x: 0, y: 0, width, height });
-    const theme=await dialog.locator('.modal-head').evaluate(el=>({background:getComputedStyle(el).backgroundImage,color:getComputedStyle(el).color}));
-    expect(theme.background).toContain('23, 62, 80');
+    const theme=await dialog.locator('.modal-head').evaluate(el=>({background:getComputedStyle(el).backgroundImage,backgroundColor:getComputedStyle(el).backgroundColor,color:getComputedStyle(el).color}));
+    expect(theme.background).toBe('none');
+    expect(theme.backgroundColor).toBe('rgba(0, 0, 0, 0)');
     expect(theme.color).toBe('rgb(230, 244, 248)');
     await expect(dialog.locator(".replay-search")).toHaveCount(0);
     await expect(dialog.locator(".replay-table-event")).toContainText(

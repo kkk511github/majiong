@@ -1,4 +1,4 @@
-import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, EventTouch } from 'cc';
+import { assetManager, _decorator, Component, Node, Label, Color, UITransform, Layers, view, ResolutionPolicy, Sprite, SpriteFrame, Texture2D, ImageAsset, JsonAsset, resources, Rect, Graphics, tween, Vec3, UIOpacity, game, profiler, Tween, EventTouch, director, Director } from 'cc';
 import { scenePlayerStatus, layoutPlayerHud, layoutTable, layoutActions, layoutFlowerRacks, claimPrompt, tileFootprint, tileKind, sceneOffset, sceneTileName, nextCompassMemory, type CompassMemory, type TableSceneState, type TableSceneCommand, type SceneTile } from './table-scene';
 import { beginTileDrag, canContinueTileDrag, shouldDiscardDraggedTile, type TileDragOrigin } from './tile-drag';
 import { createTable3DView,type Table3DView } from './Table3DView';
@@ -14,7 +14,7 @@ const GOLD='#f0d27b', INK='#f5f0d9', GREEN='#073b3d';
 const PANEL='#063d3f';
 type Atlas={ [pose:string]:{rects:{x:number;y:number;w:number;h:number}[];width:number;height:number}};
 type VisualTile=Pick<SceneTile,'x'|'y'|'w'|'h'>;
-type MotionSnapshot=Pick<TableSceneState,'key'|'round'|'me'|'revision'|'connected'|'phase'|'presentation'>&{renderedAt:number};
+type MotionSnapshot=Pick<TableSceneState,'key'|'round'|'me'|'revision'|'connected'|'phase'|'presentation'|'replayPlaying'|'replayReveal'>&{renderedAt:number};
 type TileFlight={tile:SceneTile;identity?:number;progress:{t:number};animation:Tween<{t:number}>;endsAt:number;kind?:'insert'|'stack'};
 type ReleasedTile={tile:number;id:string;visual:VisualTile;key:string;round:number;me:number;revision:number;sawDisabled:boolean;timer:ReturnType<typeof setTimeout>;rejectionTimer?:ReturnType<typeof setTimeout>};
 type AvatarFailure={attempts:number;retryAt:number};
@@ -36,11 +36,18 @@ export class TableScene extends Component {
  private tileFlights=new Map<string,TileFlight>(); private motionSnapshot?:MotionSnapshot; private animateTiles=false; private animateEffects=false; private skipNextTransition=false;
  // Local visual studies can slow this class without adding transport fields.
  private motionScale=1;
- private insertingTile?:number;
+ private insertingTiles=new Set<number>();
  private releasedTile?:ReleasedTile; private motionEffects=new Set<Node>(); private seenEffects=new Set<string>();
  private handTouch?:{id:string;pointer:number|null;origin:TileDragOrigin;startX:number;startY:number;x:number;y:number;base:Vec3;released?:boolean;moved:boolean;raised?:boolean};
  private avatarLoads=new Set<string>(); private avatarFailures=new Map<string,AvatarFailure>();
  private ready=false; private channel='';
+ private replayPresented=false;
+ private reportReplayPresented=()=>{
+  const snapshot=this.motionSnapshot;
+  if(!this.isValid||!snapshot||snapshot.presentation!=='replay')return;
+  this.replayPresented=true;
+  window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'frame-presented',key:snapshot.key,round:snapshot.round,revision:snapshot.revision,me:snapshot.me},location.origin==='null'?'*':location.origin);
+ };
  private trusteeButton?:Node; private trusteeLabel?:Label; private trusteeCommand?:TableSceneCommand;
  private lastHandTap?:{tile:number;key:string;round:number;turn:number;phase:string;canDiscard:boolean;at:number};
  private pointer?:Node; private pointerKey=''; private pointerAt='';
@@ -114,7 +121,7 @@ export class TableScene extends Component {
    if(this.state)this.draw();
   }catch(e){console.error('Table assets',e);this.text(this.root,'牌桌加载失败，请返回后重试',640,295,500,50,24);const error=e as Error;window.parent.postMessage({scope:'jinling-table-v1',channel:this.channel,type:'error',diagnostic:{stage:loadStage,name:error?.name,message:error?.message,stack:error?.stack}},location.origin==='null'?'*':location.origin);}
  }
- onDestroy(){this.actionFx?.destroy();for(const key of ['pung','kong','hu','pass','plate']){const frame=this.frames.get('action-'+key);frame?.texture?.destroy();frame?.destroy();}this.view3D?.destroy();cancelAnimationFrame(this.stateFrame);for(const opacity of this.compassHighlights)Tween.stopAllByTarget(opacity);window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
+ onDestroy(){director.off(Director.EVENT_AFTER_DRAW,this.reportReplayPresented);this.actionFx?.destroy();for(const key of ['pung','kong','hu','pass','plate']){const frame=this.frames.get('action-'+key);frame?.texture?.destroy();frame?.destroy();}this.view3D?.destroy();cancelAnimationFrame(this.stateFrame);for(const opacity of this.compassHighlights)Tween.stopAllByTarget(opacity);window.removeEventListener('message',this.onMessage);window.removeEventListener('blur',this.onBlur);document.removeEventListener('visibilitychange',this.onVisibility);window.removeEventListener('touchend',this.onTouchRelease,true);window.removeEventListener('touchcancel',this.onTouchCancel,true);window.removeEventListener('mouseup',this.onMouseRelease,true);window.removeEventListener('resize',this.cancelHandTouch);this.handTouch=undefined;this.clearReleasedTile();this.clearMotion();}
  private make(name:string,x:number,y:number,w:number,h:number,parent=this.root){const n=new Node(name);n.layer=Layers.Enum.UI_2D;n.parent=parent;n.addComponent(UITransform).setContentSize(w,h);n.setPosition(x-640,295-y,0);return n;}
  private text(parent:Node,str:string,x:number,y:number,w:number,h:number,size=20,color=INK){const n=this.make(str,x,y,w,h,parent),l=n.addComponent(Label);l.string=str;l.fontSize=size;l.lineHeight=size+4;l.color=new Color(color);l.isBold=true;l.overflow=Label.Overflow.SHRINK;l.horizontalAlign=Label.HorizontalAlign.CENTER;l.verticalAlign=Label.VerticalAlign.CENTER;return n;}
  private image(key:string,x:number,y:number,w:number,h:number,parent=this.root){const n=this.make(key,x,y,w,h,parent),sp=n.addComponent(Sprite);sp.sizeMode=Sprite.SizeMode.CUSTOM;sp.spriteFrame=this.frames.get(key)||null;n.getComponent(UITransform)!.setContentSize(w,h);return n;}
@@ -206,7 +213,7 @@ export class TableScene extends Component {
   const caption=this.text(n,kind==='trustee'?'托管':'设置',modern?650:640,modern?295:307,modern?34:36,modern?24:13,modern?12:10,modern?'#edf8fb':'#efdfb9');caption.name='tool-caption';
   n.on(Node.EventType.TOUCH_END,()=>this.emit(command));return n;
  }
- private animationScale(){return Math.max(.5,Math.min(4,this.motionScale||1));}
+ private animationScale(){return Math.max(.5,Math.min(4,this.motionScale||1))/(this.state?.presentation==='replay'?Math.max(1,Math.min(4,this.state.replaySpeed||1)):1);}
  private physicalTile(t:SceneTile,s:TableSceneState):number|undefined{
   if(t.area==='meld'){
    const parts=t.id.split('-'),slot=Number(parts[3]),meld=s.players.find(p=>p.seat===t.seat)?.melds[Number(parts[2])];
@@ -267,11 +274,15 @@ export class TableScene extends Component {
   const continuous=advance>=0&&(advance<=1||advance<=3&&performance.now()-(last?.renderedAt??0)<1800);
   const replayContext=!!last&&!this.skipNextTransition&&!document.hidden&&s.connected&&last.connected&&s.key===last.key&&s.round===last.round&&s.me===last.me&&s.presentation==='replay'&&last.presentation==='replay';
   const replayStep=replayContext&&advance===1,replayRedraw=replayContext&&advance===0;
-  this.animateTiles=!!last&&!this.skipNextTransition&&!document.hidden&&s.connected&&last.connected&&
+  const replayPlaying=replayContext&&s.replayPlaying&&last?.replayPlaying&&s.replayReveal===last.replayReveal&&(replayStep||replayRedraw);
+  this.animateTiles=!!replayPlaying||!!last&&!this.skipNextTransition&&!document.hidden&&s.connected&&last.connected&&
    s.key===last.key&&s.round===last.round&&s.me===last.me&&s.presentation!=='replay'&&last.presentation!=='replay'&&
    active(s.phase)&&active(last.phase)&&continuous;
   this.animateEffects=this.animateTiles||replayStep;
-  this.insertingTile=this.animateTiles?drawnTileInsertion(s,Array.from(this.previousTiles.values())):undefined;
+  this.insertingTiles.clear();
+  if(this.animateTiles)for(const seat of s.presentation==='replay'?s.players.map(p=>p.seat):[s.me]){
+   const tile=drawnTileInsertion(s,Array.from(this.previousTiles.values()),seat);if(tile!==undefined)this.insertingTiles.add(tile);
+  }
   this.skipNextTransition=false;
   if(!this.animateTiles){
    if(replayStep||replayRedraw){for(const id of Array.from(this.tileFlights.keys()))this.stopFlight(id);}
@@ -289,7 +300,7 @@ export class TableScene extends Component {
   const paint=()=>{
    if(!this.isValid||!node.isValid)return;
    const k=progress.t,x=from.x+(t.x-from.x)*k,groundY=from.y+(t.y-from.y)*k,w=from.w+(t.w-from.w)*k,h=from.h+(t.h-from.h)*k;
-   this.placeTile(node,insertion?handInsertionPoint(from,t,k):{x,y:groundY-4*lift*k*(1-k),w,h},t);
+   this.placeTile(node,insertion?handInsertionPoint(from,t,k,Math.min(24,t.h*.24)):{x,y:groundY-4*lift*k*(1-k),w,h},t);
    if(shadow?.isValid){this.placeTileShadow(shadow,t,x,groundY);shadow.setScale(w/t.w,h/t.h,1);}
   };
   // A direct ease-out reacts immediately; no slow wind-up before the tile moves.
@@ -325,7 +336,7 @@ export class TableScene extends Component {
   }
   this.stopFlight(t.id);
   if(!from||Math.hypot(from.x-t.x,from.y-t.y)<.5&&Math.abs(from.w-t.w)<.5&&Math.abs(from.h-t.h)<.5){node.setScale(1,1,1);shadow?.setScale(1,1,1);return;}
-  const insertion=t.area==='hand'&&t.seat===this.state!.me&&physical!==undefined&&physical===this.insertingTile&&old?.id.startsWith('draw-');
+  const insertion=t.area==='hand'&&physical!==undefined&&this.insertingTiles.has(physical)&&(old?.id.startsWith('draw-')||old?.drawSlot);
   const meld=t.area==='meld'?this.state!.players.find(p=>p.seat===t.seat)?.melds[Number(t.id.split('-')[2])]:undefined;
   const ms=insertion?ACTION_TIMING.insertion:t.area==='river'?280:t.area==='flower'?300:t.area==='meld'?ACTION_TIMING[meld?.type==='kong'?'kong':'pung'].travel:crossing?260:t.area==='hand'&&t.seat===this.state!.me?120:210;
   this.startFlight(node,from,t,ms,crossing||t.area==='river',t.area==='flower'&&crossing,!!insertion);
@@ -402,7 +413,13 @@ export class TableScene extends Component {
   (window as any).__JINLING_TABLE_LAYOUT__=tiles;
   this.previousTiles=new Map(this.tileLayout);this.previousPhysical=new Map();this.byPhysical=new Map();
   for(const tile of tiles){const physical=this.physicalTile(tile,s);if(physical!==undefined){this.previousPhysical.set(tile.id,physical);this.byPhysical.set(physical,tile);}}
-  this.motionSnapshot={key:s.key,round:s.round,me:s.me,revision:s.revision,connected:s.connected,phase:s.phase,presentation:s.presentation,renderedAt:performance.now()};
+  this.motionSnapshot={key:s.key,round:s.round,me:s.me,revision:s.revision,connected:s.connected,phase:s.phase,presentation:s.presentation,replayPlaying:s.replayPlaying,replayReveal:s.replayReveal,renderedAt:performance.now()};
+  // The resource-ready handshake happens before the host sends its snapshot.
+  // Do not uncover the default felt or advance replay time before a real draw.
+  if(s.presentation==='replay'&&!this.replayPresented){
+   director.off(Director.EVENT_AFTER_DRAW,this.reportReplayPresented);
+   director.once(Director.EVENT_AFTER_DRAW,this.reportReplayPresented);
+  }
  }
  private drawRacks(s:TableSceneState,tiles:SceneTile[]){
   const racks=layoutFlowerRacks(tiles,s.me),key=JSON.stringify(racks);

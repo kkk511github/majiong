@@ -6,7 +6,7 @@ beforeEach(()=>{
  const data=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>data.get(key)??null,setItem:(key:string,v:string)=>data.set(key,v),removeItem:(key:string)=>data.delete(key)});
  vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn()});vi.stubGlobal('CanvasRenderingContext2D',{prototype:{}});
 });
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});
 it('Android queues an admin request behind automatic error upload, strips secrets and never sends hand data',async()=>{
  const {androidDiagnostics:d}=await import('../src/android-diagnostics');const dispose=d.install(),send=vi.fn(()=>true);
  d.session('account-a',true,send);d.context({code:'123456',round:1,phase:'playing'});
@@ -42,4 +42,27 @@ it('does not renew the age of stale logs when the app restarts',async()=>{
 it('normal network events are not labelled as application errors',async()=>{
  const {appDiagnostics:d}=await import('../src/app-diagnostics');d.install();d.session('a',false,()=>false);d.record('network','socket-open');
  const report=await d.manualReport('a');expect(report.events.find(e=>e.message==='socket-open')?.name).toBe('Network');d.logout();
+});
+it('v2 retains a bounded timeline, batches storage, reports truncation and falls back for an old server',async()=>{
+ vi.useFakeTimers();const {appDiagnostics:d}=await import('../src/app-diagnostics');
+ const write=vi.spyOn(localStorage,'setItem');d.install();d.session('a',true,()=>true,2);
+ for(let i=0;i<300;i++)d.record('network','heartbeat-received',{connectionId:'ws-a',rttMs:i});
+ expect(write).not.toHaveBeenCalled();await vi.advanceTimersByTimeAsync(500);expect(write).toHaveBeenCalledOnce();
+ const detailed=await d.manualReport('a');expect(detailed.version).toBe(2);expect(detailed.events.length).toBeGreaterThan(32);
+ expect(new TextEncoder().encode(JSON.stringify(detailed)).length).toBeLessThanOrEqual(24576);
+ expect(detailed.coverage!.dropped+detailed.events.length).toBe(301);
+ expect(detailed.coverage!.from).toBe(detailed.events[0].at);
+ const send=vi.fn(()=>true);d.session('a',true,send);d.request('00000000-0000-4000-8000-000000000003',Date.now()+60000);
+ await vi.advanceTimersByTimeAsync(1);const legacy=(send.mock.calls[0] as unknown as [string,any])[1];expect(legacy.version).toBe(1);expect(legacy.events.length).toBe(32);
+ d.logout();await vi.advanceTimersByTimeAsync(1000);expect(localStorage.getItem('jinling:android-diagnostics-v1')).toBeNull();
+});
+it('offline failures upload after reconnect with context, throttle repeated failures, and do not claim rejected reports were saved',async()=>{
+ const {appDiagnostics:d}=await import('../src/app-diagnostics');d.install();d.session('a',true,()=>true,2);d.disconnect();
+ d.record('network','socket-close',{connectionId:'ws-old',closeCode:1006,wasClean:false});
+ d.record('network','retry-scheduled',{connectionId:'ws-old',attempt:1,delayMs:900});
+ const send=vi.fn(()=>true);d.session('a',true,send,2);d.record('network','connection-ready',{connectionId:'ws-new',elapsedMs:1200});
+ await vi.waitFor(()=>expect(send).toHaveBeenCalledOnce());
+ const payload=(send.mock.calls[0] as unknown as [string,any])[1];expect(payload.events.map((e:any)=>e.message)).toEqual(expect.arrayContaining(['socket-close','retry-scheduled','connection-ready']));
+ d.ack('auto',false);d.record('network','socket-error');await new Promise(resolve=>setTimeout(resolve,20));expect(send).toHaveBeenCalledOnce();
+ d.logout();
 });

@@ -1271,7 +1271,7 @@ export function makeServer(
           clientVersions.set(ws, typeof msg.clientVersion === 'string' ? msg.clientVersion : undefined);
           // Count authenticated reports even when the update gate rejects them.
           // Game publications never write or rescan these records.
-          versionReports.record(nextSession.id, msg.clientVersion);
+          versionReports.record(nextSession.id, msg.clientVersion, Date.now(), msg.clientPlatform);
           if(msg.capabilities?.androidDiagnostics===true||msg.capabilities?.clientDiagnostics===true)diagnosticClients.add(ws);
           if (!enforceClientVersion(nextSession.id, ws)) return;
           connectionToken = token;
@@ -1309,6 +1309,7 @@ export function makeServer(
             type: "session",
             androidDiagnostics:diagnosticClients.has(ws),
             clientDiagnostics:diagnosticClients.has(ws),
+            clientDiagnosticsVersion:2,
             token,
             id: session.id,
             name: session.name,
@@ -1351,7 +1352,7 @@ export function makeServer(
         session = current;
         if(msg.type==='diagnosticUpload'){
           let accepted=false;
-          try{if(diagnosticClients.has(ws)&&typeof msg.diagnosticId==='string'&&msg.diagnosticId.length<=40){diagnostics.receive(session.id,msg.diagnosticId,msg.report);accepted=true;}}catch{/* Diagnostics must never interrupt a player's commands. */}
+          try{if(diagnosticClients.has(ws)&&typeof msg.diagnosticId==='string'&&msg.diagnosticId.length<=40){accepted=diagnostics.receive(session.id,msg.diagnosticId,msg.report);}}catch{/* Diagnostics must never interrupt a player's commands. */}
           send(ws,{type:'diagnosticAck',id:typeof msg.diagnosticId==='string'?msg.diagnosticId.slice(0,40):'',accepted});return;
         }
         if (!enforceClientVersion(session.id, ws)) return;

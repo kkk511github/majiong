@@ -483,7 +483,7 @@ describe("B档弃牌即时收付按本把倍率，不额外乘花砸2", () => {
   it.each([
     { mode: "next" as const, multiplier: 2, nextMultiplier: 2 },
     { mode: "cumulative" as const, multiplier: 4, nextMultiplier: 8 },
-  ])("四连风小余额封顶、立即终桌且不保米，$mode模式下一把倍率为$nextMultiplier", ({ mode, multiplier, nextMultiplier }) => {
+  ])("四连风小余额封顶、立即终桌且收款人保米到100，$mode模式下一把倍率为$nextMultiplier", ({ mode, multiplier, nextMultiplier }) => {
     const kinds = [27, 28, 29, 30];
     const source = windGame([kinds, [0, 1, 2], [0, 1, 2], [0, 1, 2]], 0, [20, 3, 7, 330]);
     source.rules.biXiaHu = mode;
@@ -495,8 +495,9 @@ describe("B档弃牌即时收付按本把倍率，不额外乘花砸2", () => {
       { from: 1, to: 0, amount: 3, reason: "四连风" },
       { from: 2, to: 0, amount: 7, reason: "四连风" },
       { from: 3, to: 0, amount: 5 * multiplier, reason: "四连风" },
+      { from: 3, to: 0, amount: 70 - 5 * multiplier, reason: "保米" },
     ]);
-    expect(g.players.map(p => p!.score)).toEqual([30 + 5 * multiplier, 0, 0, 330 - 5 * multiplier]);
+    expect(g.players.map(p => p!.score)).toEqual([100, 0, 0, 260]);
     expect(g.players.reduce((sum, p) => sum + p!.score, 0)).toBe(360);
     expect(g.result!.externalDeltas).toEqual([0, 0, 0, 0]);
     expect(g.ruleState!.nextReasons).toEqual(["四连风"]);

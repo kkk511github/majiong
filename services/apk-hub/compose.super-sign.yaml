@@ -1,0 +1,13 @@
+# Apply alongside the site's existing compose (including management credentials).
+services:
+  apkhub:
+    environment:
+      IOS_SIGNING_URL: https://212.189.31.46:8443
+    networks:
+      gateway:
+      qingzhuang:
+        aliases: [qingzhuang-hub]
+networks:
+  qingzhuang:
+    external: true
+    name: qingzhuang-signing

@@ -1,3 +1,9 @@
+/* Keep focused search text at native size; small-screen skins must not trigger
+ * iOS input auto-zoom. Preserve user pinch zoom and the existing field height. */
+.app.polished .records-workspace .record-search input {
+  font-size: 16px;
+}
+
 /* Keep the dates above the list; give the records the remaining screen height. */
 .app.polished .records-workspace-body {
   width: min(

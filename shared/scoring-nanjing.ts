@@ -116,14 +116,18 @@ function scoreNanjingBase(
       add("海底捞月", values.seaBottom);
     let soft = suits.size === 2 ? 1 : 0;
     if (!shape.seven) {
-      if (shape.pair >= 27) soft++;
+      // Current B rules: a pair never earns a soft flower. Keep legacy
+      // profiles unchanged; only a completed wind triplet/pung earns one.
+      if (!bProfile && shape.pair >= 27) soft++;
       if (!snapshot)
         soft += shape.groups.filter((g) => g[0] >= 27 && g[0] === g[1]).length;
       for (const meld of p.melds) {
         const wind = kind(meld.tiles[0]) >= 27;
+        // B wind kongs total two flowers, including concealed kongs: do
+        // not add the wind-triplet flower again on top of the concealed two.
         soft +=
           meld.type === "kong"
-            ? (meld.concealed ? 2 : 1) + (wind ? 1 : 0)
+            ? (meld.concealed ? 2 : 1) + (wind && !(bProfile && meld.concealed) ? 1 : 0)
             : wind
               ? 1
               : 0;

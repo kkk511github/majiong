@@ -399,6 +399,7 @@ export function RecordsPanel({
           className="record-search"
           onSubmit={(e) => {
             e.preventDefault();
+            e.currentTarget.querySelector('input')?.blur();
             setFilter((f) => ({
               ...f,
               code: searchMode === "code" ? code : "",
@@ -416,6 +417,7 @@ export function RecordsPanel({
             </span>
             <input
               inputMode="numeric"
+              enterKeyHint="search"
               placeholder={
                 tab === "admin" && searchMode === "member"
                   ? "输入会员ID"

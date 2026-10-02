@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Dialog } from './Dialog';
 import { openAppDistributionPage } from './app-update';
+import { AppUpdate } from './AppUpdate';
 import type { ClientState } from './game-client';
 import './app-update.css';
 
 export function RequiredUpdate({ policy, retry }: { policy: NonNullable<ClientState['updateRequired']>; retry: () => void }) {
   const [error, setError] = useState('');
   const native = Capacitor.isNativePlatform();
+  if (native && Capacitor.getPlatform() === 'android') return <AppUpdate key={policy.minimumVersion} canPrompt request={0} required={policy} />;
   return <Dialog title="请更新后继续" variant="app-update-dialog" close={() => {}} hideClose dismissOnBackdrop={false}
     footer={<div className="app-update-actions"><button className="secondary" onClick={retry}>重新检查</button><button className="primary" onClick={() => {
       if (!native) { window.location.reload(); return; }

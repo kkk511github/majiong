@@ -1,0 +1,5 @@
+# Apply last, after any historical super-sign override. Empty explicitly disables it.
+services:
+  apkhub:
+    environment:
+      IOS_SIGNING_URL: ""

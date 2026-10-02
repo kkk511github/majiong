@@ -472,7 +472,7 @@ export interface OpeningGate {
   expiresAt: number;
 }
 export type ClientMessage = (
-  | { type: "hello"; token?: string; name: string; clientVersion?: string; capabilities?: { openingComplete?: boolean; androidDiagnostics?: boolean; clientDiagnostics?: boolean } }
+  | { type: "hello"; token?: string; name: string; clientVersion?: string; clientPlatform?: 'ios' | 'android' | 'web'; capabilities?: { openingComplete?: boolean; androidDiagnostics?: boolean; clientDiagnostics?: boolean } }
   | { type:'diagnosticUpload';diagnosticId:string;report:unknown }
   | { type: "create"; rules?: Partial<Rules> }
   | {
@@ -516,6 +516,7 @@ export type ServerMessage = (
       type: "session";
       androidDiagnostics?: boolean;
       clientDiagnostics?: boolean;
+      clientDiagnosticsVersion?: 2;
       token: string;
       id: string;
       name: string;

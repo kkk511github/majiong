@@ -266,7 +266,7 @@ function transferExternal(g: Game, entry: Bill) {
   winner.externalScore = credit;
   g.roundTransfers?.push({ ...entry, scope: "external" });
 }
-/** Top up the players whose winning hand or kong ended the table. */
+/** Top up the recipients whose hu, kong or four-winds reward ended the table. */
 function protectFinishers(g: Game, winners: Seat[]) {
   if (g.rules.protectWinner) {
     // User-confirmed: the finishing winner is topped up to 100 points (user-confirmed fixed target, initial stake remains 90).
@@ -307,9 +307,9 @@ function protectFinishers(g: Game, winners: Seat[]) {
     }
   }
 }
-function finishBankrupt(g: Game, now: number, kongRecipient?: Seat): boolean {
+function finishBankrupt(g: Game, now: number, recipient?: Seat): boolean {
   if (!bankrupt(g)) return false;
-  if (kongRecipient !== undefined) protectFinishers(g, [kongRecipient]);
+  if (recipient !== undefined) protectFinishers(g, [recipient]);
   finish(g, { reason: "bankrupt", winners: [], details: {}, deltas: [] }, now);
   return true;
 }
@@ -349,6 +349,7 @@ function payBills(g: Game, bills: Bill[]) {
     paid.push(...split.map(({ exact, ...b }) => b));
   }
   for (const b of paid) transfer(g, b.from, b.to, b.amount, b.reason);
+  return paid;
 }
 function sideAmount(g: Game, flowers: number) {
   return sidePoints(g, flowers * flowerFactor(g.rules));
@@ -507,7 +508,7 @@ function kongReplacement(
     return { ...g.replacement, type: "kong" };
   return { type: "kong", ...(from === undefined ? {} : { from }), direct };
 }
-function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
+function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile): Seat | undefined {
   const state = g.ruleState;
   if (!state) return;
   const k = kind(tile),
@@ -553,7 +554,11 @@ function applyDiscardPenalties(g: Game, seat: Seat, tile: Tile) {
         });
     flagNext(g, "四连风");
   }
-  payBills(g, bills);
+  const paid = payBills(g, bills);
+  // Only the actual four-winds reward recipient is eligible; do not protect
+  // the payer (or arbitrary recipients) of four-same/four-follow penalties.
+  return paid.some(b => b.reason === "四连风" && b.to === seat && b.amount > 0)
+    ? seat : undefined;
 }
 function winContext(g: Game, tile?: Tile, seat: Seat = g.turn): WinContext {
   return {
@@ -752,6 +757,16 @@ function canClaimHuFrom(g: Game, from: Seat, seat: Seat, tile: Tile, robbed = fa
   if (!isGarden(g.rules) || robbed || threeMouths(g.players[seat]!, seat) === undefined)
     return false;
   return !!scoreForWin(g, seat, tile)?.items.some((i) => ["对对胡", "全球独钓"].includes(i.label));
+}
+/** 连续杠到底：只看最初供牌者的当前余额，不改派给后续供牌者。 */
+function canReplacementHu(g: Game, seat: Seat): boolean {
+  const from = g.replacement?.from;
+  if (!isNanjingB(g.rules) || !g.rules.twoBankrupt || from === undefined || g.players[from]!.score > 0)
+    return true;
+  // Separate external three-mouth liability has priority in settle and does
+  // not use table chips. Do not change that existing rule with this fix.
+  return threeMouths(g.players[seat]!, seat) !== undefined &&
+    !!scoreForWin(g, seat)?.items.some(i => ["对对胡", "全球独钓"].includes(i.label));
 }
 function externalLiabilityAmount(g: Game): number {
   return (g.ruleState?.multiplier ?? 1) > 1 ? 100 : 50;
@@ -1130,6 +1145,7 @@ export function act(
       recordGlobalAnchor(g, seat, action.tile);
       p.passedHu = false;
       p.passedPung = [];
+      let discardRecipient: Seat | undefined;
       if (g.ruleState) {
         g.ruleState.heavenlyEligible = false;
         updateHeavenlyWait(g, seat);
@@ -1139,14 +1155,14 @@ export function act(
           g.ruleState.earthlyDeclared[seat] = true;
           note(g, `${p.name} 地胡报听`);
         }
-        applyDiscardPenalties(g, seat, action.tile);
+        discardRecipient = applyDiscardPenalties(g, seat, action.tile);
       }
       g.lastDiscard = { tile: action.tile, seat };
       g.lastDraw = undefined;
       g.canSelfWin = false;
       note(g, `${p.name} 打出 ${tileName(action.tile)}`);
       captureReplay(g, "discard", now, seat, action.tile);
-      if (finishBankrupt(g, now)) {
+      if (finishBankrupt(g, now, discardRecipient)) {
         g.revision++;
         return g;
       }
@@ -1156,6 +1172,7 @@ export function act(
       throw Error("手机麻将不支持照直");
     } else if (action.type === "hu") {
       if (!g.canSelfWin) throw Error("当前不能自摸");
+      if (!canReplacementHu(g, seat)) throw Error("最初供杠者桌内余额已归零，本次杠开不能胡牌");
       settle(g, [seat], undefined, now);
     } else if (action.type === "selfKong") {
       if (!selfKongs(g, seat).includes(action.tile))
@@ -1266,6 +1283,7 @@ export function viewFor(g: Game, me: Seat): View {
         : g.phase === "playing" &&
             g.turn === me &&
             canSelfWin &&
+            canReplacementHu(g, me) &&
             scoreForWin(g, me)
           ? ["hu"]
           : [],

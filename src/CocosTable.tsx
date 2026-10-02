@@ -15,6 +15,7 @@ import {androidDiagnostics} from './android-diagnostics';
 import { createTableChannel } from "./cocos-channel";
 import {winDisplayLabel} from './win-label';
 import type {Seat} from '../shared/types';
+import { visibleTimeout } from './visible-timeout';
 
 /** One canvas and one renderer for Android, iOS and the browser. The iframe
  * receives only the public view and explicit local UI state, never the wall. */
@@ -81,10 +82,21 @@ export function CocosTable({
   while(knownCues.current.size>96)knownCues.current.delete(knownCues.current.keys().next().value!);
   const [channel,setChannel] = useState(createTableChannel);
   const [failure,setFailure] = useState<"timeout"|"page"|"resources"|"graphics">("resources");
-  const lastGraphicsRecovery = useRef(-Infinity);
+  const graphicsRecoveries = useRef<number[]>([]);
+  const graphicsReloadPending = useRef(false);
+  const graphicsRecoveryStarted = useRef<number | undefined>(undefined);
+  const mutedRecoveryCues = useRef(new Set<string>());
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  const readyRef = useRef(false);
+  readyRef.current = status === 'ready';
+  useEffect(() => {
+    if (status !== 'ready') {
+      for (const cancel of actionSounds.current.values()) cancel();
+      actionSounds.current.clear();
+    }
+  }, [status]);
   useLayoutEffect(() => {
     if (!embedded && opening && canShowOpening(opening, state, Date.now()))
       setAcceptedOpening(opening.key);
@@ -133,11 +145,15 @@ export function CocosTable({
   const send = (force = false) => {
     const target = frame.current?.contentWindow;
     if (!target) return;
+    if (graphicsRecoveryStarted.current !== undefined)
+      for (const cue of latest.current.state.effects) mutedRecoveryCues.current.add(cue.key);
+    while (mutedRecoveryCues.current.size > 96) mutedRecoveryCues.current.delete(mutedRecoveryCues.current.values().next().value!);
     const message = {
         scope: "jinling-table-v1",
         channel,
         type: "state",
-        state: { ...latest.current.state, externalControls: !embedded },
+        state: { ...latest.current.state, externalControls: !embedded,
+          effects: latest.current.state.effects.filter(cue => !mutedRecoveryCues.current.has(cue.key)) },
       };
     const key = JSON.stringify(message);
     // App clocks tick four times per second. Identical snapshots need not
@@ -158,15 +174,29 @@ export function CocosTable({
       const data = event.data;
       if (data?.scope !== "jinling-table-v1" || data.channel !== channel)
         return;
+      if (graphicsReloadPending.current) return;
       if (data.type === "ready") {
-        androidDiagnostics.record('table-ready');
-        setStatus("ready");
+        androidDiagnostics.record('table-ready', undefined, {
+          reason:graphicsRecoveryStarted.current === undefined ? 'initial-load' : 'graphics-recovered',
+          elapsedMs:graphicsRecoveryStarted.current === undefined ? undefined : Date.now()-graphicsRecoveryStarted.current,
+          attempt:graphicsRecoveries.current.length,
+        });
+        // Resource readiness precedes applying the replay snapshot. Keep the
+        // loading cover and playback clock gated until that snapshot is drawn.
+        if (latest.current.state.presentation !== 'replay') setStatus("ready");
         send(true);
+        graphicsRecoveryStarted.current = undefined;
+      }
+      if (data.type === 'frame-presented') {
+        const state = latest.current.state;
+        if (state.presentation === 'replay' && data.key === state.key &&
+            data.round === state.round && data.revision === state.revision && data.me === state.me)
+          setStatus('ready');
       }
       if (data.type === "error") {androidDiagnostics.tableError(data.diagnostic??{});setFailure("resources");setStatus("error");}
       if(data.type==='action-impact'||data.type==='action-complete'){
         const s=latest.current.state,e=knownCues.current.get(data.key);
-        if(!e||e.seat!==data.seat||e.type!==data.action||!s.connected||document.hidden||!['pung','kong','hu'].includes(e.type))return;
+        if(!readyRef.current||mutedRecoveryCues.current.has(data.key)||!e||e.seat!==data.seat||e.type!==data.action||!s.connected||document.hidden||!['pung','kong','hu'].includes(e.type))return;
         if(data.type==='action-complete'){
           if(completedCues.current.has(e.key))return;completedCues.current.add(e.key);
           while(completedCues.current.size>96)completedCues.current.delete(completedCues.current.values().next().value!);
@@ -189,7 +219,7 @@ export function CocosTable({
         data.command &&
         typeof data.command.type === "string"
       )
-        {if(gestureBarrier.current&&['select','discard'].includes(data.command.type))return;latest.current.onCommand(data.command);}
+        {if(!readyRef.current)return;if(gestureBarrier.current&&['select','discard'].includes(data.command.type))return;latest.current.onCommand(data.command);}
     };
     const resume = () => {
       if (!document.hidden) send(true);
@@ -208,10 +238,20 @@ export function CocosTable({
   }, [viewState, status, embedded]);
   useEffect(() => {
     if (status !== "loading") return;
-    androidDiagnostics.record('table-loading');
-    const timeout = setTimeout(() => {androidDiagnostics.tableError({stage:'timeout',message:'Table ready handshake timed out'});setFailure("timeout");setStatus("error");}, 20000);
-    return () => clearTimeout(timeout);
-  }, [status]);
+    androidDiagnostics.record('table-loading', undefined, {
+      reason:graphicsRecoveryStarted.current === undefined ? 'initial-load' : 'graphics-recovery',
+      attempt:graphicsRecoveries.current.length, visible:!document.hidden,
+    });
+    return visibleTimeout(() => {androidDiagnostics.tableError({stage:'timeout',message:'Table ready handshake timed out'});setFailure("timeout");setStatus("error");}, 20000);
+  }, [status, channel]);
+  useEffect(() => {
+    if (status !== 'loading' || !graphicsReloadPending.current) return;
+    // Do not allocate another GPU renderer while the OS has backgrounded us.
+    return visibleTimeout(() => {
+      graphicsReloadPending.current = false;
+      setChannel(createTableChannel());
+    }, 300);
+  }, [status, channel]);
   useEffect(() => {
     const canvas = status === "ready" ? frame.current?.contentDocument?.querySelector("canvas") : null;
     if (!canvas) return;
@@ -220,18 +260,24 @@ export function CocosTable({
     // page, then the ready handshake restores our latest authoritative view.
     const lost = (event: Event) => {
       event.preventDefault();
+      if (graphicsReloadPending.current || !readyRef.current) return;
+      readyRef.current = false;
       androidDiagnostics.tableError({stage:'graphics',message:'WebGL context lost'});
       // A graphics interruption is not entrance completion. Preserve an
       // unfinished opening; TableOpening pauses while tableReady is false
       // and reports completion only after the replacement renderer is ready.
       setFailure("graphics");
-      if (Date.now() - lastGraphicsRecovery.current < 30000) {
+      const now = Date.now();
+      graphicsRecoveries.current = graphicsRecoveries.current.filter(at => now-at < 60000);
+      if (graphicsRecoveries.current.length >= 2) {
         setStatus("error");
         return;
       }
-      lastGraphicsRecovery.current = Date.now();
+      graphicsRecoveries.current.push(now);
+      graphicsRecoveryStarted.current = now;
+      graphicsReloadPending.current = true;
+      for (const cue of latest.current.state.effects) mutedRecoveryCues.current.add(cue.key);
       setStatus("loading");
-      setChannel(createTableChannel());
     };
     canvas.addEventListener("webglcontextlost", lost);
     return () => canvas.removeEventListener("webglcontextlost", lost);
@@ -273,12 +319,12 @@ export function CocosTable({
         title="金陵麻将牌桌"
         src={`${import.meta.env.BASE_URL}cocos-table/index.html?channel=${encodeURIComponent(channel)}`}
         allow="autoplay"
-        style={{pointerEvents:handBlocked?'none':undefined}}
+        style={{pointerEvents:handBlocked||status!=='ready'?'none':undefined}}
         onError={() => {androidDiagnostics.tableError({stage:'page',message:'Table iframe failed to load'});setFailure("page");setStatus("error");}}
       />
       {status !== "ready" && !showingOpening && (
-        <div className={`cocos-loading cocos-loading-blue${status === "loading" ? " cocos-loading-pending" : ""}`} role="status" aria-label={status === "loading" ? "正在进入牌桌" : undefined}>
-          {status === "loading" && <strong>正在进入牌桌…</strong>}
+        <div className={`cocos-loading cocos-loading-blue${status === "loading" ? " cocos-loading-pending" : ""}`} role="status" aria-label={status === "loading" ? (failure === 'graphics' ? '正在恢复牌桌画面' : '正在进入牌桌') : undefined}>
+          {status === "loading" && <strong>{failure === 'graphics' ? '正在恢复牌桌画面…' : '正在进入牌桌…'}</strong>}
           {status === "error" && <strong>
             {{timeout:"牌桌加载超时",page:"牌桌页面未能打开",resources:"牌桌资源加载失败",graphics:"牌桌画面暂时中断"}[failure]}
           </strong>}
@@ -286,7 +332,8 @@ export function CocosTable({
           {status === "error" && (
             <button
               onClick={() => {
-                lastGraphicsRecovery.current = -Infinity;
+                graphicsRecoveries.current = [];
+                graphicsReloadPending.current = false;
                 setStatus("loading");
                 setChannel(createTableChannel());
               }}

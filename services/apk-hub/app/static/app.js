@@ -24,6 +24,7 @@ function shareBlock(a){const url=shareURL(a),unified=!!productURL(a);return url?
 function wireShare(root){root.querySelectorAll('[data-copy-share]').forEach(button=>button.onclick=async()=>{const input=button.parentElement.querySelector('input');try{await navigator.clipboard.writeText(input.value);toast('分发链接已复制')}catch{input.focus();input.select();toast('请复制已选中的分发链接')}})}
 function installURL(a){
  if(appPlatform(a)!=='ios'||!a.published||!downloadURL(a)||typeof a.install_url!=='string')return '';
+ if(a.installation_method==='super_sign')return publicLink(a.signing_url,'/hub/'+a.id);
  try{
   const u=new URL(a.install_url),keys=[...u.searchParams.keys()];
   if(!a.install_url.startsWith('itms-services://?')||u.protocol!=='itms-services:'||u.host||u.pathname||u.hash||keys.length!==2||u.searchParams.getAll('action').length!==1||u.searchParams.getAll('url').length!==1||u.searchParams.get('action')!=='download-manifest')return '';

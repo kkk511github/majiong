@@ -163,6 +163,9 @@ test("the installed bundle opens records, details, replay and admin features wit
   );
   // Intercept every account/game request; this exact production bundle must
   // never contact the production service during browser verification.
+  // Persist the mocked write: closing details refreshes the records list,
+  // which must not revert a successfully saved read marker to unread.
+  let adminReadAt: number | undefined;
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname.replace(
       /^\/mahjong/,
@@ -172,9 +175,9 @@ test("the installed bundle opens records, details, replay and admin features wit
       path === "/api/auth/session"
         ? { account }
         : /\/api\/(admin\/)?records/.test(path)
-          ? { records: [item], total: 1, page: 1, pageSize: 20, dates: [] }
+          ? { records: [{ ...item, adminReadAt }], total: 1, page: 1, pageSize: 20, dates: [] }
           : path.startsWith("/api/admin/match-reads/")
-            ? { readAt: Date.now() }
+            ? { readAt: (adminReadAt = Date.now()) }
             : path.startsWith("/api/matches/")
               ? { match: item, rounds: [{ ...item, record: g.history[0] }] }
               : path.startsWith("/api/replays/")
@@ -221,6 +224,9 @@ test("the installed bundle opens records, details, replay and admin features wit
     }),
   );
   await page.goto("/");
+  await page.getByRole("button", { name: "玩法", exact: true }).click();
+  await expect(page.locator(".rules-content")).toContainText("所有对子均不算软花");
+  await expect(page.locator(".rules-content")).toContainText("风牌明杠、补杠、暗杠均合计 2 个软花");
   await page.getByRole("button", { name: "战绩", exact: true }).click();
   await expect(page.locator(".records-workspace")).toBeVisible();
   await page

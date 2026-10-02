@@ -1,5 +1,5 @@
 import { copyText } from "./clipboard";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Copy,
   Pause,
@@ -35,22 +35,28 @@ export function ReplayPanel({
   const [input, setInput] = useState(initialId);
   const [query, setQuery] = useState({ id: initialId, attempt: 0 });
   const [data, setData] = useState<RoundReplay | null>(null);
+  const [tableReadiness, setTableReadiness] = useState<{ data: RoundReplay; ready: boolean } | null>(null);
+  const tableReady = !!data && tableReadiness?.data === data && tableReadiness.ready;
+  const onTableBusyChange = useCallback((busy: boolean) => {
+    if (data) setTableReadiness({ data, ready: !busy });
+  }, [data]);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [step, setStep] = useState(0),
     [playing, setPlaying] = useState(false);
+  const running = playing && tableReady && !busy;
   const [speed, setSpeed] = useState(1),
     [copied, setCopied] = useState(false);
   const [controlsVisible,setControlsVisible]=useState(true);
   const [activity,setActivity]=useState(0);
   const [choosing,setChoosing]=useState(false);
   const wakeControls=()=>{setControlsVisible(true);setActivity(n=>n+1);};
-  useEffect(()=>{setControlsVisible(true);setChoosing(false);},[playing,query]);
+  useEffect(()=>{setControlsVisible(true);setChoosing(false);},[playing,query,tableReady]);
   useEffect(()=>{
-    if(!playing||!controlsVisible||choosing||searchOpen||busy||error)return;
+    if(!running||!controlsVisible||choosing||searchOpen||busy||error)return;
     const timer=setTimeout(()=>setControlsVisible(false),3000);
     return ()=>clearTimeout(timer);
-  },[playing,controlsVisible,choosing,activity,searchOpen,busy,error]);
+  },[running,controlsVisible,choosing,activity,searchOpen,busy,error]);
   useEffect(() => {
     if (!query.id) return;
     let active = true;
@@ -84,7 +90,7 @@ export function ReplayPanel({
   }, [query]);
   const total = data?.frames.length ?? 0;
   useEffect(() => {
-    if (!playing || !total) return;
+    if (!running || !total) return;
     if (step >= total - 1) {
       setPlaying(false);
       return;
@@ -97,7 +103,7 @@ export function ReplayPanel({
       ) / speed,
     );
     return () => clearTimeout(timer);
-  }, [playing, step, total, speed, data]);
+  }, [running, step, total, speed, data]);
   const seek = (index: number) => {
     setPlaying(false);
     setStep(Math.max(0, Math.min(index, total - 1)));
@@ -111,11 +117,11 @@ export function ReplayPanel({
   }, []);
   const frame = data?.frames[step];
   useEffect(() => {
-    gameAudio.setReplayActive(playing);
+    gameAudio.setReplayActive(running);
     return () => gameAudio.setReplayActive(false);
-  }, [playing]);
+  }, [running]);
   useEffect(() => {
-    if (!playing || !frame) return;
+    if (!running || !frame) return;
     // Confirmed action calls are synchronized to the renderer's impact point.
     if(['pung','kong','concealedKong','addedKong'].includes(frame.type)||frame.type==='finish'&&frame.result?.winners.length)return;
     const voice =
@@ -141,7 +147,7 @@ export function ReplayPanel({
         `replay:${data!.id}:${playbackRun.current}:${step}`,
         voice,
       );
-  }, [playing, frame, data, step]);
+  }, [running, frame, data, step]);
   const event = frame
     ? replayEventLabel(frame, data!.names, perspective, reveal)
     : "";
@@ -240,12 +246,15 @@ export function ReplayPanel({
               </p>
             )}
             <ReplayTable
+              key={`${query.id}:${query.attempt}`}
               data={data}
               step={step}
               perspective={perspective}
               setPerspective={setPerspective}
               reveal={reveal}
-              animate={playing}
+              animate={running}
+              speed={speed}
+              onEntryBusyChange={onTableBusyChange}
               onSurfaceInteraction={()=>{setControlsVisible(v=>!v);setActivity(n=>n+1);setChoosing(false);}}
             />
             <div className="replay-bottom" onPointerDownCapture={wakeControls} onKeyDownCapture={wakeControls} onFocusCapture={e=>{if(e.target instanceof HTMLSelectElement)setChoosing(true);}} onBlurCapture={()=>setChoosing(false)}>
@@ -266,6 +275,7 @@ export function ReplayPanel({
                 <div className="replay-timeline">
                   <select
                     aria-label="跳到关键动作"
+                    disabled={!tableReady}
                     value={keySteps.includes(step) ? String(step) : ""}
                     onChange={(e) => {
                       if (e.target.value !== "") seek(Number(e.target.value));
@@ -287,6 +297,7 @@ export function ReplayPanel({
                   <input
                     type="range"
                     aria-label="回放进度"
+                    disabled={!tableReady}
                     min={0}
                     max={total - 1}
                     value={step}
@@ -299,14 +310,14 @@ export function ReplayPanel({
                   </span>
                   <button
                     aria-label="回到开局"
-                    disabled={step === 0}
+                    disabled={!tableReady || step === 0}
                     onClick={() => seek(0)}
                   >
                     <SkipBack size={18} />
                   </button>
                   <button
                     aria-label="上一步"
-                    disabled={step === 0}
+                    disabled={!tableReady || step === 0}
                     onClick={() => seek(step - 1)}
                   >
                     <ChevronLeft size={18} />
@@ -314,6 +325,7 @@ export function ReplayPanel({
                   <button
                     className="replay-play"
                     aria-label={playing ? "暂停回放" : "播放回放"}
+                    disabled={!tableReady}
                     onClick={() => {
                       gameAudio.unlock();
                       playbackRun.current++;
@@ -322,24 +334,25 @@ export function ReplayPanel({
                     }}
                   >
                     {playing ? <Pause size={18} /> : <Play size={18} />}
-                    {playing ? "暂停" : "播放"}
+                    {!tableReady ? "加载画面…" : playing ? "暂停" : "播放"}
                   </button>
                   <button
                     aria-label="下一步"
-                    disabled={step >= total - 1}
+                    disabled={!tableReady || step >= total - 1}
                     onClick={() => seek(step + 1)}
                   >
                     <ChevronRight size={18} />
                   </button>
                   <button
                     aria-label="查看结算"
-                    disabled={step >= total - 1}
+                    disabled={!tableReady || step >= total - 1}
                     onClick={() => seek(total - 1)}
                   >
                     <SkipForward size={18} />
                   </button>
                   <select
                     aria-label="回放速度"
+                    disabled={!tableReady}
                     value={speed}
                     onChange={(e) => {setSpeed(Number(e.target.value));setChoosing(false);e.target.blur();wakeControls();}}
                   >
@@ -349,6 +362,7 @@ export function ReplayPanel({
                   </select>
                   <button
                     className="replay-reveal"
+                    disabled={!tableReady}
                     aria-pressed={reveal}
                     onClick={() => setReveal((v) => !v)}
                   >

@@ -18,8 +18,11 @@ it('six-dot draw then eight-dot discard listens for two-bamboo and north despite
  expect(listeningHints({...after,handCount:7},rules,undefined,[],{seat:1})).toEqual([19,30]);
  for(const tile of [76,122])for(const multiplier of [1,2]){
   const score=scoreHand(after,rules,{tile,seat:1,multiplier})!;
-  expect(score.total).toBe(30*multiplier);expect(score.items).toContainEqual({label:'门清',value:10});
-  expect(score.items).toContainEqual({label:'硬花 2 × 2',value:4});expect(score.items).toContainEqual({label:'软花 3 × 2',value:6});
+  // Two-bamboo wins leave a north pair (no flower); north wins form a
+  // north triplet (one flower). The two numeric kongs each contribute one.
+  const flowers=tile===76?2:3, amount=24+flowers*2;
+  expect(score.total).toBe(amount*multiplier);expect(score.items).toContainEqual({label:'门清',value:10});
+  expect(score.items).toContainEqual({label:'硬花 2 × 2',value:4});expect(score.items).toContainEqual({label:`软花 ${flowers} × 2`,value:flowers*2});
  }
  expect(p).toEqual(before);
 });
@@ -38,7 +41,8 @@ it.each([76,122])('server offers and settles actual discard win %i with closed-h
  const before=table(tile),original=structuredClone(before);let g=act(before,0,{type:'discard',tile},1000);
  expect(viewFor(g,1).actions).toContain('hu');g=act(g,1,{type:'hu'},1001);
  for(const s of seats)if(g.phase==='claiming'&&g.pending?.offers[s]&&g.pending.replies[s]===undefined)g=act(g,s,{type:'pass'},1002+s);
- expect(g.result!.winners).toEqual([1]);expect(g.result!.details[1]!.total).toBe(30);expect(g.result!.deltas).toEqual([-30,30,0,0]);
+ const amount=tile===76?28:30;
+ expect(g.result!.winners).toEqual([1]);expect(g.result!.details[1]!.total).toBe(amount);expect(g.result!.deltas).toEqual([-amount,amount,0,0]);
  expect(before).toEqual(original);
 });
 it('self draw and ready-discard arrows share the same corrected eligibility',()=>{

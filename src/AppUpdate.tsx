@@ -24,10 +24,11 @@ const progressLabel = (progress: AppUpdateProgress) => ({
 }[progress.status]);
 
 /** Only ask about an update in the lobby; never interrupt a live table. */
-export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChange }: {
+export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChange, required }: {
   canPrompt: boolean; request: number;
   onPromptRequest?: () => void;
   onActivityChange?: (activity: AppUpdateActivity) => void;
+  required?: { minimumVersion?: string; message: string };
 }) {
   const [result, setResult] = useState<UpdateCheck | null>(null);
   const [progress, setProgress] = useState<AppUpdateProgress>(idle);
@@ -64,10 +65,14 @@ export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChang
   const check = useCallback(async (manual: boolean) => {
     if (!manual && checkTask.current) return;
     const epoch = promptEpoch.current;
-    if (manual) { promptRequest.current?.(); setOpen(true); setError(""); setProgress(idle); }
+    if (manual) {
+      promptRequest.current?.(); setOpen(true); setError("");
+      // A forced gate may take over an update already started from the lobby.
+      setProgress(value => required && transferActive(value) ? value : idle);
+    }
     setChecking(true);
     try {
-      const task = checkTask.current ?? checkAppUpdate();
+      const task = checkTask.current ?? checkAppUpdate(required?.minimumVersion);
       checkTask.current = task;
       const value = await task;
       if (!mounted.current) return;
@@ -80,7 +85,7 @@ export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChang
       checkTask.current = null;
       if (mounted.current) { setChecking(false); setChecked(true); }
     }
-  }, []);
+  }, [required?.minimumVersion]);
 
   useEffect(() => {
     mounted.current = true;
@@ -104,9 +109,9 @@ export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChang
 
   useEffect(() => {
     if (!canPrompt || lastCheck.current || !Capacitor.isNativePlatform()) return;
-    const timer = setTimeout(() => void check(false), 1200);
+    const timer = setTimeout(() => void check(!!required), required ? 0 : 1200);
     return () => clearTimeout(timer);
-  }, [canPrompt, check]);
+  }, [canPrompt, check, required]);
   useEffect(() => {
     if (!canPrompt || !request || request === lastRequest.current) return;
     lastRequest.current = request;
@@ -118,7 +123,7 @@ export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChang
     handedOff.current = false; returnedDuringInstall.current = false;
     installTask.current = true; setInstalling(true); setError(""); setProgress(idle);
     try {
-      const response = await installAppUpdate(result.latest);
+      const response = await installAppUpdate(result.latest, required?.minimumVersion);
       if (transferredToSystem(response.status)) handedOff.current = true;
       if (mounted.current) setProgress(value => ({ ...value, status: response.status }));
     } catch (e) {
@@ -146,7 +151,7 @@ export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChang
   const web = result?.platform === "web";
   const current = result?.current;
   const title = checking ? "检查更新" : web ? "金陵麻将客户端" : result?.available ? "发现新版本" : "应用更新";
-  if (!open || !canPrompt) return null;
+  if ((!open && !required) || !canPrompt) return null;
   const footer = <>
     {error && <p className="app-update-error" role="alert">{error}</p>}
     {progress.status !== "idle" && <section className="app-update-progress" aria-label="更新进度">
@@ -155,19 +160,20 @@ export function AppUpdate({ canPrompt, request, onPromptRequest, onActivityChang
       {progress.message && <p>{progress.message}</p>}
     </section>}
     <div className="app-update-actions">
-      {busy ? <button className="secondary" onClick={() => void close()}>取消下载</button> : <button className="secondary" onClick={() => void close()}>{result?.available ? "稍后再说" : "关闭"}</button>}
+      {busy ? <button className="secondary" onClick={() => void close()}>取消下载</button> : !required && <button className="secondary" onClick={() => void close()}>{result?.available ? "稍后再说" : "关闭"}</button>}
       {!checking && !busy && result?.available && result.installable && <button className="primary" onClick={() => void install()}><Download size={18} />{progress.status === "permission-required" ? "继续安装" : transferred ? "再次打开安装" : result.platform === "android" ? "下载并更新" : "前往安装更新"}</button>}
-      {!checking && !busy && (web || result?.available && !result.installable) && <button className="primary" onClick={() => { void openAppDistributionPage().catch(e => setError((e as Error).message)); }}><Smartphone size={18} />打开安装页面<ArrowUpRight size={16} /></button>}
-      {!checking && !busy && error && <button className="primary" onClick={() => void check(true)}><RefreshCw size={18} />重新检查</button>}
+      {!required && !checking && !busy && (web || result?.available && !result.installable) && <button className="primary" onClick={() => { void openAppDistributionPage().catch(e => setError((e as Error).message)); }}><Smartphone size={18} />打开安装页面<ArrowUpRight size={16} /></button>}
+      {!checking && !busy && (error || required) && <button className="secondary" onClick={() => void check(true)}><RefreshCw size={18} />重新检查</button>}
     </div>
   </>;
-  return <Dialog title={title} close={() => void close()} variant="notice-dialog app-update-dialog" footer={footer}>
+  return <Dialog title={required ? "请更新后继续" : title} close={required ? () => {} : () => void close()} hideClose={!!required} dismissOnBackdrop={!required} variant="notice-dialog app-update-dialog" footer={footer}>
+    {required && <><p>{required.message}</p><p>直接在应用内下载安装包，再由系统确认安装。取消下载或返回应用不会解除最低版本限制，更新完成后请重新打开应用。</p></>}
     <section className="app-update-heading">
       <img src={`${import.meta.env.BASE_URL}brand-icon.png`} alt="金陵麻将图标" />
       <div><h3>金陵麻将</h3><p>{current ? `当前 v${current.version} · Build ${current.build}` : web ? "当前使用网页版" : "正在读取版本信息"}</p></div>
     </section>
     {checking ? <p className="app-update-checking" role="status"><RefreshCw size={20} />正在检查最新版本…</p> : <>
-      {web ? <p className="app-update-copy">网页版在刷新后载入已部署版本。也可以下载 iOS 或安卓客户端。</p> : result && !result.available && !error ? <p className="app-update-current" role="status"><CheckCircle2 size={20} />{latest ? "当前已经是最新版本" : "暂未发布新版本"}</p> : null}
+      {web ? <p className="app-update-copy">网页版在刷新后载入已部署版本。也可以下载 iOS 或安卓客户端。</p> : result && !result.available && !error ? <p className="app-update-current" role="status"><CheckCircle2 size={20} />{required ? "暂无可升级的安装包，请联系管理员核对最低版本与发布版本。" : latest ? "当前已经是最新版本" : "暂未发布新版本"}</p> : null}
       {latest && result?.available && <div className="app-update-release">
         <div><strong>v{latest.version}</strong><span>Build {latest.build} · {megabytes(latest.size)}</span></div>
         {latest.notes && <p>{latest.notes}</p>}

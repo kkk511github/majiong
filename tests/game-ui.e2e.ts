@@ -104,7 +104,7 @@ test("仅测试浏览器断网：房间不清空，自动恢复后才能继续",
   } finally { await context.setOffline(false); }
 });
 
-test("慢心跳只提示网络波动，不弹窗、不退出、不屏蔽大厅入口", async ({ page }) => {
+test("慢心跳不显示网络波动，不弹窗、不退出、不屏蔽大厅入口", async ({ page }) => {
   await page.setViewportSize({ width: 932, height: 430 });
   await page.routeWebSocket("**/ws", ws => {
     const server = ws.connectToServer();
@@ -116,7 +116,9 @@ test("慢心跳只提示网络波动，不弹窗、不退出、不屏蔽大厅�
   });
   await page.goto("/");
   const banner = page.getByRole("status", { name: "网络连接状态" });
-  await expect(banner).toContainText("网络波动");
+  await expect(page.getByRole("button", { name: "房间大厅", exact: true })).toBeEnabled();
+  await page.waitForTimeout(1500);
+  await expect(banner).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "房间大厅", exact: true })).toBeEnabled();
   await page.screenshot({ path: `${capture}/network-unstable.png` });

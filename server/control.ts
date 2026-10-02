@@ -97,6 +97,12 @@ export function createControl(
     if(!parts)throw new AuthError('目标版本须为 x.y.z 数字格式');
     const versionStatus=query.get('versionStatus')??'';
     if(!['','updated','older','unknown'].includes(versionStatus))throw new AuthError('版本筛选不正确');
+    const platform=query.get('platform')??'', activity=query.get('activity')??'', role=query.get('role')??'';
+    if(!['','ios','android','web','unknown'].includes(platform))throw new AuthError('平台筛选不正确');
+    if(!['','today','7d','30d'].includes(activity))throw new AuthError('活跃时间筛选不正确');
+    if(!['','member','admin'].includes(role))throw new AuthError('角色筛选不正确');
+    const asOf=Date.now(), day=86400000, offset=8*3600000;
+    const since=activity?Math.floor((asOf+offset)/day)*day-offset-(activity==='7d'?6:activity==='30d'?29:0)*day:null;
     const where = ["1=1"],
       args: (string | number)[] = [];
     if (q) {
@@ -114,28 +120,41 @@ export function createControl(
       where.push("COALESCE(s.suspended,0)=?");
       args.push(status === "suspended" ? 1 : 0);
     }
+    if(role){where.push('a.role=?');args.push(role);}
+    if(since!==null){where.push('v.reported_at>=? AND v.reported_at<=?');args.push(since,asOf);}
+    // An old runtime may write a newer version report without a platform. Never
+    // attribute that connection to a previously reported device.
+    const platformValue="COALESCE(p.platform,'unknown')";
     const from =
-      " FROM accounts a LEFT JOIN team_memberships m ON m.account_id=a.id LEFT JOIN account_suspensions s ON s.account_id=a.id LEFT JOIN client_version_reports v ON v.account_id=a.id WHERE " +
+      " FROM accounts a LEFT JOIN team_memberships m ON m.account_id=a.id LEFT JOIN account_suspensions s ON s.account_id=a.id LEFT JOIN client_version_reports v ON v.account_id=a.id LEFT JOIN client_platform_reports p ON p.account_id=a.id AND p.reported_at=v.reported_at WHERE " +
       where.join(" AND ");
     const reached='(v.major,v.minor,v.patch)>=(?,?,?)';
     const versionStats=db.prepare(`SELECT COUNT(*) AS total,
       COALESCE(SUM(CASE WHEN ${reached} THEN 1 ELSE 0 END),0) AS updated,
       COALESCE(SUM(CASE WHEN v.version IS NULL THEN 1 ELSE 0 END),0) AS unknown`+from).get(...parts,...args) as {total:number;updated:number;unknown:number};
     const versionWhere=versionStatus==='updated'?` AND ${reached}`:versionStatus==='older'?' AND (v.major,v.minor,v.patch)<(?,?,?)':versionStatus==='unknown'?' AND v.version IS NULL':'';
-    const filteredArgs=[...args,...(['updated','older'].includes(versionStatus)?parts:[])];
+    const versionArgs=[...args,...(['updated','older'].includes(versionStatus)?parts:[])];
+    const platformStats=db.prepare(`SELECT COUNT(*) AS total,
+      COALESCE(SUM(${platformValue}='ios'),0) AS ios,
+      COALESCE(SUM(${platformValue}='android'),0) AS android,
+      COALESCE(SUM(${platformValue}='web'),0) AS web,
+      COALESCE(SUM(${platformValue}='unknown'),0) AS unknown`+from+versionWhere).get(...versionArgs);
+    const platformWhere=platform?` AND ${platformValue}=?`:'';
+    const filteredArgs=[...versionArgs,...(platform?[platform]:[])];
     const total = Number(
-      db.prepare("SELECT COUNT(*) AS n" + from+versionWhere).get(...filteredArgs)!.n,
+      db.prepare("SELECT COUNT(*) AS n" + from+versionWhere+platformWhere).get(...filteredArgs)!.n,
     );
     const rows = db
       .prepare(
-        "SELECT a.id,v.version AS clientVersion,v.reported_at AS versionReportedAt" +
-          from +versionWhere+
+        `SELECT a.id,v.version AS clientVersion,v.reported_at AS versionReportedAt,${platformValue} AS clientPlatform` +
+          from +versionWhere+platformWhere+
           " ORDER BY a.created_at DESC,a.rowid DESC LIMIT ? OFFSET ?",
       )
       .all(...filteredArgs, pageSize, (page - 1) * pageSize);
     return {
-      accounts: rows.map((row) => ({...accounts.getAccount(String(row.id)),clientVersion:row.clientVersion??null,versionReportedAt:row.versionReportedAt??null})),
-      versionStats:{...versionStats,older:versionStats.total-versionStats.updated-versionStats.unknown,targetVersion,asOf:Date.now()},
+      accounts: rows.map((row) => ({...accounts.getAccount(String(row.id)),clientVersion:row.clientVersion??null,versionReportedAt:row.versionReportedAt??null,clientPlatform:row.clientPlatform})),
+      versionStats:{...versionStats,older:versionStats.total-versionStats.updated-versionStats.unknown,targetVersion,asOf},
+      platformStats:{...platformStats,asOf,since},
       total,
       page,
       pageSize,

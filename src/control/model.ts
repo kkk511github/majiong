@@ -32,6 +32,9 @@ export function memberQuery(filters: MemberFilters): string {
   if (filters.status) query.set("status", filters.status);
   if(filters.targetVersion)query.set('targetVersion',filters.targetVersion);
   if(filters.versionStatus)query.set('versionStatus',filters.versionStatus);
+  if(filters.platform)query.set('platform',filters.platform);
+  if(filters.activity)query.set('activity',filters.activity);
+  if(filters.role)query.set('role',filters.role);
   query.set("page", String(Math.max(1, Math.floor(filters.page))));
   return `/members?${query}`;
 }

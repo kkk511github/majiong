@@ -35,6 +35,11 @@ const member: ControlAccount = {
   role: "member",
 };
 
+it('serializes platform, time and role filters alongside version/search/page',()=>{
+ const url=new URL(memberQuery({q:'会员',team:'team',status:'active',page:2,platform:'ios',activity:'7d',role:'member',versionStatus:'older',targetVersion:'0.9.1'}),'https://test');
+ expect(Object.fromEntries(url.searchParams)).toEqual({q:'会员',team:'team',status:'active',page:'2',platform:'ios',activity:'7d',role:'member',versionStatus:'older',targetVersion:'0.9.1'});
+});
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });

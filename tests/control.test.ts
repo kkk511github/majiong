@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, expect, it } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { createServer, request } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
@@ -170,6 +170,53 @@ it('version counts are admin-only, unique per account and independent of version
  expect((await f.call(base,token)).body.versionStats.unknown).toBe(2);
  expect((await f.call(base+'&versionStatus=nope',token)).status).toBe(400);
  expect((await f.call('/api/control/members?targetVersion=garbage',token)).status).toBe(400);
+});
+
+it('platform counts deduplicate accounts, follow filters, paginate details and keep unknown honest',async()=>{
+ const f=await fixture(),token=await f.login(),reports=createClientVersionReports(f.db);
+ const base='/api/control/members?targetVersion=0.9.1';
+ reports.record('guardian','0.9.1',100,'ios');reports.record('guardian','0.9.1',200,'android');
+ reports.record('member','0.8.0',300,'ios');
+ const all=(await f.call(base,token)).body;
+ expect(all.platformStats).toMatchObject({total:3,ios:1,android:1,web:0,unknown:1,since:null});
+ for(const [platform,id] of [['android','guardian'],['ios','member'],['unknown','admin']]){
+  const result=(await f.call(base+'&platform='+platform,token)).body;
+  expect(result.total).toBe(1);expect(result.accounts[0]).toMatchObject({id,clientPlatform:platform});
+  expect(result.platformStats.total).toBe(3);
+  expect((await f.call(base+'&platform='+platform+'&page=2',token)).body.accounts).toEqual([]);
+ }
+ expect((await f.call(base+'&role=member',token)).body.platformStats).toMatchObject({total:1,ios:1});
+ expect((await f.call(base+'&q=ordinary-member',token)).body.platformStats).toMatchObject({total:1,ios:1});
+ expect((await f.call(base+'&versionStatus=updated',token)).body.platformStats).toMatchObject({total:1,android:1,ios:0});
+ expect((await f.call(base+'&status=suspended',token)).body.platformStats).toMatchObject({total:0,ios:0,android:0,web:0,unknown:0});
+ expect((await f.call(base+'&team=nonexistent',token)).body.platformStats.total).toBe(0);
+ reports.record('member','0.9.1',400,'web');
+ expect((await f.call(base,token)).body.platformStats).toMatchObject({total:3,web:1,ios:0});
+ reports.record('member','0.9.1',500);
+ expect((await f.call(base,token)).body.platformStats).toMatchObject({total:3,unknown:2});
+ f.db.prepare("UPDATE client_version_reports SET reported_at=600 WHERE account_id='guardian'").run();
+ expect((await f.call(base,token)).body.platformStats).toMatchObject({total:3,unknown:3});
+ for(const query of ['platform=windows','activity=year','role=owner'])expect((await f.call(base+'&'+query,token)).status).toBe(400);
+ expect((await f.call(base+'&platform=ios')).status).toBe(401);
+ expect((await f.call(base+'&platform=ios',await f.login('ordinary-member',false))).status).toBe(403);
+});
+
+it('platform activity windows use Beijing calendar days including today, not host time or 24h rolling days',async()=>{
+ const f=await fixture(),token=await f.login(),reports=createClientVersionReports(f.db);
+ const now=Date.parse('2026-10-01T00:05:00+08:00'),day=86400000,start=Date.parse('2026-10-01T00:00:00+08:00');
+ const clock=vi.spyOn(Date,'now').mockReturnValue(now);
+ try{
+  for(const [activity,since] of [['today',start],['7d',start-6*day],['30d',start-29*day]] as const){
+   // Reset only fixture reports so each boundary can be tested independently.
+   f.db.exec('DELETE FROM client_version_reports;DELETE FROM client_platform_reports');
+   reports.record('guardian','0.9.1',since-1,'ios');
+   reports.record('member','0.9.1',since,'android');
+   reports.record('admin','0.9.1',now,'web');
+   const result=(await f.call('/api/control/members?activity='+activity,token)).body;
+   expect(result.platformStats).toMatchObject({total:2,ios:0,android:1,web:1,unknown:0,since,asOf:now});
+   expect(result.total).toBe(2);
+  }
+ }finally{clock.mockRestore();}
 });
 
 it("后台沿用APP单账号会话，每次请求核验管理员身份且不能绕过独占开桌规则", async () => {

@@ -767,6 +767,11 @@
 @media(prefers-reduced-motion:reduce){.replay-loaded .modal-head,.replay-bottom{transition:none;}}
 
 /* Scope above the lobby's gold modal skin, irrespective of CSS load order. */
+.app.polished .modal.replay-dialog[open],
+.app.polished .modal.replay-dialog .modal-body {
+  background: #082f45;
+  background-image: none;
+}
 .app.polished .modal.replay-dialog .modal-head {
   background:linear-gradient(180deg,#173e50f5,#0b293bf5);
   background-image:linear-gradient(180deg,#173e50f5,#0b293bf5);
@@ -786,9 +791,17 @@
   box-shadow:none;
 }
 .app.polished .modal.replay-dialog .modal-head .icon-button {background:#15384a;border:1px solid #7ca9b966;}
+/* Keep the opposite exposed hand visible under the floating replay toolbar.
+ * Only the corner buttons have a backing, not a full-width opaque strip. */
+.app.polished .modal.replay-dialog.replay-loaded .modal-head {
+  background: transparent;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
+}
 .app.polished .modal.replay-dialog .replay-controls,
 .app.polished .modal.replay-dialog .replay-bottom {background:#0b293bf0;border-color:#7ca9b944;color:#d9edf3;}
 .app.polished .modal.replay-dialog .replay-play {background:#28748c;color:#ffffff;border-color:#91d4e5;}
 .app.polished .modal.replay-dialog input[type="range"] {accent-color:#85d7e6;}
-.app.polished .modal.replay-dialog input:not([type="range"]) {background:#102f40;color:#effaff;border-color:#769caa;}
+.app.polished .modal.replay-dialog input:not([type="range"]) {background:#102f40;color:#effaff;border-color:#769caa;font-size:16px;}
 .app.polished .modal.replay-dialog :focus-visible {outline:2px solid #9edfee;outline-offset:2px;}

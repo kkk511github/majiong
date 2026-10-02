@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import type {DatabaseSync} from 'node:sqlite';
-import {sanitizeDiagnosticReport} from '../shared/client-diagnostics';
+import {diagnosticFailure,sanitizeDiagnosticReport} from '../shared/client-diagnostics';
 import {AuthError} from './accounts';
 export type DiagnosticConnection='ready'|'offline'|'unsupported';
 type Dependencies={connection:(id:string)=>DiagnosticConnection;send:(account:string,id:string,expiresAt:number)=>void;now?:()=>number};
@@ -31,15 +31,16 @@ export function createClientDiagnostics(db:DatabaseSync,deps:Dependencies){
   prune();const serialized=JSON.stringify(value);if(!serialized||Buffer.byteLength(serialized)>32768)throw Error('Report too large');
   const report=sanitizeDiagnosticReport(value,now());
   if(id==='auto'){
-   if(!report.events.some(e=>['table-error','window-error','promise-error','react-error'].includes(e.code)))throw Error('No failure');
-   if(db.prepare('SELECT id FROM client_diagnostic_requests WHERE account_id=? AND created_at>? LIMIT 1').get(account,now()-600000))return;
-   if(Number(db.prepare('SELECT COUNT(*) AS n FROM client_diagnostic_requests').get()!.n)>=2000)return;
-   db.prepare("INSERT INTO client_diagnostic_requests(id,account_id,actor_id,created_at,expires_at,status,payload,source) VALUES(?,?,?,?,?,?,?,'automatic')").run(randomUUID(),account,null,now(),now()+DAY,'received',JSON.stringify(report));return;
+   if(!report.events.some(diagnosticFailure))throw Error('No failure');
+   if(db.prepare('SELECT id FROM client_diagnostic_requests WHERE account_id=? AND created_at>? LIMIT 1').get(account,now()-600000))return false;
+   if(Number(db.prepare('SELECT COUNT(*) AS n FROM client_diagnostic_requests').get()!.n)>=2000)return false;
+   db.prepare("INSERT INTO client_diagnostic_requests(id,account_id,actor_id,created_at,expires_at,status,payload,source) VALUES(?,?,?,?,?,?,?,'automatic')").run(randomUUID(),account,null,now(),now()+DAY,'received',JSON.stringify(report));return true;
   }
   const row=db.prepare('SELECT status,expires_at FROM client_diagnostic_requests WHERE id=? AND account_id=?').get(id,account);
-  if(row?.status==='received')return;
+  if(row?.status==='received')return true;
   if(!row||row.status!=='pending'||Number(row.expires_at)<=now())throw Error('Invalid request');
   db.prepare("UPDATE client_diagnostic_requests SET status='received',payload=? WHERE id=? AND account_id=?").run(JSON.stringify(report),id,account);
+  return true;
  }
  function submit(account:string,id:string,value:unknown){
   prune();if(!/^[a-f0-9-]{36}$/i.test(id))throw new AuthError('上传编号不正确');

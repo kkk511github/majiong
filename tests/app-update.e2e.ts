@@ -133,6 +133,66 @@ async function openManual(page: Page) {
   await expect(updateDialog(page)).toBeVisible();
 }
 
+async function forceUpdate(page: Page, minimumVersion = "0.7.25") {
+  await page.goto("/");
+  await page.waitForFunction(async () => {
+    const { client } = await import('/src/game-client.ts' as string);
+    return client.state.connected;
+  });
+  // Simulate only the server policy response, exercising the real client blocker/UI.
+  await page.evaluate(async minimum => {
+    const { client } = await import('/src/game-client.ts' as string);
+    client.requireUpdate(`请更新至 ${minimum} 或更高版本后继续。`, minimum);
+  }, minimumVersion);
+  await expect(page.getByRole('dialog', { name: '请更新后继续', exact: true })).toBeVisible();
+}
+
+test("Android 强更复用下载和安装，取消、权限和安装返回均不能绕过", async ({ page }, info) => {
+  const audit = await updaterFixture(page, "android");
+  await page.setViewportSize({ width: 844, height: 390 });
+  await forceUpdate(page);
+  const dialog = updateDialog(page);
+  await expect(dialog.getByRole('button', { name: '稍后再说' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: '关闭', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '下载并更新', exact: true }).click();
+  await expect.poll(async () => (await audit.calls()).filter(c => c.method === 'install').length).toBe(1);
+  await emitProgress(page, 'downloading');
+  await expect(dialog.getByRole('progressbar')).toHaveAttribute('value', '50');
+  await page.screenshot({ path: info.outputPath('android-required-update-download.png') });
+  await dialog.getByRole('button', { name: '取消下载' }).click();
+  await expect(dialog).toBeVisible();
+  await page.evaluate(() => { (window as any).__appUpdateAudit.mode = 'permission'; });
+  await dialog.getByRole('button', { name: '下载并更新', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: '继续安装', exact: true })).toBeVisible();
+  await page.evaluate(() => { (window as any).__appUpdateAudit.mode = 'installer'; });
+  await dialog.getByRole('button', { name: '继续安装', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: '再次打开安装' })).toBeVisible();
+  await page.evaluate(() => (window as any).__appUpdateAudit.resume());
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => {
+    const { client } = await import('/src/game-client.ts' as string);
+    return !!client.state.updateRequired && !client.state.connected;
+  })).toBe(true);
+  expect((await audit.calls()).filter(c => c.method === 'openInstallPage')).toEqual([]);
+  expect(audit.external).toEqual([]); expect(audit.issues).toEqual([]);
+});
+
+test("Android 强更没有达标安装包时保留拦截与重试，不跳网页", async ({ page }) => {
+  const audit = await updaterFixture(page, 'android');
+  await forceUpdate(page, '9.0.0');
+  const dialog = updateDialog(page);
+  await expect(dialog).toContainText('低于要求');
+  await expect(dialog.getByRole('button', { name: '下载并更新' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: '打开安装页面' })).toHaveCount(0);
+  audit.responseStatus = 503;
+  await dialog.getByRole('button', { name: '重新检查' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('暂时不可用');
+  await expect(dialog).toBeVisible();
+  expect((await audit.calls()).filter(c => ['install', 'openInstallPage'].includes(c.method))).toEqual([]);
+});
+
 test("Android 发现新版只提醒，未点击前不下载或打开安装器", async ({ page }, info) => {
   const audit = await updaterFixture(page, "android");
   await page.goto("/");

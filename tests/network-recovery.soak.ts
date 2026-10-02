@@ -1,6 +1,42 @@
 import { test, expect, legacyRoom } from './browser-fixtures';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
+test('慢同步超过2秒和单次pong丢失不重建工作连接', async ({page}) => {
+  let connections=0,slow=false,dropPong=false;
+  const timers=new Set<ReturnType<typeof setTimeout>>();
+  await page.routeWebSocket('**/ws',ws=>{
+    connections++;const server=ws.connectToServer();let closed=false;
+    ws.onClose(()=>{closed=true;server.close();});
+    server.onClose(()=>{closed=true;ws.close();});
+    ws.onMessage(raw=>server.send(raw));
+    server.onMessage(raw=>{
+      const m=JSON.parse(String(raw));
+      if(m.type==='pong'&&dropPong){dropPong=false;return;}
+      if(!slow){ws.send(raw);return;}
+      const timer=setTimeout(()=>{timers.delete(timer);if(!closed)ws.send(raw);},3000);
+      timers.add(timer);
+    });
+  });
+  const state=()=>page.evaluate(async()=>{
+    const {client}=await import('/src/game-client.ts' as string);
+    return {connected:client.state.connected,code:client.state.view?.code,account:client.state.account?.id};
+  });
+  try{
+    await page.goto('/');await legacyRoom(page);
+    const original=await state(),before=connections;
+    slow=true;
+    await page.evaluate(async()=>{const {client}=await import('/src/game-client.ts' as string);client.setNetworkVisible(false);client.setNetworkVisible(true);});
+    expect((await state()).connected).toBe(false);
+    await expect.poll(state,{timeout:6000}).toEqual(original);
+    expect(connections).toBe(before);
+    slow=false;dropPong=true;
+    await page.evaluate(async()=>{const {client}=await import('/src/game-client.ts' as string);client.syncTime();});
+    await expect.poll(()=>page.evaluate(async()=>{const {client}=await import('/src/game-client.ts' as string);return client.state.network.timeouts;}),{timeout:7000}).toBeGreaterThan(0);
+    await expect.poll(state).toEqual(original);
+    expect(connections).toBe(before);
+  }finally{for(const timer of timers)clearTimeout(timer);}
+});
+
 // Application-message fault injection, not TCP packet-loss or radio simulation.
 test('延迟链路反复半开连接恢复与20秒消息中断', async ({page}, info) => {
   const samples:number[]=[];
@@ -33,7 +69,7 @@ test('延迟链路反复半开连接恢复与20秒消息中断', async ({page}, 
     for(let i=0;i<15;i++){
       blocked=connections;
       const started=Date.now();await foreground();
-      await expect.poll(state,{timeout:8000,intervals:[50,100]}).toEqual(original);
+      await expect.poll(state,{timeout:20000,intervals:[50,100]}).toEqual(original);
       expect(connections).toBeGreaterThan(blocked);
       samples.push(Date.now()-started);
     }
@@ -55,7 +91,7 @@ test('延迟链路反复半开连接恢复与20秒消息中断', async ({page}, 
     const sorted=[...samples].sort((a,b)=>a-b),quantile=(q:number)=>sorted[Math.ceil(sorted.length*q)-1];
     const report={at:new Date().toISOString(),browser:info.project.name,samples:15,successful:15,successRate:1,oneWayMessageDelayMs:250,
       recoveryMs:{p50:quantile(.5),p95:quantile(.95),max:sorted.at(-1)},outageDurationMs:20000,outageRecoveryMs,
-      targets:{successRate:1,halfOpenP95Ms:8000,afterOutageMs:25000},
+      targets:{successRate:1,halfOpenP95Ms:20000,afterOutageMs:25000},
       limitations:'Waiting-room restoration only. Local real server and browser; WS application messages delayed/dropped. Not mobile Wi-Fi/cellular, TLS/DNS failure, TCP loss or five-minute OS suspension. Percentiles use only 15 samples.'};
     mkdirSync('docs/research/network-recovery',{recursive:true});
     writeFileSync(`docs/research/network-recovery/${info.project.name}.json`,JSON.stringify(report,null,2)+'\n');

@@ -15,6 +15,7 @@ export interface ControlAccount {
   playBlocked?: boolean;
   clientVersion?: string | null;
   versionReportedAt?: number | null;
+  clientPlatform?: 'ios' | 'android' | 'web' | 'unknown';
 }
 
 export type { ControlAnnouncement } from '../../shared/announcements';
@@ -26,6 +27,7 @@ export interface ControlTeam {
 }
 
 export interface MemberList {
+  platformStats?: {total:number;ios:number;android:number;web:number;unknown:number;asOf:number;since:number|null};
   versionStats?: {targetVersion:string;total:number;updated:number;older:number;unknown:number;asOf:number};
   accounts: ControlAccount[];
   total: number;
@@ -34,6 +36,9 @@ export interface MemberList {
 }
 
 export interface MemberFilters {
+  platform?: ''|'ios'|'android'|'web'|'unknown';
+  activity?: ''|'today'|'7d'|'30d';
+  role?: ''|'member'|'admin';
   targetVersion?: string;
   versionStatus?: ''|'updated'|'older'|'unknown';
   q: string;

@@ -243,6 +243,13 @@ for (const me of seats) test(`新摸牌实际牌面显示：座位${me}，横竖
   let socket:any;
   await page.routeWebSocket("**/mahjong/ws",ws=>{
     socket=ws;const server=ws.connectToServer();
+    ws.onMessage(raw=>{
+      const m=JSON.parse(String(raw));
+      if(m.type==='ping'&&m.sync){
+        ws.send(JSON.stringify({type:'state',state:viewFor(g,me)}));
+        ws.send(JSON.stringify({type:'pong',sentAt:m.sentAt,serverNow:Date.now(),synced:true,roomCode:g.code}));
+      }else server.send(raw);
+    });
     server.onMessage(raw=>{
       const m=JSON.parse(String(raw));
       if(m.type==="session"){ws.send(JSON.stringify({...m,roomCode:g.code}));ws.send(JSON.stringify({type:"state",state:viewFor(g,me)}));}
@@ -255,6 +262,9 @@ for (const me of seats) test(`新摸牌实际牌面显示：座位${me}，横竖
   const verify=async()=>{
     const expected=viewFor(g,me),hand=expected.players[me]!.hand;
     await expect.poll(async()=>tableFrame(page)?.evaluate(()=>(window as any).__JINLING_TABLE_READY__) ? (await renderedHand(page)).revision:undefined).toBe(g.revision);
+    // Revision applies before the existing discard/insert animation releases
+    // its outgoing node. Assert the settled hand, not that transitional node.
+    await expect.poll(async()=>(await renderedHand(page)).tiles.map((t:any)=>t.tile).sort((a:number,b:number)=>a-b)).toEqual([...hand].sort((a,b)=>a-b));
     const rendered=await renderedHand(page);
     expect(rendered.tiles.map((t:any)=>t.tile).sort((a:number,b:number)=>a-b)).toEqual([...hand].sort((a,b)=>a-b));
     expect(rendered.tiles.every((t:any)=>t.frame&&t.active&&t.opacity>0&&t.vertices>=4),JSON.stringify(rendered)).toBe(true);
@@ -296,7 +306,26 @@ for (const me of seats) test(`新摸牌实际牌面显示：座位${me}，横竖
   }
   await page.screenshot({path:`output/web-parity-20260919/draw-${me}-${info.project.name}.png`});
   if(me===0){
+    const src=await page.locator('#cocos-table-board iframe').getAttribute('src');
+    // A second interruption gets one more bounded automatic recovery.
+    // Hidden WebViews must not create another GPU renderer until foreground.
+    await page.evaluate(()=>{
+      Object.defineProperty(document,'hidden',{configurable:true,value:true});
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
     await tableFrame(page)!.evaluate(()=>document.querySelector("canvas")!.dispatchEvent(new Event("webglcontextlost",{cancelable:true})));
+    await expect(page.getByText('正在恢复牌桌画面…',{exact:true})).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(page.locator('#cocos-table-board iframe')).toHaveAttribute('src',src!);
+    await page.evaluate(()=>{
+      Object.defineProperty(document,'hidden',{configurable:true,value:false});
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect(page.locator('#cocos-table-board iframe')).not.toHaveAttribute('src',src!);
+    await expect(page.locator('.cocos-loading')).toHaveCount(0,{timeout:45000});
+    await verify();
+    // Third loss within a minute stops the loop and offers an explicit retry.
+    await tableFrame(page)!.evaluate(()=>document.querySelector('canvas')!.dispatchEvent(new Event('webglcontextlost',{cancelable:true})));
     await expect(page.getByText("牌桌画面暂时中断",{exact:true})).toBeVisible();
     await page.getByRole("button",{name:"重新加载",exact:true}).click();
     await expect(page.locator(".cocos-loading")).toHaveCount(0,{timeout:45000});

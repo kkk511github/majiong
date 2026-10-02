@@ -2,6 +2,21 @@ import {it,expect} from 'vitest';
 import {DatabaseSync} from 'node:sqlite';
 import {createClientDiagnostics,type DiagnosticConnection} from '../server/client-diagnostics';
 import {diagnosticText,sanitizeDiagnosticReport} from '../shared/client-diagnostics';
+it('v2 keeps bounded network context and coverage, strips payloads and WebSocket credentials',()=>{
+ const at=Date.now();const events=Array.from({length:200},(_,sequence)=>({at:at-1000+sequence,sequence,code:'network',message:'socket-close',connectionId:'ws-123-abc',closeCode:1006,wasClean:false,online:true,visible:true,operation:'action:hu',lastReceivedAgoMs:5200,bufferedBytes:0,closeReason:'wss://secret.example/ws?token=secret',hand:[1,2],headers:{authorization:'secret'}}));
+ const clean=sanitizeDiagnosticReport({version:2,at,platform:'ios',environment:{},events,coverage:{dropped:14}},at);
+ expect(clean.events).toHaveLength(200);expect(clean.coverage).toEqual({from:at-1000,to:at-801,dropped:14,retentionHours:24});
+ expect(clean.events[0]).toMatchObject({connectionId:'ws-123-abc',closeCode:1006,wasClean:false,lastReceivedAgoMs:5200});
+ expect(JSON.stringify(clean)).not.toMatch(/secret|headers|hand/);
+ expect(()=>sanitizeDiagnosticReport({...clean,events:Array(257).fill(events[0])},at)).toThrow();
+});
+it('network failures auto-upload, rate limits report refusal honestly, healthy samples cannot auto-upload',()=>{
+ const f=fixture();const payload={...report(f.now()),version:2,events:[{at:f.now(),code:'network',message:'socket-close',closeCode:1006}]};
+ expect(f.manager.receive('a','auto',payload)).toBe(true);
+ expect(f.manager.receive('a','auto',payload)).toBe(false);
+ expect(f.manager.list('a').requests[0].report.events[0].closeCode).toBe(1006);
+ expect(()=>f.manager.receive('b','auto',{...payload,events:[{at:f.now(),code:'network',message:'socket-open'}]})).toThrow('No failure');f.db.close();
+});
 it('command correlation keeps only bounded identifiers, revisions and timings, never raw action payloads',()=>{
  const at=Date.now();const clean=sanitizeDiagnosticReport({version:1,at,platform:'ios',environment:{},events:[{at,code:'command-ack',requestId:'command-12',revision:14,elapsedMs:123.4,action:{tile:28},token:'secret'}]},at);
  expect(clean.events[0]).toMatchObject({requestId:'command-12',revision:14,elapsedMs:123});

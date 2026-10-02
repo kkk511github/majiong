@@ -29,6 +29,7 @@ import {Diagnostics} from './Diagnostics';
 
 type MemberMode = "edit" | "password" | "suspension" | "delete";
 const initialFilters: MemberFilters = { q: "", team: "", status: "", page: 1 };
+const platformNames = {ios:'iOS',android:'安卓',web:'网页版',unknown:'平台未知'};
 
 function MemberAvatar({ member, compact = false }: { member: ControlAccount; compact?: boolean }) {
   const photo = controlAvatarURL(member.avatar);
@@ -145,7 +146,22 @@ export function Members({
           {!error&&<div className="control-version-counts">
             {([['','全部账号',data.versionStats.total],['updated',`已达 ${data.versionStats.targetVersion}`,data.versionStats.updated],['older','旧版本',data.versionStats.older],['unknown','版本未知',data.versionStats.unknown]] as const).map(([key,label,count])=><button key={key} type="button" disabled={loading} aria-pressed={(filters.versionStatus??'')===key} onClick={()=>setFilters(previous=>({...previous,versionStatus:key,page:1}))}><span>{label}</span><strong>{count}</strong></button>)}
           </div>}
-          <p>统计范围跟随搜索、战队及状态筛选，包含管理员。最近上报版本可能来自 App 或网页，不等于实际安装人数；新版未打开、老客户端未报版本会暂时无法确认。统计时间：{displayTime(data.versionStats.asOf)}</p>
+          <p>版本统计跟随搜索、战队、状态、角色和登录时间，不随平台按钮筛选。最近上报版本可能来自 App 或网页，不等于实际安装人数；新版未打开、老客户端未报版本会暂时无法确认。统计时间：{displayTime(data.versionStats.asOf)}</p>
+        </section>}
+        {data.platformStats&&<section className="control-version-summary" aria-label="客户端平台人数" aria-busy={loading}>
+          <div className="control-version-target">
+            <strong>客户端平台 · 按账号去重</strong>
+            <label>最近登录 / 连接<select aria-label="平台统计时间" value={filters.activity??''} onChange={event=>setFilters(previous=>({...previous,activity:event.target.value as MemberFilters['activity'],page:1}))}>
+              <option value="">全部时间</option><option value="today">今天</option><option value="7d">近7天</option><option value="30d">近30天</option>
+            </select></label>
+            <label>统计对象<select aria-label="角色筛选" value={filters.role??''} onChange={event=>setFilters(previous=>({...previous,role:event.target.value as MemberFilters['role'],page:1}))}>
+              <option value="">全部账号（含管理员）</option><option value="member">仅会员</option><option value="admin">仅管理员</option>
+            </select></label>
+          </div>
+          {!error&&<div className="control-version-counts control-platform-counts">
+            {([['','全部平台',data.platformStats.total],['ios','iOS',data.platformStats.ios],['android','安卓',data.platformStats.android],['web','网页版',data.platformStats.web],['unknown','平台未知',data.platformStats.unknown]] as const).map(([key,label,count])=><button key={key} type="button" disabled={loading} aria-pressed={(filters.platform??'')===key} onClick={()=>setFilters(previous=>({...previous,platform:key,page:1}))}><span>{label}</span><strong>{count}</strong></button>)}
+          </div>}
+          <p>以最近一次通过身份验证的客户端连接归类，换设备或重连不重复计数；手机浏览器归网页版。平台人数跟随搜索、战队、状态、角色、版本及时间筛选。按北京时间含今天的自然日计算，不是实时在线人数或安装设备数；旧客户端未上报记为未知。统计时间：{displayTime(data.platformStats.asOf)}</p>
         </section>}
         <form
           className="control-filters"
@@ -245,7 +261,7 @@ export function Members({
                   <th>角色</th>
                   <th>所属战队</th>
                   <th>状态</th>
-                  <th>软件版本 / 上报时间</th>
+                  <th>平台 / 软件版本 / 最近连接</th>
                   <th>注册时间 ↓</th>
                   <th>操作</th>
                 </tr>
@@ -275,6 +291,7 @@ export function Members({
                       </StatusBadge>
                     </td>
                     <td className="control-member-version">
+                      <span>{platformNames[member.clientPlatform??'unknown']}</span>
                       <strong>{member.clientVersion??'版本未知'}</strong>
                       <span className="control-table-sub">{member.versionReportedAt?displayTime(member.versionReportedAt):'尚未上报'}</span>
                     </td>

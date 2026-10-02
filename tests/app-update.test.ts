@@ -23,6 +23,16 @@ describe("app update contract", () => {
     await installAppUpdate(check.latest!); expect(mock.install).toHaveBeenCalledExactlyOnceWith({ url: metadata().download_url, sha256: "a".repeat(64), size: 1234, build: "62" });
     expect(mock.fetch.mock.calls[0][1].credentials).toBe("omit");
   });
+  it("forced updates reject packages below the server minimum, including at install time", async () => {
+    const check = await checkAppUpdate("0.8.0");
+    expect(check.available).toBe(true);
+    expect(check.installable).toBe(false);
+    expect(check.reason).toContain("低于要求");
+    await expect(installAppUpdate(parseAppRelease(metadata())!, "0.8.0")).rejects.toThrow("低于要求");
+    expect(mock.install).not.toHaveBeenCalled();
+    expect(mock.open).not.toHaveBeenCalled();
+    expect((await checkAppUpdate("0.7.25")).installable).toBe(true);
+  });
   it("does not downgrade or install a package replaced after the check", async () => {
     const release = parseAppRelease(metadata())!; mock.info.build = "63"; await expect(installAppUpdate(release)).rejects.toThrow("最新版本");
     mock.info.build = "61"; mock.fetch.mockResolvedValue({ ok: true, json: async () => ({ variants: [{ ...metadata(), sha256: "b".repeat(64) }] }) });

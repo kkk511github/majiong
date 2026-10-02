@@ -53,7 +53,7 @@ export function parseAppRelease(value: unknown): AppRelease | null {
   return { id: r.id, platform, packageName: PACKAGE_NAME, name: String(r.name || "金陵麻将"), version: r.version, build, size, sha256: sha, downloadUrl: download, installUrl,
     installationNote: String(r.installation_note || ""), notes: String(r.notes || ""), created: Number(r.created || 0), minimumOsVersion: String(r.minimum_os_version || "") };
 }
-export async function checkAppUpdate(): Promise<AppUpdateCheck> {
+export async function checkAppUpdate(minimumVersion?: string): Promise<AppUpdateCheck> {
   const platform = Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web";
   if (platform !== "android" && platform !== "ios") return { platform: "web", current: null, latest: null, available: false, installable: false, reason: "网页版无需安装更新" };
   const info = await updater.getInfo();
@@ -69,6 +69,11 @@ export async function checkAppUpdate(): Promise<AppUpdateCheck> {
     if (!latest) return { platform, current, latest, available: false, installable: false, reason: "该平台暂未发布有效安装包" };
     const available = compareAppBuild(latest.build, info.build) > 0;
     let reason: string | undefined;
+    if (minimumVersion) {
+      try {
+        if (compareAppBuild(latest.version, minimumVersion) < 0) reason = `已发布安装包 v${latest.version} 低于要求的 v${minimumVersion}，请联系管理员发布符合要求的安装包。`;
+      } catch { reason = "无法确认安装包是否满足最低版本要求，请联系管理员。"; }
+    }
     if (platform === "ios" && !latest.installUrl) reason = latest.installationNote || "苹果安装包当前不可安装，请联系管理员检查签名";
     if (platform === "ios" && latest.minimumOsVersion) {
       try { if (compareAppBuild(info.osVersion, latest.minimumOsVersion) < 0) reason = `此版本需要 iOS ${latest.minimumOsVersion} 或更新系统`; } catch { reason = "无法确认系统版本是否满足安装要求"; }
@@ -76,9 +81,9 @@ export async function checkAppUpdate(): Promise<AppUpdateCheck> {
     return { platform, current, latest, available, installable: available && !reason, reason };
   } finally { clearTimeout(timer); }
 }
-export async function installAppUpdate(release: AppRelease): Promise<{ status: "permission-required" | "installer-opened" | "page-opened" }> {
+export async function installAppUpdate(release: AppRelease, minimumVersion?: string): Promise<{ status: "permission-required" | "installer-opened" | "page-opened" }> {
   if (!Capacitor.isNativePlatform()) throw new Error("请在安装的应用中更新");
-  const check = await checkAppUpdate();
+  const check = await checkAppUpdate(minimumVersion);
   if (!check.installable || !check.latest) throw new Error(check.reason || "当前已是最新版本");
   if (release.id !== check.latest.id || release.sha256 !== check.latest.sha256) throw new Error("安装包已经更新，请重新检查版本");
   if (check.platform === "ios") return updater.openInstallPage();

@@ -46,6 +46,42 @@ const makeMember = (index: number): ControlAccount => ({
   canManageAdmins: false,
   canCreateTables: false,
 });
+test('客户端平台人数支持下钻、角色与日期筛选、错误恢复和窄屏',async({page})=>{
+ await setup(page);
+ const queries:URLSearchParams[]=[],now=Date.now();let fail=false;
+ const accounts=(['ios','android','web','unknown'] as const).map((clientPlatform,i)=>({...makeMember(i+1),clientPlatform,clientVersion:i===3?null:'0.9.1',versionReportedAt:i===3?null:now}));
+ await page.route('**/api/control/members?**',route=>{
+  const query=new URL(route.request().url()).searchParams;queries.push(query);
+  if(fail)return route.fulfill({status:503,json:{error:'测试统计暂不可用'}});
+  const selected=query.get('platform'),rows=accounts.filter(a=>!selected||a.clientPlatform===selected);
+  return route.fulfill({json:{accounts:rows,total:rows.length,page:1,pageSize:20,versionStats:{total:4,updated:3,older:0,unknown:1,targetVersion:'0.9.1',asOf:now},platformStats:{total:4,ios:1,android:1,web:1,unknown:1,asOf:now,since:null}}});
+ });
+ await page.getByRole('button',{name:'人员管理',exact:true}).click();
+ const panel=page.getByRole('region',{name:'客户端平台人数'});
+ await expect(panel.getByRole('button',{name:'全部平台 4',exact:true})).toBeVisible();
+ for(const [name,key] of [['iOS','ios'],['安卓','android'],['网页版','web'],['平台未知','unknown']]){
+  await panel.getByRole('button',{name:name+' 1',exact:true}).click();
+  await expect.poll(()=>queries.at(-1)?.get('platform')).toBe(key);
+  await expect(page.locator('.control-member-table tbody tr')).toHaveCount(1);
+  await expect(panel.getByRole('button',{name:name+' 1',exact:true})).toHaveAttribute('aria-pressed','true');
+ }
+ await page.getByLabel('平台统计时间').selectOption('7d');
+ await expect.poll(()=>queries.at(-1)?.get('activity')).toBe('7d');
+ await page.getByLabel('角色筛选').selectOption('member');
+ await expect.poll(()=>queries.at(-1)?.get('role')).toBe('member');
+ await expect(panel).toContainText('北京时间');
+ await page.screenshot({path:'output/qa/client-platform-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await expect(panel.getByRole('button',{name:'安卓 1',exact:true})).toBeVisible();
+ const box=await panel.boundingBox();expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(391);
+ await page.screenshot({path:'output/qa/client-platform-mobile.png',fullPage:true});
+ fail=true;await page.getByLabel('平台统计时间').selectOption('today');
+ await expect(page.getByText('测试统计暂不可用',{exact:true})).toBeVisible();
+ await expect(panel.getByRole('button')).toHaveCount(0);
+ fail=false;await page.getByRole('button',{name:'重置筛选',exact:true}).click();
+ await expect(panel.getByRole('button',{name:'全部平台 4',exact:true})).toBeVisible();
+ expect(queries.at(-1)?.has('platform')).toBe(false);expect(queries.at(-1)?.has('activity')).toBe(false);expect(queries.at(-1)?.has('role')).toBe(false);
+});
 const release: ControlRelease = {
   id: "test-release",
   platform: "android",
@@ -490,6 +526,19 @@ for(const platform of ['android','ios'])test(`administrator requests ${platform}
  await expect(dialog).toContainText('83.0.4103.120');await expect(dialog).toContainText('roundRect is not a function');
  await expect(dialog.locator('.control-diagnostic-report img')).toHaveCount(0);
  await page.screenshot({path:`output/qa/${platform}-diagnostic-control.png`});
+});
+
+test('detailed diagnostics show millisecond timeline, connection correlation, filters and report export',async({page})=>{
+ const state=await setup(page),at=Date.UTC(2026,9,1,4,30,12,345);
+ await page.route('**/api/control/members/*/diagnostics',route=>route.fulfill({json:{connection:'ready',retentionDays:7,requests:[{id:'detail-report',source:'automatic',createdAt:at,status:'received',report:{version:2,at,platform:'android',environment:{appVersion:'0.9.2'},coverage:{from:at,to:at+250,dropped:15,retentionHours:24},events:[{at,code:'network',message:'socket-close',connectionId:'ws-before',closeCode:1006,wasClean:false},{at:at+250,code:'command-ack',message:'confirmed',connectionId:'ws-after',requestId:'command-4',operation:'action:hu',elapsedMs:250}]}}]}}));
+ await page.getByRole('button',{name:'人员管理',exact:true}).click();
+ await page.getByRole('row').filter({hasText:state.accounts[0].username}).getByRole('button',{name:'诊断日志',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:new RegExp('客户端诊断')});
+ await expect(dialog).toContainText('2026-10-01 12:30:12.345');await expect(dialog).toContainText('未包含 15 条');
+ await dialog.getByLabel('事件筛选').selectOption('command');await expect(dialog.locator('article')).toHaveCount(1);await expect(dialog.locator('article')).toContainText('action:hu');
+ await dialog.getByLabel('事件筛选').selectOption('all');await dialog.getByLabel('搜索',{exact:true}).fill('1006');await expect(dialog.locator('article')).toHaveCount(1);await expect(dialog.locator('article')).toContainText('ws-before');
+ const download=page.waitForEvent('download');await dialog.getByRole('button',{name:'导出完整报告'}).click();expect((await download).suggestedFilename()).toBe('diagnostic-detail-report.json');
+ await dialog.getByLabel('搜索',{exact:true}).fill('');await page.screenshot({path:'output/qa/network-diagnostics-detailed.png'});
 });
 
 test('member version totals filter the whole list and fit mobile screens',async({page})=>{

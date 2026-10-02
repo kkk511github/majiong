@@ -454,7 +454,7 @@ function PlatformCard({
               ? file.name
               : platform === "android"
                 ? "上传 APK"
-                : "上传已签名 IPA"}
+                : "上传 IPA"}
           </strong>
           <span>
             {file
@@ -464,7 +464,7 @@ function PlatformCard({
         </label>
         <p className="control-upload-note">
           {platform === "ios"
-            ? "请上传你已完成签名的 IPA，后台不代替签名。"
+            ? "请上传已经完成企业签名的 IPA。发布后用户通过 Safari 直接安装，无需登记设备；平台不会自动签名，签名有效性最终由 iOS 校验。"
             : "版本号、Build 与应用标识将从安装包中读取。"}
         </p>
         <label className="control-field">

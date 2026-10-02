@@ -13,6 +13,7 @@ import { roundNet, settlementRows } from "../shared/settlement";
 import { gunzipSync } from "node:zlib";
 import {createReplayStore} from './replay-store';
 import {completedTableWindow,latestCompletedSnapshot} from './completed-table-window';
+import { createRecordParticipantIndex } from './record-participants';
 import type { RoundReplay } from "../shared/types";
 
 export function createRecords(
@@ -36,6 +37,7 @@ export function createRecords(
     CREATE INDEX IF NOT EXISTS match_records_time ON match_records(at DESC, id DESC);
     CREATE INDEX IF NOT EXISTS match_records_code ON match_records(code, at DESC);`);
   db.exec('CREATE INDEX IF NOT EXISTS match_records_game_latest ON match_records(game_id,at DESC,id DESC)');
+  createRecordParticipantIndex(db);
   db.exec(`CREATE TABLE IF NOT EXISTS round_rosters (
     game_id TEXT NOT NULL, round INTEGER NOT NULL, account_id TEXT NOT NULL,
     team_id TEXT NOT NULL, team_name TEXT NOT NULL, PRIMARY KEY(game_id,round,account_id));
@@ -45,6 +47,7 @@ export function createRecords(
     team_name TEXT NOT NULL, points REAL NOT NULL, PRIMARY KEY(record_id,account_id));
     CREATE INDEX IF NOT EXISTS point_records_filter ON point_records(at,team_id,account_id);
     CREATE INDEX IF NOT EXISTS point_records_table_member ON point_records(game_id,account_id,at,record_id);`);
+  db.exec('CREATE INDEX IF NOT EXISTS round_rosters_member_round ON round_rosters(game_id,account_id,round DESC)');
   db.exec(`CREATE TABLE IF NOT EXISTS admin_match_reads (
     game_id TEXT NOT NULL, admin_id TEXT NOT NULL, read_at INTEGER NOT NULL,
     PRIMARY KEY(game_id, admin_id));`);
@@ -55,7 +58,9 @@ export function createRecords(
       "admin"
     )
       throw new AuthError("仅管理员可标记战绩已读", 403);
-    details(game, viewer, true);
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(game)) throw new AuthError("牌桌 ID 不正确");
+    if (!db.prepare("SELECT 1 FROM match_records WHERE game_id=? LIMIT 1").get(game))
+      throw new AuthError("未找到可查看的已结束牌桌", 404);
     db.prepare("INSERT OR IGNORE INTO admin_match_reads VALUES (?,?,?)").run(
       game,
       viewer,
@@ -289,16 +294,16 @@ export function createRecords(
     const game=query.get('game');
     if(game){if(!/^[A-Za-z0-9_-]{1,120}$/.test(game))throw new AuthError('牌桌ID不正确');where.push('game_id=?');args.push(game);}
     if (!admin) {
-      where.push("EXISTS(SELECT 1 FROM json_each(player_ids) WHERE value=?)");
+      where.push(`id IN (SELECT record_id FROM record_participants WHERE source='${source}' AND account_id=?)`);
       args.push(viewer);
     }
     if (code) {
-      where.push("code LIKE ?");
-      args.push(code + "%");
+      where.push("code GLOB ?");
+      args.push(code + "*");
     }
     if (member) {
       where.push(
-        `EXISTS(SELECT 1 FROM json_each(${source}.player_ids) AS player JOIN account_numbers AS numbers ON numbers.account_id=player.value WHERE numbers.member_id=?)`,
+        `id IN (SELECT record_id FROM record_participants WHERE source='${source}' AND account_id IN (SELECT account_id FROM account_numbers WHERE member_id=?))`,
       );
       args.push(Number(member));
     }
@@ -338,19 +343,19 @@ export function createRecords(
               date: String(row.date),
               count: Number(row.count),
             }));
-    const dateTotal =
-      query.get("calendar") === "0"
-        ? undefined
-        : Number(
-            db
-              .prepare("SELECT COUNT(*) AS total FROM " + source + dateClause)
-              .get(...dateArgs)!.total,
-          );
     const total = Number(
       db
         .prepare("SELECT COUNT(*) AS total FROM " + source + clause)
         .get(...args)!.total,
     );
+    const dateTotal =
+      query.get("calendar") === "0"
+        ? undefined
+        : dateClause === clause ? total : Number(
+            db
+              .prepare("SELECT COUNT(*) AS total FROM " + source + dateClause)
+              .get(...dateArgs)!.total,
+          );
     const rows = db
       .prepare(
         "SELECT * FROM " +
@@ -402,6 +407,7 @@ export function createRecords(
         }
       }
     }
+    const context = createPresentContext(rows, viewer, showTeams);
     return {
       total,
       page,
@@ -411,13 +417,73 @@ export function createRecords(
       scoreTotals: [...totals.values()].sort(
         (a, b) => b.points - a.points || a.name.localeCompare(b.name),
       ),
-      records: rows.map((row) => present(row, viewer, showTeams)),
+      records: rows.map((row) => present(row, viewer, showTeams, context)),
     };
+  }
+  type PresentContext = {
+    memberIds: Map<string, string>;
+    teamNames: Map<string, Array<{ round: number; name: string }>>;
+    readAt: Map<string, number>;
+    avatars: Map<string, string | undefined>;
+  };
+  function createPresentContext(
+    rows: Record<string, unknown>[],
+    viewer: string,
+    admin: boolean,
+  ): PresentContext {
+    const ids = new Set<string>(), games = new Set<string>();
+    for (const row of rows) {
+      games.add(String(row.game_id));
+      const original = JSON.parse(String(row.record)) as RoundRecord;
+      for (const id of original.playerIds ?? JSON.parse(String(row.player_ids)) as string[])
+        ids.add(id);
+    }
+    const memberIds = new Map<string, string>();
+    for (const id of ids) memberIds.set(id, "");
+    if (ids.size) {
+      const placeholders = [...ids].map(() => "?").join(",");
+      for (const item of db
+        .prepare(`SELECT account_id,member_id FROM account_numbers WHERE account_id IN (${placeholders})`)
+        .all(...ids))
+        memberIds.set(String(item.account_id), String(item.member_id));
+    }
+    const teamNames = new Map<string, Array<{ round: number; name: string }>>();
+    if (admin && games.size) {
+      const placeholders = [...games].map(() => "?").join(",");
+      for (const item of db
+        .prepare(`SELECT game_id,round,account_id,team_name FROM round_rosters WHERE game_id IN (${placeholders}) ORDER BY game_id,account_id,round`)
+        .all(...games)) {
+        const key = JSON.stringify([String(item.game_id), String(item.account_id)]);
+        const list = teamNames.get(key) ?? [];
+        list.push({ round: Number(item.round), name: String(item.team_name) });
+        teamNames.set(key, list);
+      }
+    }
+    const readAt = new Map<string, number>();
+    if (admin && games.size) {
+      const placeholders = [...games].map(() => "?").join(",");
+      for (const item of db
+        .prepare(`SELECT game_id,read_at FROM admin_match_reads WHERE admin_id=? AND game_id IN (${placeholders})`)
+        .all(viewer, ...games))
+        readAt.set(String(item.game_id), Number(item.read_at));
+    }
+    return { memberIds, teamNames, readAt, avatars: new Map() };
+  }
+  function teamNameFor(context: PresentContext, game: string, account: string, round: number) {
+    const list = context.teamNames.get(JSON.stringify([game, account]));
+    if (!list) return "历史未记录";
+    let result = "历史未记录";
+    for (const item of list) {
+      if (item.round > round) break;
+      result = item.name;
+    }
+    return result;
   }
   function present(
     row: Record<string, unknown>,
     viewer: string,
     admin: boolean,
+    context: PresentContext,
   ): StoredRound {
     const original = JSON.parse(String(row.record)) as RoundRecord;
     // Never trust cached team fields: permission is enforced at every read.
@@ -432,22 +498,13 @@ export function createRecords(
       record.playerIds ?? (JSON.parse(String(row.player_ids)) as string[]);
     const me = ids.indexOf(viewer);
     record.playerIds = ids;
-    record.avatars = ids.map((id) => (id ? avatarFor(id) : undefined));
-    record.memberIds = ids.map((id) => {
-      const number = db
-        .prepare("SELECT member_id FROM account_numbers WHERE account_id=?")
-        .get(id);
-      return number ? String(number.member_id) : "";
+    record.avatars = ids.map((id) => {
+      if (id && !context.avatars.has(id)) context.avatars.set(id, avatarFor(id));
+      return context.avatars.get(id);
     });
+    record.memberIds = ids.map((id) => context.memberIds.get(id) ?? "");
     if (admin)
-      record.teamNames = ids.map((id) => {
-        const roster = db
-          .prepare(
-            "SELECT team_name FROM round_rosters WHERE game_id=? AND account_id=? AND round<=? ORDER BY round DESC LIMIT 1",
-          )
-          .get(String(row.game_id), id, record.round);
-        return String(roster?.team_name ?? "历史未记录");
-      });
+      record.teamNames = ids.map((id) => teamNameFor(context, String(row.game_id), id, record.round));
     if (!admin && row.private_names) {
       record.names = record.names.map((name, i) =>
         i === me ? name : `牌友${i + 1}`,
@@ -465,14 +522,7 @@ export function createRecords(
       practice: false,
       ...(admin
         ? {
-            adminReadAt:
-              Number(
-                db
-                  .prepare(
-                    "SELECT read_at FROM admin_match_reads WHERE game_id=? AND admin_id=?",
-                  )
-                  .get(String(row.game_id), viewer)?.read_at,
-              ) || null,
+            adminReadAt: context.readAt.get(String(row.game_id)) || null,
           }
         : {}),
       record,
@@ -491,14 +541,13 @@ export function createRecords(
         !(JSON.parse(String(row.player_ids)) as string[]).includes(viewer))
     )
       throw new AuthError("未找到可查看的已结束牌桌", 404);
+    const detailRows = db
+      .prepare("SELECT * FROM round_records WHERE game_id=? ORDER BY json_extract(record,'$.round'),at,id")
+      .all(game);
+    const context = createPresentContext([row, ...detailRows], viewer, admin);
     return {
-      match: present(row, viewer, admin),
-      rounds: db
-        .prepare(
-          "SELECT * FROM round_records WHERE game_id=? ORDER BY json_extract(record,'$.round'),at,id",
-        )
-        .all(game)
-        .map((r) => present(r, viewer, admin)),
+      match: present(row, viewer, admin, context),
+      rounds: detailRows.map((r) => present(r, viewer, admin, context)),
     };
   }
   function pointFilter(query: URLSearchParams) {

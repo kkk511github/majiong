@@ -9,6 +9,7 @@ import { createRecords } from "../server/records";
 import { createClientUpdateSettings } from '../server/client-update-settings';
 import {createClientVersionReports} from '../server/client-version-reports';
 import type {RoundRecord} from '../shared/types';
+import type { AuthAuditRecord } from '../server/auth-audit';
 
 function seedMemberGame(db:DatabaseSync,gameId:string,date:string,ids=['member','p2','p3','p4'],snapshot=gameId){
  const at=Date.parse(date),record:RoundRecord={id:snapshot,at,round:8,totalRounds:8,names:['查询会员','乙','丙','丁'],scores:[120,90,95,95],initialScore:100,scoreDivisor:5,playerIds:ids,tableName:'测试桌',endReason:'打满8把',matchFinished:true,result:{reason:'draw',winners:[],details:{},deltas:[20,-10,-5,-5]}};
@@ -33,7 +34,8 @@ async function fixture(withRecords=false) {
     "CREATE TABLE sessions(token_hash TEXT PRIMARY KEY,id TEXT UNIQUE,name TEXT,last_seen INTEGER)",
   );
   const revoked: string[] = [];
-  const accounts = createAccounts(db, (id) => revoked.push(id));
+  const authEvents: AuthAuditRecord[] = [];
+  const accounts = createAccounts(db, (id) => revoked.push(id), undefined, record => authEvents.push(record));
   for (const [id, username, role] of [
     ["guardian", "guanli@1", "admin"],
     ["admin", "second-admin", "admin"],
@@ -99,9 +101,89 @@ async function fixture(withRecords=false) {
     call,
     login,
     revoked,
+    authEvents,
     changed: () => changed,
   };
 }
+
+it("后台与App使用不同账号时不替换对方会话，审计准确标出认证入口和身份", async () => {
+  const f = await fixture();
+  const appToken = await f.login("ordinary-member", false);
+  f.revoked.length = 0;
+  const adminToken = await f.login("second-admin");
+  expect(f.revoked).toEqual([]);
+  expect((await f.call("/api/auth/session", appToken)).status).toBe(200);
+  const issued = f.authEvents.filter(event => event.event === "session-issued");
+  expect(issued[0]).toMatchObject({ accountId: "member", username: "ordinary-member", reason: "app-login", source: "app", replaced: false });
+  expect(issued[1]).toMatchObject({ accountId: "admin", username: "second-admin", attemptedUsername: "second-admin", actorId: "admin", reason: "control-login", source: "control", replaced: false });
+  const failed = await f.call("/api/control/auth/login", undefined, { username: "second-admin", password: "Wrong-password" });
+  expect(failed.status).toBe(401);
+  expect(f.authEvents.filter(event => event.event === "session-issued")).toHaveLength(2);
+  expect(f.authEvents.at(-1)).toMatchObject({ event: "request-rejected", status: 401, attemptedUsername: "second-admin" });
+  await f.call("/api/control/auth/logout", adminToken, {});
+  expect(f.authEvents.at(-1)).toMatchObject({ event: "session-revoked", accountId: "admin", reason: "control-logout" });
+  expect((await f.call("/api/auth/session", appToken)).status).toBe(200);
+  const sameAccount = await f.login("ordinary-member", false);
+  expect(f.authEvents.filter(event => event.event === "session-issued").at(-1)).toMatchObject({ accountId: "member", reason: "app-login", replaced: true });
+  expect((await f.call("/api/auth/session", appToken)).status).toBe(401);
+  expect((await f.call("/api/auth/session", sameAccount)).status).toBe(200);
+  expect(JSON.stringify(f.authEvents)).not.toContain(appToken);
+  expect(JSON.stringify(f.authEvents)).not.toContain(adminToken);
+  expect(JSON.stringify(f.authEvents)).not.toContain(encoded);
+  expect(JSON.stringify(f.authEvents)).not.toContain(secret);
+});
+
+it("两个不同管理员账号也保持各自App和后台会话，不按角色误替换", async () => {
+  const f = await fixture();
+  const app = await f.login("guanli@1", false);
+  f.revoked.length = 0;
+  const control = await f.login("second-admin");
+  expect(f.revoked).toEqual([]);
+  expect((await f.call("/api/auth/session", app)).body.account).toMatchObject({ id: "guardian", role: "admin" });
+  expect((await f.call("/api/control/auth/session", control)).body.account).toMatchObject({ id: "admin", role: "admin" });
+  expect(f.authEvents.filter(event => event.event === "session-issued").map(event => event.accountId)).toEqual(["guardian", "admin"]);
+});
+
+it("同一管理员跨入口登录退出不互踢，后台凭证不能访问App或替代App凭证", async () => {
+  const f = await fixture();
+  const app = await f.login("second-admin", false);
+  f.revoked.length = 0;
+  const control = await f.login("second-admin");
+  expect(f.revoked).toEqual([]);
+  expect((await f.call("/api/auth/session", app)).status).toBe(200);
+  expect((await f.call("/api/control/auth/session", control)).status).toBe(200);
+  expect((await f.call("/api/control/auth/session", app)).status).toBe(401);
+  expect((await f.call("/api/auth/session", control)).status).toBe(401);
+  expect((await f.call("/api/announcements", control)).status).toBe(401);
+  await f.call("/api/control/auth/logout", app, {});
+  await f.call("/api/auth/logout", control, {});
+  expect((await f.call("/api/auth/session", app)).status).toBe(200);
+  expect((await f.call("/api/control/auth/session", control)).status).toBe(200);
+  const newerControl = await f.login("second-admin");
+  expect((await f.call("/api/control/auth/session", control)).status).toBe(401);
+  expect((await f.call("/api/auth/session", app)).status).toBe(200);
+  await f.call("/api/control/auth/logout", newerControl, {});
+  expect(f.revoked).toEqual([]);
+  expect((await f.call("/api/auth/session", app)).status).toBe(200);
+  const anotherControl = await f.login("second-admin");
+  const newerApp = await f.login("second-admin", false);
+  expect((await f.call("/api/auth/session", app)).status).toBe(401);
+  expect((await f.call("/api/control/auth/session", anotherControl)).status).toBe(200);
+  await f.call("/api/auth/logout", newerApp, {});
+  expect((await f.call("/api/control/auth/session", anotherControl)).status).toBe(200);
+});
+
+it("旧版本改密或停用后恢复也不能让旧后台凭证复活", async () => {
+  const f = await fixture(), control = await f.login("second-admin");
+  const encodedPassword = await hashPassword("Other-Password");
+  f.db.prepare("UPDATE accounts SET password_hash=? WHERE id='admin'").run(encodedPassword);
+  expect((await f.call("/api/control/auth/session", control)).status).toBe(401);
+  const current = await f.login("second-admin", true, "Other-Password");
+  f.db.prepare("INSERT INTO account_suspensions VALUES (?,1,'','guardian',10)").run("admin");
+  expect((await f.call("/api/control/auth/session", current)).status).toBe(401);
+  f.db.prepare("UPDATE account_suspensions SET suspended=0,updated_at=11 WHERE account_id='admin'").run();
+  expect((await f.call("/api/control/auth/session", current)).status).toBe(401);
+});
 
 it('会员对局仅管理员可查，按北京时间含首尾日，整桌去重且不按战队过滤',async()=>{
  const f=await fixture(true),token=await f.login(),memberId=f.accounts.getAccount('member')!.memberId!;
@@ -114,7 +196,7 @@ it('会员对局仅管理员可查，按北京时间含首尾日，整桌去重�
  seedMemberGame(f.db,'first','2026-09-18T01:00:00+08:00',undefined,'first-new');
  expect((await f.call(path)).status).toBe(401);
  const memberToken=await f.login('ordinary-member',false);
- expect((await f.call(path,memberToken)).status).toBe(403);
+ expect((await f.call(path,memberToken)).status).toBe(401);
  expect((await f.call(path,token,{})).status).toBe(405);
  const response=await f.call(path,token);expect(response.status).toBe(200);
  expect(response.body).toMatchObject({totalTables:2,from:'2026-09-18',to:'2026-09-25',timeZone:'Asia/Shanghai'});
@@ -123,7 +205,7 @@ it('会员对局仅管理员可查，按北京时间含首尾日，整桌去重�
  expect(response.body.daily).toHaveLength(8);
  expect(response.body.daily.map((d:{tables:number})=>d.tables)).toEqual([1,0,0,0,0,0,0,1]);
  const detail=`/api/control/member-games/first?memberId=${memberId}`;
- expect((await f.call(detail,memberToken)).status).toBe(403);
+ expect((await f.call(detail,memberToken)).status).toBe(401);
  expect((await f.call(detail,token,{})).status).toBe(405);
  const details=await f.call(detail,token);expect(details.status).toBe(200);expect(details.body.details.match.record.id).toBe('first-new');
  expect((await f.call(`/api/control/member-games/unrelated?memberId=${memberId}`,token)).status).toBe(404);
@@ -157,7 +239,7 @@ it('version counts are admin-only, unique per account and independent of version
  reports.record('guardian','0.8.0',1000);reports.record('guardian','0.8.0',2000);reports.record('member','0.7.100',3000);
  const base='/api/control/members?targetVersion=0.8.0';
  expect((await f.call(base)).status).toBe(401);
- expect((await f.call(base,await f.login('ordinary-member',false))).status).toBe(403);
+ expect((await f.call(base,await f.login('ordinary-member',false))).status).toBe(401);
  const all=(await f.call(base,token)).body;
  expect(all.versionStats).toMatchObject({total:3,updated:1,older:1,unknown:1,targetVersion:'0.8.0'});
  expect(all.accounts.find((a:{id:string})=>a.id==='guardian')).toMatchObject({clientVersion:'0.8.0',versionReportedAt:2000});
@@ -198,7 +280,7 @@ it('platform counts deduplicate accounts, follow filters, paginate details and k
  expect((await f.call(base,token)).body.platformStats).toMatchObject({total:3,unknown:3});
  for(const query of ['platform=windows','activity=year','role=owner'])expect((await f.call(base+'&'+query,token)).status).toBe(400);
  expect((await f.call(base+'&platform=ios')).status).toBe(401);
- expect((await f.call(base+'&platform=ios',await f.login('ordinary-member',false))).status).toBe(403);
+ expect((await f.call(base+'&platform=ios',await f.login('ordinary-member',false))).status).toBe(401);
 });
 
 it('platform activity windows use Beijing calendar days including today, not host time or 24h rolling days',async()=>{
@@ -219,14 +301,14 @@ it('platform activity windows use Beijing calendar days including today, not hos
  }finally{clock.mockRestore();}
 });
 
-it("后台沿用APP单账号会话，每次请求核验管理员身份且不能绕过独占开桌规则", async () => {
+it("后台与APP会话隔离，每次请求核验管理员身份且不能绕过独占开桌规则", async () => {
   const f = await fixture();
   const app = await f.login("guanli@1", false),
     control = await f.login();
-  expect(f.revoked).toEqual(["guardian", "guardian"]);
-  expect((await f.call("/api/auth/session", app)).status).toBe(401);
+  expect(f.revoked).toEqual(["guardian"]);
+  expect((await f.call("/api/auth/session", app)).status).toBe(200);
   expect((await f.call("/api/control/auth/session", app)).status).toBe(401);
-  expect((await f.call("/api/auth/session", control)).status).toBe(200);
+  expect((await f.call("/api/auth/session", control)).status).toBe(401);
   expect(
     (
       await f.call("/api/control/auth/login", undefined, {
@@ -277,7 +359,7 @@ it("后台沿用APP单账号会话，每次请求核验管理员身份且不能�
   expect((await f.call("/api/control/members", second)).status).toBe(403);
   await f.call("/api/control/auth/logout", control, {});
   expect((await f.call("/api/control/auth/session", control)).status).toBe(401);
-  expect((await f.call("/api/auth/session", app)).status).toBe(401);
+  expect((await f.call("/api/auth/session", app)).status).toBe(200);
 });
 
 it('后台更新开关仅限管理员，支持实时启停、版本校验、冲突保护与审计', async () => {
@@ -285,8 +367,8 @@ it('后台更新开关仅限管理员，支持实时启停、版本校验、冲�
   const admin = await f.login(), member = await f.login('ordinary-member', false);
   const path = '/api/control/settings/client-update';
   expect((await f.call(path)).status).toBe(401);
-  expect((await f.call(path, member)).status).toBe(403);
-  expect((await f.call(path, member, { enabled: true, minimumVersion: '0.7.37', revision: 0 })).status).toBe(403);
+  expect((await f.call(path, member)).status).toBe(401);
+  expect((await f.call(path, member, { enabled: true, minimumVersion: '0.7.37', revision: 0 })).status).toBe(401);
   expect((await f.call(path, admin)).body).toMatchObject({ enabled: false, revision: 0 });
   expect((await f.call(path, admin, { enabled: true, minimumVersion: '', revision: 0 })).status).toBe(400);
   expect((await f.call(path, admin, { enabled: true, minimumVersion: '0.7.37', revision: 0 })).body).toMatchObject({ enabled: true, revision: 1 });
@@ -316,7 +398,7 @@ it("公告草稿与线上分离，确认发布幂等且受并发保护，跨设�
   expect(
     (await f.call("/api/control/announcements", admin, empty)).body,
   ).toEqual(created.body);
-  expect((await f.call("/api/control/announcements", member)).status).toBe(403);
+  expect((await f.call("/api/control/announcements", member)).status).toBe(401);
   expect(
     (
       await f.call(path + "/publish", admin, {
@@ -527,7 +609,7 @@ it('管理员可查询按当前发布版本去重的已读/未读人数、名单
   const first = await f.call(readPath, member, { revision: 1, accountId: 'guardian' });
   expect((await f.call(readPath, member, { revision: 1 })).body).toEqual(first.body);
   const query = path + '/readers?revision=1';
-  expect((await f.call(query)).status).toBe(401); expect((await f.call(query, member)).status).toBe(403);
+  expect((await f.call(query)).status).toBe(401); expect((await f.call(query, member)).status).toBe(401);
   const read = await f.call(query, admin);
   expect(read.body.stats).toEqual({ revision: 1, readCount: 1, unreadCount: 2, totalCount: 3 });
   expect(read.body.readers).toEqual([{ id: 'member', name: 'member', username: 'ordinary-member', memberId: expect.any(String), readAt: first.body.readAt }]);
@@ -749,7 +831,7 @@ it("删除账号会撤销会话和当前归属，同时保留会员编号、历�
   expect(
     (await f.call("/api/control/members/member/delete", memberToken, {}))
       .status,
-  ).toBe(403);
+  ).toBe(401);
   const removed = await f.call("/api/control/members/member/delete", root, {});
   expect(removed).toEqual({ status: 200, body: { ok: true, id: "member" } });
   expect(f.accounts.getAccount("member")).toBeUndefined();
@@ -758,6 +840,7 @@ it("删除账号会撤销会话和当前归属，同时保留会员编号、历�
 
   for (const [table, column] of [
     ["sessions", "id"],
+    ["control_sessions", "id"],
     ["team_memberships", "account_id"],
     ["table_permissions", "account_id"],
     ["account_avatars", "account_id"],
@@ -839,7 +922,7 @@ it("删除账号对不存在账号、当前账号和受保护开桌账号返回�
   expect(f.accounts.getAccount("admin")).toBeDefined();
 });
 
-it("密码重置撤销共用会话，停用与牌局暂停分离，恢复保留角色战队和开桌资格", async () => {
+it("密码重置撤销两类会话，停用与牌局暂停分离，恢复保留角色战队和开桌资格", async () => {
   const f = await fixture(),
     root = await f.login(),
     app = await f.login("second-admin", false),
@@ -919,7 +1002,7 @@ it("密码重置撤销共用会话，停用与牌局暂停分离，恢复保留�
   );
   expect(
     f.revoked.filter((id) => id === "admin").length,
-  ).toBeGreaterThanOrEqual(4);
+  ).toBeGreaterThanOrEqual(3);
 });
 
 it("异步密码哈希结束后重新校验权限，不允许已撤权的后台管理员写入", async () => {
@@ -982,10 +1065,10 @@ it("请求体到达期间撤销的管理员权限不会发布公告", async () =
   );
 });
 
-it("APP改密撤销后台共用会话，临时密码管理员须先完成改密", async () => {
+it("APP改密撤销后台独立会话，临时密码管理员须先完成改密", async () => {
   const f = await fixture(),
     control = await f.login(),
-    app = control;
+    app = await f.login("guanli@1", false);
   expect((await f.call("/api/control/auth/session", control)).status).toBe(200);
   expect(
     (

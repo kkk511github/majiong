@@ -4,6 +4,8 @@ import {createSocketSender} from './socket-sender';
 import {createReconciliation} from './reconciliation';
 import {createRuntimeOwnership,type RuntimeOptions} from './runtime-ownership';
 import {forkGame} from './fork-game';
+import { commandDigest, createCommandReceipts, ROOM_COMMANDS } from './command-receipts';
+import { createStorageHealth } from './storage-health';
 import { createTableInvitations } from './table-invitations';
 import { clientVersionPolicy } from './client-version';
 import { createClientVersionReports } from './client-version-reports';
@@ -100,9 +102,11 @@ export function makeServer(
     if(!options.runtime&&db.prepare("SELECT 1 FROM sqlite_master WHERE name='runtime_config'").get())throw Error('This database requires a rollout-aware runtime; standalone writers are disabled');
     runtime=options.runtime?createRuntimeOwnership(db,options.runtime):undefined;
   }catch(error){db.close();throw error;}
+  const storageHealth = createStorageHealth();
   const games = new Map<string, Game>(),
     clients = new Map<string, WebSocket>(),
     lastAuto = new Map<string, number>();
+  const commandReceipts = createCommandReceipts();
   const allPoolGames=()=>runtime?runtime.lobbyGames():[...games.values()];
   let invitations: ReturnType<typeof createTableInvitations> | undefined;
   // Connection-scoped: reconnecting with an old app must not inherit support
@@ -308,7 +312,7 @@ export function makeServer(
       for (const g of repairedTables) save.run(g.id, JSON.stringify(g), Date.now());
       db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      if (db.isTransaction) db.exec("ROLLBACK");
       throw new StorageError(error);
     }
     for (const g of repairedTables) games.set(g.code, g);
@@ -476,7 +480,7 @@ export function makeServer(
       for (const room of created) save.run(room.id, JSON.stringify(room), now);
       db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      if (db.isTransaction) db.exec("ROLLBACK");
       throw new StorageError(error);
     }
     for (const room of removable) {
@@ -508,6 +512,7 @@ export function makeServer(
     }
   }
   function persist(g: Game) {
+    const started = performance.now();
     if(g.table&&runtime){const target=runtime.poolTarget(g.table.groupId);if(target!==undefined){g.table.poolTarget=target;if(target===0)g.table.settings.autoRenew=false;}}
     // closeTable persists directly, bypassing publish. Stamp newly finished
     // tables here too; never re-date a table that already finished normally.
@@ -532,9 +537,11 @@ export function makeServer(
       if(g.phase==='finished'&&g.history.length)reconciliation.enqueue(g.id);
       db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      if (db.isTransaction) db.exec("ROLLBACK");
+      storageHealth.record(started, error);
       throw new StorageError(error);
     }
+    storageHealth.record(started);
     // The map and every client only advance after the durable write succeeds.
     if (keep) games.set(g.code, g);
     else {
@@ -583,7 +590,7 @@ export function makeServer(
       for (const game of changed) save.run(game.id, JSON.stringify(game), now);
       db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      if (db.isTransaction) db.exec("ROLLBACK");
       throw new StorageError(error);
     }
     games.delete(closing.code);
@@ -1042,6 +1049,17 @@ export function makeServer(
       );
       return;
     }
+    if (req.method === 'GET' && url.pathname === '/api/admin/storage-health') {
+      try {
+        accounts.requireSession(req, true);
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(JSON.stringify(storageHealth.snapshot()));
+      } catch (error) {
+        res.statusCode = error instanceof AuthError ? error.status : 500;
+        res.end(JSON.stringify({ error: error instanceof AuthError ? error.message : '存储诊断暂不可用' }));
+      }
+      return;
+    }
     if (new URL(req.url??'/', 'http://localhost').pathname === '/api/diagnostics') {
       try {
         const actor=accounts.requireSession(req);
@@ -1231,6 +1249,7 @@ export function makeServer(
     ws.on("error", () => {
       /* close handler restores authoritative connection state */
     });
+    const connectionNonce = randomUUID();
     ws.on("message", (raw) => {
       // A rejected hello may have more messages queued in the same TCP frame.
       if (ws.readyState !== WebSocket.OPEN) return;
@@ -1407,6 +1426,30 @@ export function makeServer(
           return;
         }
         let g = findRoom(session.id);
+        const roomCommand = ROOM_COMMANDS.has(msg.type);
+        if (roomCommand && msg.requestId !== undefined && !requestId) throw Error("请求编号无效");
+        // Old clients restart their numeric sequence on every page launch.
+        // Such IDs can only be deduplicated within that connection; modern UUID
+        // commands/context remain stable across reconnect and durable reload.
+        const receiptId = requestId && !msg.context && /^command-\d+$/.test(requestId)
+          ? `${connectionNonce}:${requestId}` : requestId;
+        if (roomCommand && requestId) {
+          const receipt = commandReceipts.find(session.id, receiptId!, g);
+          if (receipt) {
+            if (receipt.digest !== commandDigest(msg)) throw Error("请求编号已用于另一项操作，请同步牌桌");
+            if (g) send(ws, { type: "state", state: viewFor(g, seatFor(g, session.id)) });
+            else if (receipt.type === "leave") send(ws, { type: "left", lobby: true });
+            send(ws, { type: "ack", requestId });
+            return;
+          }
+        }
+        if (roomCommand && msg.context !== undefined && (
+          !msg.context || typeof msg.context.game !== "string" || !Number.isInteger(msg.context.round) ||
+          !g || msg.context.game !== g.id || msg.context.round !== g.round
+        )) {
+          if (g) send(ws, { type: "state", state: viewFor(g, seatFor(g, session.id)) });
+          throw Error("操作所属牌局已更新，请同步后重新操作");
+        }
         if (msg.type === "phrase") {
           requireExistingTablePlay(session.id,g);
           if (!g || typeof msg.game !== "string" || msg.game !== g.id)
@@ -1528,7 +1571,7 @@ export function makeServer(
             );
             db.exec("COMMIT");
           } catch (error) {
-            db.exec("ROLLBACK");
+            if (db.isTransaction) db.exec("ROLLBACK");
             throw new StorageError(error);
           }
           for (const room of created) games.set(room.code, room);
@@ -1661,7 +1704,8 @@ export function makeServer(
             if (msg.game === g.id && msg.round === g.round)
               completeOpening(g, seat, Date.now());
             break;
-          case "action":
+          case "action": {
+            const actionNow = Date.now();
             if (g.openingGate)
               throw Error("正在等待牌友进入牌局");
             if (
@@ -1683,13 +1727,11 @@ export function makeServer(
               send(ws, { type: "state", state: viewFor(g, seat) });
               throw Error("牌局已更新，请再操作一次");
             }
-            if (
-              overtimeExpired(g, seat, Date.now()) &&
-              g.table?.settings.overtimeSeconds
-            )
+            if (overtimeExpired(g, seat, actionNow))
               throw Error("本次操作已超时，正在进入托管");
-            g = act(g, seat, msg.action as Action);
+            g = act(g, seat, msg.action as Action, actionNow);
             break;
+          }
           case "trustee":
             if (typeof msg.enabled !== "boolean") throw Error("设置格式不正确");
             setTrustee(g, seat, msg.enabled, Date.now());
@@ -1721,7 +1763,11 @@ export function makeServer(
           default:
             throw Error("未知操作");
         }
+        const receipt = requestId && roomCommand
+          ? { account: session.id, requestId: receiptId!, digest: commandDigest(msg), type: msg.type } : undefined;
+        if (receipt) commandReceipts.append(g, receipt);
         publish(g);
+        if (receipt) commandReceipts.committed(receipt);
         if (msg.type === "leave") {
           if (g.table) repairTablePool(g.table.groupId);
           send(ws, { type: "left", ...(g.table ? { lobby: true } : {}) });
@@ -1762,6 +1808,9 @@ export function makeServer(
     return p.bot ? botAction(g, seat) : trusteeAction(g, seat);
   }
   let nextPoolAudit = Date.now() + 1000;
+  // Startup may wait for schema work; live requests must never synchronously
+  // wait seconds for a competing writer. Failed writes retain authoritative state.
+  db.exec("PRAGMA busy_timeout=0");
   let reportedRuntimeFence=false;
   const tick = setInterval(() => {
     try{runtime?.heartbeat();syncRuntimeRooms();}catch(error){if(!reportedRuntimeFence)console.error('Runtime fenced',error);reportedRuntimeFence=true;return;}
@@ -1866,7 +1915,7 @@ export function makeServer(
             if (renewed) save.run(renewed.id, JSON.stringify(renewed), now);
             db.exec("COMMIT");
           } catch (error) {
-            db.exec("ROLLBACK");
+            if (db.isTransaction) db.exec("ROLLBACK");
             throw new StorageError(error);
           }
           games.delete(g.code);
@@ -1975,6 +2024,7 @@ export function makeServer(
   return {
     api,
     games,
+    storageHealth: storageHealth.snapshot,
     runtimeFenced:()=>reportedRuntimeFence,
     listen: () =>
       new Promise<number>((resolve) =>
@@ -1984,6 +2034,7 @@ export function makeServer(
       ),
     close: async () => {
       clearInterval(tick);
+      storageHealth.close();
       sender.close();
       for (const ws of wss.clients) ws.close();
       await new Promise<void>((resolve) => wss.close(() => resolve()));

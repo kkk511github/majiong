@@ -1227,6 +1227,7 @@ export function viewFor(g: Game, me: Seat): View {
     canSelfWin,
     replay: _replay,
     ruleState: _ruleState,
+    commandReceipts: _commandReceipts,
     ...rest
   } = g;
   const revealedWinners = ["ended", "finished"].includes(g.phase) && g.result?.reason === "hu" ? g.result.winners : [];

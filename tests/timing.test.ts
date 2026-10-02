@@ -94,6 +94,13 @@ describe("建桌指定参数", () => {
   });
 });
 describe("每次10秒后接着使用个人超时余额", () => {
+  it.each([-1, 0, 1])('累计额度耗尽边界偏移 %s ms，恢复期限仍优先于旧deadline', offset => {
+    const g = table(), seat = g.turn;
+    g.players[seat]!.overtimeUsedMs = 89_000;
+    g.players[seat]!.resumedDeadline = 20_000;
+    expect(overtimeExpired(g, seat, 21_000 + offset)).toBe(offset >= 0);
+    expect(overtimeExpired(g, seat, g.deadline)).toBe(false);
+  });
   it("离线座位即使关闭在线托管，也保留10秒正常时间和90秒累计额度", () => {
     const g = table();
     g.table!.settings.trusteeMode = "disabled";

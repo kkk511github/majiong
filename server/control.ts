@@ -23,7 +23,7 @@ import type {createReconciliation} from './reconciliation';
 
 type Accounts = ReturnType<typeof createAccounts>;
 
-/** Browser administration follows the existing one-session-per-account login rules. */
+/** Browser administration has its own session namespace, independent of App play. */
 export function createControl(
   db: DatabaseSync,
   accounts: Accounts,
@@ -39,7 +39,7 @@ export function createControl(
   const bearer = (req: IncomingMessage) =>
     req.headers.authorization?.replace(/^Bearer /, "");
   function requireSession(req: IncomingMessage): AuthSession {
-    return accounts.requireSession(req, true);
+    return accounts.requireControlSession(req);
   }
 
   function transaction<T>(fn: () => T): T {
@@ -230,6 +230,7 @@ export function createControl(
     const memberPath =
       path === "/api/announcements" || path.startsWith("/api/announcements/");
     if (!memberPath && !path.startsWith("/api/control/")) return false;
+    accounts.auditRequest(req, res);
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     try {
@@ -264,6 +265,7 @@ export function createControl(
             accounts.issueAdministratorSession(
               verified.account.id,
               verified.credentialHash,
+              req,
             ),
           ),
         );
@@ -271,8 +273,8 @@ export function createControl(
       }
       if (path === "/api/control/auth/logout") {
         if (req.method !== "POST") throw new AuthError("请求方式不支持", 405);
-        const session = accounts.getSession(bearer(req));
-        if (session) accounts.revokeSessions(session.id);
+        const session = accounts.getControlSession(bearer(req));
+        if (session) accounts.revokeControlSession(session.id, req);
         res.end('{"ok":true}');
         return true;
       }
@@ -405,6 +407,7 @@ export function createControl(
           // score sheets and replays retain their stable player identity.
           for (const [table, column] of [
             ["sessions", "id"],
+            ["control_sessions", "id"],
             ["team_memberships", "account_id"],
             ["table_permissions", "account_id"],
             ["account_avatars", "account_id"],
@@ -426,7 +429,7 @@ export function createControl(
           const removed = db.prepare("DELETE FROM accounts WHERE id=?").run(id);
           if (!removed.changes) throw new AuthError("账号不存在", 404);
         });
-        accounts.revokeSessions(id);
+        accounts.revokeSessions(id, "account-deleted", req);
         res.end(JSON.stringify({ ok: true, id }));
         return true;
       }
@@ -496,7 +499,7 @@ export function createControl(
           audit(actor.id, id, { event: "password-reset" });
           db.prepare("DELETE FROM sessions WHERE id=?").run(id);
         });
-        accounts.revokeSessions(id);
+        accounts.revokeSessions(id, "admin-password-reset", req);
       } else {
         if (typeof body.suspended !== "boolean")
           throw new AuthError("请选择暂停或恢复使用");
@@ -527,7 +530,7 @@ export function createControl(
             db.prepare("DELETE FROM sessions WHERE id=?").run(id);
           }
         });
-        if (body.suspended) accounts.revokeSessions(id);
+        if (body.suspended) accounts.revokeSessions(id, "account-suspended", req);
       }
       res.end(JSON.stringify({ account: accounts.notifyAccount(id) }));
     } catch (error) {

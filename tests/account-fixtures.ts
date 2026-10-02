@@ -24,6 +24,15 @@ export function registerTestPort(port: number) {
   hosts.set(port, false);
   adminReady.set(port,new Promise(resolve => adminResolve.set(port,resolve)));
 }
+export async function controlCredential(port: number) {
+  const response = await fetch(`http://127.0.0.1:${port}/api/control/auth/login`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "guanli@1", password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw Error(JSON.stringify(data));
+  return data.token as string;
+}
 export async function peerCredential(port: number, name: string) {
   const first = !hosts.get(port);
   hosts.set(port, true);

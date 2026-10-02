@@ -85,6 +85,46 @@ function online(ack = true) {
   ws.receive({ type: "state", state: viewFor(g, 0) });
   return { ws, g };
 }
+it.each([-6, 6])('系统日期跳变 %s 小时不改变前台恢复期限', hours => {
+  vi.useFakeTimers();
+  const { ws, g } = online();
+  ws.receive({ type: 'session', id: 'me', token: 'test-token', name: '测试', roomCode: g.code, timeSync: true });
+  ws.receive({ type: 'state', state: viewFor(g, 0) });
+  client.setNetworkVisible(false); client.setNetworkVisible(true);
+  vi.setSystemTime(Date.now() + hours * 3600_000);
+  vi.advanceTimersByTime(11999);
+  expect(TestSocket.instances).toHaveLength(1);
+  vi.advanceTimersByTime(2);
+  expect(TestSocket.instances).toHaveLength(2);
+  expect(ws.readyState).toBe(TestSocket.CLOSED);
+});
+it('同连接同局回退快照不覆盖状态；换局、换桌低版本及新连接快照可正常恢复', () => {
+  const { ws, g } = online();
+  ws.receive({ type: 'session', id: 'me', token: 'test-token', name: '测试', roomCode: g.code, timeSync: true });
+  ws.receive({ type: 'state', state: viewFor(g, 0) });
+  g.round = 1;
+  g.revision = 10; ws.receive({ type: 'state', state: viewFor(g, 0) });
+  g.revision = 5; ws.receive({ type: 'state', state: viewFor(g, 0) });
+  expect(client.state.view!.revision).toBe(10);
+  g.round++; g.revision = 1; ws.receive({ type: 'state', state: viewFor(g, 0) });
+  expect(client.state.view!.round).toBe(g.round);
+  const next = createGame('654321', 'next'); next.players[0] = newPlayer('me', '测试');
+  ws.receive({ type: 'state', state: viewFor(next, 0) });
+  expect(client.state.view!.id).toBe(next.id);
+  client.connect('测试'); const replacement = TestSocket.instances.at(-1)!;
+  replacement.receive({ type: 'session', id: 'me', token: 'test-token', name: '测试', roomCode: next.code });
+  replacement.receive({ type: 'state', state: viewFor(next, 0) });
+  ws.receive({ type: 'state', state: viewFor(g, 0) });
+  expect(client.state.view!.id).toBe(next.id);
+  expect(client.state.connected).toBe(true);
+});
+it('每次操作使用跨实例唯一请求编号并绑定当前牌局轮次，不自动重发', () => {
+  const { ws, g } = online(); client.ready();
+  const first = ws.sent.at(-1)!;
+  expect(first).toMatchObject({ context: { game: g.id, round: g.round } });
+  ws.receive({ type: 'ack', requestId: first.requestId! }); client.ready();
+  expect(ws.sent.at(-1)!.requestId).not.toBe(first.requestId);
+});
 it('diagnostics correlate command/ack and reconnect without copying private action payloads',()=>{
  vi.useFakeTimers();const logs=vi.spyOn(androidDiagnostics,'record');const {ws}=online();
  client.send({type:'action',action:{type:'discard',tile:18},revision:client.state.view!.revision});

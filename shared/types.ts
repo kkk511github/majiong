@@ -299,6 +299,8 @@ export interface MatchDetails {
   rounds: StoredRound[];
 }
 export interface Game {
+  /** Internal bounded commit receipts. Never sent in a player snapshot. */
+  commandReceipts?: { account: string; requestId: string; digest: string; type: string }[];
   /** Versioned rule state is authoritative and persists across reconnect/restart. */
   ruleState?: NanjingRuleState;
   /** Server/local engine only. Never included in a live player View. */
@@ -354,6 +356,7 @@ export interface View extends Omit<
   | "canSelfWin"
   | "replay"
   | "ruleState"
+  | "commandReceipts"
 > {
   /** Public physical discards only; the retained single wait is never exposed. */
   globalAnchorDiscards?: GlobalAnchorDiscard[];
@@ -502,7 +505,7 @@ export type ClientMessage = (
   | { type: "leave" }
   | { type: "dissolve"; agree: boolean }
   | { type: "ping"; sentAt?: number; sync?: boolean }
-) & { requestId?: string };
+) & { requestId?: string; context?: { game: string; round: number } };
 export type ServerMessage = (
   | {type:'diagnosticRequest';id:string;expiresAt:number}
   | {type:'diagnosticAck';id:string;accepted:boolean}

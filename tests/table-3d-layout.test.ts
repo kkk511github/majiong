@@ -1,6 +1,18 @@
 import { expect, it } from 'vitest';
 import { busyTableFixture, fullMeldFixture } from './previews/table-full-meld-fixture';
 import { studyTiles } from './previews/table-3d-layout';
+import { layout3DTable } from '../shared/table-3d-layout';
+it.each(['pung', 'kong'] as const)('reference-3d 满%s副露投影在可见边界内，四种观察座位一致', kind => {
+  for (let me = 0; me < 4; me++) {
+    const state = fullMeldFixture(kind); state.me = me;
+    for (const tile of layout3DTable(state).filter(t => t.area === 'meld')) {
+      expect(tile.y - tile.h / 2, tile.id).toBeGreaterThanOrEqual(4);
+      expect(tile.y + tile.h / 2, tile.id).toBeLessThanOrEqual(590);
+      expect(tile.x - tile.w / 2, tile.id).toBeGreaterThanOrEqual(0);
+      expect(tile.x + tile.w / 2, tile.id).toBeLessThanOrEqual(1280);
+    }
+  }
+});
 it('each discard face points away from its owner in every observer seat', () => {
   for (let me=0;me<4;me++) {
     const state=busyTableFixture(); state.me=me;

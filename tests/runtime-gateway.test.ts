@@ -9,7 +9,7 @@ import {WebSocket} from 'ws';
 import {makeServer} from '../server/service';
 import {makeRuntimeGateway} from '../server/runtime-gateway';
 import {activateRuntime,retireRuntime} from '../server/runtime-ownership';
-import {seedTestAdmin,registerTestPort,peerCredential} from './account-fixtures';
+import {seedTestAdmin,registerTestPort,peerCredential,controlCredential} from './account-fixtures';
 import {debitGame} from './fixtures/debit-game';
 import {createGame} from '../shared/engine';
 import {normalizeTableSettings} from '../shared/table-settings';
@@ -27,6 +27,7 @@ it('two actual workers retain old play/reconnect, route a newly started table to
  try{
   await seedTestAdmin(file);const seed=makeServer({database:file,port:0,host:'127.0.0.1'});workers.push(seed);const seedPort=await seed.listen();registerTestPort(seedPort);
   const oldToken=await peerCredential(seedPort,'老桌测试员'),newToken=await peerCredential(seedPort,'新桌测试员');
+  const controlToken=await controlCredential(seedPort);
   await seed.close();workers.splice(workers.indexOf(seed),1);db=new DatabaseSync(file);
   const oldId=String(db.prepare('SELECT id FROM sessions WHERE token_hash=?').get(createHash('sha256').update(oldToken).digest('hex'))!.id);
   const oldGame=debitGame();oldGame.id='old-match';oldGame.code='123451';oldGame.players[0]!.id=oldId;oldGame.rules.turnSeconds=300;
@@ -38,8 +39,9 @@ it('two actual workers retain old play/reconnect, route a newly started table to
   gateway=makeRuntimeGateway({database:file,port:0});const gatewayPort=await gateway.listen();
   const auditUrl=`http://127.0.0.1:${gatewayPort}/api/control/reconciliation?from=0&to=100`;
   expect((await fetch(auditUrl)).status).toBe(401);
-  expect((await fetch(auditUrl,{headers:{Authorization:`Bearer ${newToken}`}})).status).toBe(403);
-  expect((await fetch(auditUrl,{headers:{Authorization:`Bearer ${oldToken}`}})).status).toBe(200);
+  expect((await fetch(auditUrl,{headers:{Authorization:`Bearer ${newToken}`}})).status).toBe(401);
+  expect((await fetch(auditUrl,{headers:{Authorization:`Bearer ${oldToken}`}})).status).toBe(401);
+  expect((await fetch(auditUrl,{headers:{Authorization:`Bearer ${controlToken}`}})).status).toBe(200);
   const p=await peer(gatewayPort,oldToken);sockets.push(p.ws);await until(p.latest,v=>v?.id==='old-match');
   // An unfenced legacy/maintenance connection cannot write live room state.
   expect(()=>db!.prepare('UPDATE rooms SET updated_at=updated_at+1 WHERE id=?').run('old-match')).toThrow(/function|fenced/);

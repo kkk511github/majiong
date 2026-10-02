@@ -16,5 +16,9 @@ export function LiveCocosTable({view,paused,now,...props}:ComponentProps<typeof 
  },[props.state.connected,paused,view.openingGate,view.canDiscard,view.actions.length,mine?.trustee,clock.seconds,view.deadline]);
  const waiting=view.phase==='claiming'&&!view.actions.length&&clock.overtime;
  const countdown=!props.state.connected||paused||!timed?'—':view.openingGate||waiting?'…':String(clock.seconds).padStart(2,'0');
- return <CocosTable {...props} state={{...props.state,countdown}}/>;
+ const timerVisible=props.state.connected&&!paused&&timed&&!view.openingGate&&!waiting;
+ return <>
+  {timerVisible&&<span className="sr-only" role="timer" aria-label={`${clock.overtime?'超时':view.phase==='claiming'?'选择':'出牌'}剩余${clock.seconds}秒`}>{countdown}</span>}
+  <CocosTable {...props} state={{...props.state,countdown}}/>
+ </>;
 }

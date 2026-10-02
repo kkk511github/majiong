@@ -8,6 +8,7 @@ test('取消托管单击生效，按下和抬起之间更新倒计时也不丢�
  await page.evaluate(async()=>{
   const cc=await (window as any).System.import('cc');
   const c=cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+  c.state.trusteeDisabled=false;c.state.disabled=false;c.state.connected=true;
   c.state.players[0].trustee=true;c.draw();
   (window as any).commands=[];
   const emit=c.emit.bind(c);c.emit=(command:any)=>{(window as any).commands.push(command);emit(command);};

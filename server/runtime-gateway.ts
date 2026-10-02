@@ -10,6 +10,7 @@ import type {Game} from '../shared/types';
 export function makeRuntimeGateway(options:{database:string;port?:number;host?:string}){
  const db=new DatabaseSync(options.database,{timeout:5000});
  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='runtime_config'").get()){db.close();throw Error('Initialize rollout-aware workers before starting the gateway');}
+ db.exec('PRAGMA busy_timeout=0');
  type Client={socket:WebSocket;id:string;role:string;token:string;hello:string;nonce:string;backend?:WebSocket;node?:string;generation:number;tail:Promise<void>;queued:number;tables:boolean;signature:string};
  const people=new Map<string,Client>();let lobbySignature='';
  const active=()=>String(db.prepare('SELECT active FROM runtime_config WHERE id=1').get()!.active);
@@ -109,8 +110,9 @@ export function makeRuntimeGateway(options:{database:string;port?:number;host?:s
      if(message.type!=='hello')throw Error('请先登录');
      const user=typeof message.token==='string'?identity(message.token):undefined;if(!user){socket.send(JSON.stringify({type:'error',code:'AUTH_REQUIRED',message:'请重新登录'}));socket.close(4003);return;}
      const id=String(user.id);people.get(id)?.socket.close(4003,'Session replaced');
-     c={socket,id,role:String(user.role),token:message.token,hello:String(raw),nonce:randomUUID(),generation:0,tail:Promise.resolve(),queued:0,tables:!owner(id),signature:''};people.set(id,c);clearTimeout(login);
-     db.prepare('INSERT OR REPLACE INTO runtime_presence VALUES(?,?,?)').run(c.id,c.nonce,Date.now()+45000);
+     const candidate:Client={socket,id,role:String(user.role),token:message.token,hello:String(raw),nonce:randomUUID(),generation:0,tail:Promise.resolve(),queued:0,tables:!owner(id),signature:''};
+     db.prepare('INSERT OR REPLACE INTO runtime_presence VALUES(?,?,?)').run(candidate.id,candidate.nonce,Date.now()+45000);
+     c=candidate;people.set(id,c);clearTimeout(login);
      const client=c;c.tail=connect(client,owner(id)??active()).then(()=>tables(client,true)).catch(()=>socket.close(1012,'Reconnect to synchronize'));return;
     }
     if(message.type==='hello')throw Error('已经登录');
@@ -136,7 +138,7 @@ export function makeRuntimeGateway(options:{database:string;port?:number;host?:s
     }).catch(error=>send(client,JSON.stringify({type:'error',message:error instanceof Error&&/[\u4e00-\u9fff]/.test(error.message)?error.message:'服务暂时忙碌，请稍后重试',...(typeof message.requestId==='string'?{requestId:message.requestId}:{})}))).finally(()=>{client.queued--;});
    }catch{socket.send(JSON.stringify({type:'error',message:'消息格式不正确或操作太快'}));}
   });
-  socket.on('close',()=>{clearTimeout(login);clearInterval(ping);if(c){c.generation++;c.backend?.close();if(people.get(c.id)===c)people.delete(c.id);db.prepare('DELETE FROM runtime_presence WHERE account_id=? AND connection_id=?').run(c.id,c.nonce);}});
+  socket.on('close',()=>{clearTimeout(login);clearInterval(ping);if(c){c.generation++;c.backend?.close();if(people.get(c.id)===c)people.delete(c.id);try{db.prepare('DELETE FROM runtime_presence WHERE account_id=? AND connection_id=?').run(c.id,c.nonce);}catch(error){console.error('Runtime presence cleanup deferred to expiry',error);}}});
  });
  const audit=setInterval(()=>{
   try{

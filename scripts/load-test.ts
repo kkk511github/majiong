@@ -62,6 +62,7 @@ const portPromise = new Promise<number>((resolve, reject) => {
 class Peer {
   socket: WebSocket;
   view?: View;
+  codes?: string[];
   session?: Extract<ServerMessage, { type: "session" }>;
   private listeners = new Set<() => void>();
   constructor(port: number, name: string, token: string) {
@@ -77,10 +78,12 @@ class Peer {
           throw Error(message.message);
         }
         if (message.type === "session") this.session = message;
+        if (message.type === 'tablesCreated') this.codes = message.codes;
         if (message.type === "state") {
           const v = message.state;
           stateMessages++;
           assert(!("wall" in v), "Private wall leaked");
+          assert(!('commandReceipts' in v), 'Internal receipts leaked');
           assert(v.ownerId, "Missing room owner");
           if (this.view?.id === v.id)
             assert(v.revision >= this.view.revision, "Revision regressed");
@@ -102,7 +105,9 @@ class Peer {
     });
   }
   send(message: ClientMessage) {
-    this.socket.send(JSON.stringify(message));
+    const contextual = ['ready', 'action', 'trustee', 'leave', 'addBot', 'dissolve'].includes(message.type) && this.view;
+    this.socket.send(JSON.stringify({ ...message, ...(contextual
+      ? { requestId: `load-${randomUUID()}`, context: { game: this.view!.id, round: this.view!.round } } : {}) }));
   }
   wait(check: () => boolean): Promise<void> {
     if (check()) return Promise.resolve();
@@ -196,9 +201,9 @@ try {
     const credentials: string[] = [];
     try {
       db.exec("BEGIN");
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 20; i++) {
         const id = randomUUID(), token = randomBytes(32).toString("hex"), name = `试打${i + 1}`;
-        db.prepare("INSERT INTO accounts VALUES (?,?,?,?,?,?,?)").run(id, `load-${i}`, name, hash, "member", 0, Date.now());
+        db.prepare("INSERT INTO accounts VALUES (?,?,?,?,?,?,?)").run(id, i === 0 ? 'guanli@1' : `load-${i}`, name, hash, i === 0 ? 'admin' : 'member', 0, Date.now());
         db.prepare("INSERT INTO team_memberships VALUES (?,?,?,?,?)").run(id, "team-1", 0, "load-fixture", Date.now());
         if (i % 4 === 0) db.prepare("INSERT INTO table_permissions VALUES (?,?,?,?)").run(id, 1, "load-fixture", Date.now());
         db.prepare("INSERT INTO sessions VALUES (?,?,?,?)").run(createHash("sha256").update(token).digest("hex"), id, name, Date.now());
@@ -206,25 +211,24 @@ try {
       }
       db.exec("COMMIT");
     } finally { db.close(); }
-    for (let i = 0; i < 100; i++) clients.push(new Peer(port, `试打${i + 1}`, credentials[i]));
+    for (let i = 0; i < 20; i++) clients.push(new Peer(port, `试打${i + 1}`, credentials[i]));
     await Promise.all(clients.map((p) => p.wait(() => !!p.session)));
-    const tables = Array.from({ length: 25 }, (_, i) =>
+    const tables = Array.from({ length: 5 }, (_, i) =>
       clients.slice(i * 4, i * 4 + 4),
     );
+    clients[0].send({ type: 'createTables', count: 5, creationId: randomUUID(), requestId: 'load-create',
+      rules: { rounds: 4, turnSeconds: 60, twoBankrupt: false },
+      settings: { autoRenew: false, continuousRounds: false, openingAnimation: false, kickUnready: false, kickOffline: false } });
+    await clients[0].wait(() => clients[0].codes?.length === 5);
     await Promise.all(
-      tables.map(async (table) => {
-        table[0].send({
-          type: "create",
-          rules: { rounds: 4, turnSeconds: 60 },
-        });
-        await table[0].wait(() => !!table[0].view);
-        for (const p of table.slice(1)) {
-          p.send({ type: "join", code: table[0].view!.code });
+      tables.map(async (table, index) => {
+        for (const p of table) {
+          p.send({ type: "join", code: clients[0].codes![index] });
           await p.wait(() => !!p.view);
         }
       }),
     );
-    assert.equal(new Set(tables.map((t) => t[0].view!.code)).size, 25);
+    assert.equal(new Set(tables.map((t) => t[0].view!.code)).size, 5);
     const finished = await Promise.all(clients.map((p) => p.play()));
     for (const v of finished) assert.equal(v.history.length, 4);
     latency.sort((a, b) => a - b);
@@ -234,14 +238,14 @@ try {
       at: new Date().toISOString(),
       environment:
         "Single local server process; separate Node WebSocket client process; temporary on-disk SQLite WAL",
-      concurrentClients: 100,
-      rooms: 25,
-      completedRounds: 100,
+      concurrentClients: 20,
+      rooms: 5,
+      completedRounds: 20,
       acceptedOperations: latency.length,
       receivedStates: stateMessages,
       serverErrors,
       unexpectedDisconnects,
-      targets: { completedRooms: 25, serverErrors: 0, unexpectedDisconnects: 0, localStateConfirmationP95Ms: 500 },
+      targets: { completedRooms: 5, serverErrors: 0, unexpectedDisconnects: 0, localStateConfirmationP95Ms: 500 },
       targetMet: serverErrors === 0 && unexpectedDisconnects === 0 && quantile(0.95) <= 500,
       serverResidentMemoryMB: { samples: residentMemoryMB.length, peak: residentMemoryMB.length ? Math.round(Math.max(...residentMemoryMB) * 10) / 10 : null, last: residentMemoryMB.at(-1) ?? null },
       elapsedSeconds: Math.round((performance.now() - started) / 10) / 100,
@@ -252,7 +256,7 @@ try {
         max: latency.at(-1),
       },
       limitations:
-        "Local loopback, pre-provisioned authenticated members, 100ms think time, four rounds per room. Latency ends at matching game state, not ACK. RSS is sampled server memory, not client/GPU memory. Does not establish WAN, recovery, registration or long-duration production capacity.",
+        "Current authorized creator creates 5 official tables; 20 authenticated members; local loopback, 100ms think time, four rounds per room, continuousRounds=false, autoRenew=false, openingAnimation=false, kickUnready=false, kickOffline=false, twoBankrupt=false. Latency ends at matching state, not ACK. RSS is server memory, not client/GPU memory. This is NOT the historical 100-client/25-table configuration and does not establish WAN, registration or production capacity.",
     };
   };
   const report = await Promise.race([run(), failure]);

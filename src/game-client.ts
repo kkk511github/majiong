@@ -127,7 +127,15 @@ export class GameClient {
   };
   private local?: Game;
   private authStarted = false;
+  private authEpoch = 0;
+  private profileSequence = 0;
+  private passwordChange?: { current: () => boolean; revoked: boolean };
+  private authSession() {
+    const epoch = this.authEpoch, token = storage.get<string>("token", ""), id = this.state.account?.id;
+    return () => epoch === this.authEpoch && token === storage.get<string>("token", "") && id === this.state.account?.id;
+  }
   private socket?: WebSocket;
+  private snapshotSocket?: WebSocket;
   private listeners = new Set<() => void>();
   private tick?: ReturnType<typeof setInterval>;
   private retry?: ReturnType<typeof setTimeout>;
@@ -143,7 +151,6 @@ export class GameClient {
   private phraseRequest?: { id: string; game: string; timer: ReturnType<typeof setTimeout>; resolve: () => void; reject: (error: Error) => void };
   private commandId?: string;
   private commandTimer?: ReturnType<typeof setTimeout>;
-  private commandSequence = 0;
   private commandStartedAt = 0;
   private lobbyWanted = false;
   private clock = new ServerClock();
@@ -174,7 +181,7 @@ export class GameClient {
       connectionId:this.diagnosticConnection,phase:this.state.network.phase,
       online:navigator.onLine!==false,visible:this.networkVisible,
       socketState:this.socket?.readyState,bufferedBytes:this.socket?.bufferedAmount,
-      lastReceivedAgoMs:this.receivedAt?Date.now()-this.receivedAt:undefined,
+      lastReceivedAgoMs:this.receivedAt?performance.now()-this.receivedAt:undefined,
       revision:this.state.view?.revision,requestId:this.commandId,
       ...extra,
     });
@@ -232,7 +239,7 @@ export class GameClient {
     // Retain a few outstanding probes so a genuinely slow, valid response
     // can still recover the connection after its next probe has started.
     while (this.pendingPings.size > 4) this.pendingPings.delete(this.pendingPings.values().next().value!);
-    this.heartbeatAt = Date.now();
+    this.heartbeatAt = performance.now();
     this.probeStartedAt ??= this.heartbeatAt;
     const socket = this.socket;
     try {
@@ -250,13 +257,13 @@ export class GameClient {
             this.clockPing = undefined;
             this.missedPongs++;
             this.traceNetwork('heartbeat-timeout',{
-              elapsedMs:Date.now()-this.heartbeatAt, attempt:this.missedPongs,
+              elapsedMs:performance.now()-this.heartbeatAt, attempt:this.missedPongs,
               reason:this.resumePending?'resume-probe':'heartbeat-probe',
             });
             this.updateNetwork(timedOut(this.state.network));
             const expired = this.resumePending
-              ? Date.now() - this.resumeStartedAt! >= CONNECTION_POLICY.resumeDeadlineMs
-              : Date.now() - Math.max(this.probeStartedAt!, this.receivedAt) >= CONNECTION_POLICY.heartbeatSilenceMs;
+              ? performance.now() - this.resumeStartedAt! >= CONNECTION_POLICY.resumeDeadlineMs
+              : performance.now() - Math.max(this.probeStartedAt!, this.receivedAt) >= CONNECTION_POLICY.heartbeatSilenceMs;
             if (expired) {
               this.restartConnection("正在恢复牌桌连接…", this.resumePending,
                 this.resumePending?'resume-sync-timeout':'heartbeat-silence');
@@ -302,9 +309,9 @@ export class GameClient {
       phase: "ready",
       ...(this.recoveryStartedAt === undefined
         ? {}
-        : { lastRecoveryMs: Date.now() - this.recoveryStartedAt }),
+        : { lastRecoveryMs: performance.now() - this.recoveryStartedAt }),
     });
-    this.traceNetwork('connection-ready',{elapsedMs:this.recoveryStartedAt===undefined?Date.now()-this.openedAt:Date.now()-this.recoveryStartedAt});
+    this.traceNetwork('connection-ready',{elapsedMs:this.recoveryStartedAt===undefined?performance.now()-this.openedAt:performance.now()-this.recoveryStartedAt});
     this.recoveryStartedAt = undefined;
   }
   retryNetwork = () => {
@@ -314,8 +321,8 @@ export class GameClient {
   };
   private restartConnection(notice: string, immediate = false, reason = 'connection-recovery') {
     if (this.stopped || this.state.mode !== "online") return;
-    this.recoveryStartedAt ??= Date.now();
-    this.traceNetwork('reconnect-requested',{reason,attempt:this.missedPongs,operation:this.diagnosticCommand,elapsedMs:this.commandId?Date.now()-this.commandStartedAt:undefined});
+    this.recoveryStartedAt ??= performance.now();
+    this.traceNetwork('reconnect-requested',{reason,attempt:this.missedPongs,operation:this.diagnosticCommand,elapsedMs:this.commandId?performance.now()-this.commandStartedAt:undefined});
     androidDiagnostics.disconnect();
     this.updateNetwork({
       phase: navigator.onLine === false ? "offline" : "retrying",
@@ -352,8 +359,8 @@ export class GameClient {
       return;
     this.traceNetwork('foreground-resume');
     if (this.state.connected && this.socket?.readyState === WebSocket.OPEN) {
-      if (Date.now() - this.lastResumeAt < 750) return;
-      this.lastResumeAt = Date.now();
+      if (performance.now() - this.lastResumeAt < 750) return;
+      this.lastResumeAt = performance.now();
       if (!this.timeSync) {
         this.restartConnection("正在恢复牌桌连接…", true, 'legacy-resume');
         return;
@@ -363,7 +370,7 @@ export class GameClient {
       !this.socket ||
       this.socket.readyState === WebSocket.CLOSING ||
       this.socket.readyState === WebSocket.CLOSED ||
-      Date.now() - this.openedAt >= 2000
+      performance.now() - this.openedAt >= 2000
     ) {
       this.restartConnection("正在恢复牌桌连接…", true, 'foreground-closed-socket');
     } else {
@@ -379,9 +386,9 @@ export class GameClient {
     this.commandTimer = undefined;
     this.finishTables();
     this.resumePending = true;
-    this.resumeStartedAt = Date.now();
+    this.resumeStartedAt = performance.now();
     this.resumeViewSeen = false;
-    this.recoveryStartedAt ??= Date.now();
+    this.recoveryStartedAt ??= performance.now();
     this.traceNetwork('snapshot-requested', { reason, operation:this.diagnosticCommand });
     this.updateNetwork({ phase: 'syncing' });
     this.emit({ connected:false, connecting:true, notice:'正在同步牌桌…' });
@@ -491,6 +498,7 @@ export class GameClient {
     this.emit({ lobbyNotice: "" });
   }
   async api<T>(path: string, body?: unknown): Promise<T> {
+    const currentSession = this.authSession();
     const started=performance.now();
     // Route family only: never log query strings, account IDs, bodies or headers.
     const route=['auth','records','tables','profile','app','diagnostics'].find(part=>path.startsWith(`/api/${part}/`)||path===`/api/${part}`)??'other';
@@ -514,6 +522,7 @@ export class GameClient {
       if (!response.ok) {
         if (
           response.status === 401 &&
+          currentSession() &&
           token === storage.get<string>("token", "") &&
           ![
             "/api/auth/login",
@@ -541,6 +550,7 @@ export class GameClient {
     }
   }
   async sendVoice(bytes: Uint8Array, game: string, signal: AbortSignal) {
+    const currentSession = this.authSession();
     voiceDuration(bytes);
     if (
       !this.state.connected ||
@@ -570,7 +580,7 @@ export class GameClient {
       );
       const data = await response.json();
       if (!response.ok) {
-        if (response.status === 401) this.expireAuth();
+        if (response.status === 401 && currentSession()) this.expireAuth();
         throw Error(data.error ?? "语音发送失败，请重试");
       }
     } finally {
@@ -593,12 +603,14 @@ export class GameClient {
     });
   }
   private acceptAccount(data: { token: string; account: Account }) {
+    this.authEpoch++;
     this.disconnect();
     storage.set("token", data.token);
     storage.set("name", data.account.name);
     this.emit({
       account: data.account,
       authChecked: true,
+      authBusy: false,
       authError: "",
       view: null,
       mode: null,
@@ -607,11 +619,13 @@ export class GameClient {
     if (!data.account.mustChangePassword) this.connect(data.account.name);
   }
   private expireAuth() {
+    this.authEpoch++;
     this.disconnect();
     storage.set("onlineActive", false);
     this.emit({
       account: null,
       authChecked: true,
+      authBusy: false,
       view: null,
       mode: null,
       tables: [],
@@ -626,6 +640,7 @@ export class GameClient {
     name?: string,
   ) {
     if (this.state.authBusy) return;
+    const epoch = ++this.authEpoch;
     this.emit({ authBusy: true, authError: "" });
     try {
       const data = await this.api<{ token: string; account: Account }>(
@@ -644,57 +659,78 @@ export class GameClient {
             : {}),
         },
       );
+      if (epoch !== this.authEpoch) return;
       this.acceptAccount(data);
     } catch (error) {
+      if (epoch !== this.authEpoch) return;
       this.emit({
         authError: error instanceof Error ? error.message : "登录失败",
       });
     } finally {
-      this.emit({ authBusy: false });
+      if (epoch === this.authEpoch) this.emit({ authBusy: false });
     }
   }
   async changePassword(currentPassword: string, password: string) {
+    if (this.state.authBusy) return false;
+    const currentSession = this.authSession();
+    const operation = { current: currentSession, revoked: false };
+    this.passwordChange = operation;
     this.emit({ authBusy: true, authError: "" });
     try {
       const data = await this.api<{ token: string; account: Account }>(
         "/api/auth/password",
         { currentPassword, password },
       );
+      if (!currentSession()) return false;
       this.acceptAccount(data);
       return true;
     } catch (error) {
+      if (!currentSession()) return false;
       this.emit({
         authError: error instanceof Error ? error.message : "修改失败",
       });
       return false;
     } finally {
-      this.emit({ authBusy: false });
+      if (this.passwordChange === operation) this.passwordChange = undefined;
+      if (currentSession()) {
+        if (operation.revoked) this.expireAuth();
+        else this.emit({ authBusy: false });
+      }
     }
   }
   async updateProfile(name: string) {
+    const currentSession = this.authSession();
+    const sequence = ++this.profileSequence;
     const data = await this.api<{ account: Account }>("/api/auth/profile", {
       name,
     });
-    storage.set("name", name);
+    if (!currentSession() || sequence !== this.profileSequence || data.account.id !== this.state.account?.id) return;
+    storage.set("name", data.account.name);
     this.emit({ account: data.account });
   }
   async updateAvatar(image: string | null) {
+    const currentSession = this.authSession();
+    const sequence = ++this.profileSequence;
     const data = await this.api<{ account: Account }>("/api/auth/avatar", {
       image,
     });
-    this.emit({ account: data.account });
+    if (currentSession() && sequence === this.profileSequence && data.account.id === this.state.account?.id) this.emit({ account: data.account });
   }
   async logout() {
     if (this.state.authBusy) return;
+    const currentSession = this.authSession();
     this.emit({ authBusy: true, authError: "" });
     try {
       await this.api("/api/auth/logout", {});
+      if (!currentSession()) return;
+      this.authEpoch++;
       androidDiagnostics.logout();
       this.disconnect();
       storage.set("token", "");
       storage.set("onlineActive", false);
       this.emit({
         account: null,
+        authBusy: false,
         view: null,
         mode: null,
         tables: [],
@@ -702,11 +738,12 @@ export class GameClient {
         error: "",
       });
     } catch (error) {
+      if (!currentSession()) return;
       this.emit({
         authError: error instanceof Error ? error.message : "退出失败",
       });
     } finally {
-      this.emit({ authBusy: false });
+      if (currentSession()) this.emit({ authBusy: false });
     }
   }
   clearAuthError() {
@@ -715,6 +752,7 @@ export class GameClient {
   async restore() {
     if (this.authStarted) return;
     this.authStarted = true;
+    const currentSession = this.authSession();
     const token = storage.get<string>("token", "");
     if (!token) {
       this.emit({ authChecked: true });
@@ -722,6 +760,7 @@ export class GameClient {
     }
     try {
       const data = await this.api<{ account: Account }>("/api/auth/session");
+      if (!currentSession()) return;
       this.emit({ account: data.account, authChecked: true, authError: "" });
       if (
         onlineAvailable &&
@@ -731,6 +770,7 @@ export class GameClient {
       )
         this.connect(data.account.name);
     } catch (error) {
+      if (!currentSession()) return;
       if ((error as { status?: number }).status === 401) {
         storage.set("legacyToken", token);
         storage.set("token", "");
@@ -944,15 +984,15 @@ export class GameClient {
     this.receivedAt=0;this.diagnosticHeartbeatAt=0;this.diagnosticSnapshotAt=0;
     const ws = new WebSocket(url);
     this.socket = ws;
-    this.openedAt = Date.now();
+    this.openedAt = performance.now();
     this.traceNetwork('socket-connect',{attempt:this.attempt});
     this.connectTimer = setTimeout(
-      () => {this.traceNetwork('connect-timeout',{elapsedMs:Date.now()-this.openedAt});this.restartConnection("连接牌桌超时，正在重试…", false, 'handshake-timeout');},
+      () => {this.traceNetwork('connect-timeout',{elapsedMs:performance.now()-this.openedAt});this.restartConnection("连接牌桌超时，正在重试…", false, 'handshake-timeout');},
       10000,
     );
     ws.onopen = async () => {
       if (this.socket !== ws || this.stopped) return;
-      this.traceNetwork('socket-open',{elapsedMs:Date.now()-this.openedAt});
+      this.traceNetwork('socket-open',{elapsedMs:performance.now()-this.openedAt});
       this.updateNetwork({ phase: "authenticating" });
       let clientVersion: string | undefined = webVersion;
       if (Capacitor.isNativePlatform()) {
@@ -971,7 +1011,7 @@ export class GameClient {
           token: storage.get("token", undefined),
         }),
       );
-      this.traceNetwork('hello-sent',{elapsedMs:Date.now()-this.openedAt});
+      this.traceNetwork('hello-sent',{elapsedMs:performance.now()-this.openedAt});
     };
     ws.onmessage = (event) => {
       if (this.socket !== ws || this.stopped) return;
@@ -982,11 +1022,11 @@ export class GameClient {
         // Garbage and stale pongs must not keep a half-open connection alive.
         if ((msg.type === 'state' && msg.state?.code && Number.isFinite(msg.state.revision)) ||
             (msg.type === 'pong' && msg.sentAt !== undefined && this.pendingPings.has(msg.sentAt) && Number.isFinite(msg.serverNow)) ||
-            msg.type === 'session' || msg.type === 'ack') this.receivedAt=Date.now();
+            msg.type === 'session' || msg.type === 'ack') this.receivedAt=performance.now();
         this.clock.observe(msg.serverNow);
         if (msg.type === "session") {
           androidDiagnostics.session(msg.id,msg.clientDiagnostics===true||msg.androidDiagnostics===true,(diagnosticId,report)=>{if(this.socket!==ws||ws.readyState!==WebSocket.OPEN||ws.bufferedAmount>65536)return false;ws.send(JSON.stringify({type:'diagnosticUpload',diagnosticId,report}));return true;},msg.clientDiagnosticsVersion);
-          this.traceNetwork('session-confirmed',{elapsedMs:Date.now()-this.openedAt});
+          this.traceNetwork('session-confirmed',{elapsedMs:performance.now()-this.openedAt});
           clearTimeout(this.connectTimer);
           this.connectTimer = undefined;
           this.commandAck = msg.commandAck === true;
@@ -1026,7 +1066,7 @@ export class GameClient {
               const playing =
                 this.state.view &&
                 ["playing", "claiming"].includes(this.state.view.phase);
-              if (playing || Date.now() - this.heartbeatAt >= 30000)
+              if (playing || performance.now() - this.heartbeatAt >= 30000)
                 this.syncTime();
             }, 10000);
           }
@@ -1047,9 +1087,9 @@ export class GameClient {
             );
             this.clock.sample(msg.serverNow!, msg.sentAt);
             const rtt=performance.now()-msg.sentAt;
-            if(rtt>=600||this.resumePending||Date.now()-this.diagnosticHeartbeatAt>=60000){
+            if(rtt>=600||this.resumePending||performance.now()-this.diagnosticHeartbeatAt>=60000){
               this.traceNetwork('heartbeat-received',{rttMs:rtt,smoothedRttMs:this.state.network.smoothedRttMs??undefined,serverTimeMs:msg.serverNow});
-              this.diagnosticHeartbeatAt=Date.now();
+              this.diagnosticHeartbeatAt=performance.now();
             }
             this.clockPing = undefined;
             this.pendingPings.clear();
@@ -1133,11 +1173,20 @@ export class GameClient {
           );
           this.emit({});
         } else if (msg.type === "state") {
-          storage.set("onlineActive", true);
-          if (!this.commandAck) this.finishCommand();
           const restored = this.awaitingRoom !== undefined;
           if (restored && msg.state.code !== this.awaitingRoom) return;
           const before = this.state.view, next = msg.state;
+          if (this.snapshotSocket === ws && before?.id === next.id && before.round === next.round && next.revision < before.revision) {
+            this.traceNetwork('snapshot-regression', { revision: next.revision, round: next.round });
+            if (!this.resumePending && !restored) {
+              if (this.timeSync) this.syncCurrentConnection('snapshot-regression');
+              else this.restartConnection('正在重新获取完整牌桌…', true, 'snapshot-regression');
+            }
+            return;
+          }
+          storage.set("onlineActive", true);
+          this.snapshotSocket = ws;
+          if (!this.commandAck) this.finishCommand();
           const accountId = this.state.account?.id ?? next.players[next.me]?.id;
           if (accountId) storage.set(`activeRoom:${accountId}`, next.id);
           const openingPending =
@@ -1161,10 +1210,10 @@ export class GameClient {
           const starting = next.table?.settings.openingAnimation !== false &&
             !currentOpening && (openingPending || legacyStarting);
           this.resumeViewSeen = this.resumePending;
-          if(restored||before?.round!==next.round||Date.now()-this.diagnosticSnapshotAt>=60000){
+          if(restored||before?.round!==next.round||performance.now()-this.diagnosticSnapshotAt>=60000){
             androidDiagnostics.context({code:next.code,round:next.round,phase:next.phase});
             this.traceNetwork('snapshot-received',{revision:next.revision,round:next.round});
-            this.diagnosticSnapshotAt=Date.now();
+            this.diagnosticSnapshotAt=performance.now();
           }
           this.updateNetwork({
             lastSnapshotAt: Date.now(),
@@ -1204,7 +1253,7 @@ export class GameClient {
             this.traceNetwork('late-ack',{requestId:msg.requestId});
           if (msg.requestId === this.phraseRequest?.id) this.finishPhrase();
           if (msg.requestId === this.commandId) {
-            this.traceNetwork('confirmed',{operation:this.diagnosticCommand,elapsedMs:Date.now()-this.commandStartedAt},'command-ack');
+            this.traceNetwork('confirmed',{operation:this.diagnosticCommand,elapsedMs:performance.now()-this.commandStartedAt},'command-ack');
             this.finishCommand();
           }
         } else if(msg.type==='diagnosticRequest'){
@@ -1231,7 +1280,7 @@ export class GameClient {
           }
           // A renewal/leave notification can finish the old command before its late reply arrives.
           if (msg.requestId && msg.requestId !== this.commandId) {this.traceNetwork('late-command-error',{requestId:msg.requestId});return;}
-          if(this.commandId)this.traceNetwork(msg.message,{operation:this.diagnosticCommand,elapsedMs:Date.now()-this.commandStartedAt},'command-error');
+          if(this.commandId)this.traceNetwork(msg.message,{operation:this.diagnosticCommand,elapsedMs:performance.now()-this.commandStartedAt},'command-error');
           if (!msg.requestId || msg.requestId === this.commandId)
             this.finishCommand();
           if (!msg.requestId) this.finishTables();
@@ -1266,7 +1315,7 @@ export class GameClient {
     ws.onclose = (event) => {
       if (this.socket !== ws || this.stopped) return;
       androidDiagnostics.disconnect();
-      this.traceNetwork('socket-close',{closeCode:event.code,wasClean:event.wasClean,closeReason:event.reason,elapsedMs:Date.now()-this.openedAt});
+      this.traceNetwork('socket-close',{closeCode:event.code,wasClean:event.wasClean,closeReason:event.reason,elapsedMs:performance.now()-this.openedAt});
       this.stopClock();
       clearTimeout(this.connectTimer);
       this.finishTables();
@@ -1276,6 +1325,13 @@ export class GameClient {
         return;
       }
       if (event.code === 4003) {
+        // Password rotation revokes the old socket before HTTP can deliver the
+        // replacement token. Keep that specific request alive, never the socket.
+        if (this.passwordChange?.current()) {
+          this.passwordChange.revoked = true;
+          this.disconnect();
+          return;
+        }
         this.expireAuth();
         return;
       }
@@ -1334,13 +1390,14 @@ export class GameClient {
       ].includes(msg.type) ||
       (this.state.tableLobby && ["create", "join"].includes(msg.type));
     if (tracked) {
-      this.commandId = `command-${++this.commandSequence}`;
-      this.commandStartedAt=Date.now();
+      const operation = crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+      this.commandId = `command-${operation}`;
+      this.commandStartedAt=performance.now();
       this.diagnosticCommand=msg.type==='action'?`action:${msg.action.type}`:msg.type;
       this.traceNetwork('sent',{operation:this.diagnosticCommand},'command-sent');
       this.emit({ submitting: msg.type, error: "" });
       this.commandTimer = setTimeout(() => {
-        this.traceNetwork('awaiting confirmation',{operation:this.diagnosticCommand,elapsedMs:Date.now()-this.commandStartedAt},'command-timeout');
+        this.traceNetwork('awaiting confirmation',{operation:this.diagnosticCommand,elapsedMs:performance.now()-this.commandStartedAt},'command-timeout');
         // The server may have accepted the move. Sync over the existing socket
         // first, keeping input blocked; never resend an uncertain operation.
         this.updateNetwork({
@@ -1363,6 +1420,8 @@ export class GameClient {
         JSON.stringify({
           ...msg,
           ...(tracked ? { requestId: this.commandId } : {}),
+          ...(["ready", "addBot", "action", "trustee", "leave", "dissolve"].includes(msg.type) && this.state.view
+            ? { context: { game: this.state.view.id, round: this.state.view.round } } : {}),
         }),
       );
     } catch {
@@ -1473,6 +1532,7 @@ export class GameClient {
     this.emit({ updateRequired: { message, minimumVersion }, error: message, notice: '', view: completed, openingCue: null });
   }
   disconnect() {
+    this.snapshotSocket = undefined;
     androidDiagnostics.disconnect();
     for (const id of this.inviteRequests.keys()) this.finishInvitation(id, new Error('连接已关闭'));
     this.stopClock();

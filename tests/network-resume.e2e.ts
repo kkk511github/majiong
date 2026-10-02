@@ -1,5 +1,6 @@
 import { test, expect, legacyRoom } from "./browser-fixtures";
 import pkg from "../package.json" with { type: "json" };
+import { CONNECTION_POLICY } from '../src/connection-policy';
 
 test('重连重新测速，不继承旧连接高延迟或清除历史超时计数',async({page})=>{
  await page.goto('/');await legacyRoom(page);
@@ -11,7 +12,7 @@ test('重连重新测速，不继承旧连接高延迟或清除历史超时计�
  expect(health.reconnects).toBeGreaterThan(before.reconnects);expect(health.timeouts).toBe(2);expect(health.commandTimeouts).toBe(1);
 });
 
-test("短暂后台保留连接，失效连接两秒内重建并恢复原桌与登录", async ({
+test("短暂后台保留连接，失效连接在恢复政策期限内重建且不重放操作", async ({
   page,
 }) => {
   let connections = 0,
@@ -70,10 +71,12 @@ test("短暂后台保留连接，失效连接两秒内重建并恢复原桌与�
           const { client } = await import("/src/game-client.ts" as string);
           return client.state.connected && client.state.view?.code;
         }),
-      { intervals: [50, 100, 200], timeout: 5000 },
+      { intervals: [50, 100, 200], timeout: CONNECTION_POLICY.resumeDeadlineMs + 3000 },
     )
     .toBe(code);
-  expect(Date.now() - started).toBeLessThan(4000);
+  const elapsed = Date.now() - started;
+  expect(elapsed).toBeGreaterThanOrEqual(CONNECTION_POLICY.resumeDeadlineMs);
+  expect(elapsed).toBeLessThan(CONNECTION_POLICY.resumeDeadlineMs + 3000);
   expect(connections).toBe(established + 1);
   expect(sent.filter((m) => m.type === "create")).toHaveLength(1);
   expect(

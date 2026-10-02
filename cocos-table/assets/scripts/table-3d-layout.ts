@@ -146,7 +146,7 @@ export function layout3DTable(state:TableSceneState) {
       if(o%2===1){
         // Full downstream racks also reserve room for the independent draw
         // at their far end; keep it inside the screen rather than above it.
-        const start=groundAt(o===3?265:1125,o===3?(groups.length>2?20:40):(groups.length>2?548:438));
+        const start=groundAt(o===3?265:1125,o===3?(groups.length>2?32:40):(groups.length>2?548:438));
         cursor=start[axis]-rackDirection*firstSize[axis]/2;
         baseline=start[edge]+ownerSide*firstSize[edge]/2;
       }

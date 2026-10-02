@@ -13,7 +13,7 @@ async function tableFixture(page: Page) {
     groupId: "clock",
     number: 1,
     createdAt: Date.now(),
-    settings: normalizeTableSettings(),
+    settings: normalizeTableSettings({ openingAnimation: false }),
   };
   game.players = ["金陵牌友", "秦淮", "钟山", "莫愁"].map((name, i) => ({
     ...newPlayer(String(i), name),
@@ -82,9 +82,16 @@ for (const [width, height, skew] of [
       g.players.forEach((p) => (p!.ready = true));
       return startRound(g, Date.now(), seededRandom(51));
     });
-    await expect(page.locator(".table-center strong")).toHaveText(
-      /^(?:09|10)$/,
-    );
+    const frame = page.frameLocator('#cocos-table-board iframe');
+    await expect.poll(() => frame.locator('body').evaluate(() => !!(window as any).__JINLING_TABLE_READY__), { timeout: 15000 }).toBe(true);
+    // First entry loads real resources. Start a fresh server window after READY
+    // so resource startup time is not mistaken for a clock synchronization bug.
+    fixture.update(g => { g.deadline = Date.now() + 10_000; return g; });
+    await expect(page.getByRole('timer')).toHaveText(/^(?:09|10)$/);
+    await expect.poll(() => frame.locator('body').evaluate(async () => {
+      const cc = await (window as any).System.import('cc');
+      return cc.director.getScene().getChildByName('Canvas').getComponent('TableScene').countdownLabel?.string;
+    })).toMatch(/^(?:09|10)$/);
     // Another date change during play cannot lengthen or expire the server deadline.
     await page.evaluate(() => {
       Date.now = () => 1;
@@ -104,45 +111,33 @@ for (const [width, height, skew] of [
       "aria-label",
       /超时剩余8[12]秒/,
     );
-    const hidden = await page.locator(".turn-countdown").evaluateAll((els) =>
-      els
-        .filter((el) => {
-          const b = el.getBoundingClientRect();
-          return (
-            b.left < 0 ||
-            b.right > innerWidth ||
-            b.top < 0 ||
-            b.bottom > innerHeight
-          );
-        })
-        .map((el) => el.className),
-    );
-    expect(hidden).toEqual([]);
-    const compass = await page.locator(".table-center").evaluate((el) => {
-      const number = el.querySelector("strong")!.getBoundingClientRect();
-      return Array.from(el.querySelectorAll(".compass-wind")).map((w) => {
-        const b = w.getBoundingClientRect();
-        return {
-          size: parseFloat(getComputedStyle(w).fontSize),
-          overlaps:
-            Math.min(b.right, number.right) - Math.max(b.left, number.left) >
-              1 &&
-            Math.min(b.bottom, number.bottom) - Math.max(b.top, number.top) > 1,
-        };
+    const compass = await frame.locator('body').evaluate(async () => {
+      const cc = await (window as any).System.import('cc');
+      const scene = cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
+      const number = scene.countdownLabel.node.getComponent(cc.UITransform).getBoundingBoxToWorld();
+      return scene.compassWinds.map((wind: any) => {
+        const b = wind.node.getComponent(cc.UITransform).getBoundingBoxToWorld();
+        return { size: wind.fontSize,
+          inside: b.xMin >= 0 && b.xMax <= 1280 && b.yMin >= 0 && b.yMax <= 590,
+          overlaps: Math.min(b.xMax, number.xMax) - Math.max(b.xMin, number.xMin) > 1 &&
+            Math.min(b.yMax, number.yMax) - Math.max(b.yMin, number.yMin) > 1 };
       });
     });
-    expect(compass.filter((w) => w.size < 13 || w.overlaps)).toEqual([]);
+    expect(compass).toHaveLength(4);
+    expect(compass.filter((w: any) => w.size < 13 || !w.inside || w.overlaps)).toEqual([]);
     await page.screenshot({
       path: `test-results/screenshots/clock-overtime-${width}.png`,
     });
     fixture.drop();
-    await expect(page.locator(".table-center small")).toHaveText("重连中");
-    await expect(page.getByRole("timer")).toHaveCount(0);
+    expect(await page.evaluate(async () => {
+      const { client } = await import('/src/game-client.ts' as string);
+      return client.state.connected;
+    })).toBe(false);
     await expect(page.getByRole("timer")).toHaveAttribute(
       "aria-label",
       /超时剩余(?:7[89]|8[0-7])秒/,
       { timeout: 12000 },
     );
-    await expect(page.locator(".table-center strong")).not.toHaveText("90");
+    await expect(page.getByRole('timer')).not.toHaveText('90');
   });
 }

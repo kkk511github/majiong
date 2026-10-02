@@ -14,9 +14,9 @@ export const RECORD_CLEAR_NOT_BEFORE = "2026-09-21T00:02:00+08:00";
 const FEE_TABLE = "record_clear_fee_carryover";
 const MUTABLE_TABLES = new Set([
   "round_records", "match_records", "point_records", "round_replays",
-  "round_rosters", "admin_match_reads", "table_archives", "rooms", FEE_TABLE,
+  "round_rosters", "admin_match_reads", "table_archives", "rooms", FEE_TABLE, "record_participants",
 ]);
-const REQUIRED_TABLES = [...MUTABLE_TABLES].filter(name => name !== FEE_TABLE);
+const REQUIRED_TABLES = [...MUTABLE_TABLES].filter(name => name !== FEE_TABLE && name !== "record_participants");
 type Row = Record<string, unknown>;
 type Fingerprint = { rows: number; sha256: string };
 type StateChange = { id: string; state: string };
@@ -257,7 +257,10 @@ function assertProtected(before: Record<string, Fingerprint>, after: Record<stri
  * including changes made indirectly by a database trigger. */
 function expectedRetainedRows(db: DatabaseSync, plan: Plan, cutoff: number) {
   const expected: Record<string, string[]> = {};
-  for (const table of REQUIRED_TABLES) {
+  const participantDeletes = Object.fromEntries(["round_records", "match_records"]
+    .map(source => [source, new Set(plan.deleteIds[source] ?? [])]));
+  const optional = tableNames(db).includes("record_participants") ? ["record_participants"] : [];
+  for (const table of [...REQUIRED_TABLES, ...optional]) {
     const statement = db.prepare(`SELECT * FROM ${quote(table)}`);
     statement.setReadBigInts(true);
     const deletes = new Set(plan.deleteIds[table] ?? []);
@@ -267,6 +270,8 @@ function expectedRetainedRows(db: DatabaseSync, plan: Plan, cutoff: number) {
       .map(row => [row.id, row.state]));
     expected[table] = [...statement.iterate()].flatMap(original => {
       const row = { ...original };
+      if (table === "record_participants" &&
+          participantDeletes[String(row.source)]?.has(String(row.record_id))) return [];
       if (deletes.has(String(table === "point_records" ? row.record_id : row.id)) &&
           (table !== "point_records" || Number(row.at) < cutoff)) return [];
       if (table === "round_rosters" && rosters.has(encoded([row.game_id, Number(row.round), row.account_id]))) return [];

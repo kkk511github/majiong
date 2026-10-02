@@ -3,6 +3,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:net';
+import {createServer as createHttpServer} from 'node:http';
 import {DatabaseSync} from 'node:sqlite';
 import {createHash} from 'node:crypto';
 import {WebSocket} from 'ws';
@@ -46,6 +47,22 @@ it('two actual workers retain old play/reconnect, route a newly started table to
   // An unfenced legacy/maintenance connection cannot write live room state.
   expect(()=>db!.prepare('UPDATE rooms SET updated_at=updated_at+1 WHERE id=?').run('old-match')).toThrow(/function|fenced/);
   await activateRuntime(db,'new');expect(()=>retireRuntime(db!,'old')).toThrow('active match');
+  const legacy=createHttpServer((_request,response)=>{response.writeHead(401);response.end('{"error":"Legacy control session"}');});
+  await new Promise<void>(resolve=>legacy.listen(0,'127.0.0.1',resolve));
+  const legacyPort=(legacy.address() as {port:number}).port;
+  db.prepare('UPDATE runtime_nodes SET endpoint=? WHERE id=?').run(`http://127.0.0.1:${legacyPort}`,'old');
+  try{
+   const memberUrl=`http://127.0.0.1:${gatewayPort}/api/control/members/${oldId}/audit`;
+   expect((await fetch(memberUrl,{headers:{Authorization:`Bearer ${controlToken}`}})).status).toBe(200);
+   const logoutUrl=`http://127.0.0.1:${gatewayPort}/api/control/auth/logout`;
+   expect((await fetch(logoutUrl,{method:'POST',headers:{Authorization:`Bearer ${oldToken}`}})).status).toBe(200);
+   p.send({type:'ping',sentAt:42});
+   await until(()=>p.messages.find(message=>message.type==='pong'&&message.sentAt===42),Boolean);
+   expect(p.closed()).toBe(false);
+  }finally{
+   db.prepare('UPDATE runtime_nodes SET endpoint=? WHERE id=?').run(`http://127.0.0.1:${a}`,'old');
+   await new Promise<void>(resolve=>legacy.close(()=>resolve()));
+  }
   p.send({type:'action',requestId:'old-discard',revision:p.latest().revision,action:{type:'discard',tile:96}});
   await until(()=>p.messages.find(m=>m.type==='ack'&&m.requestId==='old-discard'),Boolean);
   expect(p.closed()).toBe(false);expect(old.games.has(oldGame.code)).toBe(true);expect(next.games.has(oldGame.code)).toBe(false);

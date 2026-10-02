@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-30T18:17:36.515Z",
+  "at": "2026-10-02T19:03:58.551Z",
   "kind": "web-build-public-assets",
   "checked": 360,
   "groups": {
@@ -77,10 +77,10 @@
     }
   },
   "runtime": {
-    "sha256": "1ee741456d4ef3ae4a57c3bdffce8d623e7f2293d5dc520a4d8d1215aa59e91d",
+    "sha256": "66362c307da2ef1d969f7325eb7e75f59cd58c1fd8bc73ed6c89095888aae1b4",
     "files": 198,
     "bytes": 54399064
   },
-  "archiveBytes": 50930251,
+  "archiveBytes": 50929929,
   "note": "Local stored sizes; not measured download, memory or launch timing."
 }

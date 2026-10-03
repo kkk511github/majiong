@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -8,6 +8,9 @@ import { createRecords } from '../server/records';
 import { replayedRound } from '../tests/fixtures/replayed-round';
 
 // Synthetic records only. Never opens the deployment database.
+const args = process.argv.slice(2);
+if (args.length && (args.length !== 2 || args[0] !== '--output' || !args[1] || args[1].startsWith('--')))
+  throw Error('Usage: tsx scripts/benchmark-records.ts [--output new-report.json]');
 const dir = mkdtempSync(join(tmpdir(), 'mahjong-records-benchmark-'));
 const db = new DatabaseSync(join(dir, 'fixture.sqlite'));
 try {
@@ -70,7 +73,9 @@ try {
     return { name, medianMs: Number(times[4].toFixed(3)), p95Ms: Number(times[8].toFixed(3)),
       bytes: Buffer.byteLength(json), sha256: createHash('sha256').update(json).digest('hex') };
   });
-  console.log(JSON.stringify({ tables: size, recordBytes: Buffer.byteLength(JSON.stringify(template)), results: output }, null, 2));
+  const report = JSON.stringify({ tables: size, recordBytes: Buffer.byteLength(JSON.stringify(template)), results: output }, null, 2);
+  if (args[1]) writeFileSync(args[1], report + '\n', { flag: 'wx' });
+  console.log(report);
 } finally {
   db.close();
   rmSync(dir, { recursive: true, force: true });

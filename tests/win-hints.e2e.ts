@@ -1,4 +1,5 @@
 import { test, expect } from "./browser-fixtures";
+import { referenceSnapshot } from './previews/table-reference-layout';
 for (const width of [568, 844, 1280])
   test(`长条听牌面板：全部听口与汇总、可胡状态且没有照直入口 ${width}`, async ({
     page,
@@ -8,7 +9,7 @@ for (const width of [568, 844, 1280])
       height: width === 568 ? 320 : width === 844 ? 390 : 590,
     });
     await page.goto("/");
-    await page.evaluate(async () => {
+    await page.evaluate(async reference => {
       const React = (
         await import("/node_modules/.vite/deps/react.js" as string)
       ).default;
@@ -24,6 +25,7 @@ for (const width of [568, 844, 1280])
       const root = createRoot(host),
         commands: any[] = [];
       const state: any = {
+        ...reference,
         key: "hint-qa",
         phase: "playing",
         turn: 0,
@@ -50,7 +52,7 @@ for (const width of [568, 844, 1280])
           ),
       };
       (window as any).__hintQA.render();
-    });
+    }, referenceSnapshot());
     const panel = page.getByRole("region", { name: "胡牌提示" });
     await expect(panel).toContainText("打出后可听");
     await expect(panel.getByRole("listitem")).toHaveCount(31);
@@ -86,10 +88,12 @@ for (const width of [568, 844, 1280])
     await page.evaluate(() => {
       const q = (window as any).__hintQA;
       q.state.actions = [{ id: "hu", label: "胡" }];
-      q.state.pending = { tile: 0 };
+      q.state.pending = { tile: 0, from: 1, kind: 'discard', answered: false };
       q.render();
     });
-    await expect(panel).toContainText("现在可以胡牌");
+    await expect(panel).toContainText('下家打出一万');
+    await expect(panel).toContainText('可胡牌 · 点胡');
+    await expect(panel.getByLabel('胡牌一万', {exact:true})).toBeVisible();
     await expect(panel.getByRole("listitem")).toHaveCount(0);
     await page.evaluate(() => {
       const q = (window as any).__hintQA;

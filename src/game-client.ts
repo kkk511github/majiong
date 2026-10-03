@@ -1421,7 +1421,7 @@ export class GameClient {
           ...msg,
           ...(tracked ? { requestId: this.commandId } : {}),
           ...(["ready", "addBot", "action", "trustee", "leave", "dissolve"].includes(msg.type) && this.state.view
-            ? { context: { game: this.state.view.id, round: this.state.view.round } } : {}),
+            ? { context: { game: this.state.view.id, round: this.state.view.round, revision: this.state.view.revision } } : {}),
         }),
       );
     } catch {

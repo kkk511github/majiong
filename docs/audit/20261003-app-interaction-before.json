@@ -1,0 +1,27 @@
+{
+  "measuredAt": "2026-10-03T04:55:36.845Z",
+  "node": "v24.19.0",
+  "cachedHints": false,
+  "notes": "Synthetic same-hand UI snapshots; Node main-thread work, not device FPS or network latency. Selection batches contain 30 choices; layout batches contain all scenarios.",
+  "snapshotUpdates": {
+    "samples": 30,
+    "medianMs": 13.489332999999988,
+    "p95Ms": 14.999541000000022
+  },
+  "repeatedSelections": {
+    "samples": 50,
+    "medianMs": 0.7477910000000065,
+    "p95Ms": 0.8673329999999169
+  },
+  "actionRail": {
+    "samples": 12,
+    "medianMs": 420.3517920000004,
+    "p95Ms": 425.83191700000043,
+    "scenarios": 864
+  },
+  "fingerprints": {
+    "hints": "2dc24f8c2b405f4985fb5b77260a3a7618eed869c1a65059176e9fba565afeba",
+    "unseen": "d086598501629a157c804d56cf048dcfaf558446a4ed3444b3403211e8aa5473",
+    "actionRail": "1310b0c52a9dce740a19783556ed6355c37a2fc71d9043f6d62f2b063888b14f"
+  }
+}

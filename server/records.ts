@@ -36,8 +36,8 @@ export function createRecords(
     record TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS match_records_time ON match_records(at DESC, id DESC);
     CREATE INDEX IF NOT EXISTS match_records_code ON match_records(code, at DESC);`);
-  db.exec('CREATE INDEX IF NOT EXISTS match_records_game_latest ON match_records(game_id,at DESC,id DESC)');
   createRecordParticipantIndex(db);
+  db.exec('CREATE INDEX IF NOT EXISTS match_records_game_latest ON match_records(game_id,at DESC,id DESC)');
   db.exec(`CREATE TABLE IF NOT EXISTS round_rosters (
     game_id TEXT NOT NULL, round INTEGER NOT NULL, account_id TEXT NOT NULL,
     team_id TEXT NOT NULL, team_name TEXT NOT NULL, PRIMARY KEY(game_id,round,account_id));
@@ -328,34 +328,29 @@ export function createRecords(
       }
     }
     const clause = where.length ? " WHERE " + where.join(" AND ") : "";
-    const dates =
+    const calendarRows =
       query.get("calendar") === "0"
         ? undefined
         : db
             .prepare(
-              "SELECT strftime('%Y-%m-%d', at / 1000, 'unixepoch', '+8 hours') AS date, COUNT(*) AS count FROM " +
+              "SELECT strftime('%Y-%m-%d', at / 1000, 'unixepoch', '+8 hours') AS date, COUNT(*) AS count, SUM(COUNT(*)) OVER () AS total FROM " +
                 source +
                 dateClause +
                 " GROUP BY date ORDER BY date DESC LIMIT 180",
             )
-            .all(...dateArgs)
-            .map((row) => ({
-              date: String(row.date),
-              count: Number(row.count),
-            }));
-    const total = Number(
+            .all(...dateArgs);
+    const dates = calendarRows?.map((row) => ({
+      date: String(row.date),
+      count: Number(row.count),
+    }));
+    // The window total is evaluated before LIMIT, including days older than
+    // the 180 displayed days. Do not rescan history for a second COUNT.
+    const dateTotal = calendarRows === undefined ? undefined : Number(calendarRows[0]?.total ?? 0);
+    const total = dateTotal !== undefined && dateClause === clause ? dateTotal : Number(
       db
         .prepare("SELECT COUNT(*) AS total FROM " + source + clause)
         .get(...args)!.total,
     );
-    const dateTotal =
-      query.get("calendar") === "0"
-        ? undefined
-        : dateClause === clause ? total : Number(
-            db
-              .prepare("SELECT COUNT(*) AS total FROM " + source + dateClause)
-              .get(...dateArgs)!.total,
-          );
     const rows = db
       .prepare(
         "SELECT * FROM " +
@@ -378,8 +373,15 @@ export function createRecords(
     // complete filtered set keeps the figure correct beyond the first page.
     if (query.has("from") && query.has("to")) {
       const scoreRows = db
-        .prepare("SELECT record, player_ids FROM " + source + clause)
-        .all(...args);
+        // Only transfer the fields used by settlementRows, not each hand's
+        // large result details. Iterate instead of retaining every record.
+        .prepare(`SELECT json_object('names',json_extract(record,'$.names'),
+          'scores',json_extract(record,'$.scores'),
+          'externalScores',json_extract(record,'$.externalScores'),
+          'settlementBase',json_extract(record,'$.settlementBase'),
+          'initialScore',json_extract(record,'$.initialScore'),
+          'scoreDivisor',json_extract(record,'$.scoreDivisor')) AS record, player_ids FROM ` + source + clause)
+        .iterate(...args);
       for (const row of scoreRows) {
         const record = JSON.parse(String(row.record)) as RoundRecord;
         record.playerIds = JSON.parse(String(row.player_ids)) as string[];
@@ -391,20 +393,21 @@ export function createRecords(
             current.points += player.recorded;
             current.rounds += 1;
           } else {
-            const number = db
-              .prepare(
-                "SELECT member_id FROM account_numbers WHERE account_id=?",
-              )
-              .get(id);
             totals.set(id, {
               id,
               name: player.name,
-              memberId: number ? String(number.member_id) : undefined,
+              memberId: undefined,
               points: player.recorded,
               rounds: 1,
             });
           }
         }
+      }
+      const ids = [...totals.keys()];
+      for (let offset = 0; offset < ids.length; offset += 500) {
+        const batch = ids.slice(offset, offset + 500);
+        const numbers = db.prepare(`SELECT account_id,member_id FROM account_numbers WHERE account_id IN (${batch.map(() => '?').join(',')})`).all(...batch);
+        for (const number of numbers) totals.get(String(number.account_id))!.memberId = String(number.member_id);
       }
     }
     const context = createPresentContext(rows, viewer, showTeams);

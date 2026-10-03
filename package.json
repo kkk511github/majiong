@@ -33,6 +33,11 @@
     "test:soak": "playwright test -c playwright.soak.config.ts",
     "build:cocos": "node scripts/build-cocos.mjs",
     "check:web-assets": "node scripts/check-web-assets.mjs",
+    "check:records-upgrade": "tsx scripts/check-records-upgrade.ts",
+    "benchmark:app-interaction": "tsx scripts/benchmark-app-interaction.ts",
+    "check:gameplay:compat": "tsx scripts/check-gameplay-compatibility.ts",
+    "test:release-risk": "playwright test -c playwright.release-risk.config.ts",
+    "check:release:network": "npm run check:gameplay:compat && npm test && npm run build:web && npm run build:control && npm run test:release-risk",
     "check:release:web": "npm test && npm run build && playwright test -c playwright.optimization.config.ts",
     "test:network": "playwright test -c playwright.network.config.ts"
   },

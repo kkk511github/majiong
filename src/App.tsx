@@ -70,7 +70,7 @@ import { Settlement, ScoreDetails } from "./Settlement";
 import { roundReadiness } from "./round-readiness";
 import { RoundReveal } from "./RoundReveal";
 import { resultDisplayLabel } from "./win-label";
-import { listeningHints, readyDiscardTiles } from "./listening-hints";
+import { ListeningHintCache } from "./listening-hint-cache";
 import {LiveCocosTable} from './LiveCocosTable';
 import {useVisibleClock} from './useVisibleClock';
 import { riverLayoutFor, tableRiverLayout } from "./river-layout";
@@ -253,7 +253,11 @@ export function App() {
     for (const src of [openingScene, openingTitle]) { const image = new Image(); image.src = src; }
   }, []);
   const showingWinEffect = !!v?.result && motion.some(e=>e.type==="hu");
-  const readyDiscards = useMemo(()=>v ? readyDiscardTiles(v) : [],[v]);
+  const [hintCache] = useState(() => new ListeningHintCache());
+  const readyDiscards = useMemo(()=>{
+    if (!v) { hintCache.clear(); return []; }
+    return hintCache.readyDiscards(v);
+  },[v,hintCache]);
   const handRef = useHandMotion(v, motionLive);
   const previousAudioView = useRef<View | null>(null);
   const openingAudioKey = useRef("");
@@ -547,10 +551,20 @@ export function App() {
   const hintKinds = useMemo(
     () =>
       mine && v && ["playing", "claiming"].includes(v.phase)
-        ? listeningHints(mine, v.rules, hintDiscard, v.players, {seat:v.me,earthlyWaits:v.earthlyWaits})
+        ? hintCache.hints(v, hintDiscard)
         : [],
-    [mine, v?.rules, v?.phase, v?.players, v?.me, v?.earthlyWaits, hintDiscard],
+    [v, hintDiscard, hintCache],
   );
+  // Network RTT/toast updates don't change the table projection. Keep its arrays
+  // stable so overlays don't reconnect their size observers on every heartbeat.
+  const tableState = useMemo(() => v && mine && gameActive ? cocosState(v, {
+    connected: state.connected, disabled: commandsDisabled || paused,
+    practice: state.mode === "local", countdown: '—',
+    selected, drawn: drawnTile, inspectedKind, hintKinds, hintDiscard,
+    hintLabel: hintDiscard !== undefined ? `打${tileName(hintDiscard)}后可胡` : "已听牌 · 可胡",
+    effects: motion, simplifiedEffects: audioPreferences.simplifiedEffects,
+  }) : undefined, [v, gameActive, state.connected, commandsDisabled, paused, state.mode,
+    selected, drawnTile, inspectedKind, hintKinds, hintDiscard, motion, audioPreferences.simplifiedEffects]);
   if (
     (!state.authChecked ||
       !state.account ||
@@ -832,7 +846,7 @@ export function App() {
           </div>
         </main>
       )}
-      {gameActive && v && mine && (
+      {gameActive && v && mine && tableState && (
         <LiveCocosTable view={v} paused={paused} now={()=>client.now()}
           opening={opening}
           openingWaiting={v.openingGate
@@ -845,14 +859,7 @@ export function App() {
           winResult={showingWinEffect ? v.result : undefined}
           scoreDebits={debitEvents}
           connectionQuality={state.mode === "online" && state.connected && (state.network.consecutiveTimeouts > 0 || (state.network.smoothedRttMs ?? 0) >= 600) ? networkLabel(state.network) : undefined}
-          state={cocosState(v, {
-            connected: state.connected, disabled: commandsDisabled || paused,
-            practice: state.mode === "local", countdown: '—',
-            selected, drawn: drawnTile, inspectedKind, hintKinds, hintDiscard,
-            hintLabel: hintDiscard !== undefined ? `打${tileName(hintDiscard)}后可胡` : "已听牌 · 可胡",
-            effects: motion,
-            simplifiedEffects:audioPreferences.simplifiedEffects,
-          })}
+          state={tableState}
           onCommand={(command) => {
             gameAudio.unlock();
             if (command.type === "menu") {

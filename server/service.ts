@@ -144,7 +144,16 @@ export function makeServer(
       if(clients.size)broadcastTables();
     },
   );
-  const records = createRecords(db, accounts.getAvatar);
+  let records: ReturnType<typeof createRecords>;
+  try {
+    records = createRecords(db, accounts.getAvatar);
+  } catch (error) {
+    // A rejected upgrade must not keep a candidate lease/DB handle alive.
+    storageHealth.close();
+    try { runtime?.close(); } catch { /* A locked lease expires naturally. */ }
+    db.close();
+    throw error;
+  }
   const reconciliation=createReconciliation(db,records);
   const club = createClub(db, accounts, records);
   const versionReports = createClientVersionReports(db);
@@ -1445,7 +1454,15 @@ export function makeServer(
         }
         if (roomCommand && msg.context !== undefined && (
           !msg.context || typeof msg.context.game !== "string" || !Number.isInteger(msg.context.round) ||
-          !g || msg.context.game !== g.id || msg.context.round !== g.round
+          !g || msg.context.game !== g.id || msg.context.round !== g.round ||
+          (msg.context.revision !== undefined && (
+            !Number.isSafeInteger(msg.context.revision) || msg.context.revision < 0 ||
+            // Action preserves simultaneous claims. Ready is monotonic within
+            // a round and must allow four players to ready concurrently.
+            // Other commands cannot revive evicted, same-round old intents.
+            (msg.type === "action" ? msg.context.revision !== msg.revision :
+              msg.type === "ready" ? msg.context.revision > g.revision : msg.context.revision !== g.revision)
+          ))
         )) {
           if (g) send(ws, { type: "state", state: viewFor(g, seatFor(g, session.id)) });
           throw Error("操作所属牌局已更新，请同步后重新操作");

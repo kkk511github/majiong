@@ -443,7 +443,8 @@ test('战绩移除摘要反馈入口，默认明细可切换把数和返回整�
 });
 
 for (const [left, right] of [[62, 0], [0, 62]]) {
-  test(`详情页左右横屏安全区、总分和操作条完整显示 ${left}-${right}`, async ({ page }) => {
+  test(`详情页左右横屏安全区、总分和操作条完整显示 ${left}-${right}`, async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Safe-area injection uses Chromium CDP; WebKit requires physical-device verification.');
     await page.setViewportSize({ width: 874, height: 402 });
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { left, right, top: 0, bottom: 21 } });

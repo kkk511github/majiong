@@ -4,7 +4,15 @@ import {viewFor} from '../shared/engine';
 import {cocosState} from '../src/cocos-state';
 import {tableOverlayLayout} from '../src/table-overlay-layout';
 import {tableActionRail} from '../src/table-action-rail';
+import {createHash} from 'node:crypto';
+import {actionRailScenarios} from './fixtures/app-interaction';
 const state=()=>({...cocosState(viewFor(crowdedClaimFixture(),0),{connected:true,disabled:false,practice:true,countdown:'',selected:null,inspectedKind:null,hintKinds:[],hintLabel:'',effects:[]}),tableStyle:'reference-3d' as const});
+it('864个密集/安全区/选牌/操作布局与优化前输出逐字节相同',()=>{
+ const output=actionRailScenarios().map(({state:s,host,frame})=>tableActionRail(s,tableOverlayLayout(host,frame,s.safeArea,s.tableStyle),host.height));
+ // Captured from the unoptimized 500-candidate search, before changing it.
+ expect(createHash('sha256').update(JSON.stringify(output)).digest('hex')).toBe('1310b0c52a9dce740a19783556ed6355c37a2fc71d9043f6d62f2b063888b14f');
+ for(const rail of output){expect(rail.main).toBeGreaterThanOrEqual(44);expect(rail.pass).toBeGreaterThanOrEqual(44);}
+});
 it('reference proportions use large primary and smaller separated pass, with single main anchored independently',()=>{
  const s=state();s.players=[];s.actions=[{id:'hu',label:'胡'},{id:'pass',label:'过'}];const f=tableOverlayLayout({left:0,top:0,width:1280,height:590},{left:0,top:0,width:1280,height:590},undefined,s.tableStyle);
  const r=tableActionRail(s,f,590);expect(r.main).toBe(88);expect(r.pass).toBe(68);expect(r.boxes.map(b=>b.x+b.w/2)).toEqual([914,1014]);expect(r.boxes.map(b=>b.y+b.h/2)).toEqual([422,422]);

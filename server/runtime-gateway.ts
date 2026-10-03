@@ -110,16 +110,18 @@ export function makeRuntimeGateway(options:{database:string;port?:number;host?:s
     if(!c){
      if(message.type!=='hello')throw Error('请先登录');
      const user=typeof message.token==='string'?identity(message.token):undefined;if(!user){socket.send(JSON.stringify({type:'error',code:'AUTH_REQUIRED',message:'请重新登录'}));socket.close(4003);return;}
-     const id=String(user.id);people.get(id)?.socket.close(4003,'Session replaced');
+     const id=String(user.id),previous=people.get(id);
      const candidate:Client={socket,id,role:String(user.role),token:message.token,hello:String(raw),nonce:randomUUID(),generation:0,tail:Promise.resolve(),queued:0,tables:!owner(id),signature:''};
      db.prepare('INSERT OR REPLACE INTO runtime_presence VALUES(?,?,?)').run(candidate.id,candidate.nonce,Date.now()+45000);
      c=candidate;people.set(id,c);clearTimeout(login);
+     // A failed presence write must not log out an otherwise healthy socket.
+     previous?.socket.close(4001,'Session replaced');
      const client=c;c.tail=connect(client,owner(id)??active()).then(()=>tables(client,true)).catch(()=>socket.close(1012,'Reconnect to synchronize'));return;
     }
     if(message.type==='hello')throw Error('已经登录');
     const client=c;if(++client.queued>32){socket.close(1013,'Too many pending requests');return;}
     client.tail=client.tail.then(async()=>{
-     if(socket.readyState!==WebSocket.OPEN)return;
+     if(socket.readyState!==WebSocket.OPEN||people.get(client.id)!==client)return;
      const user=identity(client.token);if(!user){socket.close(4003,'Authentication required');return;}
      const existing=owner(client.id);
      // Membership pins routing before any requested destination is considered.

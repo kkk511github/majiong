@@ -1,4 +1,4 @@
-import {useEffect,type ComponentProps} from 'react';
+import {useEffect,useMemo,type ComponentProps} from 'react';
 import {CocosTable} from './CocosTable';
 import {useVisibleClock} from './useVisibleClock';
 import {decisionCountdown} from '../shared/timing';
@@ -17,8 +17,9 @@ export function LiveCocosTable({view,paused,now,...props}:ComponentProps<typeof 
  const waiting=view.phase==='claiming'&&!view.actions.length&&clock.overtime;
  const countdown=!props.state.connected||paused||!timed?'—':view.openingGate||waiting?'…':String(clock.seconds).padStart(2,'0');
  const timerVisible=props.state.connected&&!paused&&timed&&!view.openingGate&&!waiting;
+ const tableState=useMemo(()=>({...props.state,countdown}),[props.state,countdown]);
  return <>
   {timerVisible&&<span className="sr-only" role="timer" aria-label={`${clock.overtime?'超时':view.phase==='claiming'?'选择':'出牌'}剩余${clock.seconds}秒`}>{countdown}</span>}
-  <CocosTable {...props} state={{...props.state,countdown}}/>
+  <CocosTable {...props} state={tableState}/>
  </>;
 }

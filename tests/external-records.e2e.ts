@@ -13,7 +13,7 @@ for (const [width, height] of [
     page,
   }) => {
     await page.setViewportSize({ width, height });
-    const db = new DatabaseSync(resolve("../../work/accounts-e2e.sqlite"));
+    const db = new DatabaseSync(resolve(process.env.MAHJONG_E2E_DATABASE ?? "../../work/accounts-e2e.sqlite"));
     const code = String(780000 + width),
       gameId = `external-ui-${width}`;
     try {
@@ -44,7 +44,7 @@ for (const [width, height] of [
     ]);
     await card.click();
     const dialog = page.getByRole("dialog", {
-      name: "牌桌战绩详情",
+      name: `房间 ${code} · 战绩详情`,
       exact: true,
     });
     // MatchRecordDetails opens the first round directly; return to the table
@@ -57,7 +57,7 @@ for (const [width, height] of [
       "+50",
       "0",
     ]);
-    await first.getByRole("button", { name: "查看牌面", exact: true }).click();
+    await first.getByRole("button", { name: "查看盘面", exact: true }).click();
     await expect(dialog.locator(".reveal-scores").first()).toContainText(
       "含桌外 +50",
     );
@@ -76,9 +76,8 @@ for (const [width, height] of [
       "-50",
       "+90",
     ]);
-    await expect(dialog.locator(".score-ledger")).toContainText(
-      "三口承包 · 桌外",
-    );
+    const transfer = dialog.getByRole("region", { name: "本把逐笔收支" }).locator("tbody tr").first();
+    await expect(transfer.locator("td")).toHaveText([/三口承包\s*桌外/, "甲", "丙", /50\s*分/]);
     expect(
       await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
     ).toBe(true);
@@ -111,11 +110,15 @@ for (const [width, height] of [
       const rendered = await tableFrame().evaluate(async () => {
         const cc = await (window as any).System.import('cc');
         const scene = cc.director.getScene().getChildByName('Canvas').getComponent('TableScene');
-        return { id: scene.state.key, labels: scene.hud.getComponentsInChildren(cc.Label).map((l:any) => l.string) };
+        return { id: scene.state.key, rulesName: scene.state.rulesName, round: scene.state.round, rounds: scene.state.rounds,
+          labels: scene.hud.getComponentsInChildren(cc.Label).map((l:any) => l.string) };
       });
       expect(rendered.id).toBe(`${gameId}-2`);
       expect(rendered.labels).toContain("比下胡 × 2");
-      expect(rendered.labels).toContain("进园子 · 2 / 4 把");
+      // The modern HUD separates the counter; the combined rules/counter
+      // label belongs only to the legacy layout. Verify state and rendered HUD labels.
+      expect(rendered).toMatchObject({ rulesName: "进园子", round: 2, rounds: 4 });
+      expect(rendered.labels).toContain("把数");
       expect(rendered.labels).toContain("2 / 4");
     }).toPass({timeout:30000});
     await page.screenshot({ path: `test-results/screenshots/replay-multiplier-${width}.png` });

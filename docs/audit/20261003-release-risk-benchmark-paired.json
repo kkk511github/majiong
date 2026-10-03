@@ -1,0 +1,263 @@
+{
+  "date": "2026-10-03",
+  "baseline": "8779f08",
+  "candidate": "codex/network-release-hardening working tree",
+  "runtime": "Node 24.19.0",
+  "dependencies": "same candidate npm ci lockfile installation for both versions",
+  "method": "Sequential A-B-B-A with browser and unit tests finished; each run uses fresh synthetic database, one warmup and nine measurements per case. p95Ms is the maximum of nine samples, not a reliable production percentile.",
+  "identicalResponses": true,
+  "runs": [
+    {
+      "variant": "baseline",
+      "tables": 20000,
+      "recordBytes": 1644,
+      "results": [
+        {
+          "name": "admin",
+          "medianMs": 8.78,
+          "p95Ms": 9.49,
+          "bytes": 38807,
+          "sha256": "1b61fb0c0a748294d82b87deece34d964b167cd87f30971d404c093fd4076759"
+        },
+        {
+          "name": "room-prefix",
+          "medianMs": 2.122,
+          "p95Ms": 2.694,
+          "bytes": 38805,
+          "sha256": "141daa49d7f5cb6de1b6d5367fe83da3d4b29250a0cc876f89a371c98c3faa05"
+        },
+        {
+          "name": "member",
+          "medianMs": 0.819,
+          "p95Ms": 0.973,
+          "bytes": 38464,
+          "sha256": "865f4db5393db27a1680f779181815e6996a6526e31101d9d09dda90d2014cfd"
+        },
+        {
+          "name": "personal",
+          "medianMs": 0.645,
+          "p95Ms": 1.055,
+          "bytes": 36364,
+          "sha256": "d1ba325d4f8ce3ae82c00c3b02eed2193b01f260a0d5d5942a84b5e5f939db94"
+        },
+        {
+          "name": "day",
+          "medianMs": 14.436,
+          "p95Ms": 14.914,
+          "bytes": 117622,
+          "sha256": "d0412f2e15423c6e2d8e10fa77786ea0f499ea9dd77786a895a05dff07445aa1"
+        },
+        {
+          "name": "calendar",
+          "medianMs": 22.137,
+          "p95Ms": 22.805,
+          "bytes": 41215,
+          "sha256": "d95c42e8273e66955cdc21e51c5b3ae9c282933a83284ab727b86a83b1a25e82"
+        },
+        {
+          "name": "details",
+          "medianMs": 0.422,
+          "p95Ms": 2.052,
+          "bytes": 17429,
+          "sha256": "03ac6193259b3ee0f9bf5936baac7cf7ac0d0c7487316c9c81901a3d0ae3738f"
+        },
+        {
+          "name": "mark-read",
+          "medianMs": 0.039,
+          "p95Ms": 0.056,
+          "bytes": 15,
+          "sha256": "76a91d1f76d25488d40f7fea024c240b7d403d28452a464391b12c27c49e4fa5"
+        }
+      ]
+    },
+    {
+      "variant": "candidate",
+      "tables": 20000,
+      "recordBytes": 1644,
+      "results": [
+        {
+          "name": "admin",
+          "medianMs": 8.838,
+          "p95Ms": 9.262,
+          "bytes": 38807,
+          "sha256": "1b61fb0c0a748294d82b87deece34d964b167cd87f30971d404c093fd4076759"
+        },
+        {
+          "name": "room-prefix",
+          "medianMs": 2.186,
+          "p95Ms": 2.692,
+          "bytes": 38805,
+          "sha256": "141daa49d7f5cb6de1b6d5367fe83da3d4b29250a0cc876f89a371c98c3faa05"
+        },
+        {
+          "name": "member",
+          "medianMs": 0.778,
+          "p95Ms": 0.94,
+          "bytes": 38464,
+          "sha256": "865f4db5393db27a1680f779181815e6996a6526e31101d9d09dda90d2014cfd"
+        },
+        {
+          "name": "personal",
+          "medianMs": 0.631,
+          "p95Ms": 1.153,
+          "bytes": 36364,
+          "sha256": "d1ba325d4f8ce3ae82c00c3b02eed2193b01f260a0d5d5942a84b5e5f939db94"
+        },
+        {
+          "name": "day",
+          "medianMs": 5.605,
+          "p95Ms": 6.384,
+          "bytes": 117622,
+          "sha256": "d0412f2e15423c6e2d8e10fa77786ea0f499ea9dd77786a895a05dff07445aa1"
+        },
+        {
+          "name": "calendar",
+          "medianMs": 15.252,
+          "p95Ms": 15.577,
+          "bytes": 41215,
+          "sha256": "d95c42e8273e66955cdc21e51c5b3ae9c282933a83284ab727b86a83b1a25e82"
+        },
+        {
+          "name": "details",
+          "medianMs": 0.436,
+          "p95Ms": 1.383,
+          "bytes": 17429,
+          "sha256": "03ac6193259b3ee0f9bf5936baac7cf7ac0d0c7487316c9c81901a3d0ae3738f"
+        },
+        {
+          "name": "mark-read",
+          "medianMs": 0.047,
+          "p95Ms": 0.094,
+          "bytes": 15,
+          "sha256": "76a91d1f76d25488d40f7fea024c240b7d403d28452a464391b12c27c49e4fa5"
+        }
+      ]
+    },
+    {
+      "variant": "candidate",
+      "tables": 20000,
+      "recordBytes": 1644,
+      "results": [
+        {
+          "name": "admin",
+          "medianMs": 8.74,
+          "p95Ms": 9.169,
+          "bytes": 38807,
+          "sha256": "1b61fb0c0a748294d82b87deece34d964b167cd87f30971d404c093fd4076759"
+        },
+        {
+          "name": "room-prefix",
+          "medianMs": 2.21,
+          "p95Ms": 2.852,
+          "bytes": 38805,
+          "sha256": "141daa49d7f5cb6de1b6d5367fe83da3d4b29250a0cc876f89a371c98c3faa05"
+        },
+        {
+          "name": "member",
+          "medianMs": 0.688,
+          "p95Ms": 0.878,
+          "bytes": 38464,
+          "sha256": "865f4db5393db27a1680f779181815e6996a6526e31101d9d09dda90d2014cfd"
+        },
+        {
+          "name": "personal",
+          "medianMs": 0.631,
+          "p95Ms": 1.224,
+          "bytes": 36364,
+          "sha256": "d1ba325d4f8ce3ae82c00c3b02eed2193b01f260a0d5d5942a84b5e5f939db94"
+        },
+        {
+          "name": "day",
+          "medianMs": 5.798,
+          "p95Ms": 6.591,
+          "bytes": 117622,
+          "sha256": "d0412f2e15423c6e2d8e10fa77786ea0f499ea9dd77786a895a05dff07445aa1"
+        },
+        {
+          "name": "calendar",
+          "medianMs": 15.263,
+          "p95Ms": 15.897,
+          "bytes": 41215,
+          "sha256": "d95c42e8273e66955cdc21e51c5b3ae9c282933a83284ab727b86a83b1a25e82"
+        },
+        {
+          "name": "details",
+          "medianMs": 0.408,
+          "p95Ms": 1.421,
+          "bytes": 17429,
+          "sha256": "03ac6193259b3ee0f9bf5936baac7cf7ac0d0c7487316c9c81901a3d0ae3738f"
+        },
+        {
+          "name": "mark-read",
+          "medianMs": 0.044,
+          "p95Ms": 0.067,
+          "bytes": 15,
+          "sha256": "76a91d1f76d25488d40f7fea024c240b7d403d28452a464391b12c27c49e4fa5"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "tables": 20000,
+      "recordBytes": 1644,
+      "results": [
+        {
+          "name": "admin",
+          "medianMs": 8.868,
+          "p95Ms": 9.371,
+          "bytes": 38807,
+          "sha256": "1b61fb0c0a748294d82b87deece34d964b167cd87f30971d404c093fd4076759"
+        },
+        {
+          "name": "room-prefix",
+          "medianMs": 2.028,
+          "p95Ms": 2.648,
+          "bytes": 38805,
+          "sha256": "141daa49d7f5cb6de1b6d5367fe83da3d4b29250a0cc876f89a371c98c3faa05"
+        },
+        {
+          "name": "member",
+          "medianMs": 0.708,
+          "p95Ms": 1.295,
+          "bytes": 38464,
+          "sha256": "865f4db5393db27a1680f779181815e6996a6526e31101d9d09dda90d2014cfd"
+        },
+        {
+          "name": "personal",
+          "medianMs": 0.652,
+          "p95Ms": 0.684,
+          "bytes": 36364,
+          "sha256": "d1ba325d4f8ce3ae82c00c3b02eed2193b01f260a0d5d5942a84b5e5f939db94"
+        },
+        {
+          "name": "day",
+          "medianMs": 14.377,
+          "p95Ms": 15.827,
+          "bytes": 117622,
+          "sha256": "d0412f2e15423c6e2d8e10fa77786ea0f499ea9dd77786a895a05dff07445aa1"
+        },
+        {
+          "name": "calendar",
+          "medianMs": 22.233,
+          "p95Ms": 22.854,
+          "bytes": 41215,
+          "sha256": "d95c42e8273e66955cdc21e51c5b3ae9c282933a83284ab727b86a83b1a25e82"
+        },
+        {
+          "name": "details",
+          "medianMs": 0.369,
+          "p95Ms": 2.181,
+          "bytes": 17429,
+          "sha256": "03ac6193259b3ee0f9bf5936baac7cf7ac0d0c7487316c9c81901a3d0ae3738f"
+        },
+        {
+          "name": "mark-read",
+          "medianMs": 0.046,
+          "p95Ms": 0.08,
+          "bytes": 15,
+          "sha256": "76a91d1f76d25488d40f7fea024c240b7d403d28452a464391b12c27c49e4fa5"
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { makeServer } from "../server/service";
 import { seedTestAdmin, registerTestPort, peerCredential } from "./account-fixtures";
 import { act, botAction, seats } from "../shared/engine";
+import { normalizeTableSettings } from "../shared/table-settings";
 import { version } from "../package.json";
 import type {
   ClientMessage,
@@ -77,6 +78,21 @@ async function peer(port: number, name: string, token?: string) {
   return { socket, send, read, session, latest: () => latest };
 }
 describe("真实 WebSocket 房间服务", () => {
+  it('回填预算拒绝启动时释放候选租约，核准预算后可立即重新启动', async () => {
+    const file = databasePath(), seeded = await boot(file); await stop(seeded.s);
+    const db = new DatabaseSync(file);
+    try {
+      db.prepare('INSERT INTO match_records VALUES (?,?,?,?,?,?,?)').run('budget-final', 'budget-game', '123456', 1, '[]', 0, '{}');
+      db.exec('DROP TRIGGER match_records_participants_insert');
+      const runtime = { id: 'budget-candidate', release: 'test-budget', endpoint: 'http://127.0.0.1:18787', bootstrap: true };
+      vi.stubEnv('MAHJONG_RECORD_INDEX_MAX_BACKFILL_ROWS', '0');
+      expect(() => makeServer({ database: file, port: 0, runtime })).toThrow('startup budget');
+      expect(db.prepare('SELECT lease_until FROM runtime_nodes WHERE id=?').get(runtime.id)!.lease_until).toBe(0);
+      vi.stubEnv('MAHJONG_RECORD_INDEX_MAX_BACKFILL_ROWS', '1');
+      const candidate = makeServer({ database: file, port: 0, runtime }); active.push(candidate);
+      await candidate.listen();
+    } finally { vi.unstubAllEnvs(); db.close(); }
+  });
   it('存储诊断仅管理员可读且不包含SQL或牌局隐私', async () => {
     const { port } = await boot();
     const host = await peer(port, '诊断管理员'), member = await peer(port, '诊断会员');
@@ -160,6 +176,45 @@ describe("真实 WebSocket 房间服务", () => {
     back.send(message); await back.read('ack');
     expect(s.games.get(state.code)!.players.filter(Boolean)).toHaveLength(3);
   });
+  it('回执淘汰并重启后拒绝同一局旧意图；已保存回执仍可确认，离桌旧请求不能影响新桌', async () => {
+    const file = databasePath(), first = await boot(file), host = await peer(first.port, '过期意图');
+    host.send({ type: 'create' }); const { state } = await host.read('state');
+    const message: ClientMessage = { type: 'addBot', requestId: 'expired-bot', context: { game: state.id, round: state.round, revision: state.revision } };
+    host.send(message); await host.read('ack');
+    host.send(message); await host.read('ack');
+    expect(first.s.games.get(state.code)!.players.filter(Boolean)).toHaveLength(2);
+    await stop(first.s);
+    // Simulate bounded receipt eviction, leaving the committed room intact.
+    const db = new DatabaseSync(file);
+    db.exec("UPDATE rooms SET state=json_remove(state,'$.commandReceipts')"); db.close();
+    const next = await boot(file), restored = await peer(next.port, '过期意图', host.session.token);
+    await restored.read('state'); const before = structuredClone(next.s.games.get(state.code));
+    restored.send(message); expect((await restored.read('error')).requestId).toBe('expired-bot');
+    expect(next.s.games.get(state.code)).toEqual(before);
+    const g = next.s.games.get(state.code)!;
+    const leave: ClientMessage = { type: 'leave', requestId: 'departed', context: { game: g.id, round: g.round, revision: g.revision } };
+    restored.send(leave); await restored.read('ack');
+    await stop(next.s);
+    const last = await boot(file), back = await peer(last.port, '过期意图', host.session.token);
+    back.send({ type: 'create' }); const { state: fresh } = await back.read('state');
+    back.send(leave); expect((await back.read('error')).requestId).toBe('departed');
+    expect(last.s.games.get(fresh.code)!.players[0]!.id).toBe(host.session.id);
+  });
+  it('同一快照的多人准备仍可同时受理，非法或未来revision不能改变状态', async () => {
+    const { s, port } = await boot();
+    const host = await peer(port, '同步准备甲'), guest = await peer(port, '同步准备乙');
+    host.send({ type: 'create' }); const { state } = await host.read('state');
+    guest.send({ type: 'join', code: state.code }); const { state: joined } = await guest.read('state');
+    const context = { game: joined.id, round: joined.round, revision: joined.revision };
+    host.send({ type: 'ready', requestId: 'concurrent-ready-a', context }); await host.read('ack');
+    guest.send({ type: 'ready', requestId: 'concurrent-ready-b', context }); await guest.read('ack');
+    const before = structuredClone(s.games.get(state.code));
+    expect(before!.players.slice(0, 2).every(p => p!.ready)).toBe(true);
+    for (const revision of [-1, 0.5, 1e9]) {
+      host.send({ type: 'trustee', enabled: true, requestId: 'invalid-' + String(revision).replace('.', '-'), context: { ...context, revision } });
+      await host.read('error'); expect(s.games.get(state.code)).toEqual(before);
+    }
+  });
   it.each([-1, 0, 1])('无加时动作在截止时间偏移 %s ms 的受理与tick一致', async offset => {
     const { s, port } = await boot(), host = await peer(port, '截止房主');
     host.send({ type: 'create', rules: { turnSeconds: 10 } }); const { state } = await host.read('state');
@@ -170,6 +225,37 @@ describe("真实 WebSocket 房间服务", () => {
     host.send({ type: 'action', revision: g.revision, action: { type: 'discard', tile: g.players[0]!.hand[0] }, requestId: 'deadline' });
     if (offset < 0) await host.read('ack');
     else { await host.read('error'); expect(s.games.get(g.code)).toEqual(g); }
+  });
+  it.each([-1, 0, 1])('新上下文不缩短累计90秒加时，在额度耗尽偏移 %s ms 正确受理且只扣一次', async offset => {
+    const { s, port } = await boot(), host = await peer(port, '累计加时');
+    host.send({ type: 'create', rules: { turnSeconds: 10 } });
+    const { state } = await host.read('state');
+    for (let i = 0; i < 3; i++) {
+      host.send({ type: 'addBot', requestId: `timing-bot-${i}` });
+      await host.read('ack', m => m.requestId === `timing-bot-${i}`);
+    }
+    host.send({ type: 'ready' }); await host.read('state', m => m.state.phase === 'playing');
+    const g = s.games.get(state.code)!, now = Date.now();
+    g.table = { creatorId: host.session.id, groupId: 'overtime-fixture', number: 1, createdAt: now,
+      settings: normalizeTableSettings({ openingAnimation: false, overtimeSeconds: 90 }) };
+    g.players[0]!.overtimeUsedMs = 89_000;
+    g.deadline = now - 1000 - offset;
+    const before = structuredClone(g);
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const message: ClientMessage = { type: 'action', revision: g.revision,
+      context: { game: g.id, round: g.round, revision: g.revision },
+      action: { type: 'discard', tile: g.players[0]!.hand[0] }, requestId: `overtime-${offset}` };
+    host.send(message);
+    if (offset < 0) {
+      await host.read('ack', m => m.requestId === message.requestId);
+      const committed = structuredClone(s.games.get(g.code));
+      expect(committed!.players[0]!.overtimeUsedMs).toBe(89_999);
+      host.send(message); await host.read('ack', m => m.requestId === message.requestId);
+      expect(s.games.get(g.code)).toEqual(committed);
+    } else {
+      expect((await host.read('error')).requestId).toBe(message.requestId);
+      expect(s.games.get(g.code)).toEqual(before);
+    }
   });
   it('外部SQLite写锁立即明确失败、不广播、不污染回执，释放后可安全重试', async () => {
     const file = databasePath(), { s, port } = await boot(file), host = await peer(port, '锁测试');
@@ -565,7 +651,8 @@ describe("真实 WebSocket 房间服务", () => {
     g.players[2]!.hand = [0, 1, 2, 3, 4, 5, 12, 13, 14, 21, 22, 23, 30].map(
       (k) => k * 4 + 2,
     );
-    peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "winner-1" });
+    const context = { game: g.id, round: g.round, revision: before };
+    peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "winner-1", context });
     await peers[1].read("ack", m => m.requestId === "winner-1");
     const firstResponse = structuredClone(s.games.get(state.code));
     // The claim-window revision exception must not let one seat answer twice.
@@ -574,7 +661,7 @@ describe("真实 WebSocket 房间服务", () => {
       await peers[1].read("error", m => m.requestId === requestId);
       expect(s.games.get(state.code)).toEqual(firstResponse);
     }
-    peers[2].send({ type: "action", revision: before, action: { type: "hu" } });
+    peers[2].send({ type: "action", revision: before, action: { type: "hu" }, context });
     const ended = await peers[0].read(
       "state",
       (m) => m.state.phase === "ended",
@@ -583,7 +670,7 @@ describe("真实 WebSocket 房间服务", () => {
     expect(ended.state.result!.deltas.reduce((a, b) => a + b, 0)).toBe(0);
     const settled = structuredClone(s.games.get(state.code));
     for (const requestId of ["winner-1", "winner-retry-after-settlement"]) {
-      peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId });
+      peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId, context });
       if (requestId === 'winner-1') await peers[1].read('ack', m => m.requestId === requestId);
       else await peers[1].read("error", m => m.requestId === requestId);
       expect(s.games.get(state.code)).toEqual(settled);
@@ -619,11 +706,12 @@ describe("真实 WebSocket 房间服务", () => {
       });
     });
     g.players[0]!.discards = [16];
-    peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "hu-now" });
+    const context = { game: g.id, round: g.round, revision: before };
+    peers[1].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "hu-now", context });
     await peers[1].read("ack", m => m.requestId === "hu-now");
     if (multiple) {
       expect(s.games.get(state.code)!.phase).toBe("claiming");
-      peers[2].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "second-hu" });
+      peers[2].send({ type: "action", revision: before, action: { type: "hu" }, requestId: "second-hu", context });
       await peers[2].read("ack", m => m.requestId === "second-hu");
     }
     for (const p of peers) {
@@ -633,7 +721,7 @@ describe("真实 WebSocket 房间服务", () => {
     const settled = structuredClone(s.games.get(state.code));
     expect(settled!.history).toHaveLength(1);
     expect(settled!.players[3]!.melds).toEqual([]);
-    peers[3].send({ type: "action", revision: before, action: { type: "kong" }, requestId: "late-kong" });
+    peers[3].send({ type: "action", revision: before, action: { type: "kong" }, requestId: "late-kong", context });
     await peers[3].read("error", m => m.requestId === "late-kong");
     expect(s.games.get(state.code)).toEqual(settled);
   });

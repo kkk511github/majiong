@@ -121,7 +121,7 @@ it('同连接同局回退快照不覆盖状态；换局、换桌低版本及新�
 it('每次操作使用跨实例唯一请求编号并绑定当前牌局轮次，不自动重发', () => {
   const { ws, g } = online(); client.ready();
   const first = ws.sent.at(-1)!;
-  expect(first).toMatchObject({ context: { game: g.id, round: g.round } });
+  expect(first).toMatchObject({ context: { game: g.id, round: g.round, revision: g.revision } });
   ws.receive({ type: 'ack', requestId: first.requestId! }); client.ready();
   expect(ws.sent.at(-1)!.requestId).not.toBe(first.requestId);
 });

@@ -44,6 +44,20 @@ it('two actual workers retain old play/reconnect, route a newly started table to
   expect((await fetch(auditUrl,{headers:{Authorization:`Bearer ${oldToken}`}})).status).toBe(401);
   expect((await fetch(auditUrl,{headers:{Authorization:`Bearer ${controlToken}`}})).status).toBe(200);
   const p=await peer(gatewayPort,oldToken);sockets.push(p.ws);await until(p.latest,v=>v?.id==='old-match');
+  // Failed replacement under a writer lock must leave the old peer usable.
+  const candidate=new WebSocket(`ws://127.0.0.1:${gatewayPort}/ws`);sockets.push(candidate);
+  const rejected:any[]=[];candidate.on('message',raw=>rejected.push(JSON.parse(String(raw))));
+  await new Promise<void>(resolve=>candidate.once('open',resolve));
+  const presence=db.prepare('SELECT connection_id FROM runtime_presence WHERE account_id=?').get(oldId);
+  db.exec('BEGIN IMMEDIATE');
+  try{
+   candidate.send(JSON.stringify({type:'hello',token:oldToken,clientVersion:'0.8.4'}));
+   await until(()=>rejected.find(m=>m.type==='error'),Boolean);
+   expect(p.closed()).toBe(false);
+   p.send({type:'ping',sentAt:314});
+   await until(()=>p.messages.find(m=>m.type==='pong'&&m.sentAt===314),Boolean);
+   expect(db.prepare('SELECT connection_id FROM runtime_presence WHERE account_id=?').get(oldId)).toEqual(presence);
+  }finally{db.exec('ROLLBACK');candidate.close();}
   // An unfenced legacy/maintenance connection cannot write live room state.
   expect(()=>db!.prepare('UPDATE rooms SET updated_at=updated_at+1 WHERE id=?').run('old-match')).toThrow(/function|fenced/);
   await activateRuntime(db,'new');expect(()=>retireRuntime(db!,'old')).toThrow('active match');

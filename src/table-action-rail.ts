@@ -29,8 +29,12 @@ export function tableActionRail(s:TableSceneState,f:ReturnType<typeof tableOverl
  };
  let best:ReturnType<typeof make>|undefined,cost=Infinity;
  for(const spacing of [144,128,112,96,80])for(const factor of [1,.9,.8,.7])for(let n=0;n<=24;n++){
-  const at=make(factor,-n*8*k,spacing),penalty=n*8*k+(1-factor)*160*k+(144-spacing)*k;
-  if(at.fits&&penalty<cost){best=at;cost=penalty;}
+  const penalty=n*8*k+(1-factor)*160*k+(144-spacing)*k;
+  // All penalties are nonnegative. Preserve the exact iteration/tie order,
+  // but don't allocate/check a candidate that cannot improve the current best.
+  if(penalty>=cost)continue;
+  const at=make(factor,-n*8*k,spacing);
+  if(at.fits){best=at;cost=penalty;if(cost===0)return best;}
  }
  return best??make(.8,0);
 }

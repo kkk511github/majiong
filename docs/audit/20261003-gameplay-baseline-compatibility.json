@@ -1,0 +1,108 @@
+{
+  "kind": "gameplay-compatibility",
+  "at": "2026-10-03T04:41:43.431Z",
+  "baseline": "276841197d3d22da258daba5286e61967de444f4",
+  "candidate": "1df344c32bae05727541955db29bb108d7e2b0bc",
+  "candidateIncludesWorkingTree": true,
+  "candidateSourceHashes": {
+    "shared/scoring.ts": "c30ab82d951554608ae601c24105ac7983e75cfbc26c5267a27dcf87634bae1e",
+    "shared/scoring-nanjing.ts": "dfb87176030fc55e756b6ffc75844787269c5a9e764432d9e05df18f385f35b4",
+    "shared/nanjing-rules.ts": "6d85be5964655b129307fb0ad8c44deb080a357a050155523cb512943ac1493b",
+    "shared/reference-rules.ts": "c7d0db5ec097b894d16b1c5b14a8fed5ab348d6d4879111a134f0afbc8f90546",
+    "shared/settlement.ts": "40f12a5758fc2ddd5ecff58588d27343c96481aab01af50c2fe570a1820c4990",
+    "shared/tiles.ts": "bcb87bb7e9542d1a5e3c1cf2ec063832d7a5caeda68be18d7a5b6a35326f48a0",
+    "shared/timing.ts": "3798599846ee5a345c38fb9b8d33359af6f7955911536743a4895971d8884e92",
+    "shared/table-settings.ts": "0dfab253146a6935108a90d939c3f52f08057cfb58fca04bde91b614da48b8d5",
+    "shared/replay.ts": "70e69ac81bd97bf44524e698967f98419f52d76a6d517d89854a14f556ad7c70",
+    "shared/engine.ts": "dbd1a50381f4d9a0fe2f449ca5dddeaf7fd50dcfd832347209dd69265422c181",
+    "shared/types.ts": "09a16d359f83eb27c8971844db45cce5f5de647aab577b80bda9c41caa38f534",
+    "server/service.ts": "feb1b94a829f2a92e9ce66196bfbb0f742318b5fb55dcadc2cf59395c94e4171",
+    "server/records.ts": "435de46136447c92c9879c4188a6678b0b528041e42992c40d62dfa933e08600",
+    "server/record-participants.ts": "055913de675b44588ee8ce481249cd6b2efb5f15d36c9ec7a3cb93de4c613004",
+    "server/command-receipts.ts": "b38ef06f65fdcfaf6733a492538fef403ce8404db772cb40db9adb72b0091356",
+    "src/game-client.ts": "2d94d1a11e101b95dd9875d4d4ac996ed9afbe1f288793a6de153407698bf368"
+  },
+  "passed": true,
+  "sourceChecks": [
+    {
+      "file": "shared/scoring.ts",
+      "sha256": "c30ab82d951554608ae601c24105ac7983e75cfbc26c5267a27dcf87634bae1e",
+      "identical": true
+    },
+    {
+      "file": "shared/scoring-nanjing.ts",
+      "sha256": "dfb87176030fc55e756b6ffc75844787269c5a9e764432d9e05df18f385f35b4",
+      "identical": true
+    },
+    {
+      "file": "shared/nanjing-rules.ts",
+      "sha256": "6d85be5964655b129307fb0ad8c44deb080a357a050155523cb512943ac1493b",
+      "identical": true
+    },
+    {
+      "file": "shared/reference-rules.ts",
+      "sha256": "c7d0db5ec097b894d16b1c5b14a8fed5ab348d6d4879111a134f0afbc8f90546",
+      "identical": true
+    },
+    {
+      "file": "shared/settlement.ts",
+      "sha256": "40f12a5758fc2ddd5ecff58588d27343c96481aab01af50c2fe570a1820c4990",
+      "identical": true
+    },
+    {
+      "file": "shared/tiles.ts",
+      "sha256": "bcb87bb7e9542d1a5e3c1cf2ec063832d7a5caeda68be18d7a5b6a35326f48a0",
+      "identical": true
+    },
+    {
+      "file": "shared/timing.ts",
+      "sha256": "3798599846ee5a345c38fb9b8d33359af6f7955911536743a4895971d8884e92",
+      "identical": true
+    },
+    {
+      "file": "shared/table-settings.ts",
+      "sha256": "0dfab253146a6935108a90d939c3f52f08057cfb58fca04bde91b614da48b8d5",
+      "identical": true
+    },
+    {
+      "file": "shared/replay.ts",
+      "sha256": "70e69ac81bd97bf44524e698967f98419f52d76a6d517d89854a14f556ad7c70",
+      "identical": true
+    }
+  ],
+  "engineChange": "Only private commandReceipts omitted from player View",
+  "defaultRulesIdentical": true,
+  "profiles": [
+    "nj-casual-v1",
+    "nj-garden-v2",
+    "nj-open-v2",
+    "nj-garden-b-v3"
+  ],
+  "seedsPerProfileAndPolicy": 8,
+  "policies": [
+    "bot",
+    "trustee"
+  ],
+  "tables": 64,
+  "rounds": 479,
+  "steps": 31575,
+  "publicViewsCompared": 126300,
+  "actions": {
+    "discard": 28156,
+    "pung": 1394,
+    "hu": 208,
+    "selfKong": 130,
+    "kong": 117,
+    "pass": 1570
+  },
+  "finishes": {
+    "hu": 207,
+    "draw": 271,
+    "bankrupt": 1
+  },
+  "specialCases": 50,
+  "blockedZeroBalanceCases": 12,
+  "recordResponseChecks": 208,
+  "traceSha256": "a6b50ec92188c7b891c33348d2cd2ac7521f8caa271e5ed3475353eae2fb7866",
+  "note": "Deterministic synthetic engine, ledger, replay, settlement and records comparison. Socket deadline/revision validation is covered by server tests; production database and native devices are not exercised."
+}

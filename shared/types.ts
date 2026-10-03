@@ -505,7 +505,7 @@ export type ClientMessage = (
   | { type: "leave" }
   | { type: "dissolve"; agree: boolean }
   | { type: "ping"; sentAt?: number; sync?: boolean }
-) & { requestId?: string; context?: { game: string; round: number } };
+) & { requestId?: string; context?: { game: string; round: number; revision?: number } };
 export type ServerMessage = (
   | {type:'diagnosticRequest';id:string;expiresAt:number}
   | {type:'diagnosticAck';id:string;accepted:boolean}

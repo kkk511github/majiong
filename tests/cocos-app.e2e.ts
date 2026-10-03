@@ -25,7 +25,16 @@ async function clickTable(page: Page, x: number, y: number) {
   await page.mouse.click(point.x,point.y);
 }
 
-test('相同倒计时状态不重复跨iframe发送，恢复页面时强制同步',async({page})=>{
+test('相同倒计时状态不重复跨iframe发送，恢复页面时强制同步',async({page},info)=>{
+  await page.addInitScript(() => {
+    const NativeObserver = window.ResizeObserver;
+    (window as any).__overlayObserversCreated = 0;
+    window.ResizeObserver = class extends NativeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        super(callback); (window as any).__overlayObserversCreated++;
+      }
+    };
+  });
   const v=viewFor(structuredClone(late) as unknown as Game,0);
   Object.assign(v,{phase:'playing',turn:0,canDiscard:true,actions:[],selfKongs:[],pending:undefined,result:undefined,deadline:undefined,rules:{...newGameRules(),turnSeconds:0}});
   await page.routeWebSocket('**/ws',ws=>{
@@ -41,6 +50,18 @@ test('相同倒计时状态不重复跨iframe发送，恢复页面时强制同�
   expect(await frame(page).evaluate(()=>(window as any).statePushes)).toBe(0);
   await page.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
   await expect.poll(()=>frame(page).evaluate(()=>(window as any).statePushes)).toBeGreaterThanOrEqual(1);
+  const before = await page.evaluate(() => (window as any).__overlayObserversCreated);
+  await page.evaluate(async () => {
+    const { client } = await import('/src/game-client.ts' as string);
+    for (let i = 0; i < 12; i++) {
+      (client as any).updateNetwork({ rttMs: 800 + i, smoothedRttMs: 800 + i });
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }
+  });
+  const after = await page.evaluate(() => (window as any).__overlayObserversCreated);
+  await info.attach('network-overlay-observers', { body: JSON.stringify({ samples: 12, before, after, added: after - before }), contentType: 'application/json' });
+  expect(after).toBe(before);
+  await expect(page.locator('.table-connection-quality')).toHaveText('网络较慢');
 });
 async function visibleHandTile(page: Page, tile: number) {
   return frame(page).evaluate(async tile => {
@@ -208,7 +229,9 @@ for (const [width, height] of [[568,320],[844,390],[1280,590]]) {
     v.actions=['pass','pung','kong','hu'];v.pending={tile:2,from:1,kind:'discard',answered:false};v.revision++;push();
     await expect.poll(async()=>(await scene(page)).state.actions.length).toBe(4);
     await expect.poll(async()=>(await scene(page)).state.disabled).toBe(false);
-    await expect(hint).toContainText('现在可以胡牌');
+    await expect(hint).toContainText(`${v.players[1]!.name}打出一万`);
+    await expect(hint).toContainText('可胡牌 · 点胡');
+    await expect(hint.getByLabel('胡牌一万', {exact:true})).toBeVisible();
     await expect(page.locator('.table-activity')).toContainText(`${v.players[1]!.name}打出一万 · 请选择操作`);
     await page.screenshot({path:`test-results/screenshots/win-ready-${width}.png`});
     const current=(await scene(page)).state,actions=layoutActions(current,layoutTable(current));
